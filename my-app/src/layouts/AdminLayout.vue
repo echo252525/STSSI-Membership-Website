@@ -8,7 +8,15 @@
       <!-- Topbar (optional) -->
 
       <!-- Content outlet -->
-      <main class="flex-grow-1 p-4 bg-light">
+      <main
+        class="flex-grow-1 p-4 bg-light"
+        :style="{
+          marginLeft: sidebarWidth + 'px',
+          width: `calc(100vw - ${sidebarWidth}px)`,
+          transition:
+            'margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
+        }"
+      >
         <router-view />
       </main>
     </div>
@@ -26,6 +34,11 @@ const handleLogout = async () => {
   await supabase.auth.signOut()
   router.push({ name: 'admin.login' })
 }
+
+/* para sa sidebar overlapping issue*/
+import { ref, computed } from 'vue'
+const isCollapsed = ref(true) // default state
+const sidebarWidth = computed(() => (isCollapsed.value ? 75 : 280))
 </script>
 
 <style scoped>
@@ -71,9 +84,9 @@ const handleLogout = async () => {
 */
 .content {
   /* Let content occupy the full viewport; MAIN will offset itself. */
-  margin-left: 0;              /* override */
-  left: 0;                     /* override */
-  width: 100vw;                /* override */
+  margin-left: 0; /* override */
+  left: 0; /* override */
+  width: 100vw; /* override */
 }
 
 /* MAIN handles the left offset equal to collapsed sidebar width */
@@ -84,7 +97,7 @@ const handleLogout = async () => {
   -webkit-overflow-scrolling: touch;
 
   width: calc(100vw - var(--sidebar-collapsed-width)); /* fill remaining width */
-  margin-left: var(--sidebar-collapsed-width);          /* offset next to collapsed sidebar */
+  margin-left: var(--sidebar-collapsed-width); /* offset next to collapsed sidebar */
   box-sizing: border-box;
 }
 
@@ -98,8 +111,8 @@ const handleLogout = async () => {
   }
 
   .content > main {
-    margin-left: 0;       /* no reserve in off-canvas mode */
-    width: 100vw;         /* full width */
+    margin-left: 0; /* no reserve in off-canvas mode */
+    width: 100vw; /* full width */
   }
 }
 
