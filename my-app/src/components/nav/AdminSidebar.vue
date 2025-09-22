@@ -78,7 +78,6 @@
           </RouterLink>
         </li>
 
-        <!-- Example placeholders; only render if routes exist -->
         <li class="nav-item" v-if="has('admin.users')">
           <RouterLink
             :to="{ name: 'admin.users' }"
@@ -106,6 +105,7 @@
             <span class="link-text">Mini Games</span>
           </RouterLink>
         </li>
+
         <li class="nav-item" v-if="has('admin.products')">
           <RouterLink
             :to="{ name: 'admin.products' }"
@@ -153,9 +153,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import { currentUser } from '@/lib/authState' // <-- use your authState.ts
 
 // ------- config -------
 const collapsedWidth = '75px'
@@ -196,18 +197,36 @@ const adminMeta = {
   ring: '0 0 0 6px rgba(13,110,253,.12)',
 }
 
-// Logout (works)
+// Prevent going back to a protected page after logout
+const hardBlockBackToAuthed = () => {
+  // Replace current history entry so Back won't return to the authed page
+  window.history.replaceState(null, '', window.location.href)
+  // On immediate back attempt, force to login (one-shot)
+  const handler = () => router.replace({ name: 'admin.login' })
+  window.addEventListener('popstate', handler, { once: true })
+}
+
+// Logout
 const logout = async () => {
   try {
     await supabase.auth.signOut()
   } catch (_) {}
-  router.push({ name: 'admin.login' })
+
+  // Clear in-memory auth immediately
+  currentUser.value = null
+
+  // Harden against "Back" to dashboard
+  hardBlockBackToAuthed()
+
+  // Replace so the authed page isn't in history
+  router.replace({ name: 'admin.login' })
+
   closeOffcanvasIfMobile()
 }
 
 // If opened as Bootstrap offcanvas on mobile, hide after clicking
 const closeOffcanvasIfMobile = () => {
-  // Only attempt if Bootstrap is present and we are below md
+  // Only attempt if Bootstrap is present
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const w = window as any
   if (!w?.bootstrap) return
@@ -217,20 +236,47 @@ const closeOffcanvasIfMobile = () => {
   oc?.hide?.()
 }
 
+// Keep profile info in sync with your auth state
+watch(
+  () => currentUser.value,
+  async (u) => {
+    adminEmail.value = u?.email ?? ''
+    fullName.value = '' // reset; will load below
+
+    if (u) {
+      // Prefer auth metadata's full_name when available
+      const { data: userData } = await supabase.auth.getUser()
+      const metaName = (userData.user?.user_metadata?.full_name as string) || ''
+      if (metaName) {
+        fullName.value = metaName
+      } else {
+        // Fallback to admins table
+        const { data: row } = await supabase
+          .from('admins')
+          .select('full_name')
+          .eq('id', u.id)
+          .single()
+        if (row?.full_name) fullName.value = String(row.full_name)
+      }
+    }
+  },
+  { immediate: true }
+)
+
 onMounted(async () => {
-  const { data } = await supabase.auth.getUser()
-  const user = data?.user
-
-  if (user) {
-    adminEmail.value = user.email || ''
-    // Prefer auth metadata; fallback to admins table
-    fullName.value = (user.user_metadata?.full_name as string) || ''
-
-    if (!fullName.value) {
+  // Initialize from currentUser if already set by initAuth()
+  if (currentUser.value) {
+    adminEmail.value = currentUser.value.email
+    // Try to read full name from auth metadata first
+    const { data } = await supabase.auth.getUser()
+    const metaName = (data.user?.user_metadata?.full_name as string) || ''
+    if (metaName) {
+      fullName.value = metaName
+    } else {
       const { data: row } = await supabase
         .from('admins')
         .select('full_name')
-        .eq('id', user.id)
+        .eq('id', currentUser.value.id)
         .single()
       if (row?.full_name) fullName.value = String(row.full_name)
     }

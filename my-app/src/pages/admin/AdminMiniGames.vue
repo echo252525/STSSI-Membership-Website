@@ -30,7 +30,7 @@
           <!-- Draft + Open (LEFT) -->
           <div class="col-12 col-lg-3 order-2 order-lg-1">
             <!-- Draft -->
-            <div class="hero-card glass tilt h-100 mb-3">
+            <div class="hero-card glass tilt mb-3">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-upcoming"></span>
@@ -69,12 +69,32 @@
                       <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
                     </div>
                   </div>
+
+                  <!-- Added draft actions -->
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button
+                      class="btn btn-sm btn-outline-primary"
+                      :disabled="isBusy(ev.id)"
+                      @click="editDraft(ev)"
+                    >
+                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      Edit
+                    </button>
+                    <button
+                      class="btn btn-sm btn-outline-danger"
+                      :disabled="isBusy(ev.id)"
+                      @click="deleteDraft(ev)"
+                    >
+                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      Delete
+                    </button>
+                  </div>
                 </article>
               </div>
             </div>
 
             <!-- Open (NEW block below Draft) -->
-            <div class="hero-card glass tilt h-100">
+            <div class="hero-card glass tilt">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-live"></span>
@@ -106,12 +126,24 @@
                     </div>
                     <div class="pair">
                       <i class="bi bi-people"></i>
-                      <span>Players: {{ ev.player_count }}</span>
+                      <span>Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</span>
                     </div>
                     <div class="pair">
                       <i class="bi bi-cash-coin"></i>
                       <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
                     </div>
+                  </div>
+
+                  <!-- Added: cancel for open; removed lock -->
+                  <div class="d-flex flex-wrap gap-2 mt-2">
+                    <button
+                      class="btn btn-sm btn-outline-dark"
+                      :disabled="isBusy(ev.id)"
+                      @click="cancelEvent(ev)"
+                    >
+                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      Cancel
+                    </button>
                   </div>
                 </article>
               </div>
@@ -141,18 +173,46 @@
                     <span class="badge rounded-pill text-bg-success">{{ ev.status }}</span>
                   </header>
 
-                  <div class="meta">
+                  <!-- Added: image + players x/y -->
+                  <div class="d-flex align-items-center gap-3 mt-2">
+                    <div class="ratio ratio-4x3" style="width: 120px">
+                      <img
+                        v-if="eventImageUrl(ev)"
+                        :src="eventImageUrl(ev)"
+                        :alt="ev.title"
+                        class="w-100 h-100 object-fit-cover rounded"
+                      />
+                      <div
+                        v-else
+                        class="bg-light w-100 h-100 d-flex align-items-center justify-content-center rounded text-muted"
+                      >
+                        <i class="bi bi-image"></i>
+                      </div>
+                    </div>
+                    <div class="flex-grow-1 small">
+                      <div class="pair">
+                        <i class="bi bi-people"></i>
+                        <span>Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</span>
+                      </div>
+                      <div class="pair mt-1">
+                        <i class="bi bi-cash-coin"></i>
+                        <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="meta mt-2">
                     <div class="pair">
                       <i class="bi bi-box-seam"></i>
                       <span>{{ ev.title }}</span>
                     </div>
                     <div class="pair">
-                      <i class="bi bi-people"></i>
-                      <span>Players: {{ ev.player_count }}</span>
-                    </div>
-                    <div class="pair">
                       <i class="bi bi-cash-coin"></i>
                       <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
+                    </div>
+                    <div class="pair">
+                      <i class="bi bi-people"></i>
+                      <span>Cap: {{ ev.player_cap || PLAYER_LOCK_CAP }}</span>
                     </div>
                   </div>
 
@@ -234,7 +294,7 @@
     <div v-if="showForm" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg">
         <div class="card-header d-flex justify-content-between align-items-center">
-          <strong>Create Spin & Win Event</strong>
+          <strong>{{ editingId ? 'Edit' : 'Create' }} Spin & Win Event</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeForm">✕</button>
         </div>
         <div class="card-body">
@@ -349,6 +409,20 @@
                 <div class="form-text">Split among losers (player_count − 1)</div>
               </div>
 
+              <!-- 🆕 Player Cap -->
+              <div class="col-md-4">
+                <label class="form-label">Player Cap</label>
+                <input
+                  v-model.number="form.player_cap"
+                  type="number"
+                  min="2"
+                  step="1"
+                  class="form-control"
+                  required
+                />
+                <div class="form-text">Auto-lock when players reach this cap</div>
+              </div>
+
               <div class="col-md-4">
                 <label class="form-label">Status</label>
                 <select v-model="form.status" class="form-select">
@@ -389,7 +463,7 @@
               </button>
               <button type="submit" class="btn btn-primary" :disabled="submitting">
                 <span v-if="submitting" class="spinner-border spinner-border-sm me-2"></span>
-                Create Event
+                {{ editingId ? 'Save Changes' : 'Create Event' }}
               </button>
             </div>
           </form>
@@ -487,20 +561,28 @@
                 <div class="small text-muted mb-2">{{ ev.title }}</div>
                 <div class="d-flex flex-wrap gap-2 mt-2">
                   <button
+                    class="btn btn-sm btn-outline-primary"
+                    :disabled="isBusy(ev.id)"
+                    @click="editDraft(ev)"
+                  >
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Edit
+                  </button>
+                  <button
                     class="btn btn-sm btn-success"
                     :disabled="isBusy(ev.id)"
                     @click="openEvent(ev)"
                   >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Open
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Open
                   </button>
                   <button
-                    class="btn btn-sm btn-outline-dark"
+                    class="btn btn-sm btn-outline-danger"
                     :disabled="isBusy(ev.id)"
-                    @click="cancelEvent(ev)"
+                    @click="deleteDraft(ev)"
                   >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Cancel
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -519,23 +601,18 @@
                   <strong class="text-truncate">{{ ev.title }}</strong>
                   <span class="badge rounded-pill text-bg-success">open</span>
                 </div>
-                <div class="small text-muted mb-2">{{ ev.title }}</div>
+                <div class="small text-muted mb-2">
+                  Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}
+                </div>
                 <div class="d-flex flex-wrap gap-2 mt-2">
-                  <button
-                    class="btn btn-sm btn-warning"
-                    :disabled="isBusy(ev.id)"
-                    @click="lockEvent(ev)"
-                  >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Lock
-                  </button>
+                  <!-- Lock removed by request -->
                   <button
                     class="btn btn-sm btn-outline-dark"
                     :disabled="isBusy(ev.id)"
                     @click="cancelEvent(ev)"
                   >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Cancel
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -554,23 +631,18 @@
                   <strong class="text-truncate">{{ ev.title }}</strong>
                   <span class="badge rounded-pill text-bg-warning text-dark">locked</span>
                 </div>
-                <div class="small text-muted mb-2">{{ ev.title }}</div>
+                <div class="small text-muted mb-2">
+                  Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}
+                </div>
                 <div class="d-flex flex-wrap gap-2 mt-2">
-                  <button
-                    class="btn btn-sm btn-info"
-                    :disabled="isBusy(ev.id)"
-                    @click="spinEvent(ev)"
-                  >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Spin
-                  </button>
+                  <!-- Spin removed: auto spins on lock -->
                   <button
                     class="btn btn-sm btn-outline-dark"
                     :disabled="isBusy(ev.id)"
                     @click="cancelEvent(ev)"
                   >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Cancel
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -589,8 +661,7 @@
                   <strong class="text-truncate">{{ ev.title }}</strong>
                   <span class="badge rounded-pill text-bg-info">spun</span>
                 </div>
-                <div class="small text-muted mb-2">{{ ev.title }}</div>
-                <div class="d-flex justify-content-between small">
+                <div class="d-flex justify-content-between small mb-2">
                   <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
                   <div>
                     <i class="bi bi-cash-stack me-1"></i>Winner: ₱ {{ number(ev.winner_price) }}
@@ -602,8 +673,16 @@
                     :disabled="isBusy(ev.id)"
                     @click="settleEvent(ev)"
                   >
-                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span
-                    >Settle
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Settle
+                  </button>
+                  <button
+                    class="btn btn-sm btn-outline-dark"
+                    :disabled="isBusy(ev.id)"
+                    @click="cancelEvent(ev)"
+                  >
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel
                   </button>
                 </div>
               </div>
@@ -623,6 +702,16 @@
                   <span class="badge rounded-pill text-bg-secondary">settled</span>
                 </div>
                 <div class="small text-muted mb-2">{{ ev.title }}</div>
+                <div class="d-flex flex-wrap gap-2 mt-2">
+                  <button
+                    class="btn btn-sm btn-outline-dark"
+                    :disabled="isBusy(ev.id)"
+                    @click="cancelEvent(ev)"
+                  >
+                    <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </template>
@@ -640,6 +729,7 @@
                   <span class="badge rounded-pill text-bg-dark">cancelled</span>
                 </div>
                 <div class="small text-muted mb-2">{{ ev.title }}</div>
+                <!-- no buttons for cancelled -->
               </div>
             </div>
           </template>
@@ -687,7 +777,7 @@
               <td>{{ i + 1 }}</td>
               <td class="fw-semibold">{{ ev.title }}</td>
               <td>{{ ev.title }}</td>
-              <td class="text-center">{{ ev.player_count }}</td>
+              <td class="text-center">{{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</td>
               <td class="text-end">₱ {{ number(ev.entry_fee) }}</td>
               <td class="text-end">₱ {{ number(ev.interest_pool) }}</td>
               <td class="text-end">₱ {{ number(ev.winner_price) }}</td>
@@ -725,6 +815,8 @@ type EventRow = {
   winner_price: number | string // generated
   loser_refund_amount: number | string // generated
   status: 'draft' | 'open' | 'locked' | 'spun' | 'settled' | 'cancelled'
+  /* optional local typing for completeness */
+  player_cap?: number | string
 }
 
 type ProductRow = {
@@ -750,6 +842,13 @@ const selectedProduct = computed(
   () => products.value.find((p) => p.id === selectedProductId.value) || null,
 )
 
+/* Quick lookup map for products */
+const productMap = computed<Record<string, ProductRow>>(() => {
+  const m: Record<string, ProductRow> = {}
+  for (const p of products.value) m[p.id] = p
+  return m
+})
+
 /* Signed URL helpers for product images (private bucket) */
 const signedMap = reactive<Record<string, string>>({})
 const imgBusy: Record<string, boolean> = reactive({})
@@ -774,6 +873,13 @@ function productImageUrl(p: ProductRow | null) {
       .finally(() => (imgBusy[key] = false))
   }
   return ''
+}
+
+/* Get image URL for an event via its product_id */
+function eventImageUrl(ev: EventRow) {
+  const pid = ev.product_id || ''
+  const p = productMap.value[pid]
+  return productImageUrl(p || null)
 }
 
 async function loadProducts() {
@@ -807,8 +913,12 @@ const form = reactive({
   item_supplier_cost: 30.0,
   entry_fee: 50.0,
   interest_pool: 15.0,
+  player_cap: 10, // 🆕 default cap
   status: 'draft' as EventRow['status'], // only 'draft' | 'open' allowed in UI
 })
+
+/* Track editing mode */
+const editingId = ref<string | null>(null)
 
 // helpers
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
@@ -868,6 +978,19 @@ function openForm() {
 }
 function closeForm() {
   showForm.value = false
+  // reset editing state when closing
+  if (editingId.value) {
+    editingId.value = null
+    // reset form back to defaults
+    selectedProductId.value = ''
+    form.title = ''
+    prevAutoTitle.value = ''
+    form.item_supplier_cost = 30.0
+    form.entry_fee = 50.0
+    form.interest_pool = 15.0
+    form.player_cap = 10
+    form.status = 'draft'
+  }
 }
 
 async function loadEvents() {
@@ -878,7 +1001,7 @@ async function loadEvents() {
       `
       id, title, product_id, item_supplier_cost,
       entry_fee, player_count, interest_pool, status,
-      winner_price, loser_refund_amount
+      winner_price, loser_refund_amount, player_cap
     `,
     )
     .order('created_at', { ascending: false })
@@ -888,15 +1011,6 @@ async function loadEvents() {
     return
   }
   events.value = (data ?? []) as EventRow[]
-
-  // 🔒 Auto-lock: if player_count >= 10 and not locked, set to 'locked'
-  // (Run sequentially to avoid spamming requests)
-  for (const e of events.value) {
-    const count = Number(e.player_count ?? 0)
-    if (e.status !== 'locked' && count >= PLAYER_LOCK_CAP) {
-      await setStatus(e, 'locked')
-    }
-  }
 }
 
 async function submit() {
@@ -908,7 +1022,6 @@ async function submit() {
 
   submitting.value = true
   try {
-    // fetch current user to stamp created_by
     const { data: userData, error: userErr } = await supabase.auth.getUser()
     if (userErr) {
       console.warn('getUser error:', userErr.message)
@@ -916,22 +1029,48 @@ async function submit() {
 
     const payload: any = {
       title: form.title,
-      product_id: selectedProductId.value, // ✅ store product_id instead of item_name
+      product_id: selectedProductId.value,
       item_supplier_cost: form.item_supplier_cost,
       entry_fee: form.entry_fee,
-      player_count: 0, // ✅ default to 0 on insert
       interest_pool: form.interest_pool,
-      status: form.status, // only 'draft' | 'open' from UI
-      created_by: userData?.user?.id ?? null,
+      player_cap: form.player_cap, // 🆕 include cap
+      status: form.status,
     }
 
-    const { error } = await supabase.schema('games').from('event').insert(payload)
-
-    if (error) {
-      console.error('insert event error:', error.message)
-      alert(error.message)
-      return
+    if (!editingId.value) {
+      // Create
+      payload.player_count = 0
+      payload.created_by = userData?.user?.id ?? null
+      const { error } = await supabase.schema('games').from('event').insert(payload)
+      if (error) {
+        console.error('insert event error:', error.message)
+        alert(error.message)
+        return
+      }
+    } else {
+      // Update
+      const { error } = await supabase
+        .schema('games')
+        .from('event')
+        .update(payload)
+        .eq('id', editingId.value)
+      if (error) {
+        console.error('update event error:', error.message)
+        alert(error.message)
+        return
+      }
     }
+
+    // (Optional UX) reset form for the next create
+    selectedProductId.value = ''
+    form.title = ''
+    prevAutoTitle.value = ''
+    form.item_supplier_cost = 30.0
+    form.entry_fee = 50.0
+    form.interest_pool = 15.0
+    form.player_cap = 10
+    form.status = 'draft'
+    editingId.value = null
 
     closeForm()
     await loadEvents()
@@ -964,16 +1103,48 @@ async function setStatus(ev: EventRow, status: EventRow['status']) {
 }
 
 const openEvent = (ev: EventRow) => setStatus(ev, 'open')
-const lockEvent = (ev: EventRow) => setStatus(ev, 'locked')
+// Removed lock button elsewhere; auto-lock happens via your server logic
 const spinEvent = (ev: EventRow) => setStatus(ev, 'spun')
 const settleEvent = (ev: EventRow) => setStatus(ev, 'settled')
 const cancelEvent = (ev: EventRow) => setStatus(ev, 'cancelled')
+
+/* Draft-specific actions */
+function editDraft(ev: EventRow) {
+  // Only allow editing drafts
+  if (ev.status !== 'draft') return
+  editingId.value = ev.id
+  // prefill form
+  form.title = ev.title
+  form.item_supplier_cost = Number(ev.item_supplier_cost)
+  form.entry_fee = Number(ev.entry_fee)
+  form.interest_pool = Number(ev.interest_pool)
+  form.player_cap = Number(ev.player_cap || PLAYER_LOCK_CAP)
+  form.status = ev.status
+  selectedProductId.value = ev.product_id || ''
+  openForm()
+}
+
+async function deleteDraft(ev: EventRow) {
+  if (ev.status !== 'draft') return
+  if (!confirm('Delete this draft event?')) return
+  busyId.value = ev.id
+  try {
+    const { error } = await supabase.schema('games').from('event').delete().eq('id', ev.id)
+    if (error) {
+      console.error('delete draft error:', error.message)
+      alert(error.message)
+      return
+    }
+    await loadEvents()
+  } finally {
+    busyId.value = null
+  }
+}
 
 /* ----------------------- HERO LOGIC (status + player count) ----------------------- */
 const now = ref(new Date())
 let t: number | undefined
 
-/* ======== 🔴 Realtime: subscribe to games.event changes (insert/update/delete) ======== */
 /* ======== 🔴 Realtime: subscribe to games.event changes (insert/update/delete) ======== */
 let realtimeChannel: any | null = null
 let refreshTimer: number | null = null
@@ -988,10 +1159,36 @@ function scheduleRefresh(delayMs = 250) {
   }, delayMs)
 }
 
-onMounted(async () => {
-  await loadEvents()
+/* ✅ Local reducer for INSERT / UPDATE / DELETE so UI updates instantly */
+function applyRealtimeChange(payload: any) {
+  const type = String(payload.eventType || payload.type || '').toUpperCase()
+  const newRow = payload.new as EventRow | undefined
+  const oldRow = payload.old as EventRow | undefined
+  const current = events.value.slice()
 
-  // Clean any previous channel (hot-reloads etc.)
+  if (type === 'INSERT' && newRow) {
+    const exists = current.findIndex((e) => e.id === newRow.id)
+    if (exists === -1) {
+      current.unshift(newRow) // newest first
+    } else {
+      current[exists] = { ...current[exists], ...newRow }
+    }
+  } else if (type === 'UPDATE' && newRow) {
+    const idx = current.findIndex((e) => e.id === newRow.id)
+    if (idx !== -1) current[idx] = { ...current[idx], ...newRow }
+    else current.unshift(newRow)
+  } else if (type === 'DELETE' && oldRow) {
+    const idx = current.findIndex((e) => e.id === oldRow.id)
+    if (idx !== -1) current.splice(idx, 1)
+  }
+
+  events.value = current
+}
+
+const POLL_MS = 10_000 // 🛟 tiny safety-net poll
+
+function makeChannel() {
+  // Clean any previous channel
   if (realtimeChannel) {
     try {
       supabase.removeChannel(realtimeChannel)
@@ -999,21 +1196,64 @@ onMounted(async () => {
     realtimeChannel = null
   }
 
-  // Subscribe explicitly to the games schema + event table
   realtimeChannel = supabase
-    .channel('games-event-realtime')
+    .channel('games-event-realtime', {
+      config: {
+        broadcast: { self: false },
+        presence: { key: 'admin-mini-games' },
+      },
+    })
+    // Listen to all row-level changes on games.event
     .on('postgres_changes', { event: '*', schema: 'games', table: 'event' }, (payload) => {
-      // Debug: see events arrive in the console
       console.log('[realtime] games.event change:', payload.eventType, payload)
-      // Coalesce refetches if multiple events come in a burst
-      scheduleRefresh(150)
+      try {
+        applyRealtimeChange(payload)
+      } catch (e) {
+        console.warn('applyRealtimeChange failed, fallback refetch', e)
+        scheduleRefresh(150)
+      }
+      // coalesced refetch to reconcile server-calculated fields
+      scheduleRefresh(300)
     })
-    .subscribe((status) => {
-      console.log('[realtime] channel status:', status)
+    .subscribe((status: any, err?: any) => {
+      console.log('[realtime] channel status:', status, err || '')
+      // If the channel closes or errors, try to re-subscribe shortly
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        setTimeout(() => makeChannel(), 1000)
+      }
     })
+}
 
-  // live clock (for the "Happening Now" header time only)
-  t = window.setInterval(() => (now.value = new Date()), 30_000)
+let pollHandle: number | null = null
+function startPoll() {
+  stopPoll()
+  pollHandle = window.setInterval(loadEvents, POLL_MS)
+}
+function stopPoll() {
+  if (pollHandle) {
+    window.clearInterval(pollHandle)
+    pollHandle = null
+  }
+}
+
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    loadEvents()
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadEvents(), loadProducts()])
+  makeChannel()
+
+  // ⏱️ Tick the "Happening Now" clock every second
+  t = window.setInterval(() => (now.value = new Date()), 1000)
+
+  // 🛟 Background light polling as a safety net
+  startPoll()
+
+  // 🔁 Refresh when tab becomes active again (after sleep / network blip)
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onUnmounted(() => {
@@ -1028,6 +1268,8 @@ onUnmounted(() => {
     } catch {}
     realtimeChannel = null
   }
+  stopPoll()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 const nowFmt = computed(() => now.value.toLocaleString())
@@ -1040,7 +1282,7 @@ const openEvents = computed(() => events.value.filter((e) => e.status === 'open'
 
 /** Happening Now: open OR locked */
 const nowEvents = computed(() =>
-  events.value.filter((e) => e.status === 'open' || e.status === 'locked'),
+  events.value.filter((e) => e.status === 'locked'),
 )
 
 /** Finished: spun / settled / cancelled */

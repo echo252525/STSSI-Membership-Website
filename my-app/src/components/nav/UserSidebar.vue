@@ -69,6 +69,7 @@
             active-class="active"
             exact-active-class="active"
             :title="isCollapsed ? 'Dashboard' : ''"
+            @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-house-door fs-5"></i>
             <span class="link-text" v-show="!isCollapsed">Dashboard</span>
@@ -82,6 +83,7 @@
             :class="{ 'icon-only': isCollapsed }"
             active-class="active"
             :title="isCollapsed ? 'Membership' : ''"
+            @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-card-checklist fs-5"></i>
             <span class="link-text" v-show="!isCollapsed">Membership</span>
@@ -95,6 +97,7 @@
             :class="{ 'icon-only': isCollapsed }"
             active-class="active"
             :title="isCollapsed ? 'Mini Games' : ''"
+            @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-controller fs-5"></i>
             <span class="link-text" v-show="!isCollapsed">Mini Games</span>
@@ -108,6 +111,7 @@
             :class="{ 'icon-only': isCollapsed }"
             active-class="active"
             :title="isCollapsed ? 'Settings' : ''"
+            @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-gear fs-5"></i>
             <span class="link-text" v-show="!isCollapsed">Settings</span>
@@ -133,83 +137,118 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
-import { supabase } from '@/lib/supabaseClient';
+import { onMounted, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
+import { supabase } from '@/lib/supabaseClient'
+import { currentUser } from '@/lib/authState' // <-- use your shared auth state
 
-const router = useRouter();
-const collapsedWidth = '75px';
+const router = useRouter()
+const collapsedWidth = '75px'
 
-const isCollapsed = ref(localStorage.getItem('sidebarCollapsed') === '1');
+const isCollapsed = ref(localStorage.getItem('sidebarCollapsed') === '1')
 const toggle = () => {
-  isCollapsed.value = !isCollapsed.value;
-  localStorage.setItem('sidebarCollapsed', isCollapsed.value ? '1' : '0');
-};
+  isCollapsed.value = !isCollapsed.value
+  localStorage.setItem('sidebarCollapsed', isCollapsed.value ? '1' : '0')
+}
 
-const userEmail = ref<string>('');
-const fullName = ref<string>('');
-const membershipType = ref<string>(''); // regular | silver | gold | diamond | platinum
+const userEmail = ref<string>('')
+const fullName = ref<string>('')
+const membershipType = ref<string>('') // regular | silver | gold | diamond | platinum
 
 const initials = computed(() => {
-  const name = (fullName.value || userEmail.value || '').trim();
-  if (!name) return 'U';
-  const parts = name.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-});
-const displayName = computed(() => fullName.value || 'User');
+  const name = (fullName.value || userEmail.value || '').trim()
+  if (!name) return 'U'
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+})
+const displayName = computed(() => fullName.value || 'User')
 
 /** Only show membership tier UI when expanded */
-const showTier = computed(() => !isCollapsed.value && !!membershipType.value);
+const showTier = computed(() => !isCollapsed.value && !!membershipType.value)
 
 /** Dynamic UI metadata for membership tier */
 const membershipMeta = computed(() => {
-  const t = (membershipType.value || 'regular').toLowerCase();
+  const t = (membershipType.value || 'regular').toLowerCase()
   switch (t) {
     case 'gold':
-      return { label: 'Gold', icon: 'bi-gem', bg: '#FFF7E0', fg: '#A67C00', ring: '0 0 0 6px rgba(217,164,6,.18)' };
+      return { label: 'Gold', icon: 'bi-gem', bg: '#FFF7E0', fg: '#A67C00', ring: '0 0 0 6px rgba(217,164,6,.18)' }
     case 'silver':
-      return { label: 'Silver', icon: 'bi-gem', bg: '#F4F6F8', fg: '#6C757D', ring: '0 0 0 6px rgba(108,117,125,.18)' };
+      return { label: 'Silver', icon: 'bi-gem', bg: '#F4F6F8', fg: '#6C757D', ring: '0 0 0 6px rgba(108,117,125,.18)' }
     case 'diamond':
-      return { label: 'Diamond', icon: 'bi-diamond', bg: '#E8F9FF', fg: '#0AA2C0', ring: '0 0 0 6px rgba(13,202,240,.18)' };
+      return { label: 'Diamond', icon: 'bi-diamond', bg: '#E8F9FF', fg: '#0AA2C0', ring: '0 0 0 6px rgba(13,202,240,.18)' }
     case 'platinum':
-      return { label: 'Platinum', icon: 'bi-gem', bg: '#EEF1F8', fg: '#6F42C1', ring: '0 0 0 6px rgba(111,66,193,.16)' };
+      return { label: 'Platinum', icon: 'bi-gem', bg: '#EEF1F8', fg: '#6F42C1', ring: '0 0 0 6px rgba(111,66,193,.16)' }
     case 'regular':
     default:
-      return { label: 'Regular', icon: 'bi-person', bg: '#E9ECEF', fg: '#6C757D', ring: '0 0 0 0 rgba(0,0,0,0)' };
+      return { label: 'Regular', icon: 'bi-person', bg: '#E9ECEF', fg: '#6C757D', ring: '0 0 0 0 rgba(0,0,0,0)' }
   }
-});
+})
+
+/** Close Bootstrap offcanvas if opened on mobile */
+const closeOffcanvasIfMobile = () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any
+  if (!w?.bootstrap) return
+  const el = document.getElementById('mobileSidebar')
+  if (!el) return
+  const oc = w.bootstrap.Offcanvas.getInstance(el) || new w.bootstrap.Offcanvas(el)
+  oc?.hide?.()
+}
+
+/** Harden against "Back" to a protected page after logout */
+const hardBlockBackToAuthed = () => {
+  // Replace current entry so the previous authed page isn't in the stack
+  window.history.replaceState(null, '', window.location.href)
+  // If user presses Back immediately, push them to login
+  const handler = () => router.replace({ name: 'login' })
+  window.addEventListener('popstate', handler, { once: true })
+}
 
 const logout = async () => {
-  await supabase.auth.signOut().catch(() => {});
-  router.push({ name: 'login' });
-};
+  try {
+    await supabase.auth.signOut()
+  } catch (_) {
+    // ignore
+  }
+
+  // Clear in-memory user immediately (so UI & guards react)
+  currentUser.value = null
+
+  // Prevent navigating back to protected pages
+  hardBlockBackToAuthed()
+
+  // Replace (not push) so authed page isn't in history
+  router.replace({ name: 'login' })
+
+  closeOffcanvasIfMobile()
+}
 
 onMounted(async () => {
-  const { data } = await supabase.auth.getUser();
-  const user = data?.user;
+  const { data } = await supabase.auth.getUser()
+  const user = data?.user
   if (user) {
-    userEmail.value = user.email || '';
-    fullName.value = (user.user_metadata?.full_name as string) || '';
+    userEmail.value = user.email || ''
+    fullName.value = (user.user_metadata?.full_name as string) || ''
 
     let { data: row, error } = await supabase
       .from('users')
       .select('membership_type')
       .eq('id', user.id)
-      .single();
+      .single()
 
     if (error || !row) {
       const { data: rowByEmail } = await supabase
         .from('users')
         .select('membership_type')
         .eq('email', user.email)
-        .single();
-      row = rowByEmail ?? row;
+        .single()
+      row = rowByEmail ?? row
     }
 
-    if (row?.membership_type) membershipType.value = String(row.membership_type);
+    if (row?.membership_type) membershipType.value = String(row.membership_type)
   }
-});
+})
 </script>
 
 <style scoped>
