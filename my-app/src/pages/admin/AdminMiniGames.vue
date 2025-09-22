@@ -20,24 +20,83 @@
     <section class="events-hero mb-4">
       <div class="hero-bg"></div>
       <div class="hero-content">
-        <div class="row g-3">
-          <!-- Happening Now -->
-          <div class="col-12 col-lg-4">
-            <div class="hero-card glass tilt">
+        <!-- 
+          New responsive layout:
+          - Left = Upcoming (narrow)
+          - Center = Happening Now (wide hero)
+          - Right = Finished (narrow)
+        -->
+        <div class="row g-3 align-items-stretch">
+          <!-- Upcoming (LEFT) -->
+          <div class="col-12 col-lg-3 order-2 order-lg-1">
+            <div class="hero-card glass tilt h-100">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="dot dot-upcoming"></span>
+                  <h5 class="mb-0 fw-bold">Upcoming</h5>
+                </div>
+                <small class="text-muted">Scheduled</small>
+              </div>
+
+              <div v-if="upcomingEvents.length === 0" class="empty-state">
+                <i class="bi bi-calendar2"></i>
+                <div>No upcoming events</div>
+              </div>
+
+              <div v-else class="event-scroll">
+                <article
+                  v-for="ev in upcomingEvents"
+                  :key="ev.id"
+                  class="event-pill upcoming"
+                >
+                  <header class="d-flex align-items-center justify-content-between">
+                    <strong class="title text-truncate">{{ ev.title }}</strong>
+                    <span class="badge rounded-pill text-bg-warning text-dark">{{ ev.status }}</span>
+                  </header>
+
+                  <div class="meta">
+                    <div class="pair">
+                      <i class="bi bi-box-seam"></i>
+                      <span>{{ ev.item_name }}</span>
+                    </div>
+                    <div class="pair">
+                      <i class="bi bi-people"></i>
+                      <span>Cap: {{ ev.player_cap }}</span>
+                    </div>
+                    <div class="pair">
+                      <i class="bi bi-cash-coin"></i>
+                      <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
+                    </div>
+                  </div>
+
+                  <footer class="times">
+                    <div v-if="ev.opens_at" class="time">
+                      <i class="bi bi-hourglass-split"></i>
+                      Opens: {{ fmt(ev.opens_at) }}
+                    </div>
+                  </footer>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <!-- Happening Now (CENTER HERO) -->
+          <div class="col-12 col-lg-6 order-1 order-lg-2">
+            <div class="hero-card glass tilt hero-center h-100">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-live"></span>
-                  <h5 class="mb-0 fw-bold">Happening Now</h5>
+                  <h4 class="mb-0 fw-bold">Happening Now</h4>
                 </div>
                 <small class="text-muted">{{ nowFmt }}</small>
               </div>
 
-              <div v-if="nowEvents.length === 0" class="empty-state">
+              <div v-if="nowEvents.length === 0" class="empty-state py-5">
                 <i class="bi bi-emoji-neutral"></i>
                 <div>No live events</div>
               </div>
 
-              <div v-else class="event-scroll">
+              <div v-else class="event-scroll hero-scroll">
                 <article
                   v-for="ev in nowEvents"
                   :key="ev.id"
@@ -89,62 +148,9 @@
             </div>
           </div>
 
-          <!-- Upcoming -->
-          <div class="col-12 col-lg-4">
-            <div class="hero-card glass tilt">
-              <div class="d-flex align-items-center justify-content-between mb-2">
-                <div class="d-flex align-items-center gap-2">
-                  <span class="dot dot-upcoming"></span>
-                  <h5 class="mb-0 fw-bold">Upcoming</h5>
-                </div>
-                <small class="text-muted">Scheduled</small>
-              </div>
-
-              <div v-if="upcomingEvents.length === 0" class="empty-state">
-                <i class="bi bi-calendar2"></i>
-                <div>No upcoming events</div>
-              </div>
-
-              <div v-else class="event-scroll">
-                <article
-                  v-for="ev in upcomingEvents"
-                  :key="ev.id"
-                  class="event-pill upcoming"
-                >
-                  <header class="d-flex align-items-center justify-content-between">
-                    <strong class="title text-truncate">{{ ev.title }}</strong>
-                    <span class="badge rounded-pill text-bg-warning text-dark">{{ ev.status }}</span>
-                  </header>
-
-                  <div class="meta">
-                    <div class="pair">
-                      <i class="bi bi-box-seam"></i>
-                      <span>{{ ev.item_name }}</span>
-                    </div>
-                    <div class="pair">
-                      <i class="bi bi-people"></i>
-                      <span>Cap: {{ ev.player_cap }}</span>
-                    </div>
-                    <div class="pair">
-                      <i class="bi bi-cash-coin"></i>
-                      <span>Entry: ₱ {{ number(ev.entry_fee) }}</span>
-                    </div>
-                  </div>
-
-                  <footer class="times">
-                    <div v-if="ev.opens_at" class="time">
-                      <i class="bi bi-hourglass-split"></i>
-                      Opens: {{ fmt(ev.opens_at) }}
-                    </div>
-                  </footer>
-                </article>
-              </div>
-            </div>
-          </div>
-
-          <!-- Finished -->
-          <div class="col-12 col-lg-4">
-            <div class="hero-card glass tilt">
+          <!-- Finished (RIGHT) -->
+          <div class="col-12 col-lg-3 order-3 order-lg-3">
+            <div class="hero-card glass tilt h-100">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-finished"></span>
@@ -350,8 +356,141 @@
       </div>
     </div>
 
-    <!-- Events Table -->
-    <div class="card shadow-sm border-0">
+    <!-- =================== CARDS WITH TABS (replaces table visually) =================== -->
+    <div class="card shadow-sm border-0 mt-4">
+      <div class="card-header bg-white border-0 pt-3 pb-0">
+        <ul class="nav nav-tabs nav-fill card-tabs">
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              :class="{ active: activeTab === 'upcoming' }"
+              @click="activeTab = 'upcoming'"
+              type="button"
+            >
+              <i class="bi bi-calendar2 me-2"></i> Upcoming
+              <span class="badge bg-secondary ms-2">{{ upcomingEvents.length }}</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              :class="{ active: activeTab === 'now' }"
+              @click="activeTab = 'now'"
+              type="button"
+            >
+              <i class="bi bi-broadcast-pin me-2"></i> Happening Now
+              <span class="badge bg-secondary ms-2">{{ nowEvents.length }}</span>
+            </button>
+          </li>
+          <li class="nav-item">
+            <button
+              class="nav-link"
+              :class="{ active: activeTab === 'finished' }"
+              @click="activeTab = 'finished'"
+              type="button"
+            >
+              <i class="bi bi-archive me-2"></i> Finished
+              <span class="badge bg-secondary ms-2">{{ finishedEvents.length }}</span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="card-body">
+        <div class="row g-3">
+          <!-- Upcoming Tab Cards -->
+          <template v-if="activeTab === 'upcoming'">
+            <div class="col-12 col-md-6 col-lg-4" v-for="ev in upcomingEvents" :key="'tab-up-' + ev.id">
+              <div class="event-card border rounded-3 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <strong class="text-truncate">{{ ev.title }}</strong>
+                  <span class="badge rounded-pill text-bg-warning text-dark">{{ ev.status }}</span>
+                </div>
+                <div class="small text-muted mb-2">{{ ev.item_name }}</div>
+                <div class="d-flex justify-content-between small">
+                  <div><i class="bi bi-people me-1"></i>Cap {{ ev.player_cap }}</div>
+                  <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
+                </div>
+                <div class="mt-2 small text-muted">
+                  <i class="bi bi-hourglass-split me-1"></i>Opens: {{ fmt(ev.opens_at) }}
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Now Tab Cards -->
+          <template v-else-if="activeTab === 'now'">
+            <div class="col-12 col-md-6 col-lg-4" v-for="ev in nowEvents" :key="'tab-now-' + ev.id">
+              <div class="event-card border rounded-3 p-3 live-shadow">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <strong class="text-truncate">{{ ev.title }}</strong>
+                  <span class="badge rounded-pill text-bg-success">{{ ev.status }}</span>
+                </div>
+                <div class="small text-muted mb-2">{{ ev.item_name }}</div>
+                <div class="d-flex justify-content-between small">
+                  <div><i class="bi bi-people me-1"></i>Cap {{ ev.player_cap }}</div>
+                  <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
+                </div>
+                <div class="mt-2 d-flex gap-3 small">
+                  <span><i class="bi bi-cash-stack me-1"></i>Winner: ₱ {{ number(ev.winner_price) }}</span>
+                  <span><i class="bi bi-arrow-counterclockwise me-1"></i>Loser: ₱ {{ number(ev.loser_refund_amount) }}</span>
+                </div>
+                <!-- ✅ show times consistently -->
+                <div class="mt-2 small text-muted d-flex gap-3">
+                  <span v-if="ev.opens_at"><i class="bi bi-play-fill me-1"></i>{{ fmt(ev.opens_at) }}</span>
+                  <span v-if="ev.closes_at"><i class="bi bi-flag-fill me-1"></i>{{ fmt(ev.closes_at) }}</span>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Finished Tab Cards -->
+          <template v-else>
+            <div class="col-12 col-md-6 col-lg-4" v-for="ev in finishedEvents" :key="'tab-fin-' + ev.id">
+              <div class="event-card border rounded-3 p-3">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                  <strong class="text-truncate">{{ ev.title }}</strong>
+                  <span
+                    class="badge rounded-pill"
+                    :class="{
+                      'text-bg-info': ev.status === 'spun',
+                      'text-bg-secondary': ev.status === 'settled',
+                      'text-bg-dark': ev.status === 'cancelled'
+                    }"
+                  >
+                    {{ ev.status }}
+                  </span>
+                </div>
+                <div class="small text-muted mb-2">{{ ev.item_name }}</div>
+                <div class="d-flex justify-content-between small">
+                  <div><i class="bi bi-people me-1"></i>Cap {{ ev.player_cap }}</div>
+                  <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
+                </div>
+                <div class="mt-2 small text-muted">
+                  <i class="bi bi-flag-fill me-1"></i>Closed: {{ fmt(ev.closes_at) }}
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- Empty state for selected tab -->
+          <div
+            v-if="(activeTab === 'upcoming' && upcomingEvents.length === 0)
+                || (activeTab === 'now' && nowEvents.length === 0)
+                || (activeTab === 'finished' && finishedEvents.length === 0)"
+            class="col-12"
+          >
+            <div class="empty-state py-5">
+              <i class="bi bi-box"></i>
+              <div>No events in this tab</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Table (kept but hidden as requested) -->
+    <div class="card shadow-sm border-0 d-none">
       <div class="card-body p-0">
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light">
@@ -388,6 +527,7 @@
         </table>
       </div>
     </div>
+    <!-- /Hidden Table -->
   </div>
 </template>
 
@@ -399,12 +539,12 @@ type EventRow = {
   id: string
   title: string
   item_name: string
-  item_supplier_cost: number
-  entry_fee: number
-  player_cap: number
-  interest_pool: number
-  winner_price: number // generated
-  loser_refund_amount: number // generated
+  item_supplier_cost: number | string
+  entry_fee: number | string
+  player_cap: number | string
+  interest_pool: number | string
+  winner_price: number | string // generated
+  loser_refund_amount: number | string // generated
   status: 'draft' | 'open' | 'locked' | 'spun' | 'settled' | 'cancelled'
   opens_at: string | null
   closes_at: string | null
@@ -413,6 +553,9 @@ type EventRow = {
 const events = ref<EventRow[]>([])
 const showForm = ref(false)
 const submitting = ref(false)
+
+/* ✅ NEW: active tab for the cards */
+const activeTab = ref<'upcoming' | 'now' | 'finished'>('now')
 
 // form state
 const form = reactive({
@@ -429,6 +572,45 @@ const form = reactive({
 
 // helpers
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
+
+/* ✅ Robust parser for `timestamp without time zone`
+   - If ISO with 'Z' or timezone: Date(x) (UTC-safe)
+   - If no timezone (e.g., '2025-09-22 10:00:00'): treat as LOCAL time to match intent
+*/
+function parseTimestampWithoutTZ(x: string): Date | null {
+  if (!x) return null
+  // ISO or already with timezone info
+  if (/[zZ]|[+\-]\d{2}:\d{2}$/.test(x)) {
+    const d = new Date(x)
+    return isNaN(d.getTime()) ? null : d
+  }
+  // Normalize common pg format "YYYY-MM-DD HH:mm:ss"
+  const s = x.replace(' ', 'T')
+  const d = new Date(s) // treated as local
+  if (!isNaN(d.getTime())) return d
+
+  // Fallback: manual split (YYYY-MM-DDTHH:mm:ss)
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})T?(\d{2}):(\d{2})(?::(\d{2}))?$/)
+  if (!m) return null
+  const [ , Y, M, D, h, m2, s2 ] = m
+  const dd = new Date(
+    Number(Y),
+    Number(M) - 1,
+    Number(D),
+    Number(h),
+    Number(m2),
+    Number(s2 ?? 0),
+    0
+  )
+  return isNaN(dd.getTime()) ? null : dd
+}
+
+/* ✅ Safer date coercion that accepts string | Date | null */
+function toDate(x?: string | Date | null): Date | null {
+  if (!x) return null
+  if (x instanceof Date) return isNaN(x.getTime()) ? null : x
+  return parseTimestampWithoutTZ(x)
+}
 
 // same rounding as DB generated columns
 function calcInterestPerLoser(entry_fee: number, interest_pool: number, player_cap: number) {
@@ -448,22 +630,21 @@ function round2(x: number) {
 }
 
 const preview = reactive({
-  interestPerLoser: calcInterestPerLoser(form.entry_fee, form.interest_pool, form.player_cap),
-  winnerPrice: calcWinnerPrice(form.entry_fee, form.interest_pool, form.player_cap),
-  loserRefund: calcLoserRefund(form.entry_fee, form.interest_pool, form.player_cap),
+  interestPerLoser: calcInterestPerLoser(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
+  winnerPrice: calcWinnerPrice(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
+  loserRefund: calcLoserRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
 })
 
 // recompute preview on form changes
 watch(
   () => [form.entry_fee, form.interest_pool, form.player_cap],
   () => {
-    preview.interestPerLoser = calcInterestPerLoser(
-      form.entry_fee,
-      form.interest_pool,
-      form.player_cap,
-    )
-    preview.winnerPrice = calcWinnerPrice(form.entry_fee, form.interest_pool, form.player_cap)
-    preview.loserRefund = calcLoserRefund(form.entry_fee, form.interest_pool, form.player_cap)
+    const fee = Number(form.entry_fee)
+    const pool = Number(form.interest_pool)
+    const cap = Number(form.player_cap)
+    preview.interestPerLoser = calcInterestPerLoser(fee, pool, cap)
+    preview.winnerPrice = calcWinnerPrice(fee, pool, cap)
+    preview.loserRefund = calcLoserRefund(fee, pool, cap)
   },
   { deep: true },
 )
@@ -482,6 +663,14 @@ function openForm() {
 }
 function closeForm() {
   showForm.value = false
+}
+
+/* ✅ helper to store local wall time into TIMESTAMP WITHOUT TIME ZONE */
+function asLocalPgTimestamp(x: string | ''): string | null {
+  // input from <input type="datetime-local"> looks like "YYYY-MM-DDTHH:mm"
+  if (!x) return null
+  const [d, t] = x.split('T') // e.g., d="2025-09-22", t="11:30"
+  return `${d} ${t}:00`       // "2025-09-22 11:30:00" (no Z/offset)
 }
 
 async function loadEvents() {
@@ -506,7 +695,6 @@ async function loadEvents() {
 }
 
 async function submit() {
-  // Basic validation
   if (!form.title || !form.item_name) return
 
   submitting.value = true
@@ -521,9 +709,11 @@ async function submit() {
       status: form.status,
     }
 
-    // Optional times
-    if (form.opens_at) payload.opens_at = new Date(form.opens_at).toISOString()
-    if (form.closes_at) payload.closes_at = new Date(form.closes_at).toISOString()
+    // ✅ Store local wall time strings into TIMESTAMP WITHOUT TIME ZONE columns
+    const opensLocal = asLocalPgTimestamp(form.opens_at)
+    const closesLocal = asLocalPgTimestamp(form.closes_at)
+    if (opensLocal)  payload.opens_at  = opensLocal
+    if (closesLocal) payload.closes_at = closesLocal
 
     const { error } = await supabase.schema('games').from('event').insert(payload)
 
@@ -556,15 +746,8 @@ onUnmounted(() => {
 
 const nowFmt = computed(() => {
   const d = now.value
-  // Simple local display (keeps it dependency-free)
   return d.toLocaleString()
 })
-
-function toDate(x?: string | null): Date | null {
-  if (!x) return null
-  const d = new Date(x)
-  return isNaN(d.getTime()) ? null : d
-}
 
 function isHappeningNow(ev: EventRow) {
   const n = now.value.getTime()
@@ -573,7 +756,6 @@ function isHappeningNow(ev: EventRow) {
   const statusActive = ev.status === 'open' || ev.status === 'locked'
 
   if (statusActive) {
-    // time window: (opens_at <= now) && (closes_at is null or >= now)
     const opened = open == null || open <= n
     const notClosed = close == null || close >= n
     return opened && notClosed
@@ -584,15 +766,12 @@ function isHappeningNow(ev: EventRow) {
 function isUpcoming(ev: EventRow) {
   const n = now.value.getTime()
   const open = toDate(ev.opens_at)?.getTime()
-  // Upcoming if opens_at is in the future OR draft with future close/open
   if (open != null && open > n) return true
-  // Consider drafts with a future open date as upcoming
   return ev.status === 'draft' && open != null && open > n
 }
 
 function isFinished(ev: EventRow) {
   if (ev.status === 'spun' || ev.status === 'settled' || ev.status === 'cancelled') return true
-  // or closed in the past
   const close = toDate(ev.closes_at)?.getTime()
   if (close != null && close < now.value.getTime()) return true
   return false
@@ -600,19 +779,25 @@ function isFinished(ev: EventRow) {
 
 // Sorted & grouped lists (keeps original "events" unchanged)
 const nowEvents = computed(() =>
-  events.value.filter(isHappeningNow).sort((a, b) => (toDate(b.opens_at)?.getTime() || 0) - (toDate(a.opens_at)?.getTime() || 0)),
+  events.value
+    .filter(isHappeningNow)
+    .sort((a, b) => (toDate(b.opens_at)?.getTime() || 0) - (toDate(a.opens_at)?.getTime() || 0)),
 )
 const upcomingEvents = computed(() =>
-  events.value.filter((e) => isUpcoming(e) && !isHappeningNow(e)).sort((a, b) => (toDate(a.opens_at)?.getTime() || 0) - (toDate(b.opens_at)?.getTime() || 0)),
+  events.value
+    .filter((e) => isUpcoming(e) && !isHappeningNow(e))
+    .sort((a, b) => (toDate(a.opens_at)?.getTime() || 0) - (toDate(b.opens_at)?.getTime() || 0)),
 )
 const finishedEvents = computed(() =>
-  events.value.filter(isFinished).sort((a, b) => (toDate(b.closes_at)?.getTime() || 0) - (toDate(a.closes_at)?.getTime() || 0)),
+  events.value
+    .filter(isFinished)
+    .sort((a, b) => (toDate(b.closes_at)?.getTime() || 0) - (toDate(a.closes_at)?.getTime() || 0)),
 )
 
 function fmt(x: string | null) {
   if (!x) return '—'
-  const d = new Date(x)
-  if (isNaN(d.getTime())) return '—'
+  const d = toDate(x)
+  if (!d) return '—'
   return d.toLocaleString()
 }
 </script>
@@ -661,6 +846,16 @@ function fmt(x: string | null) {
 .tilt:hover {
   transform: translateY(-2px) rotateX(0.5deg) rotateY(-0.5deg);
   box-shadow: 0 12px 36px rgba(0,0,0,0.08);
+}
+
+/* Emphasize center hero */
+.hero-center {
+  min-height: 320px;
+  border-width: 2px;
+  box-shadow: 0 16px 50px rgba(32, 201, 151, 0.08);
+}
+.hero-scroll {
+  max-height: 420px;
 }
 
 .dot {
@@ -785,6 +980,30 @@ function fmt(x: string | null) {
   background: #fff;
 }
 
+/* =================== Tabs + card grid (new) =================== */
+.card-tabs .nav-link {
+  border: 0;
+  padding: 0.75rem 1rem;
+  color: #64748b;
+  font-weight: 600;
+}
+.card-tabs .nav-link.active {
+  color: #0f172a;
+  border-bottom: 2px solid #0ea5e9;
+}
+.event-card {
+  background: #fff;
+  border-color: #e9ecef;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0,0,0,.06);
+}
+.live-shadow {
+  box-shadow: 0 8px 24px rgba(16,185,129,.12);
+}
+
 /* Responsive polish */
 @media (max-width: 992px) {
   .event-pill .meta {
@@ -793,5 +1012,8 @@ function fmt(x: string | null) {
   .price-row {
     grid-template-columns: 1fr;
   }
+
+  /* Stack columns nicely on mobile */
+  .hero-center { min-height: 0; }
 }
 </style>

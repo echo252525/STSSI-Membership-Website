@@ -40,21 +40,21 @@ const handleLogout = async () => {
   position: relative;
 }
 
-/* FIXED main content panel:
-   - Anchored to the collapsed sidebar width on the left
-   - Fills the viewport (top/right/bottom)
-   - Sidebar can overlap it when opened (higher z-index on sidebar)
-*/
+/* FIXED main content wrapper (kept as-is)
+   We'll override left/width below so that MAIN handles the offset. */
 .content {
   margin-left: var(--sidebar-collapsed-width);
   transition: margin-left 220ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* new: fixed layout */
+  /* fixed layout */
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   left: var(--sidebar-collapsed-width);
+
+  /* computed width */
+  width: calc(100vw - var(--sidebar-collapsed-width));
 
   /* keep column layout inside the fixed panel */
   display: flex;
@@ -65,27 +65,45 @@ const handleLogout = async () => {
   z-index: 1; /* keep below the sidebar overlay */
 }
 
-/* Make <main> scrollable while the header/topbar area could remain static if you add one */
+/* ======================= OVERRIDES =======================
+   Move the sidebar offset responsibility from .content to MAIN.
+   We keep the original block above (not removed), then override here.
+*/
+.content {
+  /* Let content occupy the full viewport; MAIN will offset itself. */
+  margin-left: 0;              /* override */
+  left: 0;                     /* override */
+  width: 100vw;                /* override */
+}
+
+/* MAIN handles the left offset equal to collapsed sidebar width */
 .content > main {
-  /* account for safe areas and ensure smooth scroll within */
+  /* scroll area */
   overflow: auto;
   height: 100%;
   -webkit-overflow-scrolling: touch;
+
+  width: calc(100vw - var(--sidebar-collapsed-width)); /* fill remaining width */
+  margin-left: var(--sidebar-collapsed-width);          /* offset next to collapsed sidebar */
+  box-sizing: border-box;
 }
 
-/* On small screens (offcanvas), don't reserve space at all */
+/* On small screens (offcanvas), MAIN should be full width (no reserve) */
 @media (max-width: 1600px) {
   .content {
-    margin-left: 0;
-
-    /* fixed to full screen when sidebar is offcanvas */
+    /* full-screen wrapper */
+    margin-left: 0; /* override stays */
     left: 0;
+    width: 100vw;
+  }
+
+  .content > main {
+    margin-left: 0;       /* no reserve in off-canvas mode */
+    width: 100vw;         /* full width */
   }
 }
 
-/* OPTIONAL: If your AdminSidebar exposes a root class, this helps guarantee overlap.
-   Remove if your sidebar already handles this internally.
-*/
+/* OPTIONAL: Guarantees the sidebar overlays the content */
 :deep(.admin-sidebar),
 :deep(.sidebar-shell),
 :deep(.sidebar) {
