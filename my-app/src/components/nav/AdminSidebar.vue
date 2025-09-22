@@ -106,6 +106,19 @@
             <span class="link-text">Mini Games</span>
           </RouterLink>
         </li>
+        <li class="nav-item" v-if="has('admin.products')">
+          <RouterLink
+            :to="{ name: 'admin.products' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'Products' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-bag fs-5"></i>
+            <span class="link-text">Products</span>
+          </RouterLink>
+        </li>
 
         <li class="nav-item" v-if="has('admin.settings')">
           <RouterLink

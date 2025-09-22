@@ -17,7 +17,8 @@ import MiniGames from '@/pages/user/MiniGames.vue'
 import Settings from '@/pages/user/Settings.vue'
 
 import AdminDashboard from '@/pages/admin/AdminDashboard.vue'
-import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue' //
+import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue' 
+import AdminProducts from '@/pages/admin/AdminProducts.vue' //
 import AdminSettings from '@/pages/admin/AdminSettings.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -50,6 +51,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: 'dashboard', name: 'admin.dashboard', component: AdminDashboard },
       { path: 'mini-games', name: 'admin.minigames', component: AdminMiniGames },
+      { path: 'products', name: 'admin.products', component: AdminProducts },
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
       // add more admin pages here later
     ],
