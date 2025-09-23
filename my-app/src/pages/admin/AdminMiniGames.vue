@@ -404,9 +404,11 @@
                   step="0.01"
                   min="0"
                   class="form-control"
+                  :readonly="true"  
                   required
                 />
-                <div class="form-text">Split among losers (player_count − 1)</div>
+                <div class="form-text">Split evenly among all players (player_cap)</div>
+
               </div>
 
               <!-- 🆕 Player Cap -->
@@ -438,8 +440,8 @@
               <div class="row g-2 small">
                 <div class="col-md-4">
                   <div class="border rounded p-2 h-100">
-                    <div class="text-muted">Interest per Loser</div>
-                    <div class="fs-5">₱ {{ preview.interestPerLoser.toFixed(2) }}</div>
+                    <div class="text-muted">Interest per Player</div>
+                    <div class="fs-5">₱ {{ preview.interestPerPlayer.toFixed(2) }}</div>
                   </div>
                 </div>
                 <div class="col-md-4">
@@ -899,6 +901,9 @@ watch(selectedProductId, () => {
   const p = selectedProduct.value
   if (!p) return
   form.item_supplier_cost = Number(p.price ?? 0)
+  // 🆕 recalc interest pool after supplier cost changes
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+
   if (!form.title || form.title.trim() === '' || form.title === prevAutoTitle.value) {
     form.title = p.name
     prevAutoTitle.value = p.name
@@ -927,38 +932,53 @@ const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed
 function round2(x: number) {
   return Math.round((x + Number.EPSILON) * 100) / 100
 }
-function calcInterestPerLoser(_entry_fee: number, interest_pool: number, player_count: number) {
-  const denom = Math.max(player_count - 1, 1)
+
+// 🆕 Interest Pool rule: (Entry Fee − Supplier Cost) × 80%
+function computeInterestPool(entryFee: number | string, supplierCost: number | string) {
+  const fee = Number(entryFee ?? 0)
+  const cost = Number(supplierCost ?? 0)
+  const val = (fee - cost) * 0.8
+  return round2(Math.max(0, val))
+}
+
+// 🆕 Keep interest_pool fixed & auto-updated when fee or cost changes
+watch(
+  () => [form.entry_fee, form.item_supplier_cost],
+  () => {
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+  },
+  { immediate: true },
+)
+
+function calcInterestPerPlayer(interest_pool: number, player_cap: number) {
+  const denom = Math.max(player_cap, 1)
   return round2(interest_pool / denom)
 }
-function calcWinnerPrice(entry_fee: number, interest_pool: number, player_count: number) {
-  const ipl = calcInterestPerLoser(entry_fee, interest_pool, player_count)
-  return round2(entry_fee - ipl)
+function calcWinnerPrice(entry_fee: number, interest_pool: number, player_cap: number) {
+  const ipp = calcInterestPerPlayer(interest_pool, player_cap)
+  return round2(entry_fee - ipp)
 }
-function calcLoserRefund(entry_fee: number, interest_pool: number, player_count: number) {
-  const ipl = calcInterestPerLoser(entry_fee, interest_pool, player_count)
-  return round2(entry_fee + ipl)
+function calcLoserRefund(entry_fee: number, interest_pool: number, player_cap: number) {
+  const ipp = calcInterestPerPlayer(interest_pool, player_cap)
+  return round2(entry_fee + ipp)
 }
 
 const preview = reactive({
-  interestPerLoser: calcInterestPerLoser(
-    Number(form.entry_fee),
-    Number(form.interest_pool),
-    PLAYER_LOCK_CAP,
-  ),
-  winnerPrice: calcWinnerPrice(Number(form.entry_fee), Number(form.interest_pool), PLAYER_LOCK_CAP),
-  loserRefund: calcLoserRefund(Number(form.entry_fee), Number(form.interest_pool), PLAYER_LOCK_CAP),
+  interestPerPlayer: calcInterestPerPlayer(Number(form.interest_pool), Number(form.player_cap)),
+  winnerPrice: calcWinnerPrice(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
+  loserRefund: calcLoserRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
 })
 
 // recompute preview on form changes
 watch(
-  () => [form.entry_fee, form.interest_pool],
+  () => [form.entry_fee, form.interest_pool, form.player_cap],
   () => {
     const fee = Number(form.entry_fee)
     const pool = Number(form.interest_pool)
-    preview.interestPerLoser = calcInterestPerLoser(fee, pool, PLAYER_LOCK_CAP)
-    preview.winnerPrice = calcWinnerPrice(fee, pool, PLAYER_LOCK_CAP)
-    preview.loserRefund = calcLoserRefund(fee, pool, PLAYER_LOCK_CAP)
+    const cap = Number(form.player_cap)
+    preview.interestPerPlayer = calcInterestPerPlayer(pool, cap)
+    preview.winnerPrice = calcWinnerPrice(fee, pool, cap)
+    preview.loserRefund = calcLoserRefund(fee, pool, cap)
   },
   { deep: true },
 )
@@ -975,6 +995,8 @@ function statusBadge(status: EventRow['status']) {
 function openForm() {
   showForm.value = true
   if (products.value.length === 0 && !productsLoading.value) loadProducts()
+  // 🆕 ensure pool is correct when opening
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
 }
 function closeForm() {
   showForm.value = false
@@ -987,7 +1009,7 @@ function closeForm() {
     prevAutoTitle.value = ''
     form.item_supplier_cost = 30.0
     form.entry_fee = 50.0
-    form.interest_pool = 15.0
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost) // 🆕
     form.player_cap = 10
     form.status = 'draft'
   }
@@ -1020,6 +1042,9 @@ async function submit() {
     return
   }
 
+  // 🆕 hard-enforce pool value before save
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+
   submitting.value = true
   try {
     const { data: userData, error: userErr } = await supabase.auth.getUser()
@@ -1030,9 +1055,9 @@ async function submit() {
     const payload: any = {
       title: form.title,
       product_id: selectedProductId.value,
-      item_supplier_cost: form.item_supplier_cost,
-      entry_fee: form.entry_fee,
-      interest_pool: form.interest_pool,
+      item_supplier_cost: round2(Number(form.item_supplier_cost)),
+      entry_fee: round2(Number(form.entry_fee)),
+      interest_pool: round2(Number(form.interest_pool)),
       player_cap: form.player_cap, // 🆕 include cap
       status: form.status,
     }
@@ -1067,7 +1092,7 @@ async function submit() {
     prevAutoTitle.value = ''
     form.item_supplier_cost = 30.0
     form.entry_fee = 50.0
-    form.interest_pool = 15.0
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost) // 🆕
     form.player_cap = 10
     form.status = 'draft'
     editingId.value = null
@@ -1117,7 +1142,8 @@ function editDraft(ev: EventRow) {
   form.title = ev.title
   form.item_supplier_cost = Number(ev.item_supplier_cost)
   form.entry_fee = Number(ev.entry_fee)
-  form.interest_pool = Number(ev.interest_pool)
+  // 🆕 recompute instead of trusting old value
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
   form.player_cap = Number(ev.player_cap || PLAYER_LOCK_CAP)
   form.status = ev.status
   selectedProductId.value = ev.product_id || ''

@@ -15,10 +15,11 @@ import UserDashboard from '@/pages/user/Dashboard.vue'
 import Membership from '@/pages/user/Membership.vue'
 import MiniGames from '@/pages/user/MiniGames.vue'
 import Settings from '@/pages/user/Settings.vue'
+import WaitingArea from '@/pages/user/WaitingArea.vue' // stays in pages/user/
 
 import AdminDashboard from '@/pages/admin/AdminDashboard.vue'
-import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue' 
-import AdminProducts from '@/pages/admin/AdminProducts.vue' //
+import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue'
+import AdminProducts from '@/pages/admin/AdminProducts.vue'
 import AdminSettings from '@/pages/admin/AdminSettings.vue'
 
 const routes: RouteRecordRaw[] = [
@@ -33,6 +34,9 @@ const routes: RouteRecordRaw[] = [
       // 🔒 Admin login/signup (public)
       { path: 'admin/login', name: 'admin.login', component: AdminLogin },
       { path: 'admin/signup', name: 'admin.signup', component: AdminSignup },
+
+      // 👉 Waiting page WITHOUT UserLayout sidebar (public layout wrapper)
+      { path: 'waiting', name: 'user.waiting', component: WaitingArea },
     ],
   },
   {
@@ -53,7 +57,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'mini-games', name: 'admin.minigames', component: AdminMiniGames },
       { path: 'products', name: 'admin.products', component: AdminProducts },
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
-      // add more admin pages here later
     ],
   },
 ]
