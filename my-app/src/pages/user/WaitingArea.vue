@@ -152,7 +152,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'  // <-- added watch
 import { supabase } from '@/lib/supabaseClient'
 
 const route = useRoute()
@@ -165,6 +165,9 @@ const err = ref<string>('')
 // NEW: loading states
 const isLoading = ref(true)
 const imageLoading = ref(true)
+
+// 🔒 NEW: suppress deletion when we intentionally navigate to the game event
+const suppressDelete = ref(false)
 
 // display state
 type EventRow = {
@@ -241,6 +244,74 @@ function openConfirm() { showConfirm.value = true }
 function closeConfirm() { if (!deleting.value) showConfirm.value = false }
 async function confirmLeave() { await goBack() }
 
+// ===== 🔵 Navigation to GamesEvent.vue when lobby locks =====
+const redirected = ref(false)
+
+// ✅ NEW: helper to detect if we're navigating to the games event route for THIS event
+const EVENT_ROUTE_NAMES = ['user.minigames.event', 'user.games.event', 'games.event']
+function isGamesEventRoute(to: any) {
+  if (!to) return false
+  const nameOk = to.name && EVENT_ROUTE_NAMES.includes(String(to.name))
+  const pathOk = to.path && ['/app/mini-games/event', '/app/minigames/event', '/games/event'].includes(String(to.path))
+  const qid = (to.query && to.query.eventId) ? String(to.query.eventId) : undefined
+  const sameEvent = qid && eventId && qid === eventId
+  return (nameOk || pathOk) && !!sameEvent
+}
+
+async function navigateToGamesEvent() {
+  if (!eventId) return
+  // prevent deletion on this programmatic navigation
+  suppressDelete.value = true
+
+  // Try a few likely route names first; fall back to a path if needed.
+  const candidates = [
+    { name: 'user.minigames.event', query: { eventId } },
+    { name: 'user.games.event', query: { eventId } },
+    { name: 'games.event', query: { eventId } },
+  ] as const
+
+  for (const r of candidates) {
+    try {
+      await router.push(r as any)
+      return
+    } catch (_) { /* try next */ }
+  }
+  // Fallback: push by common path patterns; last resort set window.location
+  const pathCandidates = [
+    { path: '/app/mini-games/event', query: { eventId } },
+    { path: '/app/minigames/event', query: { eventId } },
+    { path: '/games/event', query: { eventId } },
+  ]
+  for (const r of pathCandidates) {
+    try {
+      await router.push(r as any)
+      return
+    } catch (_) { /* try next */ }
+  }
+  // Absolute fallback
+  try {
+    const url = `/app/mini-games/event?eventId=${encodeURIComponent(eventId)}`
+    window.location.href = url
+  } catch (_) {}
+}
+
+function isLockedStatus(s?: string | null) {
+  return String(s || '').toLowerCase() === 'locked'
+}
+
+function maybeRedirect() {
+  if (redirected.value) return
+  const locked = isLockedStatus(event.value?.status)
+  const cap = Number(event.value?.player_cap || 0)
+  const cnt = Number(event.value?.player_count || 0)
+  const full = cap > 0 && cnt >= cap
+  if (locked || full) {
+    redirected.value = true
+    console.log('[redirect] Lobby locked/full → navigating to GamesEvent.vue')
+    void navigateToGamesEvent()
+  }
+}
+
 // ===== Load event + product image (uses games.products) =====
 async function fetchEventAndImage() {
   isLoading.value = true
@@ -268,6 +339,15 @@ async function fetchEventAndImage() {
       return
     }
     event.value = ev as EventRow
+    console.log('[waiting-area] fetched event', {
+      id: ev.id,
+      player_count: ev.player_count,
+      status: ev.status,
+      at: new Date().toISOString(),
+    })
+
+    // 🔵 Check redirect immediately after fetch
+    maybeRedirect()
 
     // 2) If event has product_id, fetch products.product_url
     if (ev?.product_id) {
@@ -344,8 +424,10 @@ async function goBack() {
   }
 }
 
-// Keep deletion on route leave (browser back, link, etc.)
-onBeforeRouteLeave(() => {
+// ✅ Only delete on generic/back navigations, NOT when going to the game event for same eventId
+onBeforeRouteLeave((to: any) => {
+  if (suppressDelete.value) return
+  if (isGamesEventRoute(to)) return
   void deleteEntryIfNeeded()
 })
 
@@ -378,12 +460,139 @@ function formatDate(v: string | null | undefined) {
   }
 }
 
+/* =========================== 🔴 Realtime additions =========================== */
+let realtimeChannel: any | null = null
+let refreshTimer: number | null = null
+const POLL_MS = 10_000
+let pollHandle: number | null = null
+
+function scheduleRefresh(delayMs = 250) {
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+  }
+  refreshTimer = window.setTimeout(async () => {
+    refreshTimer = null
+    console.log('[realtime] scheduleRefresh → fetching event…', new Date().toISOString())
+    await fetchEventAndImage()
+  }, delayMs)
+}
+
+function makeRealtimeChannel() {
+  if (!eventId) return
+
+  // clean previous
+  if (realtimeChannel) {
+    try { supabase.removeChannel(realtimeChannel) } catch {}
+    realtimeChannel = null
+  }
+
+  realtimeChannel = supabase
+    .channel(`wa-event-${eventId}`, {
+      config: {
+        broadcast: { self: false },
+        presence: { key: 'waiting-area' },
+      },
+    })
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'games', table: 'event', filter: `id=eq.${eventId}` },
+      (payload: any) => {
+        const type = String(payload.eventType || '').toUpperCase()
+        console.log('[realtime] change received:', {
+          type,
+          at: new Date().toISOString(),
+          new: payload?.new,
+          old: payload?.old,
+        })
+        try {
+          if (type === 'DELETE') {
+            err.value = 'This event was removed.'
+          } else if (payload.new) {
+            // Merge for instant UI while also scheduling a fetch to sync computed fields
+            const next = payload.new as Partial<EventRow>
+            event.value = { ...(event.value || {} as any), ...next } as EventRow
+            console.log('[realtime] merged update → player_count/status:', {
+              player_count: event.value.player_count,
+              status: event.value.status,
+            })
+            // 🔵 Check redirect on realtime merge
+            maybeRedirect()
+          }
+        } catch (e) {
+          console.warn('realtime merge failed', e)
+        }
+        // Coalesced refetch to keep signed URLs / computed columns fresh
+        scheduleRefresh(250)
+      },
+    )
+    .subscribe((status: any, errSub?: any) => {
+      console.log('[realtime] channel status:', status, errSub || '')
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        setTimeout(() => makeRealtimeChannel(), 1000)
+      }
+    })
+}
+
+function startPoll() {
+  stopPoll()
+  pollHandle = window.setInterval(() => {
+    console.log('[poll] safety fetch at', new Date().toISOString())
+    fetchEventAndImage()
+  }, POLL_MS)
+}
+function stopPoll() {
+  if (pollHandle) {
+    window.clearInterval(pollHandle)
+    pollHandle = null
+  }
+}
+function onVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    console.log('[visibility] tab active → refresh')
+    scheduleRefresh(0)
+  }
+}
+
+/* Extra visibility: log when these fields change locally (often due to realtime) */
+watch(() => event.value?.player_count, (nv, ov) => {
+  if (ov !== undefined && nv !== ov) {
+    console.log('[watch] player_count changed:', ov, '→', nv, 'at', new Date().toISOString())
+    // 🔵 Check redirect when player_count changes (cap reached)
+    maybeRedirect()
+  }
+})
+watch(() => event.value?.status, (nv, ov) => {
+  if (ov !== undefined && nv !== ov) {
+    console.log('[watch] status changed:', ov, '→', nv, 'at', new Date().toISOString())
+    // 🔵 Check redirect when status flips to locked
+    maybeRedirect()
+  }
+})
+/* ======================= / Realtime additions (end) ======================== */
+
 onMounted(() => {
   fetchEventAndImage()
   window.addEventListener('beforeunload', beforeUnload)
+
+  /* Realtime init */
+  makeRealtimeChannel()
+  startPoll()
+  document.addEventListener('visibilitychange', onVisibilityChange)
 })
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
+
+  /* Realtime cleanup */
+  if (realtimeChannel) {
+    try { supabase.removeChannel(realtimeChannel) } catch {}
+    realtimeChannel = null
+  }
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+  stopPoll()
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
 

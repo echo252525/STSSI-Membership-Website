@@ -16,6 +16,7 @@ import Membership from '@/pages/user/Membership.vue'
 import MiniGames from '@/pages/user/MiniGames.vue'
 import Settings from '@/pages/user/Settings.vue'
 import WaitingArea from '@/pages/user/WaitingArea.vue' // stays in pages/user/
+import GamesEvent from '@/pages/user/GamesEvent.vue' // ✅ NEW: add this import
 
 import AdminDashboard from '@/pages/admin/AdminDashboard.vue'
 import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue'
@@ -37,6 +38,15 @@ const routes: RouteRecordRaw[] = [
 
       // 👉 Waiting page WITHOUT UserLayout sidebar (public layout wrapper)
       { path: 'waiting', name: 'user.waiting', component: WaitingArea },
+      // ✅ New event page (matches your redirect URL /app/mini-games/event?eventId=...)
+      {
+        path: 'mini-games/event',
+        name: 'user.minigames.event',
+        component: GamesEvent,
+        alias: ['minigames/event'], // also allow /app/minigames/event
+        // (optional) if you want to receive eventId as a prop:
+        // props: route => ({ eventId: route.query.eventId })
+      },
     ],
   },
   {
@@ -47,6 +57,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'membership', name: 'user.membership', component: Membership },
       { path: 'minigames', name: 'user.minigames', component: MiniGames },
       { path: 'settings', name: 'user.settings', component: Settings },
+
+      
     ],
   },
   {

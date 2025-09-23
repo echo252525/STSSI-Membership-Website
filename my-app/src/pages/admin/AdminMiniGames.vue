@@ -396,6 +396,24 @@
                 />
               </div>
 
+              <!-- 🆕 Percent -->
+              <div class="col-md-4">
+                <label class="form-label">Percent</label>
+                <div class="input-group">
+                  <input
+                    v-model.number="form.percent"
+                    type="number"
+                    step="1"
+                    min="0"
+                    max="100"
+                    class="form-control"
+                    required
+                  />
+                  <span class="input-group-text">%</span>
+                </div>
+                <div class="form-text">Used in: (Entry Fee − Supplier Cost) × Percent</div>
+              </div>
+
               <div class="col-md-4">
                 <label class="form-label">Interest Pool (₱)</label>
                 <input
@@ -404,7 +422,7 @@
                   step="0.01"
                   min="0"
                   class="form-control"
-                  :readonly="true"  
+                  :readonly="true"
                   required
                 />
                 <div class="form-text">Split evenly among all players (player_cap)</div>
@@ -901,8 +919,8 @@ watch(selectedProductId, () => {
   const p = selectedProduct.value
   if (!p) return
   form.item_supplier_cost = Number(p.price ?? 0)
-  // 🆕 recalc interest pool after supplier cost changes
-  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+  // recalc interest pool after supplier cost changes (using current percent)
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 
   if (!form.title || form.title.trim() === '' || form.title === prevAutoTitle.value) {
     form.title = p.name
@@ -917,8 +935,9 @@ const form = reactive({
   product_id: '' as string | null,
   item_supplier_cost: 30.0,
   entry_fee: 50.0,
+  percent: 80,            // 🆕 adjustable percent (0–100)
   interest_pool: 15.0,
-  player_cap: 10, // 🆕 default cap
+  player_cap: 10,         // default cap
   status: 'draft' as EventRow['status'], // only 'draft' | 'open' allowed in UI
 })
 
@@ -928,24 +947,25 @@ const editingId = ref<string | null>(null)
 // helpers
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 
-// math (aligned with DB generated columns; preview assumes cap 10 for per-loser calc)
+// math (aligned with DB generated columns; preview assumes current cap)
 function round2(x: number) {
   return Math.round((x + Number.EPSILON) * 100) / 100
 }
 
-// 🆕 Interest Pool rule: (Entry Fee − Supplier Cost) × 80%
-function computeInterestPool(entryFee: number | string, supplierCost: number | string) {
+// 🆕 Interest Pool rule: (Entry Fee − Supplier Cost) × Percent
+function computeInterestPool(entryFee: number | string, supplierCost: number | string, percent: number | string) {
   const fee = Number(entryFee ?? 0)
   const cost = Number(supplierCost ?? 0)
-  const val = (fee - cost) * 0.8
+  const pct = Number(percent ?? 0) / 100
+  const val = (fee - cost) * pct
   return round2(Math.max(0, val))
 }
 
-// 🆕 Keep interest_pool fixed & auto-updated when fee or cost changes
+// 🆕 Keep interest_pool fixed & auto-updated when fee, cost, or percent changes
 watch(
-  () => [form.entry_fee, form.item_supplier_cost],
+  () => [form.entry_fee, form.item_supplier_cost, form.percent],
   () => {
-    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
   },
   { immediate: true },
 )
@@ -995,8 +1015,8 @@ function statusBadge(status: EventRow['status']) {
 function openForm() {
   showForm.value = true
   if (products.value.length === 0 && !productsLoading.value) loadProducts()
-  // 🆕 ensure pool is correct when opening
-  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+  // ensure pool is correct when opening
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 }
 function closeForm() {
   showForm.value = false
@@ -1009,7 +1029,8 @@ function closeForm() {
     prevAutoTitle.value = ''
     form.item_supplier_cost = 30.0
     form.entry_fee = 50.0
-    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost) // 🆕
+    form.percent = 80
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
     form.player_cap = 10
     form.status = 'draft'
   }
@@ -1042,8 +1063,8 @@ async function submit() {
     return
   }
 
-  // 🆕 hard-enforce pool value before save
-  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+  // hard-enforce pool value before save
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 
   submitting.value = true
   try {
@@ -1058,8 +1079,9 @@ async function submit() {
       item_supplier_cost: round2(Number(form.item_supplier_cost)),
       entry_fee: round2(Number(form.entry_fee)),
       interest_pool: round2(Number(form.interest_pool)),
-      player_cap: form.player_cap, // 🆕 include cap
+      player_cap: form.player_cap,
       status: form.status,
+      // note: percent is a UI helper; omit from payload unless you add a DB column
     }
 
     if (!editingId.value) {
@@ -1092,7 +1114,8 @@ async function submit() {
     prevAutoTitle.value = ''
     form.item_supplier_cost = 30.0
     form.entry_fee = 50.0
-    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost) // 🆕
+    form.percent = 80
+    form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
     form.player_cap = 10
     form.status = 'draft'
     editingId.value = null
@@ -1142,8 +1165,19 @@ function editDraft(ev: EventRow) {
   form.title = ev.title
   form.item_supplier_cost = Number(ev.item_supplier_cost)
   form.entry_fee = Number(ev.entry_fee)
-  // 🆕 recompute instead of trusting old value
-  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost)
+
+  // 🆕 try to backsolve percent from stored values if possible
+  const fee = Number(ev.entry_fee)
+  const cost = Number(ev.item_supplier_cost)
+  const pool = Number(ev.interest_pool)
+  if (fee > cost && pool >= 0) {
+    const inferred = (pool / (fee - cost)) * 100
+    form.percent = Number.isFinite(inferred) ? Math.min(100, Math.max(0, round2(inferred))) : 80
+  } else {
+    form.percent = 80
+  }
+
+  form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
   form.player_cap = Number(ev.player_cap || PLAYER_LOCK_CAP)
   form.status = ev.status
   selectedProductId.value = ev.product_id || ''
