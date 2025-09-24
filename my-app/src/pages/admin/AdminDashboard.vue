@@ -4,7 +4,7 @@
     <nav>
       <div class="container-fluid d-flex gap-2 align-items-center">
         <h1 class="fw-bold">Welcome, Admin</h1>
-        <img src="../../../public/STSSI_mascot.png" alt="icon" width="40" height="40"></img>
+        <img src="../../../public/STSSI_mascot.png" class=".img-fluid" alt="icon" width="40" height="40"></img>
       </div>
     </nav>
 
