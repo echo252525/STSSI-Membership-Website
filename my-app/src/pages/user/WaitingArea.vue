@@ -203,6 +203,7 @@ const progressPct = computed<number>(() => {
 
 // ===== CONFIG per your setup =====
 const PRODUCT_BUCKET = 'prize_product' // your storage bucket name
+const READY_STATUS = 'ready'           // 🆕 entry.status value to set before redirect
 
 function isHttpUrl(path?: string | null) {
   return !!path && /^https?:\/\//i.test(path)
@@ -258,10 +259,42 @@ function isGamesEventRoute(to: any) {
   return (nameOk || pathOk) && !!sameEvent
 }
 
+/* 🆕 Set the user's entry.status='ready' for this event before redirect */
+async function markEntryReady() {
+  try {
+    if (!eventId) return
+    const { data: userRes, error: userErr } = await supabase.auth.getUser()
+    if (userErr) {
+      console.warn('[ready] auth.getUser failed:', userErr)
+      return
+    }
+    const userId = userRes.user?.id
+    if (!userId) return
+
+    const { error: updErr } = await supabase
+      .schema('games')
+      .from('entry')
+      .update({ status: READY_STATUS })
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+
+    if (updErr) {
+      console.warn('[ready] entry status update failed:', updErr)
+    } else {
+      console.log('[ready] entry marked as ready for', { eventId, userId, at: new Date().toISOString() })
+    }
+  } catch (e) {
+    console.warn('[ready] unexpected error:', e)
+  }
+}
+
 async function navigateToGamesEvent() {
   if (!eventId) return
   // prevent deletion on this programmatic navigation
   suppressDelete.value = true
+
+  // 🆕 ensure our entry is marked ready before redirect
+  await markEntryReady()
 
   // Try a few likely route names first; fall back to a path if needed.
   const candidates = [
@@ -462,6 +495,7 @@ function formatDate(v: string | null | undefined) {
 
 /* =========================== 🔴 Realtime additions =========================== */
 let realtimeChannel: any | null = null
+let realtimeEntryChannel: any | null = null  // 🆕 entry channel for instant reaction
 let refreshTimer: number | null = null
 const POLL_MS = 10_000
 let pollHandle: number | null = null
@@ -515,7 +549,19 @@ function makeRealtimeChannel() {
               player_count: event.value.player_count,
               status: event.value.status,
             })
-            // 🔵 Check redirect on realtime merge
+
+            // ✅ Immediate redirect check using *payload.new* (no extra delay)
+            const cap = Number(next.player_cap ?? event.value.player_cap ?? 0)
+            const cnt = Number(next.player_count ?? event.value.player_count ?? 0)
+            const locked = isLockedStatus(next.status ?? event.value.status)
+            if (!redirected.value && ((cap > 0 && cnt >= cap) || locked)) {
+              redirected.value = true
+              console.log('[redirect] realtime(event) full/locked → navigate now')
+              void navigateToGamesEvent()
+              return
+            }
+
+            // 🔵 Also keep your existing logic
             maybeRedirect()
           }
         } catch (e) {
@@ -529,6 +575,44 @@ function makeRealtimeChannel() {
       console.log('[realtime] channel status:', status, errSub || '')
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
         setTimeout(() => makeRealtimeChannel(), 1000)
+      }
+    })
+}
+
+/* 🆕 EXTRA realtime: entries table (react even before the event row hits local state) */
+function makeRealtimeEntryChannel() {
+  if (!eventId) return
+
+  if (realtimeEntryChannel) {
+    try { supabase.removeChannel(realtimeEntryChannel) } catch {}
+    realtimeEntryChannel = null
+  }
+
+  realtimeEntryChannel = supabase
+    .channel(`wa-entry-${eventId}`, {
+      config: { broadcast: { self: false }, presence: { key: 'waiting-area' } },
+    })
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'games', table: 'entry', filter: `event_id=eq.${eventId}` },
+      async (payload: any) => {
+        console.log('[realtime][entry] change:', payload.eventType, {
+          id: payload?.new?.id || payload?.old?.id,
+          status: payload?.new?.status,
+          at: new Date().toISOString(),
+        })
+
+        // Any entry insert/update can affect player_count via your triggers → refresh immediately
+        // This makes redirect feel "instant" even if the event update arrives a moment later.
+        await fetchEventAndImage()
+        // Safety: re-check after refresh
+        maybeRedirect()
+      }
+    )
+    .subscribe((status: any) => {
+      console.log('[realtime][entry] status:', status)
+      if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        setTimeout(() => makeRealtimeEntryChannel(), 1000)
       }
     })
 }
@@ -576,6 +660,7 @@ onMounted(() => {
 
   /* Realtime init */
   makeRealtimeChannel()
+  makeRealtimeEntryChannel()  // 🆕 NEW: listen on entries for ultra-fast reaction
   startPoll()
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
@@ -586,6 +671,10 @@ onBeforeUnmount(() => {
   if (realtimeChannel) {
     try { supabase.removeChannel(realtimeChannel) } catch {}
     realtimeChannel = null
+  }
+  if (realtimeEntryChannel) {
+    try { supabase.removeChannel(realtimeEntryChannel) } catch {}
+    realtimeEntryChannel = null
   }
   if (refreshTimer) {
     window.clearTimeout(refreshTimer)

@@ -131,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref, computed } from 'vue'
+import { onMounted, onUnmounted, reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -172,6 +172,16 @@ const joinBusy: Record<string, boolean> = reactive({})
 const joinErr: Record<string, string> = reactive({})
 const joinOk: Record<string, boolean> = reactive({})
 
+// NEW: keep live, authoritative counts per event (synced from entry table)
+const entryCounts: Record<string, number> = reactive({})
+
+// quick index helpers to keep updates O(1)
+const idxById = computed<Map<string, number>>(() => {
+  const m = new Map<string, number>()
+  events.value.forEach((e, i) => m.set(e.id, i))
+  return m
+})
+
 function money(v: number | string | null | undefined) {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? n.toFixed(2) : '0.00'
@@ -181,8 +191,13 @@ function fmt(x: string | null | undefined) {
   const d = new Date((x as string).replace(' ', 'T'))
   return isNaN(d.getTime()) ? '—' : d.toLocaleString()
 }
+// Use the freshest count we have (entryCounts fallback to ev.player_count)
+function joinedCount(ev: EventRow) {
+  const c = entryCounts[ev.id]
+  return typeof c === 'number' ? c : Number(ev.player_count || 0)
+}
 function slotsLeft(ev: EventRow) {
-  const left = Number(ev.player_cap) - Number(ev.player_count)
+  const left = Number(ev.player_cap) - joinedCount(ev)
   return Math.max(0, left)
 }
 
@@ -199,8 +214,14 @@ async function loadOpenEvents() {
 
     if (error) throw error
     events.value = (data ?? []) as EventRow[]
+    console.log('[LOAD] Open events loaded:', events.value.length)
+
     await attachPrizeImages(events.value)
     await loadMyEntriesFor(events.value.map((e) => e.id))
+
+    // NEW: initialize joined counts for all visible events
+    await Promise.all(events.value.map((e) => refreshEntryCount(e.id)))
+    console.log('[COUNT] Initialized counts for all open events.')
   } catch (e: any) {
     console.error('loadOpenEvents error:', e?.message || e)
   } finally {
@@ -216,7 +237,10 @@ async function loadMyEntriesFor(eventIds: string[]) {
     const { data: userRes, error: userErr } = await supabase.auth.getUser()
     if (userErr) throw userErr
     const userId = userRes.user?.id
-    if (!userId || eventIds.length === 0) return
+    if (!userId || eventIds.length === 0) {
+      console.log('[LOAD] Skipping my entries (no user or no events).')
+      return
+    }
 
     const { data, error } = await supabase
       .schema('games')
@@ -229,6 +253,7 @@ async function loadMyEntriesFor(eventIds: string[]) {
     for (const row of (data ?? []) as Pick<EntryRow, 'event_id'>[]) {
       myEntries.value[row.event_id] = true
     }
+    console.log('[LOAD] My joined map prepared for', Object.keys(myEntries.value).length, 'events')
   } catch (e: any) {
     console.error('loadMyEntriesFor error:', e?.message || e)
   }
@@ -255,6 +280,7 @@ async function join(ev: EventRow) {
   joinErr[ev.id] = ''
   joinOk[ev.id] = false
   joinBusy[ev.id] = true
+  console.log('[JOIN] Attempting join for', ev.id, ev.title)
   try {
     const { data: userRes, error: userErr } = await supabase.auth.getUser()
     if (userErr) throw userErr
@@ -262,6 +288,7 @@ async function join(ev: EventRow) {
     if (!userId) throw new Error('You must be signed in to join.')
 
     if (alreadyJoined(ev.id)) {
+      console.log('[JOIN] Already joined; navigating to waiting…')
       joinOk[ev.id] = true
       router.push({ name: 'user.waiting', query: { eventId: ev.id } })
       return
@@ -275,9 +302,10 @@ async function join(ev: EventRow) {
     }
 
     const { error: insErr } = await supabase.schema('games').from('entry').insert([payload])
-
     if (insErr) throw insErr
+    console.log('[JOIN] Entry inserted.')
 
+    // We keep your optimistic update, but the realtime + refreshEntryCount will correct any drift.
     const nextCount = Number(ev.player_count) + 1
     const { error: updErr } = await supabase
       .schema('games')
@@ -285,11 +313,14 @@ async function join(ev: EventRow) {
       .update({ player_count: nextCount })
       .eq('id', ev.id)
 
-    if (updErr) console.error('player_count update failed:', updErr)
+    if (updErr) console.warn('[JOIN] player_count update failed (will rely on realtime):', updErr)
 
     joinOk[ev.id] = true
     myEntries.value[ev.id] = true
+
+    // Hard refresh + ensure count is accurate for this event
     await loadOpenEvents()
+    await refreshEntryCount(ev.id)
 
     router.push({ name: 'user.waiting', query: { eventId: ev.id } })
   } catch (e: any) {
@@ -306,6 +337,7 @@ function clearPerJoinMessages() {
 }
 
 async function reload() {
+  console.log('[UI] Manual reload triggered.')
   await loadOpenEvents()
 }
 
@@ -317,6 +349,7 @@ async function attachPrizeImages(list: EventRow[]) {
     ) as string[]
     if (productIds.length === 0) {
       list.forEach((e) => (e.imageUrl = null))
+      console.log('[IMG] No products to resolve.')
       return
     }
 
@@ -345,20 +378,223 @@ async function attachPrizeImages(list: EventRow[]) {
         .createSignedUrl(path, 60 * 60)
 
       if (signErr) {
-        console.error('signedUrl error:', signErr)
+        console.error('[IMG] signedUrl error:', signErr)
         ev.imageUrl = null
       } else {
         ev.imageUrl = signed?.signedUrl ?? null
       }
     }
+    console.log('[IMG] Signed URLs attached for', list.length, 'events')
   } catch (e: any) {
     console.error('attachPrizeImages error:', e?.message || e)
     list.forEach((e) => (e.imageUrl = null))
   }
 }
 
+/* ---------------- Realtime wiring ---------------- */
+
+let eventsChannel: ReturnType<typeof supabase.channel> | null = null
+let entriesChannel: ReturnType<typeof supabase.channel> | null = null
+let productsChannel: ReturnType<typeof supabase.channel> | null = null
+
+function subscribeRealtime() {
+  console.log('[RT] Subscribing to games.event, games.entry, games.products…')
+
+  // EVENTS
+  eventsChannel = supabase
+    .channel('rt-games-event')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'games', table: 'event' },
+      async (payload: any) => {
+        const type = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
+        console.log('[RT:event]', type, { new: payload.new, old: payload.old })
+
+        if (type === 'INSERT') {
+          const row = payload.new as EventRow
+          if (row.status === 'open') {
+            if (!idxById.value.has(row.id)) {
+              const clone = { ...row }
+              await attachPrizeImages([clone])
+              events.value = [clone, ...events.value]
+              console.log('[RT:event] INSERT added ->', row.id)
+              await loadMyEntriesFor([row.id])
+              await refreshEntryCount(row.id) // NEW: ensure fresh count
+            }
+          }
+        } else if (type === 'UPDATE') {
+          const row = payload.new as EventRow
+          const i = idxById.value.get(row.id)
+          const wasOpen = (payload.old?.status ?? '') === 'open'
+          const isOpen = row.status === 'open'
+
+          if (i != null) {
+            if (!isOpen) {
+              events.value.splice(i, 1)
+              console.log('[RT:event] UPDATE removed (no longer open) ->', row.id)
+            } else {
+              const merged = { ...events.value[i], ...row }
+              if (merged.product_id !== events.value[i].product_id) {
+                await attachPrizeImages([merged])
+                console.log('[RT:event] UPDATE product changed -> refreshed image', row.id)
+              }
+              events.value.splice(i, 1, merged)
+              console.log('[RT:event] UPDATE merged ->', row.id)
+              await refreshEntryCount(row.id) // NEW: keep counts consistent even if only cap/status changed
+            }
+          } else if (isOpen && !wasOpen) {
+            const clone = { ...row }
+            await attachPrizeImages([clone])
+            events.value = [clone, ...events.value]
+            await loadMyEntriesFor([row.id])
+            await refreshEntryCount(row.id) // NEW
+            console.log('[RT:event] UPDATE became open -> added', row.id)
+          }
+        } else if (type === 'DELETE') {
+          const oldId = payload.old?.id as string | undefined
+          if (oldId && idxById.value.has(oldId)) {
+            const i = idxById.value.get(oldId)!
+            events.value.splice(i, 1)
+            console.log('[RT:event] DELETE removed ->', oldId)
+            delete entryCounts[oldId]
+          }
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('[RT:event] subscription status:', status)
+    })
+
+  // ENTRIES
+  entriesChannel = supabase
+    .channel('rt-games-entry')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'games', table: 'entry' },
+      async (payload: any) => {
+        const type = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
+        console.log('[RT:entry]', type, { new: payload.new, old: payload.old })
+
+        const affectedEventId: string | undefined =
+          (type === 'DELETE' ? payload.old?.event_id : payload.new?.event_id) || undefined
+        if (!affectedEventId) return
+
+        // NEW: Always refresh count from server for the affected event
+        await refreshEntryCount(affectedEventId)
+
+        // Keep your previous snapshot refresh + status handling
+        if (idxById.value.has(affectedEventId)) {
+          const latest = await fetchEventById(affectedEventId)
+          if (latest) {
+            const i = idxById.value.get(affectedEventId)!
+            const merged = { ...events.value[i], ...latest }
+            events.value.splice(i, 1, merged)
+            console.log('[RT:entry] refreshed event snapshot ->', affectedEventId)
+
+            if (merged.status !== 'open') {
+              events.value.splice(i, 1)
+              console.log('[RT:entry] event left open -> removed', affectedEventId)
+            }
+          } else {
+            console.log('[RT:entry] event not found (maybe deleted) ->', affectedEventId)
+          }
+          await loadMyEntriesFor([affectedEventId])
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('[RT:entry] subscription status:', status)
+    })
+
+  // PRODUCTS
+  productsChannel = supabase
+    .channel('rt-games-products')
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'games', table: 'products' },
+      async (payload: any) => {
+        console.log('[RT:product] UPDATE', { new: payload.new, old: payload.old })
+        const prodId = payload.new?.id as string | undefined
+        if (!prodId) return
+        const affected: EventRow[] = events.value.filter((e) => e.product_id === prodId)
+        if (affected.length > 0) {
+          await attachPrizeImages(affected)
+          for (const e of affected) {
+            const i = idxById.value.get(e.id)
+            if (i != null) {
+              events.value.splice(i, 1, { ...events.value[i] })
+            }
+          }
+          console.log('[RT:product] refreshed prize images for', affected.length, 'event(s)')
+        }
+      }
+    )
+    .subscribe((status) => {
+      console.log('[RT:product] subscription status:', status)
+    })
+}
+
+async function fetchEventById(id: string): Promise<EventRow | null> {
+  const { data, error } = await supabase.schema('games').from('event').select('*').eq('id', id).single()
+  if (error) {
+    console.warn('[FETCH] Event not found:', id, error?.message)
+    return null
+  }
+  const row = data as EventRow
+  if (row.product_id) {
+    await attachPrizeImages([row])
+  } else {
+    row.imageUrl = null
+  }
+  return row
+}
+
+/** NEW: refresh a single event's live joined count, patch in-memory row too */
+async function refreshEntryCount(eventId: string) {
+  try {
+    const { count, error } = await supabase
+      .schema('games')
+      .from('entry')
+      .select('*', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+
+    if (error) throw error
+    const c = typeof count === 'number' ? count : 0
+    entryCounts[eventId] = c
+
+    const i = idxById.value.get(eventId)
+    if (i != null) {
+      const patched = { ...events.value[i], player_count: c }
+      events.value.splice(i, 1, patched)
+    }
+    console.log('[COUNT] event', eventId, 'joined =', c)
+  } catch (e: any) {
+    console.warn('[COUNT] refreshEntryCount failed for', eventId, e?.message || e)
+  }
+}
+
+/* ---------------- lifecycle ---------------- */
+
 onMounted(() => {
+  console.log('[LIFECYCLE] Mounted -> loading + subscribing')
   loadOpenEvents()
+  subscribeRealtime()
+})
+
+onUnmounted(() => {
+  console.log('[LIFECYCLE] Unmounting -> removing channels')
+  if (eventsChannel) {
+    supabase.removeChannel(eventsChannel)
+    eventsChannel = null
+  }
+  if (entriesChannel) {
+    supabase.removeChannel(entriesChannel)
+    entriesChannel = null
+  }
+  if (productsChannel) {
+    supabase.removeChannel(productsChannel)
+    productsChannel = null
+  }
 })
 </script>
 
