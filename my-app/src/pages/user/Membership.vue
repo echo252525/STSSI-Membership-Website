@@ -368,7 +368,7 @@ const badgeIcon = computed(() => iconFor(currentTier.key))
  *   user.referrals            -> total qualifying referrals
  */
 const user = {
-  tier: 'silver' as Tier['key'],
+  tier: 'regular' as Tier['key'],
   lifetimePurchases: 7_500,
   referrals: 6,
 }
