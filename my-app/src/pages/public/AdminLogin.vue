@@ -1,11 +1,14 @@
 <template>
   <div class="auth-wrap d-flex align-items-center justify-content-center">
-    <div class="auth-card shadow-sm rounded-4 bg-white p-4 p-md-5 d-flex row align-items-center justify-content-center">
-      <button type="button" class="btn-back" aria-label="Back">
-        <span class="material-symbols-outlined">keyboard_arrow_left</span>
-      </button>
-      <img src="../../../public/STSSI_logo.png" class="img-fluid login-logo" alt="STSSI logo" />
-      <h3 class="fw-bold mb-4 text-center">Admin Login</h3>
+    <div
+      class="auth-card shadow-sm rounded-4 bg-white p-4 p-md-5"
+    >
+      <div
+        class="auth-head d-flex align-items-center justify-content-center gap-3 mb-4 text-center"
+      >
+        <img src="../../../public/STSSI_logo.png" class="img-fluid login-logo" alt="STSSI logo" />
+        <h3 class="fw-bold">Admin Login</h3>
+      </div>
 
       <form @submit.prevent="handleLogin" novalidate>
         <div class="mb-3">
@@ -13,27 +16,48 @@
           <input v-model.trim="email" type="email" class="form-control" id="email" required />
         </div>
 
-        <div class="mb-3">
+        <div class="mb-3 position-relative">
           <label for="password" class="form-label">Password</label>
-          <input v-model="password" type="password" class="form-control" id="password" required />
+          <div class="input-group">
+            <input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              class="form-control"
+              id="password"
+              required
+            />
+            <span class="input-group-text bg-white" role="button" @click="togglePassword">
+              <span class="material-symbols-outlined">
+                {{ showPassword ? 'visibility' : 'visibility_off' }}
+              </span>
+            </span>
+          </div>
         </div>
 
-        <button type="submit" class="btn btn-primary w-100" :disabled="loading">
-          <span
-            v-if="loading"
-            class="spinner-border spinner-border-sm me-2"
-            role="status"
-            aria-hidden="true"
-          ></span>
-          {{ loading ? 'Signing in…' : 'Log in' }}
-        </button>
+        <div class="d-flex flex-column flex-sm-row gap-2">
+          <button type="button" href="#" class="btn btn-outline-secondary flex-fill">Back</button>
+          <button type="submit" class="btn btn-primary flex-fill" :disabled="loading">
+            <span
+              v-if="loading"
+              class="spinner-border spinner-border-sm me-2"
+              role="status"
+              aria-hidden="true"
+            ></span>
+            {{ loading ? 'Signing in…' : 'Log in' }}
+          </button>
+        </div>
       </form>
 
       <p v-if="errorMsg" class="text-center small text-danger mt-3 mb-0">{{ errorMsg }}</p>
 
       <p class="text-center small mt-3 mb-0">
         Don’t have an account?
-        <router-link :to="{ name: 'admin.signup' }">Sign up here</router-link>
+        <router-link
+          class="link-offset-2 link-offset-2-hover link-underline link-underline-opacity-0 link-underline-opacity-75-hover"
+          :to="{ name: 'admin.signup' }"
+        >
+          Sign up here
+        </router-link>
       </p>
     </div>
   </div>
@@ -50,6 +74,12 @@ const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const errorMsg = ref('')
+
+// show password
+const showPassword = ref(false)
+const togglePassword = () => {
+  showPassword.value = !showPassword.value
+}
 
 const handleLogin = async () => {
   errorMsg.value = ''
@@ -102,57 +132,33 @@ const handleLogin = async () => {
 :root,
 :host {
   --green: #20a44c;
-  --blue: #30ace4; /* bright blue from the logo family */
-  --azure: #20647c; /* deep teal accent */
+  --blue: #30ace4;
+  --azure: #20647c;
 }
 .auth-wrap {
   min-height: 100vh;
-  background: linear-gradient(135deg, #eef4ff, #f7fcff 40%, #f6fff7);
+  background: linear-gradient(135deg, #afffca, #f7fcff 50%, #a4e7ff);
 }
 .auth-card {
-  position: relative;
   max-width: 450px;
   width: 100%;
 }
 
-/* back button */
-.btn-back{
-  position: absolute;
-  top: 7%;
-  left: 85%;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid gray;
-  cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease;
-  .material-symbols-outlined {
-    color: gray;
-  }
-}
-.btn-back:hover{
-  background-color: rgba(32,100,124,.08);  /* still flat, no shadow */
-}
-
-/* keep logo proportions */
+/* logo */
+.auth-head {
+  flex-wrap: wrap;
+} /* lets them stack on very small screens */
 .login-logo {
-  height: 58px; /* pick your size */
-  width: auto; /* prevents squish */
-  object-fit: contain;
-  display: block;
-  margin: 1.5rem auto 0.5rem; /* optional: center above heading */
-}
+  height: 38px;
+  width: auto;
+} /* tidy size beside the text */
 
 @media only screen and (max-width: 431px) {
   .auth-card {
     max-width: 350px;
   }
   .login-logo {
-    height: 48px;
+    height: 38px;
   }
 }
 </style>
