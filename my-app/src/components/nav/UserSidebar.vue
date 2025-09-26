@@ -46,8 +46,15 @@
       <div class="text-center mb-4 profile" :title="displayName" v-show="!isCollapsed">
         <div
           class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
-          style="width: 56px; height: 56px; font-weight: 700;"
+          style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden;"
         >
+          <!-- ✅ Profile photo (keeps initials as fallback) -->
+          <img
+            v-if="avatarUrl"
+            :src="avatarUrl"
+            alt="Profile"
+            class="profile-avatar-img"
+          />
           {{ initials }}
         </div>
         <div class="profile-text">
@@ -104,6 +111,22 @@
           </RouterLink>
         </li>
 
+        <!-- 🔹 NEW: E-Wallet link (added above Settings) -->
+        <li class="nav-item">
+          <RouterLink
+            :to="{ name: 'user.ewallet' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'E-Wallet' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-wallet2 fs-5"></i>
+            <span class="link-text" v-show="!isCollapsed">E-Wallet</span>
+          </RouterLink>
+        </li>
+        <!-- 🔹 END NEW -->
+
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.settings' }"
@@ -154,6 +177,9 @@ const toggle = () => {
 const userEmail = ref<string>('')
 const fullName = ref<string>('')
 const membershipType = ref<string>('') // regular | silver | gold | diamond | platinum
+
+// ✅ Added: holds signed URL for profile avatar
+const avatarUrl = ref<string | null>(null)
 
 const initials = computed(() => {
   const name = (fullName.value || userEmail.value || '').trim()
@@ -247,6 +273,27 @@ onMounted(async () => {
     }
 
     if (row?.membership_type) membershipType.value = String(row.membership_type)
+
+    // ✅ Fetch profile_url and create a signed URL for avatar
+    try {
+      const { data: urow } = await supabase
+        .from('users')
+        .select('profile_url')
+        .eq('id', user.id)
+        .single()
+
+      const objectPath = urow?.profile_url as string | null
+      if (objectPath) {
+        const { data: signed } = await supabase.storage
+          .from('user_profile')
+          .createSignedUrl(objectPath, 3600) // 1 hour
+        if (signed?.signedUrl) {
+          avatarUrl.value = signed.signedUrl
+        }
+      }
+    } catch {
+      // ignore avatar load errors
+    }
   }
 })
 </script>
@@ -317,4 +364,13 @@ onMounted(async () => {
 
 /* Hide tier icon if collapsed */
 .collapsed .tier-icon { display: none !important; }
+
+/* ✅ Avatar image fill */
+.profile-avatar-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 </style>

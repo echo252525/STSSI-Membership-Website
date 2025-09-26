@@ -120,6 +120,22 @@
           </RouterLink>
         </li>
 
+        <!-- 🔹 NEW: Transactions link (added above Settings) -->
+        <li class="nav-item" v-if="has('admin.transactions')">
+          <RouterLink
+            :to="{ name: 'admin.transactions' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'Transactions' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-receipt fs-5"></i>
+            <span class="link-text">Transactions</span>
+          </RouterLink>
+        </li>
+        <!-- 🔹 END NEW -->
+
         <li class="nav-item" v-if="has('admin.settings')">
           <RouterLink
             :to="{ name: 'admin.settings' }"

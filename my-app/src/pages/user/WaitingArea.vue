@@ -23,11 +23,65 @@
             <span class="badge rounded-pill px-3 py-2 wa-pill-soft text-capitalize">{{ event.status }}</span>
           </div>
 
-        <div class="wa-progress-wrap mt-3" role="progressbar" :aria-valuenow="progressPct" aria-valuemin="0" aria-valuemax="100">
+          <div class="wa-progress-wrap mt-3" role="progressbar" :aria-valuenow="progressPct" aria-valuemin="0" aria-valuemax="100">
             <div class="wa-progress-bar" :style="{ width: progressPct + '%' }"></div>
             <div class="wa-progress-label">{{ progressPct }}%</div>
           </div>
         </div>
+
+        <!-- 🆕 Joined players grid -->
+        <div v-if="event" class="mt-4">
+          <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+            <div class="text-start">
+              <div class="fw-semibold">Players in lobby</div>
+              <div class="small text-secondary">
+                Showing users with status <code class="text-light">joined</code>
+              </div>
+            </div>
+            <div class="small text-secondary">
+              {{ joinedUsers.length }} joined
+            </div>
+          </div>
+
+          <div class="wa-users-grid">
+            <!-- loading skeletons -->
+            <template v-if="loadingJoined">
+              <div v-for="n in 6" :key="'s'+n" class="wa-user-card">
+                <div class="wa-avatar-skeleton"></div>
+                <div class="wa-username-skeleton"></div>
+              </div>
+            </template>
+
+            <!-- users -->
+            <template v-else>
+              <div
+                v-for="u in joinedUsers"
+                :key="u.id"
+                class="wa-user-card"
+                :title="u.full_name || '—'"
+              >
+                <img
+                  v-if="u.avatar_url"
+                  :src="u.avatar_url"
+                  class="wa-avatar"
+                  alt="avatar"
+                  @error="e => (e.target as HTMLImageElement).style.display = 'none'"
+                />
+                <div v-else class="wa-avatar wa-avatar-fallback">
+                  {{ initials(u.full_name) }}
+                </div>
+                <div class="wa-username text-truncate">
+                  {{ u.full_name || '—' }}
+                </div>
+              </div>
+
+              <div v-if="!joinedUsers.length" class="text-secondary small py-2">
+                No one has joined yet. Share the lobby to fill it up!
+              </div>
+            </template>
+          </div>
+        </div>
+        <!-- /Joined players grid -->
 
         <!-- Product image: centered round tile -->
         <div class="wa-image-frame mt-4">
@@ -152,7 +206,7 @@
 
 <script setup lang="ts">
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
-import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'  // <-- added watch
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
 const route = useRoute()
@@ -191,6 +245,11 @@ type EventRow = {
 const event = ref<EventRow | null>(null)
 const imageUrl = ref<string | null>(null)
 
+// 🆕 joined users state
+type UserProfile = { id: string; full_name: string | null; avatar_url?: string | null }
+const joinedUsers = ref<UserProfile[]>([])
+const loadingJoined = ref<boolean>(true)
+
 // Progress (players / cap) as %
 const progressPct = computed<number>(() => {
   if (!event.value) return 0
@@ -202,8 +261,9 @@ const progressPct = computed<number>(() => {
 })
 
 // ===== CONFIG per your setup =====
-const PRODUCT_BUCKET = 'prize_product' // your storage bucket name
-const READY_STATUS = 'ready'           // 🆕 entry.status value to set before redirect
+const PRODUCT_BUCKET = 'prize_product' // product images bucket
+const AVATAR_BUCKET  = 'user_profile'  // 🆕 user avatars bucket
+const READY_STATUS = 'ready'
 
 function isHttpUrl(path?: string | null) {
   return !!path && /^https?:\/\//i.test(path)
@@ -212,8 +272,6 @@ function isHttpUrl(path?: string | null) {
 /**
  * Create a SIGNED URL for a storage object path in the 'prize_product' bucket.
  * If the product_url is already http(s), it is returned as-is.
- * @param path storage path like "products/abc123.jpg"
- * @param expiresIn seconds (default 1 hour)
  */
 async function toSignedUrl(path: string | null | undefined, expiresIn = 3600): Promise<string | null> {
   if (!path) return null
@@ -224,6 +282,24 @@ async function toSignedUrl(path: string | null | undefined, expiresIn = 3600): P
     .createSignedUrl(path, expiresIn, { download: false })
   if (error) {
     console.error('createSignedUrl error:', error)
+    return null
+  }
+  return data?.signedUrl || null
+}
+
+/**
+ * 🆕 Create a SIGNED URL for a storage object path in the 'user_profile' bucket.
+ * If the profile_url is already http(s), it is returned as-is.
+ */
+async function toSignedAvatar(path: string | null | undefined, expiresIn = 3600): Promise<string | null> {
+  if (!path) return null
+  if (isHttpUrl(path)) return path
+  const { data, error } = await supabase
+    .storage
+    .from(AVATAR_BUCKET)
+    .createSignedUrl(path, expiresIn, { download: false })
+  if (error) {
+    console.error('avatar createSignedUrl error:', error)
     return null
   }
   return data?.signedUrl || null
@@ -354,7 +430,7 @@ async function fetchEventAndImage() {
       err.value = 'No event specified.'
       return
     }
-    // 1) Get event (ALL columns, as per provided schema)
+    // 1) Get event
     const { data: ev, error: evErr } = await supabase
       .schema('games')
       .from('event')
@@ -379,14 +455,14 @@ async function fetchEventAndImage() {
       at: new Date().toISOString(),
     })
 
-    // 🔵 Check redirect immediately after fetch
+    // redirect check
     maybeRedirect()
 
     // 2) If event has product_id, fetch products.product_url
     if (ev?.product_id) {
       const { data: prod, error: prodErr } = await supabase
         .schema('games')
-        .from('products') // plural
+        .from('products')
         .select('product_url')
         .eq('id', ev.product_id)
         .single()
@@ -396,8 +472,7 @@ async function fetchEventAndImage() {
         imageLoading.value = false
       } else {
         const path = (prod as any)?.product_url as string | null
-        imageUrl.value = await toSignedUrl(path) // ← SIGNED URL
-        // image will flip imageLoading off onload/onerror in <img>
+        imageUrl.value = await toSignedUrl(path)
       }
     } else {
       imageLoading.value = false
@@ -406,6 +481,68 @@ async function fetchEventAndImage() {
     console.error(e)
   } finally {
     isLoading.value = false
+  }
+}
+
+// 🆕 Fetch profiles for users in this event with status='joined'
+// (No DB joins needed; avoid relationship cache issues)
+async function fetchJoinedUsers() {
+  if (!eventId) return
+  loadingJoined.value = true
+  try {
+    // 1) get distinct user_ids from games.entry
+    const { data: entries, error: entErr } = await supabase
+      .schema('games')
+      .from('entry')
+      .select('user_id')
+      .eq('event_id', eventId)
+      .eq('status', 'joined')
+
+    if (entErr) {
+      console.error('[joined] entry query failed:', entErr)
+      joinedUsers.value = []
+      return
+    }
+
+    const userIds = [...new Set((entries || []).map((e: any) => e.user_id))] as string[]
+    if (userIds.length === 0) {
+      joinedUsers.value = []
+      return
+    }
+
+    // 2) fetch public.users profiles
+    //    Columns: id, full_name, profile_url (this holds the path/url to the avatar)
+    const { data: users, error: usrErr } = await supabase
+      .from('users')
+      .select('id, full_name, profile_url')
+      .in('id', userIds)
+
+    if (usrErr) {
+      console.error('[joined] users query failed:', usrErr)
+      joinedUsers.value = []
+      return
+    }
+
+    // 3) resolve each profile_url into a signed avatar URL from user_profile bucket
+    const normalized: UserProfile[] = await Promise.all(
+      (users || []).map(async (u: any) => {
+        const signed = await toSignedAvatar(u.profile_url ?? null)
+        return {
+          id: u.id,
+          full_name: u.full_name ?? null,
+          avatar_url: signed, // used by the template <img v-if="u.avatar_url" ... />
+        }
+      })
+    )
+
+    // sort optional by name
+    normalized.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+    joinedUsers.value = normalized
+  } catch (e) {
+    console.error('[joined] unexpected:', e)
+    joinedUsers.value = []
+  } finally {
+    loadingJoined.value = false
   }
 }
 
@@ -493,6 +630,13 @@ function formatDate(v: string | null | undefined) {
   }
 }
 
+// 🆕 initials helper for avatar fallback
+function initials(name?: string | null) {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/).slice(0, 2)
+  return parts.map(p => p[0]?.toUpperCase() || '').join('') || 'U'
+}
+
 /* =========================== 🔴 Realtime additions =========================== */
 let realtimeChannel: any | null = null
 let realtimeEntryChannel: any | null = null  // 🆕 entry channel for instant reaction
@@ -507,7 +651,10 @@ function scheduleRefresh(delayMs = 250) {
   refreshTimer = window.setTimeout(async () => {
     refreshTimer = null
     console.log('[realtime] scheduleRefresh → fetching event…', new Date().toISOString())
-    await fetchEventAndImage()
+    await Promise.all([
+      fetchEventAndImage(),
+      fetchJoinedUsers(), // 🆕 also refresh joined users list
+    ])
   }, delayMs)
 }
 
@@ -603,8 +750,10 @@ function makeRealtimeEntryChannel() {
         })
 
         // Any entry insert/update can affect player_count via your triggers → refresh immediately
-        // This makes redirect feel "instant" even if the event update arrives a moment later.
-        await fetchEventAndImage()
+        await Promise.all([
+          fetchEventAndImage(),
+          fetchJoinedUsers(), // 🆕 refresh joined users immediately on entry changes
+        ])
         // Safety: re-check after refresh
         maybeRedirect()
       }
@@ -622,6 +771,7 @@ function startPoll() {
   pollHandle = window.setInterval(() => {
     console.log('[poll] safety fetch at', new Date().toISOString())
     fetchEventAndImage()
+    fetchJoinedUsers() // 🆕 poll users too (cheap + robust)
   }, POLL_MS)
 }
 function stopPoll() {
@@ -656,6 +806,7 @@ watch(() => event.value?.status, (nv, ov) => {
 
 onMounted(() => {
   fetchEventAndImage()
+  fetchJoinedUsers() // 🆕 initial load
   window.addEventListener('beforeunload', beforeUnload)
 
   /* Realtime init */
@@ -735,7 +886,7 @@ onBeforeUnmount(() => {
   z-index: 1;
 }
 .wa-title { color: #f3f6ff; }
-.wa-subtext { color: var(--wa-muted); }
+.wa-subtext { color: #f3f6ff; opacity:.8; }
 .wa-title-wrap { display: grid; gap: 2px; }
 
 /* Lobby top row */
@@ -776,6 +927,66 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: #c7d3ff;
   text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+}
+
+/* 🆕 Users grid */
+.wa-users-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  text-align: left;
+}
+@media (max-width: 1200px) { .wa-users-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 992px)  { .wa-users-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 768px)  { .wa-users-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 576px)  { .wa-users-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.wa-user-card {
+  background: var(--wa-chip);
+  border: 1px solid var(--wa-chip-border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  grid-template-rows: 40px auto;
+  align-items: center;
+  column-gap: 10px;
+}
+.wa-avatar {
+  grid-row: 1 / 2;
+  grid-column: 1 / 2;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--wa-border);
+  background: #0e1530;
+}
+.wa-avatar-fallback {
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  letter-spacing: .5px;
+  color: #dbe5ff;
+}
+.wa-username {
+  grid-row: 1 / 2;
+  grid-column: 2 / 3;
+  font-size: 13px;
+  color: #eaf1ff;
+}
+.wa-avatar-skeleton {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid var(--wa-border);
+  background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
+  background-size: 400% 100%;
+  animation: wa-shimmer 1.4s ease-in-out infinite;
+}
+.wa-username-skeleton {
+  height: 10px; width: 70%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
+  background-size: 400% 100%;
+  animation: wa-shimmer 1.4s ease-in-out infinite;
 }
 
 /* Circular prize image */
