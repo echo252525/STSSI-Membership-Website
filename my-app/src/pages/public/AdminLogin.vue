@@ -1,10 +1,8 @@
 <template>
   <div class="auth-wrap d-flex align-items-center justify-content-center">
-    <div
-      class="auth-card shadow-sm rounded-4 bg-white p-4 p-md-5"
-    >
+    <div class="auth-card shadow-sm rounded-4 bg-white p-4 p-md-5">
       <div
-        class="auth-head d-flex align-items-center justify-content-center gap-3 mb-4 text-center"
+        class="auth-head d-flex align-items-center justify-content-center gap-4 mb-4 text-center"
       >
         <img src="../../../public/STSSI_logo.png" class="img-fluid login-logo" alt="STSSI logo" />
         <h3 class="fw-bold">Admin Login</h3>
@@ -35,7 +33,7 @@
         </div>
 
         <div class="d-flex flex-column flex-sm-row gap-2">
-          <button type="button" href="#" class="btn btn-outline-secondary flex-fill">Back</button>
+          <button type="button" class="btn btn-outline-secondary flex-fill">Back</button>
           <button type="submit" class="btn btn-primary flex-fill" :disabled="loading">
             <span
               v-if="loading"
@@ -43,7 +41,7 @@
               role="status"
               aria-hidden="true"
             ></span>
-            {{ loading ? 'Signing in…' : 'Log in' }}
+            {{ loading ? 'Signing in…' : 'Login' }}
           </button>
         </div>
       </form>
@@ -143,19 +141,17 @@ const handleLogin = async () => {
   max-width: 450px;
   width: 100%;
 }
-
 /* logo */
 .auth-head {
   flex-wrap: wrap;
-} /* lets them stack on very small screens */
+}
 .login-logo {
   height: 38px;
   width: auto;
-} /* tidy size beside the text */
-
+}
 @media only screen and (max-width: 431px) {
   .auth-card {
-    max-width: 350px;
+    max-width: 400px;
   }
   .login-logo {
     height: 38px;

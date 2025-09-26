@@ -2,7 +2,7 @@
   <div class="auth-wrap d-flex align-items-center justify-content-center">
     <div class="auth-card shadow-sm rounded-4 bg-white p-4 p-md-5">
       <div
-        class="auth-head d-flex align-items-center justify-content-center gap-3 mb-4 text-center"
+        class="auth-head d-flex align-items-center justify-content-center gap-4 mb-4 text-center"
       >
         <img src="../../../public/STSSI_logo.png" class="img-fluid login-logo" alt="STSSI logo" />
         <h3 class="fw-bold">Admin Signup</h3>
@@ -10,7 +10,7 @@
 
       <form @submit.prevent="handleSignup" novalidate>
         <div class="mb-3">
-          <label for="fullName" class="form-label">Full Name</label>
+          <label for="fullName" class="form-label">Full Name *</label>
           <input
             v-model.trim="fullName"
             type="text"
@@ -22,32 +22,67 @@
         </div>
 
         <div class="mb-3">
-          <label for="email" class="form-label">Email</label>
-          <input v-model.trim="email" type="email" class="form-control" id="email" required />
+          <label for="email" class="form-label">Email *</label>
+          <input
+          v-model.trim="email"
+          type="email"
+          class="form-control"
+          id="email"
+          required
+        />
         </div>
 
-        <div class="mb-3 position-relative">
-          <label for="password" class="form-label">Password</label>
-          <div class="input-group">
-            <input
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              class="form-control"
-              id="password"
-              required
-            />
-            <span class="input-group-text bg-white" role="button" @click="togglePassword">
-              <span class="material-symbols-outlined">
-                {{ showPassword ? 'visibility' : 'visibility_off' }}
+        <div class="password-div d-flex justify-content-between gap-2">
+          <div class="position-relative flex-fill">
+            <label for="password" class="form-label">Password *</label>
+            <div class="input-group">
+              <input
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                class="form-control"
+                id="password"
+                required
+              />
+              <span 
+                class="input-group-text bg-white"
+                role="button"
+                @click="togglePassword"
+              >
+                <span
+                  class="material-symbols-outlined">
+                  {{ showPassword ? 'visibility' : 'visibility_off' }}
+                </span>
               </span>
-            </span>
+            </div>
+          </div>
+
+          <div class="flex-fill mb-3">
+            <label for="confirmPassword" class="form-label">Confirm Password *</label>
+            <div class="input-group">
+              <input
+                :type="showConfirmPassword ? 'text' : 'password'"
+                class="form-control"
+                id="confirmPassword"
+                required
+              />
+              <span 
+                class="input-group-text bg-white"
+                role="button"
+                @click="toggleConfirmPassword"
+              >
+                <span
+                  class="material-symbols-outlined">
+                  {{ showConfirmPassword ? 'visibility' : 'visibility_off' }}
+                </span>
+              </span>
+            </div>
           </div>
         </div>
 
-        <div class="d-flex justify-content-between gap-2">
-          <div class="mb-3">
+        <div class="phonenum-age-div d-flex justify-content-between gap-2">
+          <div class="flex-fill">
             <label for="number" class="form-label">Phone Number</label>
-            <input
+              <input
               v-model.trim="number"
               type="tel"
               class="form-control"
@@ -55,9 +90,15 @@
             />
           </div>
 
-          <div class="mb-3">
+          <div class="mb-3 flex-fill">
             <label for="age" class="form-label">Age</label>
-            <input v-model.number="age" type="number" min="0" class="form-control" id="age" />
+            <input
+              v-model.number="age"
+              type="number"
+              min="0"
+              class="form-control"
+              id="age"
+            />
           </div>
         </div>
 
@@ -123,6 +164,11 @@ const errorMsg = ref('')
 const showPassword = ref(false)
 const togglePassword = () => {
   showPassword.value = !showPassword.value
+}
+// show confirm password
+const showConfirmPassword = ref(false)
+const toggleConfirmPassword = () => {
+  showConfirmPassword.value = !showConfirmPassword.value
 }
 
 // ⬇️ pass the Auth UID so admins.id == auth.users.id
@@ -204,22 +250,26 @@ const handleSignup = async () => {
   background: linear-gradient(135deg, #afffca, #f7fcff 50%, #a4e7ff);
 }
 .auth-card {
-  max-width: 520px;
+  max-width: 720px;
   width: 100%;
 }
-
 /* logo */
 .auth-head {
   flex-wrap: wrap;
-} /* lets them stack on very small screens */
+}
 .login-logo {
   height: 38px;
   width: auto;
-} /* tidy size beside the text */
-
+}
 @media only screen and (max-width: 431px) {
+  .password-div {
+    flex-direction: column;
+  }
+  .phonenum-age-div {
+    flex-direction: column;
+  }
   .auth-card {
-    max-width: 350px;
+    max-width: 400px;
   }
   .login-logo {
     height: 38px;
