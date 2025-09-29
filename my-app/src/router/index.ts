@@ -18,6 +18,10 @@ import ewallet from '@/pages/user/Ewallet.vue'
 import Settings from '@/pages/user/Settings.vue'
 import WaitingArea from '@/pages/user/WaitingArea.vue' // stays in pages/user/
 import GamesEvent from '@/pages/user/GamesEvent.vue' // ✅ NEW: add this import
+import DealsRewards from '@/pages/user/DealsRewards.vue' // ✅ NEW: add this import
+import Winner from '@/pages/user/Winner.vue' // ✅ NEW: add this import
+import Loser from '@/pages/user/Loser.vue' // ✅ NEW: add this import
+
 
 import AdminDashboard from '@/pages/admin/AdminDashboard.vue'
 import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue'
@@ -49,6 +53,8 @@ const routes: RouteRecordRaw[] = [
         // (optional) if you want to receive eventId as a prop:
         // props: route => ({ eventId: route.query.eventId })
       },
+      { path: 'winner', name: 'user.winner', component: Winner },
+      { path: 'loser', name: 'user.loser', component: Loser },
     ],
   },
   {
@@ -58,6 +64,7 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'user.dashboard', component: UserDashboard },
       { path: 'membership', name: 'user.membership', component: Membership },
       { path: 'minigames', name: 'user.minigames', component: MiniGames },
+      { path: 'deals', name: 'user.deals', component: DealsRewards }, // ✅ new route
       { path: 'ewallet', name: 'user.ewallet', component: ewallet },
       { path: 'settings', name: 'user.settings', component: Settings },
 

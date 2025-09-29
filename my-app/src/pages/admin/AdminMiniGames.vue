@@ -843,6 +843,7 @@ type ProductRow = {
   id: string
   name: string
   price: number | string
+  supplier_price: number | string   // ✅ added
   product_url: string | null
 }
 
@@ -907,7 +908,7 @@ async function loadProducts() {
   const { data, error } = await supabase
     .schema('games')
     .from('products')
-    .select('id,name,price,product_url')
+    .select('id,name,price,supplier_price,product_url') // ✅ include supplier_price
     .order('created_at', { ascending: false })
   if (!error && data) products.value = data as ProductRow[]
   productsLoading.value = false
@@ -918,7 +919,9 @@ const prevAutoTitle = ref('')
 watch(selectedProductId, () => {
   const p = selectedProduct.value
   if (!p) return
-  form.item_supplier_cost = Number(p.price ?? 0)
+  // ✅ prefill from supplier_price instead of price
+  form.item_supplier_cost = Number(p.supplier_price ?? 0) // ⬅️ from supplier_price
+  form.entry_fee = Number(p.price ?? 0)  
   // recalc interest pool after supplier cost changes (using current percent)
   form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 

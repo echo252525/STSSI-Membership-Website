@@ -335,7 +335,64 @@ function isGamesEventRoute(to: any) {
   return (nameOk || pathOk) && !!sameEvent
 }
 
-/* 🆕 Set the user's entry.status='ready' for this event before redirect */
+/* =========================================================================
+   🆕 Charging logic: when marking ready, deduct entry_fee from users.balance
+   ========================================================================= */
+const chargedReady = ref(false) // session guard to avoid double-charging
+
+/** Round the entry fee to an integer pesos amount for users.balance */
+function normalizedFee(): number {
+  const fee = Number(event.value?.entry_fee ?? 0)
+  return Math.max(0, Math.round(fee))
+}
+
+async function chargeUserForEntry(userId: string): Promise<boolean> {
+  try {
+    const fee = normalizedFee()
+    if (fee <= 0) return true // nothing to charge
+
+    // 1) Get current balance
+    const { data: urow, error: uerr } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', userId)
+      .single()
+
+    if (uerr) {
+      err.value = 'Could not read your balance.'
+      console.warn('[charge] read balance failed:', uerr)
+      return false
+    }
+
+    const cur = Number(urow?.balance ?? 0)
+    if (cur < fee) {
+      err.value = 'Insufficient balance to join. Please top up.'
+      console.warn('[charge] insufficient funds:', { cur, fee })
+      return false
+    }
+
+    // 2) Deduct (note: two-step client-side update; acceptable here)
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ balance: cur - fee })
+      .eq('id', userId)
+
+    if (updErr) {
+      err.value = 'Could not deduct entry fee.'
+      console.warn('[charge] update balance failed:', updErr)
+      return false
+    }
+
+    console.log('[charge] deducted entry fee', { fee, newBalance: cur - fee })
+    return true
+  } catch (e) {
+    console.warn('[charge] unexpected:', e)
+    err.value = 'Payment failed unexpectedly.'
+    return false
+  }
+}
+
+/* 🆕 Set the user's entry.status='ready' and charge once */
 async function markEntryReady() {
   try {
     if (!eventId) return
@@ -346,6 +403,40 @@ async function markEntryReady() {
     }
     const userId = userRes.user?.id
     if (!userId) return
+
+    // Ensure we know the fee; fetch event if missing
+    if (!event.value?.id) {
+      await fetchEventAndImage()
+      if (!event.value?.id) return
+    }
+
+    // Check current entry status to avoid double-deduct
+    const { data: entryRow, error: entErr } = await supabase
+      .schema('games')
+      .from('entry')
+      .select('id, status')
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    if (entErr) {
+      console.warn('[ready] entry lookup failed:', entErr)
+      return
+    }
+
+    const alreadyReady = (entryRow?.status || '').toLowerCase() === READY_STATUS
+    if (alreadyReady) {
+      console.log('[ready] already ready, skipping charge/update')
+      chargedReady.value = true
+      return
+    }
+
+    // Charge first; if successful, move to ready
+    if (!chargedReady.value) {
+      const ok = await chargeUserForEntry(userId)
+      if (!ok) return // stop; do not mark ready
+      chargedReady.value = true
+    }
 
     const { error: updErr } = await supabase
       .schema('games')
@@ -364,13 +455,37 @@ async function markEntryReady() {
   }
 }
 
+/* If backend flips our entry to ready via realtime, charge once as well */
+async function ensureChargeOnRealtimeReady(payload: any) {
+  try {
+    const { data: userRes } = await supabase.auth.getUser()
+    const uid = userRes.user?.id
+    if (!uid) return
+    const newStatus = String(payload?.new?.status || '').toLowerCase()
+    const newUser = String(payload?.new?.user_id || '')
+    if (newStatus === READY_STATUS && newUser === uid && !chargedReady.value) {
+      // Make sure event is loaded for fee
+      if (!event.value?.id) await fetchEventAndImage()
+      const ok = await chargeUserForEntry(uid)
+      if (ok) chargedReady.value = true
+    }
+  } catch (e) {
+    console.warn('[realtime charge] error:', e)
+  }
+}
+
 async function navigateToGamesEvent() {
   if (!eventId) return
   // prevent deletion on this programmatic navigation
   suppressDelete.value = true
 
-  // 🆕 ensure our entry is marked ready before redirect
+  // 🆕 ensure our entry is marked ready (and charged) before redirect
   await markEntryReady()
+  if (err.value) {
+    // charging failed or balance insufficient; do not navigate
+    suppressDelete.value = false
+    return
+  }
 
   // Try a few likely route names first; fall back to a path if needed.
   const candidates = [
@@ -397,7 +512,6 @@ async function navigateToGamesEvent() {
       return
     } catch (_) { /* try next */ }
   }
-  // Absolute fallback
   try {
     const url = `/app/mini-games/event?eventId=${encodeURIComponent(eventId)}`
     window.location.href = url
@@ -485,12 +599,10 @@ async function fetchEventAndImage() {
 }
 
 // 🆕 Fetch profiles for users in this event with status='joined'
-// (No DB joins needed; avoid relationship cache issues)
 async function fetchJoinedUsers() {
   if (!eventId) return
   loadingJoined.value = true
   try {
-    // 1) get distinct user_ids from games.entry
     const { data: entries, error: entErr } = await supabase
       .schema('games')
       .from('entry')
@@ -510,8 +622,6 @@ async function fetchJoinedUsers() {
       return
     }
 
-    // 2) fetch public.users profiles
-    //    Columns: id, full_name, profile_url (this holds the path/url to the avatar)
     const { data: users, error: usrErr } = await supabase
       .from('users')
       .select('id, full_name, profile_url')
@@ -523,19 +633,17 @@ async function fetchJoinedUsers() {
       return
     }
 
-    // 3) resolve each profile_url into a signed avatar URL from user_profile bucket
     const normalized: UserProfile[] = await Promise.all(
       (users || []).map(async (u: any) => {
         const signed = await toSignedAvatar(u.profile_url ?? null)
         return {
           id: u.id,
           full_name: u.full_name ?? null,
-          avatar_url: signed, // used by the template <img v-if="u.avatar_url" ... />
+          avatar_url: signed,
         }
       })
     )
 
-    // sort optional by name
     normalized.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
     joinedUsers.value = normalized
   } catch (e) {
@@ -748,6 +856,9 @@ function makeRealtimeEntryChannel() {
           status: payload?.new?.status,
           at: new Date().toISOString(),
         })
+
+        /* 🆕 If my row just became ready via server, charge once */
+        await ensureChargeOnRealtimeReady(payload)
 
         // Any entry insert/update can affect player_count via your triggers → refresh immediately
         await Promise.all([

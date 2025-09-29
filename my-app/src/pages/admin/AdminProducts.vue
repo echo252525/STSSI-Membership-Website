@@ -93,6 +93,11 @@
                     {{ p.description || '—' }}
                   </div>
 
+                  <!-- OPTIONAL tiny supplier price readout (kept your original layout) -->
+                  <div class="text-muted xsmall mt-1">
+                    <i class="bi bi-tag me-1"></i>Supplier: ₱ {{ number(p.supplier_price) }}
+                  </div>
+
                   <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
                     <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(p.created_at) }}</span>
                     <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
@@ -142,6 +147,25 @@
                   class="form-control"
                   required
                 />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Supplier Price (₱)</label>
+                <input
+                  v-model.number="form.supplier_price"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="form-control"
+                  :class="{'is-invalid': !supplierOk}"
+                  required
+                />
+                <div class="invalid-feedback">
+                  Supplier price must be &lt; Price and ≥ 0.
+                </div>
+                <div class="form-text" v-if="supplierOk">
+                  Must be strictly lower than the selling price.
+                </div>
               </div>
 
               <div class="col-md-6">
@@ -230,6 +254,7 @@ type ProductRow = {
   name: string
   description: string | null
   price: number | string
+  supplier_price: number | string
   product_url: string
   created_at: string
   updated_at: string
@@ -250,6 +275,7 @@ const form = reactive({
   name: '',
   description: '',
   price: 0,
+  supplier_price: 0,
   product_url: '' as string, // will hold either external URL or storage path
 })
 
@@ -306,7 +332,7 @@ async function loadProducts() {
   const { data, error } = await supabase
     .schema('games')
     .from('products')
-    .select('id, name, description, price, product_url, created_at, updated_at')
+    .select('id, name, description, price, supplier_price, product_url, created_at, updated_at')
     .order('created_at', { ascending: false })
 
   if (!error) products.value = (data ?? []) as ProductRow[]
@@ -324,6 +350,7 @@ function resetForm() {
   form.name = ''
   form.description = ''
   form.price = 0
+  form.supplier_price = 0
   form.product_url = ''
   selectedFile.value = null
   if (fileInput.value) fileInput.value.value = ''
@@ -334,8 +361,17 @@ function onFile(e: Event) {
   selectedFile.value = input.files?.[0] ?? null
 }
 
+/** validation: supplier_price must be >= 0 AND strictly less than price */
+const supplierOk = computed(() => {
+  const sp = Number(form.supplier_price)
+  const p = Number(form.price)
+  if (isNaN(sp) || isNaN(p)) return false
+  return sp >= 0 && sp < p
+})
+
 const canSubmit = computed(() => {
   if (!form.name || form.price < 0) return false
+  if (!supplierOk.value) return false
   if (formMode.value === 'upload') return !!selectedFile.value
   return !!form.product_url
 })
@@ -368,7 +404,14 @@ async function submit() {
       name: form.name.trim(),
       description: form.description?.trim() || null,
       price: Number(form.price),
+      supplier_price: Number(form.supplier_price),
       product_url: productUrl,
+    }
+
+    // Final guard (never trust UI only)
+    if (!(payload.supplier_price >= 0 && payload.supplier_price < payload.price)) {
+      alert('Supplier price must be lower than Price.')
+      return
     }
 
     const { error } = await supabase
@@ -458,4 +501,7 @@ onMounted(() => {
   position: absolute;
   inset: 0;
 }
+
+/* tiny helper */
+.xsmall { font-size: 0.8rem; }
 </style>

@@ -1,4 +1,5 @@
 <template>
+  <!-- (UNCHANGED TEMPLATE, includes the avatar row I added earlier) -->
   <div class="container-fluid">
     <div class="card border-0 shadow-sm rounded-4">
       <div class="card-body p-4">
@@ -77,13 +78,44 @@
                   </div>
                   <div class="spin-stat">
                     <div class="spin-stat__label">Joined</div>
-                    <div class="spin-stat__value">{{ ev.player_count }}</div>
+                    <div class="spin-stat__value">{{ joinedCount(ev) }}</div>
                   </div>
                   <div class="spin-stat">
                     <div class="spin-stat__label">Loser Interest</div>
                     <div class="spin-stat__value">₱ {{ money(ev.interest_per_loser) }}</div>
                   </div>
                 </div>
+
+                <!-- Participants Avatars -->
+                <div class="avatar-row mb-3" v-if="(avatarsByEvent[ev.id]?.length || 0) > 0">
+                  <div class="avatars">
+                    <template v-for="p in avatarsByEvent[ev.id]" :key="p.user_id">
+                      <img
+                        v-if="p.avatarUrl"
+                        class="avatar-img"
+                        :src="p.avatarUrl"
+                        :alt="p.name || 'Player'"
+                        :title="p.name || 'Player'"
+                      />
+                      <div
+                        v-else
+                        class="avatar-fallback"
+                        :title="p.name || 'Player'"
+                        aria-label="No profile photo"
+                      >
+                        <i class="bi bi-person"></i>
+                      </div>
+                    </template>
+                  </div>
+                  <div
+                    v-if="joinedCount(ev) > (avatarsByEvent[ev.id]?.length || 0)"
+                    class="avatar-more"
+                    :title="`${joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0)} more`"
+                  >
+                    +{{ joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0) }}
+                  </div>
+                </div>
+                <!-- /Participants Avatars -->
 
                 <!-- Bottom row -->
                 <div class="d-flex justify-content-between align-items-center">
@@ -135,6 +167,7 @@ import { onMounted, onUnmounted, reactive, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
+/* ==================== TYPES (UNCHANGED) ==================== */
 type EventRow = {
   id: string
   title: string
@@ -163,8 +196,15 @@ type EntryRow = {
   joined_at: string
 }
 
+type AvatarInfo = {
+  user_id: string
+  name: string | null
+  avatarUrl: string | null
+}
+
 const router = useRouter()
 
+/* ==================== STATE (UNCHANGED) ==================== */
 const busy = reactive({ load: false })
 const events = ref<EventRow[]>([])
 const myEntries = ref<Record<string, boolean>>({})
@@ -172,10 +212,15 @@ const joinBusy: Record<string, boolean> = reactive({})
 const joinErr: Record<string, string> = reactive({})
 const joinOk: Record<string, boolean> = reactive({})
 
-// NEW: keep live, authoritative counts per event (synced from entry table)
+// live counts per event
 const entryCounts: Record<string, number> = reactive({})
+// live avatars per event
+const avatarsByEvent: Record<string, AvatarInfo[]> = reactive({})
 
-// quick index helpers to keep updates O(1)
+/* ==================== NEW: lifecycle safety guard ==================== */
+const isAlive = ref(true)
+const sessionId = Math.random().toString(36).slice(2, 9) // unique channel suffix per mount
+
 const idxById = computed<Map<string, number>>(() => {
   const m = new Map<string, number>()
   events.value.forEach((e, i) => m.set(e.id, i))
@@ -191,7 +236,6 @@ function fmt(x: string | null | undefined) {
   const d = new Date((x as string).replace(' ', 'T'))
   return isNaN(d.getTime()) ? '—' : d.toLocaleString()
 }
-// Use the freshest count we have (entryCounts fallback to ev.player_count)
 function joinedCount(ev: EventRow) {
   const c = entryCounts[ev.id]
   return typeof c === 'number' ? c : Number(ev.player_count || 0)
@@ -213,25 +257,33 @@ async function loadOpenEvents() {
       .order('created_at', { ascending: false })
 
     if (error) throw error
+    if (!isAlive.value) return
     events.value = (data ?? []) as EventRow[]
     console.log('[LOAD] Open events loaded:', events.value.length)
 
     await attachPrizeImages(events.value)
     await loadMyEntriesFor(events.value.map((e) => e.id))
 
-    // NEW: initialize joined counts for all visible events
-    await Promise.all(events.value.map((e) => refreshEntryCount(e.id)))
-    console.log('[COUNT] Initialized counts for all open events.')
+    // initialize counts & avatars
+    await Promise.all(
+      events.value.map(async (e) => {
+        await refreshEntryCount(e.id)
+        await refreshParticipantAvatars(e.id)
+      })
+    )
+    if (!isAlive.value) return
+    console.log('[INIT] counts & avatars ready.')
   } catch (e: any) {
     console.error('loadOpenEvents error:', e?.message || e)
   } finally {
-    busy.load = false
+    if (isAlive.value) busy.load = false
   }
 }
 
 const openEvents = computed(() => events.value)
 
 async function loadMyEntriesFor(eventIds: string[]) {
+  if (!isAlive.value) return
   myEntries.value = {}
   try {
     const { data: userRes, error: userErr } = await supabase.auth.getUser()
@@ -250,10 +302,11 @@ async function loadMyEntriesFor(eventIds: string[]) {
       .in('event_id', eventIds)
 
     if (error) throw error
+    if (!isAlive.value) return
     for (const row of (data ?? []) as Pick<EntryRow, 'event_id'>[]) {
       myEntries.value[row.event_id] = true
     }
-    console.log('[LOAD] My joined map prepared for', Object.keys(myEntries.value).length, 'events')
+    console.log('[LOAD] My joined map for', Object.keys(myEntries.value).length, 'events')
   } catch (e: any) {
     console.error('loadMyEntriesFor error:', e?.message || e)
   }
@@ -305,7 +358,6 @@ async function join(ev: EventRow) {
     if (insErr) throw insErr
     console.log('[JOIN] Entry inserted.')
 
-    // We keep your optimistic update, but the realtime + refreshEntryCount will correct any drift.
     const nextCount = Number(ev.player_count) + 1
     const { error: updErr } = await supabase
       .schema('games')
@@ -313,14 +365,14 @@ async function join(ev: EventRow) {
       .update({ player_count: nextCount })
       .eq('id', ev.id)
 
-    if (updErr) console.warn('[JOIN] player_count update failed (will rely on realtime):', updErr)
+    if (updErr) console.warn('[JOIN] player_count update failed; realtime will fix.')
 
     joinOk[ev.id] = true
     myEntries.value[ev.id] = true
 
-    // Hard refresh + ensure count is accurate for this event
     await loadOpenEvents()
     await refreshEntryCount(ev.id)
+    await refreshParticipantAvatars(ev.id)
 
     router.push({ name: 'user.waiting', query: { eventId: ev.id } })
   } catch (e: any) {
@@ -360,6 +412,7 @@ async function attachPrizeImages(list: EventRow[]) {
       .in('id', productIds)
 
     if (prodErr) throw prodErr
+    if (!isAlive.value) return
 
     const urlByProductId = new Map<string, string>()
     for (const row of (products ?? []) as { id: string; product_url: string }[]) {
@@ -391,24 +444,108 @@ async function attachPrizeImages(list: EventRow[]) {
   }
 }
 
+/* ---------------- Avatars helpers ---------------- */
+
+function normalizeToPath(maybePath: string | null | undefined): string | null {
+  if (!maybePath) return null
+  if (/^https?:\/\//i.test(maybePath)) return maybePath
+  return maybePath.replace(/^\/+/, '')
+}
+
+async function signUserProfileUrl(path: string): Promise<string | null> {
+  if (/^https?:\/\//i.test(path)) return path
+  const { data, error } = await supabase.storage.from('user_profile').createSignedUrl(path, 60 * 60)
+  if (error) {
+    console.warn('[AVATAR] sign error:', error.message)
+    return null
+  }
+  const url = data?.signedUrl ?? null
+  return url ? `${url}&cb=${Date.now()}` : null
+}
+
+const AVATAR_LIMIT = 12
+async function refreshParticipantAvatars(eventId: string) {
+  try {
+    const { data: entries, error: entryErr } = await supabase
+      .schema('games')
+      .from('entry')
+      .select('user_id, joined_at')
+      .eq('event_id', eventId)
+      .order('joined_at', { ascending: false })
+      .limit(AVATAR_LIMIT)
+
+    if (entryErr) throw entryErr
+    const userIds = Array.from(new Set((entries ?? []).map((r) => r.user_id))).filter(Boolean)
+    if (userIds.length === 0) {
+      if (!isAlive.value) return
+      avatarsByEvent[eventId] = []
+      return
+    }
+
+    const { data: users, error: usersErr } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, full_name, profile_url')
+      .in('id', userIds)
+
+    if (usersErr) throw usersErr
+    if (!isAlive.value) return
+
+    const map = new Map<string, { full_name: string | null; profile_url: string | null }>()
+    for (const u of (users ?? []) as Array<{ id: string; full_name: string | null; profile_url: string | null }>) {
+      map.set(u.id, { full_name: u.full_name ?? null, profile_url: u.profile_url ?? null })
+    }
+
+    const list: AvatarInfo[] = []
+    for (const e of (entries ?? [])) {
+      const user = map.get(e.user_id)
+      if (!user) continue
+      const path = normalizeToPath(user.profile_url)
+      let url: string | null = null
+      if (path) url = await signUserProfileUrl(path)
+      list.push({
+        user_id: e.user_id,
+        name: user.full_name,
+        avatarUrl: url,
+      })
+    }
+    if (!isAlive.value) return
+    avatarsByEvent[eventId] = list
+    console.log('[AVATAR] Updated', eventId, '->', list.length)
+  } catch (e: any) {
+    console.warn('[AVATAR] refreshParticipantAvatars failed for', eventId, e?.message || e)
+  }
+}
+
 /* ---------------- Realtime wiring ---------------- */
 
+/* NOTE: keep references; add unique names per mount to avoid cross-unsub issues */
 let eventsChannel: ReturnType<typeof supabase.channel> | null = null
 let entriesChannel: ReturnType<typeof supabase.channel> | null = null
 let productsChannel: ReturnType<typeof supabase.channel> | null = null
+let usersChannel: ReturnType<typeof supabase.channel> | null = null
 
 function subscribeRealtime() {
-  console.log('[RT] Subscribing to games.event, games.entry, games.products…')
+  console.log('[RT] Subscribing to games.event, games.entry, games.products, public.users…')
+
+  // Helper to gate callbacks
+  const guard = <T extends any[]>(fn: (...args: T) => any) => {
+    return (...args: T) => {
+      if (!isAlive.value) return
+      return fn(...args)
+    }
+  }
 
   // EVENTS
   eventsChannel = supabase
-    .channel('rt-games-event')
+    .channel(`rt-games-event-${sessionId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'games', table: 'event' },
-      async (payload: any) => {
+      guard(async (payload: any) => {
         const type = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
         console.log('[RT:event]', type, { new: payload.new, old: payload.old })
+        if (!isAlive.value) return
 
         if (type === 'INSERT') {
           const row = payload.new as EventRow
@@ -416,10 +553,12 @@ function subscribeRealtime() {
             if (!idxById.value.has(row.id)) {
               const clone = { ...row }
               await attachPrizeImages([clone])
+              if (!isAlive.value) return
               events.value = [clone, ...events.value]
               console.log('[RT:event] INSERT added ->', row.id)
               await loadMyEntriesFor([row.id])
-              await refreshEntryCount(row.id) // NEW: ensure fresh count
+              await refreshEntryCount(row.id)
+              await refreshParticipantAvatars(row.id)
             }
           }
         } else if (type === 'UPDATE') {
@@ -432,22 +571,28 @@ function subscribeRealtime() {
             if (!isOpen) {
               events.value.splice(i, 1)
               console.log('[RT:event] UPDATE removed (no longer open) ->', row.id)
+              delete entryCounts[row.id]
+              delete avatarsByEvent[row.id]
             } else {
               const merged = { ...events.value[i], ...row }
               if (merged.product_id !== events.value[i].product_id) {
                 await attachPrizeImages([merged])
                 console.log('[RT:event] UPDATE product changed -> refreshed image', row.id)
               }
+              if (!isAlive.value) return
               events.value.splice(i, 1, merged)
               console.log('[RT:event] UPDATE merged ->', row.id)
-              await refreshEntryCount(row.id) // NEW: keep counts consistent even if only cap/status changed
+              await refreshEntryCount(row.id)
+              await refreshParticipantAvatars(row.id)
             }
           } else if (isOpen && !wasOpen) {
             const clone = { ...row }
             await attachPrizeImages([clone])
+            if (!isAlive.value) return
             events.value = [clone, ...events.value]
             await loadMyEntriesFor([row.id])
-            await refreshEntryCount(row.id) // NEW
+            await refreshEntryCount(row.id)
+            await refreshParticipantAvatars(row.id)
             console.log('[RT:event] UPDATE became open -> added', row.id)
           }
         } else if (type === 'DELETE') {
@@ -457,35 +602,37 @@ function subscribeRealtime() {
             events.value.splice(i, 1)
             console.log('[RT:event] DELETE removed ->', oldId)
             delete entryCounts[oldId]
+            delete avatarsByEvent[oldId]
           }
         }
-      }
+      })
     )
-    .subscribe((status) => {
+    .subscribe(guard((status) => {
       console.log('[RT:event] subscription status:', status)
-    })
+    }))
 
   // ENTRIES
   entriesChannel = supabase
-    .channel('rt-games-entry')
+    .channel(`rt-games-entry-${sessionId}`)
     .on(
       'postgres_changes',
       { event: '*', schema: 'games', table: 'entry' },
-      async (payload: any) => {
+      guard(async (payload: any) => {
         const type = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE'
         console.log('[RT:entry]', type, { new: payload.new, old: payload.old })
+        if (!isAlive.value) return
 
         const affectedEventId: string | undefined =
           (type === 'DELETE' ? payload.old?.event_id : payload.new?.event_id) || undefined
         if (!affectedEventId) return
 
-        // NEW: Always refresh count from server for the affected event
         await refreshEntryCount(affectedEventId)
+        await refreshParticipantAvatars(affectedEventId)
+        if (!isAlive.value) return
 
-        // Keep your previous snapshot refresh + status handling
         if (idxById.value.has(affectedEventId)) {
           const latest = await fetchEventById(affectedEventId)
-          if (latest) {
+          if (latest && isAlive.value) {
             const i = idxById.value.get(affectedEventId)!
             const merged = { ...events.value[i], ...latest }
             events.value.splice(i, 1, merged)
@@ -494,31 +641,33 @@ function subscribeRealtime() {
             if (merged.status !== 'open') {
               events.value.splice(i, 1)
               console.log('[RT:entry] event left open -> removed', affectedEventId)
+              delete avatarsByEvent[affectedEventId]
             }
           } else {
             console.log('[RT:entry] event not found (maybe deleted) ->', affectedEventId)
           }
           await loadMyEntriesFor([affectedEventId])
         }
-      }
+      })
     )
-    .subscribe((status) => {
+    .subscribe(guard((status) => {
       console.log('[RT:entry] subscription status:', status)
-    })
+    }))
 
   // PRODUCTS
   productsChannel = supabase
-    .channel('rt-games-products')
+    .channel(`rt-games-products-${sessionId}`)
     .on(
       'postgres_changes',
       { event: 'UPDATE', schema: 'games', table: 'products' },
-      async (payload: any) => {
+      guard(async (payload: any) => {
         console.log('[RT:product] UPDATE', { new: payload.new, old: payload.old })
         const prodId = payload.new?.id as string | undefined
-        if (!prodId) return
+        if (!prodId || !isAlive.value) return
         const affected: EventRow[] = events.value.filter((e) => e.product_id === prodId)
         if (affected.length > 0) {
           await attachPrizeImages(affected)
+          if (!isAlive.value) return
           for (const e of affected) {
             const i = idxById.value.get(e.id)
             if (i != null) {
@@ -527,11 +676,43 @@ function subscribeRealtime() {
           }
           console.log('[RT:product] refreshed prize images for', affected.length, 'event(s)')
         }
-      }
+      })
     )
-    .subscribe((status) => {
+    .subscribe(guard((status) => {
       console.log('[RT:product] subscription status:', status)
-    })
+    }))
+
+  // USERS — update avatars live when a player updates profile_url or name
+  usersChannel = supabase
+    .channel(`rt-public-users-${sessionId}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'users' },
+      guard(async (payload: any) => {
+        const uid = payload.new?.id as string | undefined
+        if (!uid) return
+
+        const profileChanged =
+          payload.new?.profile_url !== payload.old?.profile_url ||
+          payload.new?.full_name !== payload.old?.full_name
+
+        if (!profileChanged || !isAlive.value) return
+
+        // find all open events currently showing this user in avatars and refresh those avatar lists
+        const impactedEventIds: string[] = []
+        for (const [eventId, list] of Object.entries(avatarsByEvent)) {
+          if (list?.some((p) => p.user_id === uid)) impactedEventIds.push(eventId)
+        }
+
+        if (impactedEventIds.length === 0) return
+
+        console.log('[RT:users] profile update for', uid, 'impacts', impactedEventIds.length, 'event(s)')
+        await Promise.all(impactedEventIds.map((eid) => refreshParticipantAvatars(eid)))
+      })
+    )
+    .subscribe(guard((status) => {
+      console.log('[RT:users] subscription status:', status)
+    }))
 }
 
 async function fetchEventById(id: string): Promise<EventRow | null> {
@@ -549,7 +730,7 @@ async function fetchEventById(id: string): Promise<EventRow | null> {
   return row
 }
 
-/** NEW: refresh a single event's live joined count, patch in-memory row too */
+/** refresh a single event's live joined count, patch in-memory row too */
 async function refreshEntryCount(eventId: string) {
   try {
     const { count, error } = await supabase
@@ -560,10 +741,11 @@ async function refreshEntryCount(eventId: string) {
 
     if (error) throw error
     const c = typeof count === 'number' ? count : 0
+    if (!isAlive.value) return
     entryCounts[eventId] = c
 
     const i = idxById.value.get(eventId)
-    if (i != null) {
+    if (i != null && isAlive.value) {
       const patched = { ...events.value[i], player_count: c }
       events.value.splice(i, 1, patched)
     }
@@ -575,264 +757,136 @@ async function refreshEntryCount(eventId: string) {
 
 /* ---------------- lifecycle ---------------- */
 
+// keep log helper
+function safeLogUnmountStatus(ch: ReturnType<typeof supabase.channel> | null, tag: string) {
+  try {
+    console.log(`[RT:${tag}] tearing down`)
+  } catch {}
+}
+
+/**
+ * Non-blocking unsubscribe with a tiny timeout.
+ * Some Supabase client versions can hang waiting for an ack.
+ * We do not await here to ensure navigation never stalls.
+ */
+function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) { // CHANGED
+  if (!ch) return
+  try {
+    // Fire-and-forget; don't await to avoid blocking route leave.
+    const p = ch.unsubscribe()
+    // Add a short timeout guard (best-effort).
+    Promise.race([
+      p,
+      new Promise((resolve) => setTimeout(resolve, 250)), // CHANGED: 250ms cap
+    ]).finally(() => {
+      try {
+        supabase.removeChannel(ch)
+      } catch {}
+    })
+  } catch {
+    try {
+      supabase.removeChannel(ch)
+    } catch {}
+  }
+}
+
 onMounted(() => {
   console.log('[LIFECYCLE] Mounted -> loading + subscribing')
+  isAlive.value = true
   loadOpenEvents()
   subscribeRealtime()
 })
 
-onUnmounted(() => {
+onUnmounted(() => { // CHANGED: make sync & non-blocking
   console.log('[LIFECYCLE] Unmounting -> removing channels')
-  if (eventsChannel) {
-    supabase.removeChannel(eventsChannel)
-    eventsChannel = null
-  }
-  if (entriesChannel) {
-    supabase.removeChannel(entriesChannel)
-    entriesChannel = null
-  }
-  if (productsChannel) {
-    supabase.removeChannel(productsChannel)
-    productsChannel = null
-  }
+  isAlive.value = false
+
+  // Tear down quickly; do not await anything here.
+  safeLogUnmountStatus(eventsChannel, 'event')
+  safeUnsubscribe(eventsChannel); eventsChannel = null
+
+  safeLogUnmountStatus(entriesChannel, 'entry')
+  safeUnsubscribe(entriesChannel); entriesChannel = null
+
+  safeLogUnmountStatus(productsChannel, 'product')
+  safeUnsubscribe(productsChannel); productsChannel = null
+
+  safeLogUnmountStatus(usersChannel, 'users')
+  safeUnsubscribe(usersChannel); usersChannel = null
 })
 </script>
 
 <style scoped>
+/* (UNCHANGED STYLES + the avatar styles) */
+
 /* --- Minimal palette helpers (kept) --- */
-.bg-success-subtle {
-  background-color: rgba(25, 135, 84, 0.08) !important;
-}
-.text-success {
-  color: #198754 !important;
-}
-.border-success-subtle {
-  border-color: rgba(25, 135, 84, 0.25) !important;
-}
+.bg-success-subtle { background-color: rgba(25, 135, 84, 0.08) !important; }
+.text-success { color: #198754 !important; }
+.border-success-subtle { border-color: rgba(25, 135, 84, 0.25) !important; }
 
 /* --- Motion safety --- */
 @media (prefers-reduced-motion: reduce) {
-  .spin-card,
-  .spin-wheel__ring,
-  .join-btn,
-  .spin-card__halo {
-    animation: none !important;
-    transition: none !important;
-  }
+  .spin-card, .spin-wheel__ring, .join-btn, .spin-card__halo { animation: none !important; transition: none !important; }
 }
 
 /* --- Spin Card --- */
-.spin-card {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, #ffffff, #fbfbfd);
-  transition:
-    transform 0.25s ease,
-    box-shadow 0.25s ease,
-    border-color 0.25s ease;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  will-change: transform;
-}
-.spin-card:focus-within,
-.spin-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
-  border-color: rgba(0, 0, 0, 0.1);
-}
-.spin-card--locked {
-  opacity: 0.9;
-}
+.spin-card { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffffff, #fbfbfd); transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; border: 1px solid rgba(0,0,0,.06); will-change: transform; }
+.spin-card:focus-within, .spin-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.06); border-color: rgba(0,0,0,.1); }
+.spin-card--locked { opacity: .9; }
 
 /* Subtle ambient halo */
-.spin-card__halo {
-  position: absolute;
-  inset: -40%;
-  background:
-    radial-gradient(60% 60% at 50% 40%, rgba(25, 135, 84, 0.08), transparent 60%),
-    radial-gradient(60% 60% at 70% 80%, rgba(56, 102, 255, 0.06), transparent 60%);
-  filter: blur(20px);
-  transform: translateZ(0);
-  pointer-events: none;
-  animation: haloFloat 7s ease-in-out infinite;
+.spin-card__halo { position: absolute; inset: -40%; background:
+  radial-gradient(60% 60% at 50% 40%, rgba(25,135,84,.08), transparent 60%),
+  radial-gradient(60% 60% at 70% 80%, rgba(56,102,255,.06), transparent 60%);
+  filter: blur(20px); transform: translateZ(0); pointer-events: none; animation: haloFloat 7s ease-in-out infinite;
 }
-@keyframes haloFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
-}
+@keyframes haloFloat { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-4px) } }
 
-.spin-card__title {
-  letter-spacing: 0.2px;
-}
-
-.spin-card__status {
-  backdrop-filter: saturate(1.2);
-}
+.spin-card__title { letter-spacing: .2px; }
+.spin-card__status { backdrop-filter: saturate(1.2); }
 
 /* --- Wheel --- */
-.spin-wheel {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  display: grid;
-  place-items: center;
-  isolation: isolate;
-}
-.spin-wheel--paused .spin-wheel__ring {
-  animation-play-state: paused;
-}
-
+.spin-wheel { position: relative; width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; isolation: isolate; }
+.spin-wheel--paused .spin-wheel__ring { animation-play-state: paused; }
 .spin-wheel__ring {
-  position: absolute;
-  width: 92%;
-  height: 92%;
-  border-radius: 50%;
-  background: conic-gradient(
-    from 0deg,
-    rgba(25, 135, 84, 0.16) 0 25%,
-    rgba(56, 102, 255, 0.14) 25% 50%,
-    rgba(255, 193, 7, 0.16) 50% 75%,
-    rgba(111, 66, 193, 0.14) 75% 100%
-  );
-  box-shadow:
-    inset 0 0 0 10px #fff,
-    0 2px 10px rgba(0, 0, 0, 0.04);
-  animation: ringSpin 18s linear infinite;
-  transition: filter 0.25s ease;
+  position: absolute; width: 92%; height: 92%; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(25,135,84,.16) 0 25%, rgba(56,102,255,.14) 25% 50%, rgba(255,193,7,.16) 50% 75%, rgba(111,66,193,.14) 75% 100%);
+  box-shadow: inset 0 0 0 10px #fff, 0 2px 10px rgba(0,0,0,.04);
+  animation: ringSpin 18s linear infinite; transition: filter .25s ease;
 }
-.spin-card:hover .spin-wheel__ring {
-  filter: saturate(1.1) brightness(1.02);
-}
+.spin-card:hover .spin-wheel__ring { filter: saturate(1.1) brightness(1.02); }
+@keyframes ringSpin { to { transform: rotate(360deg) } }
 
-@keyframes ringSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.spin-wheel__mask {
-  position: relative;
-  width: 72%;
-  height: 72%;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #f6f7fb;
-  border: 8px solid #fff;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-  z-index: 1;
-}
-
-.spin-wheel__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.spin-wheel__placeholder {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #94a3b8;
-  font-size: 2rem;
-}
+.spin-wheel__mask { position: relative; width: 72%; height: 72%; border-radius: 50%; overflow: hidden; background: #f6f7fb; border: 8px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.06); z-index: 1; }
+.spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.spin-wheel__placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #94a3b8; font-size: 2rem; }
 
 /* pointer notch */
-.spin-wheel__pointer {
-  position: absolute;
-  top: 2%;
-  left: 50%;
-  width: 0;
-  height: 0;
-  transform: translateX(-50%);
-  border-left: 7px solid transparent;
-  border-right: 7px solid transparent;
-  border-bottom: 10px solid rgba(0, 0, 0, 0.15);
-  z-index: 2;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
-}
+.spin-wheel__pointer { position: absolute; top: 2%; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 10px solid rgba(0,0,0,.15); z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,.08)); }
 
 /* --- Stats Row --- */
-.spin-stats {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 0.5rem;
-}
-.spin-stat {
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 0.75rem;
-  padding: 0.5rem 0.6rem;
-  text-align: center;
-}
-.spin-stat__label {
-  font-size: 0.72rem;
-  color: #6c757d;
-}
-.spin-stat__value {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
+.spin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+.spin-stat { background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: .75rem; padding: .5rem .6rem; text-align: center; }
+.spin-stat__label { font-size: .72rem; color: #6c757d; }
+.spin-stat__value { font-size: .9rem; font-weight: 600; }
+
+/* --- Avatars --- */
+.avatar-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
+.avatars { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; max-height: 44px; overflow: hidden; }
+.avatar-img, .avatar-fallback { width: 32px; height: 32px; border-radius: 50%; display: inline-grid; place-items: center; border: 1px solid rgba(0,0,0,.08); background: #fff; overflow: hidden; }
+.avatar-img { object-fit: cover; }
+.avatar-fallback { color: #94a3b8; font-size: 1rem; background: #f1f5f9; }
+.avatar-more { font-size: .8rem; color: #6c757d; background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 999px; padding: .2rem .5rem; }
 
 /* --- Slots left indicator --- */
-.dot-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #20c997;
-  box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
-  animation: pulse 1.8s infinite;
-}
-@keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(32, 201, 151, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
-  }
-}
+.dot-pulse { width: 6px; height: 6px; border-radius: 50%; background: #20c997; box-shadow: 0 0 0 0 rgba(32,201,151,.6); animation: pulse 1.8s infinite; }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(32,201,151,.6) } 70% { box-shadow: 0 0 0 8px rgba(32,201,151,0) } 100% { box-shadow: 0 0 0 0 rgba(32,201,151,0) } }
 
 /* --- Join button micro-interactions --- */
-.join-btn {
-  position: relative;
-  overflow: hidden;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.2s ease;
-}
-.join-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25);
-}
-.join-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
-}
-
-.join-btn::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transform: translateX(-120%);
-  transition: transform 0.6s ease;
-}
-.join-btn:hover::after {
-  transform: translateX(120%);
-}
-
-.join-btn--disabled,
-.join-btn:disabled {
-  opacity: 0.7;
-  box-shadow: none;
-  cursor: not-allowed;
-}
+.join-btn { position: relative; overflow: hidden; transition: transform .15s ease, box-shadow .2s ease; }
+.join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13,110,253,.25); }
+.join-btn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13,110,253,.2); }
+.join-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); transform: translateX(-120%); transition: transform .6s ease; }
+.join-btn:hover::after { transform: translateX(120%); }
+.join-btn--disabled, .join-btn:disabled { opacity: .7; box-shadow: none; cursor: not-allowed; }
 </style>

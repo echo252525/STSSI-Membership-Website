@@ -3,6 +3,7 @@
     <!-- Sidebar (desktop = sticky, mobile = offcanvas) -->
     <div
       id="mobileSidebar"
+      ref="sidebarEl"
       class="sidebar offcanvas-md offcanvas-start bg-white border-end d-flex flex-column h-100 p-3 shadow-sm"
       tabindex="-1"
       :class="{ collapsed: isCollapsed }"
@@ -97,6 +98,22 @@
           </RouterLink>
         </li>
 
+        <!-- ⭐️ NEW: Deals & Rewards -->
+        <li class="nav-item">
+          <RouterLink
+            :to="{ name: 'user.deals' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'Deals & Rewards' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-gift fs-5"></i>
+            <span class="link-text" v-show="!isCollapsed">Deals & Rewards</span>
+          </RouterLink>
+        </li>
+        <!-- /NEW -->
+
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.minigames' }"
@@ -111,7 +128,7 @@
           </RouterLink>
         </li>
 
-        <!-- 🔹 NEW: E-Wallet link (added above Settings) -->
+        <!-- 🔹 E-Wallet link -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.ewallet' }"
@@ -125,7 +142,6 @@
             <span class="link-text" v-show="!isCollapsed">E-Wallet</span>
           </RouterLink>
         </li>
-        <!-- 🔹 END NEW -->
 
         <li class="nav-item">
           <RouterLink
@@ -160,7 +176,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState' // <-- use your shared auth state
@@ -180,6 +196,50 @@ const membershipType = ref<string>('') // regular | silver | gold | diamond | pl
 
 // ✅ Added: holds signed URL for profile avatar
 const avatarUrl = ref<string | null>(null)
+
+/* ===== Offcanvas instance management (FIX) ===== */
+const sidebarEl = ref<HTMLElement | null>(null)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let offcanvasInst: any | null = null
+
+function isMobile() {
+  return window.matchMedia('(max-width: 767.98px)').matches
+}
+
+function ensureOffcanvas() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any
+  if (!w?.bootstrap || !sidebarEl.value) return null
+  if (offcanvasInst) return offcanvasInst
+  const { Offcanvas } = w.bootstrap
+  offcanvasInst = Offcanvas.getInstance(sidebarEl.value) || new Offcanvas(sidebarEl.value, { backdrop: true, scroll: false })
+  return offcanvasInst
+}
+
+function cleanupBodyOffcanvasArtifacts() {
+  // Defensive cleanup in case Bootstrap left artifacts on fast route changes
+  document.body.classList.remove('offcanvas-backdrop', 'offcanvas-open')
+  const backdrop = document.querySelector('.offcanvas-backdrop')
+  if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop)
+  // also remove inline style bootstrap might set
+  document.body.style.removeProperty('overflow')
+}
+
+const closeOffcanvasIfMobile = () => {
+  if (!isMobile()) return
+  const inst = ensureOffcanvas()
+  try { inst?.hide?.() } catch {}
+  cleanupBodyOffcanvasArtifacts()
+}
+
+onUnmounted(() => {
+  // dispose the instance to avoid stuck focus/backdrop across routes
+  try { offcanvasInst?.hide?.() } catch {}
+  try { offcanvasInst?.dispose?.() } catch {}
+  offcanvasInst = null
+  cleanupBodyOffcanvasArtifacts()
+})
+/* ===== end offcanvas fix ===== */
 
 const initials = computed(() => {
   const name = (fullName.value || userEmail.value || '').trim()
@@ -211,22 +271,9 @@ const membershipMeta = computed(() => {
   }
 })
 
-/** Close Bootstrap offcanvas if opened on mobile */
-const closeOffcanvasIfMobile = () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any
-  if (!w?.bootstrap) return
-  const el = document.getElementById('mobileSidebar')
-  if (!el) return
-  const oc = w.bootstrap.Offcanvas.getInstance(el) || new w.bootstrap.Offcanvas(el)
-  oc?.hide?.()
-}
-
 /** Harden against "Back" to a protected page after logout */
 const hardBlockBackToAuthed = () => {
-  // Replace current entry so the previous authed page isn't in the stack
   window.history.replaceState(null, '', window.location.href)
-  // If user presses Back immediately, push them to login
   const handler = () => router.replace({ name: 'login' })
   window.addEventListener('popstate', handler, { once: true })
 }
@@ -234,23 +281,17 @@ const hardBlockBackToAuthed = () => {
 const logout = async () => {
   try {
     await supabase.auth.signOut()
-  } catch (_) {
-    // ignore
-  }
-
-  // Clear in-memory user immediately (so UI & guards react)
+  } catch (_) {}
   currentUser.value = null
-
-  // Prevent navigating back to protected pages
   hardBlockBackToAuthed()
-
-  // Replace (not push) so authed page isn't in history
   router.replace({ name: 'login' })
-
   closeOffcanvasIfMobile()
 }
 
 onMounted(async () => {
+  // Prepare offcanvas (mobile only; harmless on desktop)
+  ensureOffcanvas()
+
   const { data } = await supabase.auth.getUser()
   const user = data?.user
   if (user) {
@@ -288,7 +329,7 @@ onMounted(async () => {
           .from('user_profile')
           .createSignedUrl(objectPath, 3600) // 1 hour
         if (signed?.signedUrl) {
-          avatarUrl.value = signed.signedUrl
+          avatarUrl.value = `${signed.signedUrl}&cb=${Date.now()}`
         }
       }
     } catch {
