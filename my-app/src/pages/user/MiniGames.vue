@@ -163,7 +163,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, computed } from 'vue'
+import { onMounted, onUnmounted, reactive, ref, computed, nextTick } from 'vue' // ⭐ changed: add nextTick
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -757,38 +757,29 @@ async function refreshEntryCount(eventId: string) {
 
 /* ---------------- lifecycle ---------------- */
 
-// keep log helper
+/** log helper kept minimal */
 function safeLogUnmountStatus(ch: ReturnType<typeof supabase.channel> | null, tag: string) {
   try {
     console.log(`[RT:${tag}] tearing down`)
   } catch {}
 }
 
-/**
- * Non-blocking unsubscribe with a tiny timeout.
- * Some Supabase client versions can hang waiting for an ack.
- * We do not await here to ensure navigation never stalls.
- */
-function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) { // CHANGED
+/** 🔧 Non-blocking unsubscribe (fire-and-forget) */
+// ⭐ changed: do not await here; swallow late errors; always remove the channel.
+// Also guard against already-closed channels.
+function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) {
   if (!ch) return
   try {
-    // Fire-and-forget; don't await to avoid blocking route leave.
-    const p = ch.unsubscribe()
-    // Add a short timeout guard (best-effort).
-    Promise.race([
-      p,
-      new Promise((resolve) => setTimeout(resolve, 250)), // CHANGED: 250ms cap
-    ]).finally(() => {
-      try {
-        supabase.removeChannel(ch)
-      } catch {}
-    })
-  } catch {
-    try {
-      supabase.removeChannel(ch)
-    } catch {}
-  }
+    // kick off close but don't await it
+    ch.unsubscribe().catch(() => {})
+  } catch (_) {}
+  try {
+    supabase.removeChannel(ch)
+  } catch (_) {}
 }
+
+// ⭐ changed: add a simple re-entrancy guard so we never double-teardown
+let teardownStarted = false
 
 onMounted(() => {
   console.log('[LIFECYCLE] Mounted -> loading + subscribing')
@@ -797,22 +788,35 @@ onMounted(() => {
   subscribeRealtime()
 })
 
-onUnmounted(() => { // CHANGED: make sync & non-blocking
+// ⭐ changed: make onUnmounted synchronous and non-blocking
+onUnmounted(() => {
+  if (teardownStarted) return
+  teardownStarted = true
+
   console.log('[LIFECYCLE] Unmounting -> removing channels')
   isAlive.value = false
 
-  // Tear down quickly; do not await anything here.
-  safeLogUnmountStatus(eventsChannel, 'event')
-  safeUnsubscribe(eventsChannel); eventsChannel = null
+  // Ensure DOM/routing flush first, then tear down
+  nextTick(() => {
+    safeLogUnmountStatus(eventsChannel, 'event')
+    safeUnsubscribe(eventsChannel); eventsChannel = null
 
-  safeLogUnmountStatus(entriesChannel, 'entry')
-  safeUnsubscribe(entriesChannel); entriesChannel = null
+    safeLogUnmountStatus(entriesChannel, 'entry')
+    safeUnsubscribe(entriesChannel); entriesChannel = null
 
-  safeLogUnmountStatus(productsChannel, 'product')
-  safeUnsubscribe(productsChannel); productsChannel = null
+    safeLogUnmountStatus(productsChannel, 'product')
+    safeUnsubscribe(productsChannel); productsChannel = null
 
-  safeLogUnmountStatus(usersChannel, 'users')
-  safeUnsubscribe(usersChannel); usersChannel = null
+    safeLogUnmountStatus(usersChannel, 'users')
+    safeUnsubscribe(usersChannel); usersChannel = null
+
+    // Optional: clear reactive maps to release references quickly (no UI impact after unmount)
+    try {
+      events.value = []
+      Object.keys(entryCounts).forEach(k => delete entryCounts[k])
+      Object.keys(avatarsByEvent).forEach(k => delete avatarsByEvent[k])
+    } catch {}
+  })
 })
 </script>
 
@@ -861,7 +865,6 @@ onUnmounted(() => { // CHANGED: make sync & non-blocking
 .spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .spin-wheel__placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #94a3b8; font-size: 2rem; }
 
-/* pointer notch */
 .spin-wheel__pointer { position: absolute; top: 2%; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 10px solid rgba(0,0,0,.15); z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,.08)); }
 
 /* --- Stats Row --- */

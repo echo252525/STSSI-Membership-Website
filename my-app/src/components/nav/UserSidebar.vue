@@ -98,7 +98,7 @@
           </RouterLink>
         </li>
 
-        <!-- ⭐️ NEW: Deals & Rewards -->
+        <!-- Deals & Rewards -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.deals' }"
@@ -112,7 +112,6 @@
             <span class="link-text" v-show="!isCollapsed">Deals & Rewards</span>
           </RouterLink>
         </li>
-        <!-- /NEW -->
 
         <li class="nav-item">
           <RouterLink
@@ -128,7 +127,7 @@
           </RouterLink>
         </li>
 
-        <!-- 🔹 E-Wallet link -->
+        <!-- E-Wallet -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.ewallet' }"
@@ -179,7 +178,7 @@
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
-import { currentUser } from '@/lib/authState' // <-- use your shared auth state
+import { currentUser } from '@/lib/authState'
 
 const router = useRouter()
 const collapsedWidth = '75px'
@@ -193,14 +192,13 @@ const toggle = () => {
 const userEmail = ref<string>('')
 const fullName = ref<string>('')
 const membershipType = ref<string>('') // regular | silver | gold | diamond | platinum
-
-// ✅ Added: holds signed URL for profile avatar
 const avatarUrl = ref<string | null>(null)
 
 /* ===== Offcanvas instance management (FIX) ===== */
 const sidebarEl = ref<HTMLElement | null>(null)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let offcanvasInst: any | null = null
+let removeAfterEach: (() => void) | null = null // ⭐ keep route hook unsub
 
 function isMobile() {
   return window.matchMedia('(max-width: 767.98px)').matches
@@ -212,32 +210,69 @@ function ensureOffcanvas() {
   if (!w?.bootstrap || !sidebarEl.value) return null
   if (offcanvasInst) return offcanvasInst
   const { Offcanvas } = w.bootstrap
+  // Only instantiate on mobile; on md+ it acts like a static sidebar
+  if (!isMobile()) return null // ⭐ keep
   offcanvasInst = Offcanvas.getInstance(sidebarEl.value) || new Offcanvas(sidebarEl.value, { backdrop: true, scroll: false })
   return offcanvasInst
 }
 
 function cleanupBodyOffcanvasArtifacts() {
   // Defensive cleanup in case Bootstrap left artifacts on fast route changes
-  document.body.classList.remove('offcanvas-backdrop', 'offcanvas-open')
-  const backdrop = document.querySelector('.offcanvas-backdrop')
-  if (backdrop && backdrop.parentNode) backdrop.parentNode.removeChild(backdrop)
-  // also remove inline style bootstrap might set
+  document.body.classList.remove('offcanvas-open') // ⭐ class Bootstrap adds to body
+  // Remove any stray backdrops
+  document.querySelectorAll('.offcanvas-backdrop').forEach((el) => el.remove())
+  // Remove inline scroll locks
   document.body.style.removeProperty('overflow')
+  document.body.style.removeProperty('paddingRight')
 }
 
 const closeOffcanvasIfMobile = () => {
-  if (!isMobile()) return
   const inst = ensureOffcanvas()
   try { inst?.hide?.() } catch {}
   cleanupBodyOffcanvasArtifacts()
 }
 
+/* ⭐⭐⭐ ADDED: Force reload exactly when leaving Mini Games to any other page (throttled) */
+const RELOAD_THROTTLE_MS = 3000
+function maybeForceReloadWhenLeavingMiniGames(to: any, from: any) {
+  if (from?.name === 'user.minigames' && to?.name !== 'user.minigames') {
+    const key = 'minigamesReloadAt'
+    const last = Number(sessionStorage.getItem(key) || '0')
+    const now = Date.now()
+    if (now - last > RELOAD_THROTTLE_MS) {
+      sessionStorage.setItem(key, String(now))
+      // reload into the destination route (keeps the intended nav)
+      setTimeout(() => {
+        try {
+          const href = router.resolve(to).href
+          // Use assign so history records the target page after reload
+          window.location.assign(href)
+        } catch {
+          // Fallback to full reload if resolve fails
+          window.location.reload()
+        }
+      }, 0)
+    }
+  }
+}
+
+onMounted(() => {
+  ensureOffcanvas()
+
+  // Auto-close offcanvas on ANY route change to avoid stuck backdrops/focus traps
+  removeAfterEach = router.afterEach((to, from) => {
+    closeOffcanvasIfMobile()
+    // 🔁 only when leaving Mini Games
+    maybeForceReloadWhenLeavingMiniGames(to, from)
+  })
+})
+
 onUnmounted(() => {
-  // dispose the instance to avoid stuck focus/backdrop across routes
   try { offcanvasInst?.hide?.() } catch {}
   try { offcanvasInst?.dispose?.() } catch {}
   offcanvasInst = null
   cleanupBodyOffcanvasArtifacts()
+  if (removeAfterEach) { removeAfterEach(); removeAfterEach = null }
 })
 /* ===== end offcanvas fix ===== */
 
@@ -279,19 +314,15 @@ const hardBlockBackToAuthed = () => {
 }
 
 const logout = async () => {
-  try {
-    await supabase.auth.signOut()
-  } catch (_) {}
+  try { await supabase.auth.signOut() } catch {}
   currentUser.value = null
   hardBlockBackToAuthed()
   router.replace({ name: 'login' })
   closeOffcanvasIfMobile()
 }
 
+/* ===== load user info & avatar ===== */
 onMounted(async () => {
-  // Prepare offcanvas (mobile only; harmless on desktop)
-  ensureOffcanvas()
-
   const { data } = await supabase.auth.getUser()
   const user = data?.user
   if (user) {
@@ -312,10 +343,9 @@ onMounted(async () => {
         .single()
       row = rowByEmail ?? row
     }
-
     if (row?.membership_type) membershipType.value = String(row.membership_type)
 
-    // ✅ Fetch profile_url and create a signed URL for avatar
+    // avatar
     try {
       const { data: urow } = await supabase
         .from('users')
@@ -327,14 +357,12 @@ onMounted(async () => {
       if (objectPath) {
         const { data: signed } = await supabase.storage
           .from('user_profile')
-          .createSignedUrl(objectPath, 3600) // 1 hour
+          .createSignedUrl(objectPath, 3600)
         if (signed?.signedUrl) {
           avatarUrl.value = `${signed.signedUrl}&cb=${Date.now()}`
         }
       }
-    } catch {
-      // ignore avatar load errors
-    }
+    } catch { /* ignore */ }
   }
 })
 </script>
@@ -406,7 +434,7 @@ onMounted(async () => {
 /* Hide tier icon if collapsed */
 .collapsed .tier-icon { display: none !important; }
 
-/* ✅ Avatar image fill */
+/* Avatar image fill */
 .profile-avatar-img {
   position: absolute;
   inset: 0;
