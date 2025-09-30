@@ -26,7 +26,6 @@
         'card',
         'border-0',
         'rounded-4',
-        'shadow-sm',
         'tier-hero',
         'mb-4',
         'is-' + currentTier.key, // .is-regular / .is-silver / .is-gold / .is-platinum / .is-diamond
@@ -127,7 +126,7 @@
     <div class="row g-4">
       <!-- Current tier benefits (static text pulled from 'tiers' config based on currentTier) -->
       <div class="col-lg-6">
-        <div class="card border-0 rounded-4 shadow-sm h-100">
+        <div class="card border-0 rounded-4 h-100">
           <div class="card-body p-4">
             <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
               <span class="material-symbols-outlined text-azure">redeem</span>
@@ -147,7 +146,7 @@
       <!-- Sneak peek of next tier (requirements + benefits).
            Hidden when user is already at the highest tier. -->
       <div class="col-lg-6">
-        <div class="card border-0 rounded-4 shadow-sm h-100">
+        <div class="card border-0 rounded-4 h-100">
           <div class="card-body p-4">
             <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
               <span class="material-symbols-outlined text-green">trending_up</span>
@@ -368,7 +367,7 @@ const badgeIcon = computed(() => iconFor(currentTier.key))
  *   user.referrals            -> total qualifying referrals
  */
 const user = {
-  tier: 'regular' as Tier['key'],
+  tier: 'silver' as Tier['key'],
   lifetimePurchases: 7_500,
   referrals: 6,
 }
@@ -428,8 +427,6 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
   position: relative;
   overflow: hidden;
   background: #fff;
-
-  /* defaults (overridden by .is-*) */
   --fx-a: rgba(32, 164, 76, 0.1);
   --fx-b: rgba(32, 100, 124, 0.12);
   --fx-line: rgba(32, 100, 124, 0.06);
@@ -439,6 +436,9 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
 .tier-hero .card-body {
   position: relative;
   z-index: 1;
+}
+.card {
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
 }
 /* Background paint (two blurred blobs + faint stripes) */
 .tier-hero::before {
@@ -527,6 +527,7 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
 .tier-badge .material-symbols-outlined {
   font-variation-settings: 'FILL' 1;
   font-size: 56px;
+  color: #20647c;
 }
 .tier-badge img {
   width: 78px;
@@ -546,6 +547,7 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
   padding: 0.6rem 0.8rem;
   border-radius: 12px;
   min-width: 160px;
+  box-shadow: rgba(50, 50, 93, 0.25) 0px 50px 100px -20px, rgba(0, 0, 0, 0.3) 0px 30px 60px -30px, rgba(10, 37, 64, 0.35) 0px -2px 6px 0px inset;
 }
 .stat-chip .label {
   font-size: 0.8rem;
@@ -559,7 +561,7 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
 /* Progress bars (colors are taken from --accent-1/2 set above) */
 .progress-card {
   background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
 }
 .progress-brand {
   height: 10px;

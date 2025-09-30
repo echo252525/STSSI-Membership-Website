@@ -7,11 +7,9 @@
           class="navbar-brand fw-bold d-flex align-items-center gap-2"
           :to="{ name: 'home' }"
         >
-          <i class="bi bi-stars"></i>
+          <img src="/STSSI_logo.png" alt="STSSI Logo" class="simp-logo img-fluid" />
           <span>STSSI Membership</span>
         </router-link>
-
-        
 
         <button
           class="navbar-toggler"
@@ -46,14 +44,14 @@
         </div>
       </div>
       <!-- 🔐 Small Admin Icon (visible) -->
-        <router-link
-          :to="{ name: 'admin.login' }"
-          class="admin-icon-btn"
-          aria-label="Admin login"
-          title="Admin"
-        >
-          <i class="bi bi-shield-lock-fill"></i>
-        </router-link>
+      <router-link
+        :to="{ name: 'admin.login' }"
+        class="admin-icon-btn"
+        aria-label="Admin login"
+        title="Admin"
+      >
+        <i class="bi bi-shield-lock-fill"></i>
+      </router-link>
     </nav>
 
     <!-- ====================== HERO (Gradient) ====================== -->
@@ -62,16 +60,13 @@
         <div class="row align-items-center gy-4">
           <!-- Text -->
           <div class="col-12 col-lg-6">
-            <span
-              class="eyebrow badge rounded-pill text-bg-primary-subtle border border-primary-subtle"
-              >New</span
-            >
             <h1 class="display-5 fw-bold mt-3">
               Level up your <span class="grad-text">membership</span> experience
             </h1>
             <p class="lead text-secondary mt-3">
-              Courses, perks, and community for technicians and customers across the
-              Philippines—powered by STSSI.
+              Exclusive membership app with rewards,
+              discounts, and benefits for loyal
+              customers—powered by STSSI.
             </p>
             <div class="d-flex flex-wrap gap-2 mt-3">
               <router-link
@@ -463,10 +458,10 @@
 </template>
 
 <script setup lang="ts">
-import { useRouter } from 'vue-router';
-const router = useRouter();
+import { useRouter } from 'vue-router'
+const router = useRouter()
 /** Render admin icon only if the route exists */
-const has = (name: string) => router.hasRoute(name as any);
+const has = (name: string) => router.hasRoute(name as any)
 </script>
 
 <style scoped>
@@ -478,41 +473,55 @@ const has = (name: string) => router.hasRoute(name as any);
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-bd: rgba(255, 255, 255, 0.4);
 }
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+}
 
 /* Respect motion preferences */
 @media (prefers-reduced-motion: reduce) {
-  * { animation: none !important; transition: none !important; }
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* 🔐 Admin icon button */
-.admin-icon-btn{
+.admin-icon-btn {
   position: absolute;
-  top: 10px;
-  right: 12px;                     /* desktop: tuck into top-right */
-  width: 32px;
-  height: 32px;
+  top: 12px;
+  right: 12px; /* desktop: tuck into top-right */
+  width: 52px;
+  height: 52px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
-  background: rgba(255,255,255,.8);
-  border: 1px solid rgba(0,0,0,.06);
-  box-shadow: 0 .25rem .75rem rgba(0,0,0,.06);
-  opacity: .55;
-  transition: opacity .18s ease, transform .12s ease, box-shadow .18s ease;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.06);
+  opacity: 0.55;
+  transition:
+    opacity 0.18s ease,
+    transform 0.12s ease,
+    box-shadow 0.18s ease;
 }
-.admin-icon-btn i { font-size: 1rem; color: #0d6efd; }
-.admin-icon-btn:hover{
+.admin-icon-btn i {
+  font-size: 2rem;
+  color: #0d6efd;
+}
+.admin-icon-btn:hover {
   opacity: 1;
   transform: translateY(-1px);
-  box-shadow: 0 .5rem 1rem rgba(0,0,0,.1);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
 }
 
 /* On very small screens: offset to not block the burger */
 @media (max-width: 575.98px) {
-  .admin-icon-btn { right: 54px; top: 8px; }
+  .admin-icon-btn {
+    right: 54px;
+    top: 8px;
+  }
 }
 
 /* ---------- Navbar (glassy) ---------- */
@@ -521,28 +530,69 @@ html { scroll-behavior: smooth; }
   background: var(--glass-bg) !important;
   border-bottom: 1px solid var(--glass-bd) !important;
 }
-.navbar-toggler-icon { background-image: var(--bs-navbar-toggler-icon-bg) !important; }
-.modern-link { position: relative; transition: color 0.15s ease; }
+.navbar-toggler-icon {
+  background-image: var(--bs-navbar-toggler-icon-bg) !important;
+}
+.modern-link {
+  position: relative;
+  transition: color 0.15s ease;
+}
 .modern-link::after {
   content: '';
-  position: absolute; left: 0; right: 0; bottom: -4px; height: 2px;
-  background: currentColor; transform: scaleX(0); transform-origin: left; transition: transform 0.2s ease;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -4px;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.2s ease;
   opacity: 0.35;
 }
-.modern-link:hover::after { transform: scaleX(1); }
+.modern-link:hover::after {
+  transform: scaleX(1);
+}
+
+.simp-logo {
+  height: 50px;
+}
 
 /* ---------- Buttons ---------- */
-.btn-modern { border-radius: 999px; padding-inline: 1rem; }
-.btn-modern.--lift { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-.btn-modern.--lift:hover { transform: translateY(-2px); box-shadow: 0 0.5rem 1rem rgba(0,0,0,.08); }
-.--pulse { position: relative; }
+.btn-modern {
+  border-radius: 999px;
+  padding-inline: 1rem;
+}
+.btn-modern.--lift {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.btn-modern.--lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.08);
+}
+.--pulse {
+  position: relative;
+}
 .--pulse::after {
-  content: ''; position: absolute; inset: -6px; border-radius: 999px; border: 2px solid var(--ring);
-  animation: pulse 1.8s ease-out infinite; pointer-events: none;
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 2px solid var(--ring);
+  animation: pulse 1.8s ease-out infinite;
+  pointer-events: none;
 }
 @keyframes pulse {
-  0% { opacity: .7; transform: scale(.98); }
-  100% { opacity: 0; transform: scale(1.2); }
+  0% {
+    opacity: 0.7;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
 }
 
 /* ---------- Hero ---------- */
@@ -552,72 +602,159 @@ html { scroll-behavior: smooth; }
     radial-gradient(1200px 600px at 100% 0%, #fff1f1 0%, transparent 60%), #ffffff;
   padding: 64px 0;
 }
-.eyebrow { letter-spacing: 0.04em; }
+.eyebrow {
+  letter-spacing: 0.04em;
+}
 .grad-text {
   background: linear-gradient(90deg, #0d6efd, #6610f2 60%, #20c997);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
-.showcase-card { position: relative; overflow: hidden; border: 1px solid rgba(0,0,0,.06); }
+.showcase-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
 .showcase-card .glow {
-  position: absolute; width: 200px; height: 200px; border-radius: 50%;
+  position: absolute;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
   background: radial-gradient(closest-side, rgba(13, 110, 253, 0.25), transparent 70%);
-  right: -40px; top: -40px; filter: blur(16px);
+  right: -40px;
+  top: -40px;
+  filter: blur(16px);
 }
 .mini-card {
-  display: flex; gap: .75rem; align-items: center;
-  border: 1px solid rgba(0,0,0,.06); border-radius: 12px; padding: .75rem; background: #fff;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  padding: 0.75rem;
+  background: #fff;
 }
-.mini-card i { font-size: 1.25rem; }
-.mini-title { font-weight: 600; }
-.mini-sub { font-size: .8125rem; color: #6c757d; }
+.mini-card i {
+  font-size: 1.25rem;
+}
+.mini-title {
+  font-weight: 600;
+}
+.mini-sub {
+  font-size: 0.8125rem;
+  color: #6c757d;
+}
 
 /* ---------- Sections ---------- */
-.section-pad { padding: 72px 0; }
-.section-head { text-align: center; margin-bottom: 24px; }
-.bg-section { background: radial-gradient(800px 400px at 0% 0%, #f4f8ff 0%, transparent 60%), var(--soft); }
+.section-pad {
+  padding: 72px 0;
+}
+.section-head {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.bg-section {
+  background: radial-gradient(800px 400px at 0% 0%, #f4f8ff 0%, transparent 60%), var(--soft);
+}
 
 /* ---------- Feature cards ---------- */
 .feature-card {
-  padding: 1.25rem; border-radius: 16px; background: var(--surface);
-  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 .75rem 2rem rgba(0,0,0,.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: var(--surface);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.04);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
-.feature-card:hover { transform: translateY(-2px); box-shadow: 0 1rem 2.5rem rgba(0,0,0,.06); }
+.feature-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.06);
+}
 .icon-wrap {
-  width: 44px; height: 44px; border-radius: 12px;
-  display: inline-flex; align-items: center; justify-content: center;
-  background: #f1f5ff; color: #0d6efd; margin-bottom: .5rem; font-size: 1.25rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5ff;
+  color: #0d6efd;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
 }
 
 /* ---------- Pricing ---------- */
 .price-card {
-  display: flex; flex-direction: column; padding: 1.25rem; border-radius: 16px; background: #fff;
-  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 .75rem 2rem rgba(0,0,0,.04);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.04);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
-.price-card:hover { transform: translateY(-2px); box-shadow: 0 1rem 2.5rem rgba(0,0,0,.06); }
-.price-card.highlight { outline: 2px solid var(--ring); }
-.price-head { font-weight: 700; letter-spacing: .02em; }
-.price-amt { font-size: 1.75rem; font-weight: 800; margin-top: .25rem; }
+.price-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.06);
+}
+.price-card.highlight {
+  outline: 2px solid var(--ring);
+}
+.price-head {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.price-amt {
+  font-size: 1.75rem;
+  font-weight: 800;
+  margin-top: 0.25rem;
+}
 
 /* ---------- Testimonials ---------- */
 .quote-card {
-  padding: 1.25rem; border-radius: 16px; background: #fff;
-  border: 1px solid rgba(0,0,0,.06); box-shadow: 0 .75rem 2rem rgba(0,0,0,.04);
+  padding: 1.25rem;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.04);
 }
 .avatar {
-  width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
-  margin-bottom: .5rem; font-size: 1.25rem;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+  font-size: 1.25rem;
 }
 
 /* ---------- Accordion ---------- */
-.modern-acc .accordion-button { border-radius: 12px !important; }
-.modern-acc .accordion-item { border: none; margin-bottom: .5rem; }
-.modern-acc .accordion-button:not(.collapsed) { background: #f7f9ff; box-shadow: inset 0 0 0 1px rgba(13,110,253,.15); }
+.modern-acc .accordion-button {
+  border-radius: 12px !important;
+}
+.modern-acc .accordion-item {
+  border: none;
+  margin-bottom: 0.5rem;
+}
+.modern-acc .accordion-button:not(.collapsed) {
+  background: #f7f9ff;
+  box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.15);
+}
 
 /* ---------- CTA ---------- */
-.cta-grad { background: linear-gradient(135deg, #eef4ff, #f7fcff 40%, #f6fff7); }
+.cta-grad {
+  background: linear-gradient(135deg, #eef4ff, #f7fcff 40%, #f6fff7);
+}
 
 /* ---------- Utilities ---------- */
-.text-secondary { color: #6c757d !important; }
+.text-secondary {
+  color: #6c757d !important;
+}
 </style>
