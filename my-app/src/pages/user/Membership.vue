@@ -39,7 +39,6 @@
                  - Otherwise fall back to the Material icon (regular). -->
             <div class="tier-badge">
               <img v-if="badgeIcon" :src="badgeIcon" :alt="currentTier.name + ' badge'" />
-              <span v-else class="material-symbols-outlined">workspace_premium</span>
             </div>
 
             <!-- Current tier label (server-provided via computed 'currentTier') -->
@@ -344,6 +343,8 @@ import { computed } from 'vue'
 const ICON_BASE = '/' // point to /public
 const iconFor = (key: Tier['key']) => {
   switch (key) {
+    case 'regular':
+      return ICON_BASE + 'regular.png'
     case 'silver':
       return ICON_BASE + 'silver.png'
     case 'gold':
@@ -353,7 +354,7 @@ const iconFor = (key: Tier['key']) => {
     case 'diamond':
       return ICON_BASE + 'diamond.png'
     default:
-      return '' // regular => keep Material icon
+      return ''
   }
 }
 const badgeIcon = computed(() => iconFor(currentTier.key))
@@ -367,7 +368,7 @@ const badgeIcon = computed(() => iconFor(currentTier.key))
  *   user.referrals            -> total qualifying referrals
  */
 const user = {
-  tier: 'silver' as Tier['key'],
+  tier: 'regular' as Tier['key'],
   lifetimePurchases: 7_500,
   referrals: 6,
 }
@@ -456,11 +457,11 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
 /* ===== Per-tier palettes (adjust these to fine-tune the look) ===== */
 .tier-hero.is-regular,
 .tier-modal.is-regular {
-  --fx-a: rgba(32, 164, 76, 0.1);
-  --fx-b: rgba(32, 100, 124, 0.12);
-  --fx-line: rgba(32, 100, 124, 0.06);
-  --accent-1: #20a44c;
-  --accent-2: #20647c;
+  --fx-a: rgba(0, 128, 0, 0.12);
+  --fx-b: rgba(34, 197, 94, 0.14);
+  --fx-line: rgba(0, 128, 0, 0.08);
+  --accent-1: #2e8b57;
+  --accent-2: #20a44c;
 }
 .tier-hero.is-silver,
 .tier-modal.is-silver {
@@ -517,17 +518,6 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH', { maximumFractionDig
 .tier-badge {
   display: grid;
   place-items: center;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--brand-azure) 10%, #fff 90%),
-    color-mix(in srgb, var(--brand-green) 10%, #fff 90%)
-  );
-  color: var(--brand-azure);
-}
-.tier-badge .material-symbols-outlined {
-  font-variation-settings: 'FILL' 1;
-  font-size: 56px;
-  color: #20647c;
 }
 .tier-badge img {
   width: 78px;

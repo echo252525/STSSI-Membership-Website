@@ -8,7 +8,7 @@
           :to="{ name: 'home' }"
         >
           <img src="/STSSI_logo.png" alt="STSSI Logo" class="simp-logo img-fluid" />
-          <span>STSSI Membership</span>
+          <span>STEQ Member Incentive Program</span>
         </router-link>
 
         <button
@@ -64,8 +64,7 @@
               Level up your <span class="grad-text">membership</span> experience
             </h1>
             <p class="lead text-secondary mt-3">
-              Exclusive membership app with rewards,
-              discounts, and benefits for loyal
+              Exclusive membership app with rewards, discounts, and benefits for loyal
               customers—powered by STSSI.
             </p>
             <div class="d-flex flex-wrap gap-2 mt-3">
@@ -82,7 +81,7 @@
 
             <div class="d-flex align-items-center gap-3 mt-4 text-secondary small">
               <div class="d-flex align-items-center gap-2">
-                <i class="bi bi-shield-check"></i> Secure by Supabase
+                <i class="bi bi-bag-heart"></i> Bigger Discounts
               </div>
               <div class="d-none d-sm-flex align-items-center gap-2">
                 <i class="bi bi-award"></i> Tiered Rewards
@@ -104,8 +103,8 @@
                     <div class="mini-card">
                       <i class="bi bi-graph-up-arrow"></i>
                       <div>
-                        <div class="mini-title">Levels</div>
-                        <div class="mini-sub">Progress + badges</div>
+                        <div class="mini-title">Membership</div>
+                        <div class="mini-sub">Tier, benefits &amp; progress</div>
                       </div>
                     </div>
                   </div>
@@ -113,8 +112,8 @@
                     <div class="mini-card">
                       <i class="bi bi-people"></i>
                       <div>
-                        <div class="mini-title">Community</div>
-                        <div class="mini-sub">Verified installers</div>
+                        <div class="mini-title">Deals &amp; Rewards</div>
+                        <div class="mini-sub">Discounts &amp; vouchers</div>
                       </div>
                     </div>
                   </div>
@@ -122,8 +121,8 @@
                     <div class="mini-card">
                       <i class="bi bi-journal-code"></i>
                       <div>
-                        <div class="mini-title">Courses</div>
-                        <div class="mini-sub">Learn & grow</div>
+                        <div class="mini-title">Mini Games</div>
+                        <div class="mini-sub">Spin &amp; win events</div>
                       </div>
                     </div>
                   </div>
@@ -131,15 +130,12 @@
                     <div class="mini-card">
                       <i class="bi bi-gift"></i>
                       <div>
-                        <div class="mini-title">Perks</div>
-                        <div class="mini-sub">Raffles & deals</div>
+                        <div class="mini-title">E-Wallet</div>
+                        <div class="mini-sub">Balance, top-ups &amp; history</div>
                       </div>
                     </div>
                   </div>
                 </div>
-                <p class="text-secondary small mt-3 mb-0 text-center">
-                  *Mock preview for illustration
-                </p>
               </div>
             </div>
           </div>
@@ -152,157 +148,149 @@
       <div class="container-xl">
         <div class="section-head">
           <h2 class="fw-bold">Everything you need in one place</h2>
-          <p class="text-secondary mb-0">Built for members, installers, and admins.</p>
+          <p class="text-secondary mb-0">
+            Built for STSSI members—rewards and benefits made simple.
+          </p>
         </div>
 
         <div class="row g-4">
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100">
-              <div class="icon-wrap"><i class="bi bi-patch-check"></i></div>
-              <h5 class="card-title mb-2">Verified Installers</h5>
+              <div class="icon-wrap"><i class="bi bi-bar-chart-line"></i></div>
+              <h5 class="card-title mb-2">Track Progress</h5>
               <p class="text-secondary mb-3">
-                Browse vetted technicians with badges and level progress.
+                Monitor your purchases and referrals to see how close you are to your next tier.
               </p>
-              <span class="badge rounded-pill text-bg-primary-subtle border"
-                >Trust &amp; Safety</span
-              >
             </div>
           </div>
 
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100">
-              <div class="icon-wrap"><i class="bi bi-book"></i></div>
-              <h5 class="card-title mb-2">Courses &amp; Levels</h5>
+              <div class="icon-wrap"><i class="bi bi-graph-up-arrow"></i></div>
+              <h5 class="card-title mb-2">Tier Upgrades</h5>
               <p class="text-secondary mb-3">
-                Learn CCTV, networks, and smart home—earn levels &amp; perks.
+                Reach milestones and unlock higher membership levels with better perks.
               </p>
-              <span class="badge rounded-pill text-bg-success-subtle border">Skill Growth</span>
             </div>
           </div>
 
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100">
               <div class="icon-wrap"><i class="bi bi-gift"></i></div>
-              <h5 class="card-title mb-2">Member Perks</h5>
+              <h5 class="card-title mb-2">Bigger Discounts</h5>
               <p class="text-secondary mb-3">
-                Discounts, raffles, and rewards tailored to your tier.
+                Higher tiers = bigger savings on products and services.
               </p>
-              <span class="badge rounded-pill text-bg-warning-subtle border">Rewards</span>
             </div>
           </div>
 
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100">
-              <div class="icon-wrap"><i class="bi bi-shield-lock"></i></div>
-              <h5 class="card-title mb-2">Secure &amp; Simple</h5>
+              <div class="icon-wrap"><i class="bi bi-unlock2"></i></div>
+              <h5 class="card-title mb-2">Exclusive Vouchers</h5>
               <p class="text-secondary mb-3">
-                Supabase auth + RLS-secured profiles. Your data, protected.
+                Unlock special vouchers and rewards available only at your tier.
               </p>
-              <span class="badge rounded-pill text-bg-info-subtle border">Security</span>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- ====================== PRICING (Modern tiles) ====================== -->
+    <!-- ====================== MEMBERSHIP ====================== -->
     <section id="pricing" class="section-pad bg-section">
       <div class="container-xl">
         <div class="section-head">
-          <h2 class="fw-bold">Choose your membership</h2>
-          <p class="text-secondary mb-0">Regular → Silver → Gold → Platinum → Diamond.</p>
+          <h2 class="fw-bold">Membership Tiers & Benefits</h2>
+          <p class="text-secondary mb-0">
+            Progress through tiers with every purchase and 
+            referral—more perks unlocked along the way.
+          </p>
         </div>
 
         <div class="row g-4 align-items-stretch">
           <div class="col-12 col-md-6 col-xl">
-            <div class="price-card h-100">
-              <div class="price-head">Regular</div>
-              <div class="price-amt">Free</div>
+            <div class="price-card h-100 highlight border-success-subtle">
+              <div class="price-head text-success">Regular</div>
+              <div class="tier-logoDiv border-bottom pb-4">
+                <img src="/regular.png" alt="tier_logo" class="tier-logo img-fluid" />
+              </div>
               <ul class="list-unstyled mt-3 mb-4 text-secondary">
-                <li>Basic access</li>
-                <li>Community updates</li>
-                <li>Email support</li>
+                <li><i class="bi bi-check2"></i> Free Membership</li>
+                <li><i class="bi bi-check2"></i> ₱2,000 discount credits per month</li>
+                <li><i class="bi bi-check2"></i> Enjoy 5% discount on all purchases</li>
               </ul>
-              <router-link
-                class="btn btn-outline-primary btn-modern mt-auto"
-                :to="{ name: 'signup' }"
-                >Get Started</router-link
-              >
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl">
             <div class="price-card h-100 highlight border-primary-subtle">
               <div class="price-head text-primary">Silver</div>
-              <div class="price-amt">₱—/mo</div>
+              <div class="tier-logoDiv border-bottom pb-4">
+                <img src="/silver.png" alt="tier_logo" class="tier-logo img-fluid" />
+              </div>
               <ul class="list-unstyled mt-3 mb-4 text-secondary">
-                <li>Member discounts</li>
-                <li>Basic courses</li>
-                <li>Priority support</li>
+                <li><i class="bi bi-check2"></i> Made ₱10,000 worth of purchases</li>
+                <li><i class="bi bi-check2"></i> 10 Referrals with ₱5,000 purchases</li>
+                <li><i class="bi bi-check2"></i> ₱10,000 discount credits per month</li>
+                <li><i class="bi bi-check2"></i> Enjoy 6% discount on all purchases</li>
               </ul>
-              <router-link class="btn btn-primary btn-modern mt-auto" :to="{ name: 'signup' }"
-                >Choose Silver</router-link
-              >
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl">
             <div class="price-card h-100 border-warning-subtle">
               <div class="price-head text-warning">Gold</div>
-              <div class="price-amt">₱—/mo</div>
+              <div class="tier-logoDiv border-bottom pb-4">
+                <img src="/gold.png" alt="tier_logo" class="tier-logo img-fluid" />
+              </div>
               <ul class="list-unstyled mt-3 mb-4 text-secondary">
-                <li>All Silver perks</li>
-                <li>Intermediate courses</li>
-                <li>Raffle entries</li>
+                <li><i class="bi bi-check2"></i> Made ₱20,000 worth of purchases</li>
+                <li><i class="bi bi-check2"></i> 20 Referrals with ₱10,000 purchases</li>
+                <li><i class="bi bi-check2"></i> ₱20,000 discount credits per month</li>
+                <li><i class="bi bi-check2"></i> Enjoy 7% discount on all purchases</li>
+                <li><i class="bi bi-check2"></i> Free Delivery for Val. Order worth ₱10,000</li>
               </ul>
-              <router-link
-                class="btn btn-warning btn-modern text-dark mt-auto"
-                :to="{ name: 'signup' }"
-                >Go Gold</router-link
-              >
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl">
             <div class="price-card h-100 border-dark-subtle">
               <div class="price-head text-dark">Platinum</div>
-              <div class="price-amt">₱—/mo</div>
+              <div class="tier-logoDiv border-bottom pb-4">
+                <img src="/platinum.png" alt="tier_logo" class="tier-logo img-fluid" />
+              </div>
               <ul class="list-unstyled mt-3 mb-4 text-secondary">
-                <li>All Gold perks</li>
-                <li>Advanced courses</li>
-                <li>1:1 expert sessions</li>
+                <li><i class="bi bi-check2"></i> Made ₱50,000 worth of purchases</li>
+                <li><i class="bi bi-check2"></i> 50 Referrals with ₱20,000 purchases</li>
+                <li><i class="bi bi-check2"></i> ₱50,000 discount credits per month</li>
+                <li><i class="bi bi-check2"></i> Enjoy 8% discount on all purchases</li>
+                <li><i class="bi bi-check2"></i> Free delivery for GMA orders worth ₱10,000</li>
               </ul>
-              <router-link class="btn btn-dark btn-modern mt-auto" :to="{ name: 'signup' }"
-                >Go Platinum</router-link
-              >
             </div>
           </div>
 
           <div class="col-12 col-md-6 col-xl">
             <div class="price-card h-100 border-info-subtle">
               <div class="price-head text-info">Diamond</div>
-              <div class="price-amt">₱—/mo</div>
+              <div class="tier-logoDiv border-bottom pb-4">
+                <img src="/diamond.png" alt="tier_logo" class="tier-logo img-fluid" />
+              </div>
               <ul class="list-unstyled mt-3 mb-4 text-secondary">
-                <li>All Platinum perks</li>
-                <li>VIP support</li>
-                <li>Exclusive events</li>
+                <li><i class="bi bi-check2"></i> Made ₱100,000 worth of purchases</li>
+                <li><i class="bi bi-check2"></i> 100 Referrals with ₱50,000 purchases</li>
+                <li><i class="bi bi-check2"></i> ₱100,000 discount credits per month</li>
+                <li><i class="bi bi-check2"></i> Enjoy 10% discount on all purchases</li>
+                <li><i class="bi bi-check2"></i> Free delivery for GMA orders worth ₱10,000</li>
+                <li><i class="bi bi-check2"></i> Exclusive Discount Offers</li>
               </ul>
-              <router-link
-                class="btn btn-info btn-modern text-dark mt-auto"
-                :to="{ name: 'signup' }"
-                >Become Diamond</router-link
-              >
             </div>
           </div>
         </div>
-
-        <p class="text-center text-secondary small mt-3 mb-0">
-          Prices are placeholders—replace with your actual tiers.
-        </p>
       </div>
     </section>
 
-    <!-- ====================== TESTIMONIALS (Cards) ====================== -->
+    <!-- ====================== TESTIMONIALS (Cards)
     <section id="testimonials" class="section-pad">
       <div class="container-xl">
         <div class="section-head">
@@ -341,6 +329,7 @@
         </div>
       </div>
     </section>
+    ====================== -->
 
     <!-- ====================== FAQ (Accordion) ====================== -->
     <section id="faq" class="section-pad bg-section">
@@ -555,7 +544,7 @@ html {
 }
 
 .simp-logo {
-  height: 50px;
+  height: 45px;
 }
 
 /* ---------- Buttons ---------- */
@@ -686,7 +675,7 @@ html {
   font-size: 1.25rem;
 }
 
-/* ---------- Pricing ---------- */
+/* ---------- Membership Infos ---------- */
 .price-card {
   display: flex;
   flex-direction: column;
@@ -694,7 +683,9 @@ html {
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.04);
+  box-shadow: 
+    rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, 
+    rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
   transition:
     transform 0.15s ease,
     box-shadow 0.15s ease;
@@ -710,10 +701,22 @@ html {
   font-weight: 700;
   letter-spacing: 0.02em;
 }
-.price-amt {
-  font-size: 1.75rem;
-  font-weight: 800;
-  margin-top: 0.25rem;
+.tier-logoDiv {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: auto;
+}
+.tier-logo {
+  max-height: 120px;   /* or whatever fits */
+  width: auto;         /* keep aspect ratio */
+}
+.list-unstyled li {
+  display: flex;
+    gap: 0.55rem;
+    align-items: flex-start;
+    padding: 0.4rem 0;
+    border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
 }
 
 /* ---------- Testimonials ---------- */

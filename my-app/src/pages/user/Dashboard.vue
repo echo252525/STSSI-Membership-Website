@@ -24,7 +24,6 @@
               <!-- badge icon -->
               <div class="tier-badge">
                 <img v-if="badgeIcon" :src="badgeIcon" :alt="currentTier.name + ' badge'" />
-                <span v-else class="material-symbols-outlined">workspace_premium</span>
               </div>
               <!-- current tier -->
               <div>
@@ -149,6 +148,8 @@ const tiers = [
 const ICON_BASE = '/'
 const iconFor = (key: TierKey) => {
   switch (key) {
+    case 'regular':
+      return ICON_BASE + 'regular.png'
     case 'silver':
       return ICON_BASE + 'silver.png'
     case 'gold':
@@ -162,7 +163,7 @@ const iconFor = (key: TierKey) => {
   }
 }
 
-const memberTier = ref<TierKey>('gold')
+const memberTier = ref<TierKey>('regular')
 const currentTier = computed(() => tiers.find((t) => t.key === memberTier.value) ?? tiers[0])
 const badgeIcon = computed(() => iconFor(currentTier.value.key as TierKey))
 
@@ -317,6 +318,11 @@ async function fetchJoinableGames() {
     radial-gradient(120% 140% at 10% 90%, var(--fx-b) 0%, transparent 60%),
     repeating-linear-gradient(135deg, transparent 0 10px, var(--fx-line) 10px 11px);
 }
+.tier-hero-compact.is-regular {
+  --fx-a: rgba(0, 128, 0, 0.12);
+  --fx-b: rgba(34, 197, 94, 0.14);
+  --fx-line: rgba(0, 128, 0, 0.08);
+}
 .tier-hero-compact.is-silver {
   --fx-a: #f3f6fa;
   --fx-b: #eceff5;
@@ -341,11 +347,6 @@ async function fetchJoinableGames() {
   width: 78px;
   height: 78px;
   object-fit: contain;
-}
-.tier-badge .material-symbols-outlined {
-  font-variation-settings: 'FILL' 1;
-  font-size: 56px;
-  color: #20647c;
 }
 
 /* ===== Summary chips (copied style from Membership) ===== */
