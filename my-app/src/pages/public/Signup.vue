@@ -38,6 +38,21 @@
             />
           </div>
 
+          <!-- 🔹 Added: Phone Number -->
+          <div class="col-12">
+            <label for="phone" class="form-label">Phone Number</label>
+            <input
+              v-model.trim="phone"
+              type="tel"
+              class="form-control"
+              placeholder="e.g., 09XXXXXXXXX or +63 9XXXXXXXXX"
+              id="phone"
+              inputmode="tel"
+              autocomplete="tel"
+            />
+            <div class="form-text">We’ll use this for delivery and support updates.</div>
+          </div>
+
           <div class="password-div d-flex justify-content-between gap-2">
             <div class="position-relative flex-fill">
               <label for="password" class="form-label">Password *</label>
@@ -84,14 +99,76 @@
             </div>
           </div>
 
+          <!-- 🔹 Detailed Address Fields (new) -->
           <div class="col-12">
-            <label for="address" class="form-label">Address</label>
+            <label class="form-label">House/Unit & Street *</label>
+            <input
+              v-model.trim="addrLine1"
+              type="text"
+              class="form-control"
+              placeholder="e.g., Unit 2B, 123 Sampaguita St."
+              required
+            />
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
+            <input
+              v-model.trim="addrLine2"
+              type="text"
+              class="form-control"
+              placeholder="e.g., Brgy. Malinis"
+            />
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">City / Municipality *</label>
+            <input
+              v-model.trim="addrCity"
+              type="text"
+              class="form-control"
+              placeholder="e.g., Quezon City"
+              required
+            />
+          </div>
+
+          <div class="col-md-4">
+            <label class="form-label">Province *</label>
+            <input
+              v-model.trim="addrProvince"
+              type="text"
+              class="form-control"
+              placeholder="e.g., Metro Manila"
+              required
+            />
+          </div>
+
+          <div class="col-md-2">
+            <label class="form-label">ZIP *</label>
+            <input
+              v-model.trim="addrZip"
+              type="text"
+              class="form-control"
+              placeholder="e.g., 1100"
+              required
+              pattern="\d{4}"
+              title="Enter a valid postal code"
+            />
+          </div>
+
+          <!-- 🔹 Your original Address field (kept, now auto-filled & read-only) -->
+          <div class="col-12">
+            <label for="address" class="form-label">Address (Auto-filled)</label>
             <input
               v-model.trim="address"
               type="text"
               class="form-control"
               placeholder="Street, City, Province, ZIP"
+              readonly
             />
+            <div class="form-text">
+              This field is generated from the address details above.
+            </div>
           </div>
 
           <div class="col-12">
@@ -126,7 +203,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -134,10 +211,13 @@ const router = useRouter()
 const fullName = ref('')
 const email = ref('')
 const password = ref('')
-const address = ref('')
+const address = ref('') // 🔸 kept from your original code (now auto-computed)
 const age = ref<number | null>(null)
 const loading = ref(false)
 const error = ref('')
+
+// 🔹 Added: phone number state
+const phone = ref('')
 
 // show password
 const showPassword = ref(false)
@@ -148,6 +228,35 @@ const togglePassword = () => {
 const showConfirmPassword = ref(false)
 const toggleConfirmPassword = () => {
   showConfirmPassword.value = !showConfirmPassword.value
+}
+
+/* 🔹 NEW: Detailed address refs */
+const addrLine1 = ref('')     // House/Unit & Street (required)
+const addrLine2 = ref('')     // Barangay (optional)
+const addrCity = ref('')      // required
+const addrProvince = ref('')  // required
+const addrZip = ref('')       // required
+
+/* Build a single-line address string for DB storage */
+const fullAddress = computed(() => {
+  const parts = [
+    addrLine1.value,
+    addrLine2.value,
+    addrCity.value,
+    addrProvince.value,
+    addrZip.value,
+  ].filter(Boolean)
+  return parts.join(', ')
+})
+
+/* Keep your original address field in sync (read-only) */
+watch([addrLine1, addrLine2, addrCity, addrProvince, addrZip], () => {
+  address.value = fullAddress.value
+})
+
+/* Simple completeness guard for required address parts */
+function isAddressComplete() {
+  return !!(addrLine1.value && addrCity.value && addrProvince.value && addrZip.value)
 }
 
 // NOTE: This relies on DB/RLS we set up earlier:
@@ -161,12 +270,17 @@ const onSubmit = async () => {
   error.value = ''
 
   try {
+    if (!isAddressComplete()) {
+      loading.value = false
+      return (error.value = 'Please complete your address (House/Unit & Street, City/Municipality, Province, ZIP).')
+    }
+
     // 1) Create auth user (includes metadata)
     const { data, error: signErr } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
-        data: { full_name: fullName.value },
+        data: { full_name: fullName.value }, // keeping your original metadata
         emailRedirectTo: `${window.location.origin}/auth/login`,
       },
     })
@@ -174,7 +288,6 @@ const onSubmit = async () => {
 
     const user = data.user
     if (!user?.id) {
-      // Extremely rare, but handle defensively
       alert('Sign-up created, but no user ID returned. Please log in.')
       return router.push({ name: 'login' })
     }
@@ -185,9 +298,10 @@ const onSubmit = async () => {
       id: user.id, // must match auth.users.id
       email: email.value, // citext unique
       full_name: fullName.value,
-      address: address.value || null,
+      address: fullAddress.value || null, // 🔹 store the assembled address
       age: Number.isFinite(Number(age.value)) ? Number(age.value) : null,
       membership_type: 'regular', // default tier
+      phone_number: phone.value || null, // 🔹 NEW: store phone number
     }
 
     const { error: insertErr } = await supabase.from('users').insert([insertPayload])

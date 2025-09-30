@@ -113,6 +113,21 @@
           </RouterLink>
         </li>
 
+        <!-- 🆕 Shop -->
+        <li class="nav-item">
+          <RouterLink
+            :to="{ name: 'user.shop' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'Shop' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-bag fs-5"></i>
+            <span class="link-text" v-show="!isCollapsed">Shop</span>
+          </RouterLink>
+        </li>
+
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.minigames' }"
@@ -355,7 +370,8 @@ onMounted(async () => {
 
       const objectPath = urow?.profile_url as string | null
       if (objectPath) {
-        const { data: signed } = await supabase.storage
+        const { data: signed } = await supabase
+          .storage
           .from('user_profile')
           .createSignedUrl(objectPath, 3600)
         if (signed?.signedUrl) {

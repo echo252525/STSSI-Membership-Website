@@ -393,51 +393,81 @@ async function reload() {
   await loadOpenEvents()
 }
 
-/** Resolve product images to signed URLs */
+/** ===================== UPDATED: Resolve product images from the "prize product" bucket =====================
+ * Bucket:  "prize product"
+ * Path:    products/<product_id>/<image files...>
+ * Rule:    Pick exactly ONE image (first suitable file found) and sign it.
+ */
+const PRIZE_BUCKET = 'prize_product'
+const PRIZE_ROOT = 'products'
+
+/** quick check for image-y filenames when metadata is unavailable */
+function isImageByName(name: string | undefined | null) {
+  if (!name) return false
+  return /\.(png|jpe?g|webp|gif|bmp|heic|avif)$/i.test(name)
+}
+
+async function firstImagePathForProduct(productId: string): Promise<string | null> {
+  try {
+    const dir = `${PRIZE_ROOT}/${productId}`
+
+    // list files inside products/<product_id> ; grab up to 10 and pick the first image-like file
+    const { data: files, error: listErr } = await supabase.storage
+      .from(PRIZE_BUCKET)
+      .list(dir, { limit: 10 })
+
+    if (listErr) {
+      console.warn('[IMG] list error for', dir, listErr.message)
+      return null
+    }
+    if (!files || files.length === 0) return null
+
+    // Prefer files with image mimeType if present, else use filename extension
+    const candidate =
+      files.find((f: any) => (f?.metadata?.mimetype || '').startsWith('image/')) ||
+      files.find((f: any) => isImageByName(f?.name)) ||
+      files[0]
+
+    if (!candidate?.name) return null
+    return `${dir}/${candidate.name}`
+  } catch (e: any) {
+    console.warn('[IMG] firstImagePathForProduct failed:', e?.message || e)
+    return null
+  }
+}
+
+/** Create a signed URL with a cache-busting param so avatar/image updates reflect quickly */
+async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
+  if (error) {
+    console.warn('[IMG] createSignedUrl error:', error.message)
+    return null
+  }
+  const url = data?.signedUrl ?? null
+  return url ? `${url}&cb=${Date.now()}` : null
+}
+
+/** MAIN image resolver for events list */
 async function attachPrizeImages(list: EventRow[]) {
   try {
-    const productIds = Array.from(
-      new Set(list.map((e) => e.product_id).filter(Boolean)),
-    ) as string[]
-    if (productIds.length === 0) {
-      list.forEach((e) => (e.imageUrl = null))
-      console.log('[IMG] No products to resolve.')
-      return
-    }
+    if (!list || list.length === 0) return
 
-    const { data: products, error: prodErr } = await supabase
-      .schema('games')
-      .from('products')
-      .select('id, product_url')
-      .in('id', productIds)
+    await Promise.all(
+      list.map(async (ev) => {
+        if (!ev?.product_id) {
+          ev.imageUrl = null
+          return
+        }
+        const path = await firstImagePathForProduct(ev.product_id)
+        if (!path) {
+          ev.imageUrl = null
+          return
+        }
+        ev.imageUrl = await signedUrlWithCB(PRIZE_BUCKET, path)
+      })
+    )
 
-    if (prodErr) throw prodErr
-    if (!isAlive.value) return
-
-    const urlByProductId = new Map<string, string>()
-    for (const row of (products ?? []) as { id: string; product_url: string }[]) {
-      if (row.product_url) urlByProductId.set(row.id, row.product_url)
-    }
-
-    for (const ev of list) {
-      const path = ev.product_id ? urlByProductId.get(ev.product_id) : undefined
-      if (!path) {
-        ev.imageUrl = null
-        continue
-      }
-
-      const { data: signed, error: signErr } = await supabase.storage
-        .from('prize_product')
-        .createSignedUrl(path, 60 * 60)
-
-      if (signErr) {
-        console.error('[IMG] signedUrl error:', signErr)
-        ev.imageUrl = null
-      } else {
-        ev.imageUrl = signed?.signedUrl ?? null
-      }
-    }
-    console.log('[IMG] Signed URLs attached for', list.length, 'events')
+    console.log('[IMG] Attached signed URLs for', list.length, 'events')
   } catch (e: any) {
     console.error('attachPrizeImages error:', e?.message || e)
     list.forEach((e) => (e.imageUrl = null))
@@ -575,6 +605,7 @@ function subscribeRealtime() {
               delete avatarsByEvent[row.id]
             } else {
               const merged = { ...events.value[i], ...row }
+              // always (re)attach image in case product_id changed
               if (merged.product_id !== events.value[i].product_id) {
                 await attachPrizeImages([merged])
                 console.log('[RT:event] UPDATE product changed -> refreshed image', row.id)
@@ -654,7 +685,7 @@ function subscribeRealtime() {
       console.log('[RT:entry] subscription status:', status)
     }))
 
-  // PRODUCTS
+  // PRODUCTS (kept as-is; storage changes aren't covered, but DB updates still handled)
   productsChannel = supabase
     .channel(`rt-games-products-${sessionId}`)
     .on(
@@ -765,12 +796,9 @@ function safeLogUnmountStatus(ch: ReturnType<typeof supabase.channel> | null, ta
 }
 
 /** 🔧 Non-blocking unsubscribe (fire-and-forget) */
-// ⭐ changed: do not await here; swallow late errors; always remove the channel.
-// Also guard against already-closed channels.
 function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) {
   if (!ch) return
   try {
-    // kick off close but don't await it
     ch.unsubscribe().catch(() => {})
   } catch (_) {}
   try {
@@ -778,7 +806,6 @@ function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) {
   } catch (_) {}
 }
 
-// ⭐ changed: add a simple re-entrancy guard so we never double-teardown
 let teardownStarted = false
 
 onMounted(() => {
@@ -788,7 +815,6 @@ onMounted(() => {
   subscribeRealtime()
 })
 
-// ⭐ changed: make onUnmounted synchronous and non-blocking
 onUnmounted(() => {
   if (teardownStarted) return
   teardownStarted = true
@@ -796,7 +822,6 @@ onUnmounted(() => {
   console.log('[LIFECYCLE] Unmounting -> removing channels')
   isAlive.value = false
 
-  // Ensure DOM/routing flush first, then tear down
   nextTick(() => {
     safeLogUnmountStatus(eventsChannel, 'event')
     safeUnsubscribe(eventsChannel); eventsChannel = null
@@ -810,7 +835,6 @@ onUnmounted(() => {
     safeLogUnmountStatus(usersChannel, 'users')
     safeUnsubscribe(usersChannel); usersChannel = null
 
-    // Optional: clear reactive maps to release references quickly (no UI impact after unmount)
     try {
       events.value = []
       Object.keys(entryCounts).forEach(k => delete entryCounts[k])

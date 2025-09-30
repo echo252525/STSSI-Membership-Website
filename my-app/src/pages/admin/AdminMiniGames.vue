@@ -843,8 +843,9 @@ type ProductRow = {
   id: string
   name: string
   price: number | string
-  supplier_price: number | string   // ✅ added
-  product_url: string | null
+  supplier_price: number | string
+  /** schema: text[] — allow string or array for safety */
+  product_url: string | string[] | null
 }
 
 const events = ref<EventRow[]>([])
@@ -877,10 +878,20 @@ function isStoragePath(u: string | null | undefined) {
   if (!u) return false
   return !/^https?:\/\//i.test(u)
 }
+
+/** Normalize product_url (string | string[] | null) to a single path/url */
+function firstUrl(u: string | string[] | null): string | '' {
+  if (!u) return ''
+  if (Array.isArray(u)) return (u[0] ?? '') as string
+  return u as string
+}
+
 function productImageUrl(p: ProductRow | null) {
   if (!p || !p.product_url) return ''
+  const raw0 = firstUrl(p.product_url)
+  if (!raw0) return ''
   const key = p.id
-  const raw = p.product_url
+  const raw = raw0
   if (!isStoragePath(raw)) return raw
   if (signedMap[key]) return signedMap[key]
   if (!imgBusy[key]) {
@@ -908,7 +919,8 @@ async function loadProducts() {
   const { data, error } = await supabase
     .schema('games')
     .from('products')
-    .select('id,name,price,supplier_price,product_url') // ✅ include supplier_price
+    .select('id,name,price,supplier_price,product_url')
+    .eq('ispublish', true) // ✅ ONLY published products
     .order('created_at', { ascending: false })
   if (!error && data) products.value = data as ProductRow[]
   productsLoading.value = false
@@ -920,8 +932,8 @@ watch(selectedProductId, () => {
   const p = selectedProduct.value
   if (!p) return
   // ✅ prefill from supplier_price instead of price
-  form.item_supplier_cost = Number(p.supplier_price ?? 0) // ⬅️ from supplier_price
-  form.entry_fee = Number(p.price ?? 0)  
+  form.item_supplier_cost = Number(p.supplier_price ?? 0)
+  form.entry_fee = Number(p.price ?? 0)
   // recalc interest pool after supplier cost changes (using current percent)
   form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 

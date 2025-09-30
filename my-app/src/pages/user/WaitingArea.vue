@@ -261,8 +261,8 @@ const progressPct = computed<number>(() => {
 })
 
 // ===== CONFIG per your setup =====
-const PRODUCT_BUCKET = 'prize_product' // product images bucket
-const AVATAR_BUCKET  = 'user_profile'  // 🆕 user avatars bucket
+const PRODUCT_BUCKETS = ['prize product', 'prize_product'] // try with space first, then underscore (fallback)
+const AVATAR_BUCKET  = 'user_profile'
 const READY_STATUS = 'ready'
 
 function isHttpUrl(path?: string | null) {
@@ -270,21 +270,27 @@ function isHttpUrl(path?: string | null) {
 }
 
 /**
- * Create a SIGNED URL for a storage object path in the 'prize_product' bucket.
+ * Create a SIGNED URL for a storage object path in the product buckets (tries both names).
  * If the product_url is already http(s), it is returned as-is.
  */
 async function toSignedUrl(path: string | null | undefined, expiresIn = 3600): Promise<string | null> {
   if (!path) return null
   if (isHttpUrl(path)) return path
-  const { data, error } = await supabase
-    .storage
-    .from(PRODUCT_BUCKET)
-    .createSignedUrl(path, expiresIn, { download: false })
-  if (error) {
-    console.error('createSignedUrl error:', error)
-    return null
+
+  // Try each candidate bucket name
+  for (const bucket of PRODUCT_BUCKETS) {
+    try {
+      const { data, error } = await supabase
+        .storage
+        .from(bucket)
+        .createSignedUrl(path, expiresIn, { download: false })
+      if (!error && data?.signedUrl) return data.signedUrl
+    } catch (e) {
+      // continue to next bucket
+    }
   }
-  return data?.signedUrl || null
+  console.error('createSignedUrl failed for all product buckets, path:', path)
+  return null
 }
 
 /**
@@ -311,8 +317,51 @@ async function toSignedAvatar(path: string | null | undefined, expiresIn = 3600)
 function toPublicUrl(path: string | null | undefined): string | null {
   if (!path) return null
   if (isHttpUrl(path)) return path
-  const { data } = supabase.storage.from(PRODUCT_BUCKET).getPublicUrl(path)
+  // default to the first bucket naming if public URL ever needed
+  const { data } = supabase.storage.from(PRODUCT_BUCKETS[0]).getPublicUrl(path)
   return data?.publicUrl || null
+}
+
+/**
+ * 🆕 Find and sign the first image inside: products/<product_id>/...
+ * Accepts typical image extensions and returns a single signed URL (or null).
+ */
+async function getFirstProductImage(productId: string | null | undefined): Promise<string | null> {
+  if (!productId) return null
+  const folder = `products/${productId}`
+
+  for (const bucket of PRODUCT_BUCKETS) {
+    try {
+      const { data: files, error } = await supabase.storage.from(bucket).list(folder, {
+        limit: 10,
+        offset: 0,
+        sortBy: { column: 'name', order: 'asc' },
+      })
+      if (error) throw error
+      if (!files || files.length === 0) continue
+
+      // Filter to image files only
+      const imgs = files.filter(f =>
+        f && f.name && /\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name)
+      )
+
+      if (imgs.length === 0) continue
+
+      // Pick the first (sorted asc by name)
+      const first = imgs[0]
+      const fullPath = `${folder}/${first.name}`
+
+      const { data: signed, error: signErr } = await supabase
+        .storage
+        .from(bucket)
+        .createSignedUrl(fullPath, 3600, { download: false })
+
+      if (!signErr && signed?.signedUrl) return signed.signedUrl
+    } catch (e) {
+      // try next bucket name
+    }
+  }
+  return null
 }
 
 // ===== Confirmation modal state =====
@@ -572,22 +621,35 @@ async function fetchEventAndImage() {
     // redirect check
     maybeRedirect()
 
-    // 2) If event has product_id, fetch products.product_url
+    // 2) If event has product_id, fetch products.product_url, but also support folder listing
     if (ev?.product_id) {
-      const { data: prod, error: prodErr } = await supabase
-        .schema('games')
-        .from('products')
-        .select('product_url')
-        .eq('id', ev.product_id)
-        .single()
+      // Try: read product_url
+      let signedFromUrl: string | null = null
+      try {
+        const { data: prod, error: prodErr } = await supabase
+          .schema('games')
+          .from('products')
+          .select('product_url')
+          .eq('id', ev.product_id)
+          .single()
 
-      if (prodErr) {
-        console.error('Failed to load product:', prodErr)
-        imageLoading.value = false
-      } else {
-        const path = (prod as any)?.product_url as string | null
-        imageUrl.value = await toSignedUrl(path)
+        if (!prodErr) {
+          const path = (prod as any)?.product_url as string | null
+          signedFromUrl = await toSignedUrl(path)
+        }
+      } catch (_) {
+        // ignore, we'll fallback
       }
+
+      // Fallback: list the folder products/<product_id> and sign the first image
+      if (!signedFromUrl) {
+        const signedFromFolder = await getFirstProductImage(ev.product_id)
+        imageUrl.value = signedFromFolder
+      } else {
+        imageUrl.value = signedFromUrl
+      }
+
+      imageLoading.value = false
     } else {
       imageLoading.value = false
     }
@@ -907,7 +969,7 @@ watch(() => event.value?.player_count, (nv, ov) => {
   }
 })
 watch(() => event.value?.status, (nv, ov) => {
-  if (ov !== undefined && nv !== ov) {
+  if (ov !== undefined && nv !== nv) {
     console.log('[watch] status changed:', ov, '→', nv, 'at', new Date().toISOString())
     // 🔵 Check redirect when status flips to locked
     maybeRedirect()
