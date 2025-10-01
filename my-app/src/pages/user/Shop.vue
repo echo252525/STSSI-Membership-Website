@@ -1,6 +1,6 @@
 <template>
-  <div class="shop-page container-fluid py-3">
-    <!-- Delivery / shipping setup (Shopee-like banner) -->
+  <div class="shop-page container-xxl py-0 px-0">
+    <!-- Delivery / shipping setup -->
     <div class="card shadow-sm border-0 mb-3">
       <div class="card-body d-flex flex-wrap align-items-center gap-3">
         <i class="bi bi-geo-alt fs-4 text-primary"></i>
@@ -23,7 +23,7 @@
       </div>
     </div>
 
-    <!-- Shipping modal (unchanged) -->
+    <!-- Shipping modal -->
     <div v-if="showShipping" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg">
         <div class="card-header d-flex align-items-center justify-content-between">
@@ -35,7 +35,13 @@
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Phone number</label>
-                <input v-model.trim="shipping.phone" type="tel" class="form-control" placeholder="+63 9XX XXX XXXX" required />
+                <input
+                  v-model.trim="shipping.phone"
+                  type="tel"
+                  class="form-control"
+                  placeholder="+63 9XX XXX XXXX"
+                  required
+                />
               </div>
               <div class="col-md-6">
                 <label class="form-label">Postal code</label>
@@ -53,15 +59,24 @@
               </div>
               <div class="col-12">
                 <label class="form-label">Address line 1 (House/Unit & Street)</label>
-                <input v-model.trim="shipping.address_line1" type="text" class="form-control" placeholder="House/Unit/Street" required />
+                <input
+                  v-model.trim="shipping.address_line1"
+                  type="text"
+                  class="form-control"
+                  placeholder="House/Unit/Street"
+                  required
+                />
               </div>
-
-              <!-- NEW: Barangay -->
               <div class="col-md-6">
                 <label class="form-label">Barangay</label>
-                <input v-model.trim="shipping.barangay" type="text" class="form-control" placeholder="Barangay" required />
+                <input
+                  v-model.trim="shipping.barangay"
+                  type="text"
+                  class="form-control"
+                  placeholder="Barangay"
+                  required
+                />
               </div>
-
               <div class="col-md-6">
                 <label class="form-label">City / Municipality</label>
                 <input v-model.trim="shipping.city" type="text" class="form-control" required />
@@ -73,7 +88,9 @@
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <button type="button" class="btn btn-outline-secondary" @click="closeShippingModal">Cancel</button>
+              <button type="button" class="btn btn-outline-secondary" @click="closeShippingModal">
+                Cancel
+              </button>
               <button type="submit" class="btn btn-primary" :disabled="savingShipping">
                 <span v-if="savingShipping" class="spinner-border spinner-border-sm me-2"></span>
                 Save
@@ -84,11 +101,10 @@
       </div>
     </div>
 
-    <!-- Top controls (Shopee-like) -->
+    <!-- Top controls -->
     <div class="card shadow-sm border-0 mb-3">
       <div class="card-body d-flex flex-wrap align-items-center gap-2">
-        <!-- Search -->
-        <div class="input-group" style="max-width: 360px;">
+        <div class="input-group" style="max-width: 360px">
           <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
           <input
             v-model.trim="search"
@@ -103,80 +119,110 @@
           </button>
         </div>
 
-        <!-- Sort -->
         <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
           <div class="btn-group" role="group" aria-label="Sort group">
             <button
               :class="['btn', sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary']"
               @click="changeSort('relevance')"
-            >Relevance</button>
+            >
+              Relevance
+            </button>
             <button
               :class="['btn', sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary']"
               @click="changeSort('newest')"
-            >Newest</button>
+            >
+              Newest
+            </button>
             <button
               :class="['btn', sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary']"
               @click="changeSort('price_asc')"
               title="Price: Low to High"
-            ><i class="bi bi-arrow-down-up me-1"></i>Price ↑</button>
+            >
+              <i class="bi bi-arrow-down-up me-1"></i>Price ↑
+            </button>
             <button
               :class="['btn', sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary']"
               @click="changeSort('price_desc')"
               title="Price: High to Low"
-            ><i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓</button>
+            >
+              <i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓
+            </button>
           </div>
 
-          <!-- In Stock -->
           <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="inStockSwitch" v-model="inStockOnly" @change="applyAndFetch">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="inStockSwitch"
+              v-model="inStockOnly"
+              @change="applyAndFetch"
+            />
             <label class="form-check-label" for="inStockSwitch">In Stock</label>
           </div>
 
-          <!-- Page size -->
           <div class="d-flex align-items-center gap-2">
             <label class="text-muted small">Per page</label>
-            <select v-model.number="pageSize" class="form-select form-select-sm" style="width: 84px" @change="goToPage(1)">
+            <select
+              v-model.number="pageSize"
+              class="form-select form-select-sm"
+              style="width: 84px"
+              @change="goToPage(1)"
+            >
               <option :value="12">12</option>
               <option :value="24">24</option>
               <option :value="36">36</option>
             </select>
           </div>
 
-          <!-- View Cart button with badge (opens modal) -->
-          <button ref="cartBtnRef" class="btn btn-outline-dark position-relative" @click="openCartModal">
+          <button
+            ref="cartBtnRef"
+            class="btn btn-outline-dark position-relative"
+            @click="openCartModal"
+          >
             <i class="bi bi-cart3 me-1"></i>
             View Cart
-            <span v-if="cartTotalItems > 0" class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger">
-              {{ cartTotalItems }}
-            </span>
+            <span
+              v-if="cartTotalItems > 0"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+              >{{ cartTotalItems }}</span
+            >
           </button>
         </div>
       </div>
     </div>
 
     <div class="row g-3">
-      <!-- Sidebar Filters -->
+      <!-- Sidebar -->
       <aside class="col-12 col-lg-3">
         <div class="card shadow-sm border-0">
-          <div class="card-header bg-white">
-            <strong>Filters</strong>
-          </div>
+          <div class="card-header bg-white"><strong>Filters</strong></div>
           <div class="card-body">
             <div class="mb-3">
               <label class="form-label">Price range</label>
               <div class="input-group mb-2">
                 <span class="input-group-text">₱</span>
-                <input v-model.number="minPrice" type="number" min="0" class="form-control" placeholder="Min" />
+                <input
+                  v-model.number="minPrice"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  placeholder="Min"
+                />
               </div>
               <div class="input-group">
                 <span class="input-group-text">₱</span>
-                <input v-model.number="maxPrice" type="number" min="0" class="form-control" placeholder="Max" />
+                <input
+                  v-model.number="maxPrice"
+                  type="number"
+                  min="0"
+                  class="form-control"
+                  placeholder="Max"
+                />
               </div>
               <div class="d-grid mt-2">
                 <button class="btn btn-outline-primary btn-sm" @click="applyAndFetch">Apply</button>
               </div>
             </div>
-
             <div class="small text-muted">
               Showing only <span class="fw-semibold">published</span> products.
             </div>
@@ -184,7 +230,7 @@
         </div>
       </aside>
 
-      <!-- Product Grid -->
+      <!-- Products -->
       <section class="col-12 col-lg-9">
         <div v-if="loading" class="text-center text-muted py-5">
           <span class="spinner-border me-2"></span> Loading products…
@@ -198,24 +244,19 @@
             </div>
           </div>
 
-          <div
-            class="col-6 col-md-4 col-xl-3"
-            v-for="p in products"
-            :key="p.id"
-          >
+          <!-- 2 / 3 / 4 cards per row -->
+          <div class="col-12 col-md-6 col-lg-4" v-for="p in products" :key="p.id">
             <div class="card h-100 product-card border-0 shadow-sm">
-              <div class="ratio ratio-1x1 product-thumb bg-light">
-                <!-- NEW: Carousel when multiple images -->
+              <div class="ratio product-thumb bg-light">
                 <div
                   v-if="hasMultipleImages(p)"
                   class="carousel-thumb"
                   @touchstart.passive="onTouchStart($event, p.id)"
                   @touchend.passive="onTouchEnd($event, p.id)"
                 >
-                  <!-- slides -->
                   <div class="slides">
                     <img
-                      v-for="(u,i) in productImages(p)"
+                      v-for="(u, i) in productImages(p)"
                       :key="i"
                       :src="u"
                       :alt="p.name"
@@ -223,21 +264,21 @@
                       :class="{ 'slide-img--active': currentSlide(p.id) === i }"
                     />
                   </div>
-
-                  <!-- dots -->
                   <div class="dots">
                     <span
                       class="dot"
-                      v-for="(u,i) in productImages(p)"
-                      :key="'d'+i"
+                      v-for="(u, i) in productImages(p)"
+                      :key="'d' + i"
                       :class="{ active: currentSlide(p.id) === i }"
                       @click.stop="goToSlide(p.id, i)"
                       aria-label="Go to image"
                     ></span>
                   </div>
-
-                  <!-- arrows -->
-                  <button class="nav left" @click.stop="prevSlide(p.id)" aria-label="Previous image">
+                  <button
+                    class="nav left"
+                    @click.stop="prevSlide(p.id)"
+                    aria-label="Previous image"
+                  >
                     <i class="bi bi-chevron-left"></i>
                   </button>
                   <button class="nav right" @click.stop="nextSlide(p.id)" aria-label="Next image">
@@ -245,28 +286,35 @@
                   </button>
                 </div>
 
-                <!-- ORIGINAL single-image / placeholder (kept) -->
                 <img
                   v-else-if="imageUrl(p)"
                   :src="imageUrl(p)"
                   :alt="p.name"
                   class="w-100 h-100 object-fit-cover rounded-top product-img"
                 />
-                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted product-img-fallback">
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted product-img-fallback"
+                >
                   <i class="bi bi-image fs-3"></i>
                 </div>
               </div>
 
               <div class="card-body d-flex flex-column">
-                <div class="fw-semibold product-title text-truncate" :title="p.name">{{ p.name }}</div>
-                <div class="text-muted small text-truncate mb-2" v-if="p.description">{{ p.description }}</div>
+                <div class="fw-semibold product-title text-truncate" :title="p.name">
+                  {{ p.name }}
+                </div>
+                <div class="text-muted small text-truncate mb-2" v-if="p.description">
+                  {{ p.description }}
+                </div>
                 <div class="mt-auto d-flex align-items-center justify-content-between">
                   <div class="price fw-bold">₱ {{ number(p.price) }}</div>
                   <span
                     class="badge"
                     :class="(p.stock ?? 0) > 0 ? 'text-bg-success' : 'text-bg-secondary'"
                     :title="'Stock: ' + (p.stock ?? 0)"
-                  >Stock: {{ p.stock ?? 0 }}</span>
+                    >Stock: {{ p.stock ?? 0 }}</span
+                  >
                 </div>
               </div>
 
@@ -279,21 +327,32 @@
                       class="btn btn-outline-secondary"
                       @click="decQty(p)"
                       :disabled="cartQty(p.id) <= 1"
-                    ><i class="bi bi-dash"></i></button>
-                    <input class="form-control text-center qty-field" :value="cartQty(p.id)" readonly />
+                    >
+                      <i class="bi bi-dash"></i>
+                    </button>
+                    <input
+                      class="form-control text-center qty-field"
+                      :value="cartQty(p.id)"
+                      readonly
+                    />
                     <button
                       type="button"
                       class="btn btn-outline-secondary"
                       @click="incQty(p)"
                       :disabled="p.stock != null ? cartQty(p.id) >= Number(p.stock) : false"
-                    ><i class="bi bi-plus"></i></button>
+                    >
+                      <i class="bi bi-plus"></i>
+                    </button>
                   </div>
                   <button
                     class="btn btn-primary"
                     :disabled="(p.stock ?? 0) <= 0 || addToCartBusy[p.id]"
                     @click="onAddToCart($event, p)"
                   >
-                    <span v-if="addToCartBusy[p.id]" class="spinner-border spinner-border-sm me-2"></span>
+                    <span
+                      v-if="addToCartBusy[p.id]"
+                      class="spinner-border spinner-border-sm me-2"
+                    ></span>
                     Add to cart
                   </button>
                 </div>
@@ -304,85 +363,129 @@
 
         <!-- Pagination -->
         <div v-if="total > 0" class="d-flex align-items-center justify-content-center gap-2 mt-3">
-          <button class="btn btn-outline-secondary btn-sm" :disabled="page === 1 || loading" @click="goToPage(page - 1)">
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            :disabled="page === 1 || loading"
+            @click="goToPage(page - 1)"
+          >
             <i class="bi bi-chevron-left"></i>
           </button>
-          <span class="small text-muted">
-            Page <strong>{{ page }}</strong> of <strong>{{ totalPages }}</strong>
-          </span>
-          <button class="btn btn-outline-secondary btn-sm" :disabled="page >= totalPages || loading" @click="goToPage(page + 1)">
+          <span class="small text-muted"
+            >Page <strong>{{ page }}</strong> of <strong>{{ totalPages }}</strong></span
+          >
+          <button
+            class="btn btn-outline-secondary btn-sm"
+            :disabled="page >= totalPages || loading"
+            @click="goToPage(page + 1)"
+          >
             <i class="bi bi-chevron-right"></i>
           </button>
         </div>
       </section>
     </div>
 
-    <!-- ================== Cart Modal (no delivery form; with - qty +) ================== -->
+    <!-- Cart Modal -->
     <div v-if="showCart" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg">
         <div class="card-header d-flex align-items-center justify-content-between">
           <strong><i class="bi bi-cart3 me-2"></i>Your Cart</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeCartModal">✕</button>
         </div>
-
         <div class="card-body">
-          <div v-if="cartItems.length === 0" class="text-center text-muted py-4">
+          <div v-if="cartItems.length === 0" class="text-center text-muted">
             <i class="bi bi-bag-x fs-2 d-block mb-2"></i>
             Your cart is empty.
           </div>
 
           <div v-else class="vstack gap-3">
-            <div v-for="it in cartItems" :key="it.product.id" class="d-flex align-items-center gap-3 border rounded-3 p-2">
+            <div
+              v-for="it in cartItems"
+              :key="it.product.id"
+              class="d-flex align-items-center gap-3 border rounded-3 p-2"
+            >
               <div class="cart-thumb ratio ratio-1x1 bg-light">
-                <img v-if="it.imageUrl" :src="it.imageUrl" :alt="it.product.name" class="w-100 h-100 object-fit-cover rounded" />
-                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                <img
+                  v-if="it.imageUrl"
+                  :src="it.imageUrl"
+                  :alt="it.product.name"
+                  class="w-100 h-100 object-fit-cover rounded"
+                />
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                >
                   <i class="bi bi-image"></i>
                 </div>
               </div>
               <div class="flex-grow-1">
-                <div class="fw-semibold text-truncate" :title="it.product.name">{{ it.product.name }}</div>
+                <div class="fw-semibold text-truncate" :title="it.product.name">
+                  {{ it.product.name }}
+                </div>
                 <div class="text-muted small">₱ {{ number(it.product.price) }}</div>
               </div>
 
-              <!-- NEW: - qty + controls that mutate the DB -->
               <div class="d-flex align-items-center">
-                <div class="input-group input-group-sm me-2" style="width: 140px;">
-                  <button class="btn btn-outline-secondary" title="Decrease"
-                          @click="decrementCartProduct(it.product.id)">
+                <div class="input-group input-group-sm me-2" style="width: 140px">
+                  <button
+                    class="btn btn-outline-secondary"
+                    title="Decrease"
+                    @click="decrementCartProduct(it.product.id)"
+                  >
                     <i class="bi bi-dash"></i>
                   </button>
-                  <input class="form-control text-center" :value="dbCartByProduct[it.product.id] ?? it.qty" readonly />
-                  <button class="btn btn-outline-secondary" title="Increase"
-                          @click="incrementCartProduct(it.product.id, it.product)">
+                  <input
+                    class="form-control text-center"
+                    :value="dbCartByProduct[it.product.id] ?? it.qty"
+                    readonly
+                  />
+                  <button
+                    class="btn btn-outline-secondary"
+                    title="Increase"
+                    @click="incrementCartProduct(it.product.id, it.product)"
+                  >
                     <i class="bi bi-plus"></i>
                   </button>
                 </div>
 
-                <div class="fw-semibold me-2">₱ {{ number((dbCartByProduct[it.product.id] ?? it.qty) * Number(it.product.price || 0)) }}</div>
-
-                <button class="btn btn-outline-danger btn-sm" title="Remove item"
-                        @click="removeCartProduct(it.product.id)">
+                <div class="fw-semibold me-2">
+                  ₱
+                  {{
+                    number(
+                      (dbCartByProduct[it.product.id] ?? it.qty) * Number(it.product.price || 0),
+                    )
+                  }}
+                </div>
+                <button
+                  class="btn btn-outline-danger btn-sm"
+                  title="Remove item"
+                  @click="removeCartProduct(it.product.id)"
+                >
                   <i class="bi bi-trash"></i>
                 </button>
               </div>
             </div>
 
             <hr />
-
             <div class="d-flex align-items-center justify-content-between fs-5">
               <div class="fw-semibold">Total</div>
               <div class="fw-bold">₱ {{ number(cartGrandTotal) }}</div>
             </div>
 
             <div class="d-flex justify-content-between flex-wrap gap-2">
-              <button class="btn btn-outline-danger" :disabled="cartItems.length === 0 || clearingCart" @click="clearCart">
+              <button
+                class="btn btn-outline-danger"
+                :disabled="cartItems.length === 0 || clearingCart"
+                @click="clearCart"
+              >
                 <span v-if="clearingCart" class="spinner-border spinner-border-sm me-2"></span>
                 Clear cart
               </button>
-
-              <!-- CHANGED: Checkout now opens Place Order modal -->
               <div class="ms-auto">
-                <button class="btn btn-success" :disabled="cartItems.length === 0" @click="openPlaceOrder">
+                <button
+                  class="btn btn-success"
+                  :disabled="cartItems.length === 0"
+                  @click="openPlaceOrder"
+                >
                   Checkout
                 </button>
               </div>
@@ -392,7 +495,7 @@
       </div>
     </div>
 
-    <!-- ================== Place Order Modal (delivery + placeholders) ================== -->
+    <!-- Place Order Modal -->
     <div v-if="showPlace" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg">
         <div class="card-header d-flex align-items-center justify-content-between">
@@ -400,13 +503,18 @@
           <button class="btn btn-sm btn-outline-secondary" @click="closePlaceOrder">✕</button>
         </div>
         <div class="card-body vstack gap-3">
-          <!-- Delivery details (editable here before placing order) -->
           <div class="border rounded-3 p-3">
             <div class="fw-semibold mb-2"><i class="bi bi-truck me-2"></i>Delivery details</div>
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Phone number</label>
-                <input v-model.trim="shipping.phone" type="tel" class="form-control" placeholder="+63 9XX XXX XXXX" required />
+                <input
+                  v-model.trim="shipping.phone"
+                  type="tel"
+                  class="form-control"
+                  placeholder="+63 9XX XXX XXXX"
+                  required
+                />
               </div>
               <div class="col-md-6">
                 <label class="form-label">Postal code</label>
@@ -424,11 +532,23 @@
               </div>
               <div class="col-12">
                 <label class="form-label">Address line 1 (House/Unit & Street)</label>
-                <input v-model.trim="shipping.address_line1" type="text" class="form-control" placeholder="House/Unit/Street" required />
+                <input
+                  v-model.trim="shipping.address_line1"
+                  type="text"
+                  class="form-control"
+                  placeholder="House/Unit/Street"
+                  required
+                />
               </div>
               <div class="col-md-6">
                 <label class="form-label">Barangay</label>
-                <input v-model.trim="shipping.barangay" type="text" class="form-control" placeholder="Barangay" required />
+                <input
+                  v-model.trim="shipping.barangay"
+                  type="text"
+                  class="form-control"
+                  placeholder="Barangay"
+                  required
+                />
               </div>
               <div class="col-md-6">
                 <label class="form-label">City / Municipality</label>
@@ -441,13 +561,17 @@
             </div>
           </div>
 
-          <!-- Placeholders for discounts / vouchers (UI only for now) -->
           <div class="border rounded-3 p-3">
             <div class="row g-3">
               <div class="col-md-6">
                 <label class="form-label">Discount Code (coming soon)</label>
                 <div class="input-group">
-                  <input type="text" class="form-control" placeholder="Enter discount code" disabled>
+                  <input
+                    type="text"
+                    class="form-control"
+                    placeholder="Enter discount code"
+                    disabled
+                  />
                   <button class="btn btn-outline-secondary" disabled>Apply</button>
                 </div>
               </div>
@@ -460,7 +584,6 @@
             </div>
           </div>
 
-          <!-- Order summary -->
           <div class="d-flex align-items-center justify-content-between fs-5">
             <div class="fw-semibold">Total</div>
             <div class="fw-bold">₱ {{ number(cartGrandTotal) }}</div>
@@ -475,7 +598,6 @@
         </div>
       </div>
     </div>
-    <!-- ================== /Place Order Modal ================== -->
   </div>
 </template>
 
@@ -587,12 +709,14 @@ function productImages(p: Product): string[] {
         .from('prize_product')
         .createSignedUrl(path, 60 * 60)
       return error ? null : (data?.signedUrl ?? null)
+    }),
+  )
+    .then((urls) => {
+      signedListMap[p.id] = urls.filter((u): u is string => !!u)
     })
-  ).then((urls) => {
-    signedListMap[p.id] = urls.filter((u): u is string => !!u)
-  }).finally(() => {
-    listSigningBusy[p.id] = false
-  })
+    .finally(() => {
+      listSigningBusy[p.id] = false
+    })
 
   return []
 }
@@ -637,7 +761,9 @@ function onTouchEnd(e: TouchEvent, productId: string) {
 
 /* -------------------- Numbers / dates -------------------- */
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
-const totalPages = computed(() => total.value > 0 ? Math.max(1, Math.ceil(total.value / pageSize.value)) : 1)
+const totalPages = computed(() =>
+  total.value > 0 ? Math.max(1, Math.ceil(total.value / pageSize.value)) : 1,
+)
 function isNew(created_at: string) {
   const created = new Date(created_at).getTime()
   const now = Date.now()
@@ -664,7 +790,9 @@ const dbCartByProduct: Record<string, number> = reactive({})
 /** Persist staged qty locally (optional) */
 const STAGED_QTY_KEY = 'shop_pending_qty'
 function saveStagedToLocal() {
-  try { localStorage.setItem(STAGED_QTY_KEY, JSON.stringify(cartByProduct)) } catch {}
+  try {
+    localStorage.setItem(STAGED_QTY_KEY, JSON.stringify(cartByProduct))
+  } catch {}
 }
 function loadStagedFromLocal() {
   try {
@@ -715,13 +843,13 @@ async function incQty(p: Product) {
   const current = cartQty(p.id)
   const cap = p.stock != null ? Number(p.stock) : Infinity
   const next = Math.min(current + 1, cap)
-  setCartQty(p.id, next)        // LOCAL ONLY
+  setCartQty(p.id, next) // LOCAL ONLY
 }
 
 async function decQty(p: Product) {
   const current = cartQty(p.id)
   const next = Math.max(1, current - 1)
-  setCartQty(p.id, next)        // LOCAL ONLY
+  setCartQty(p.id, next) // LOCAL ONLY
 }
 
 /** Load actual cart from DB into dbCartByProduct (badge/source of truth). */
@@ -736,7 +864,7 @@ async function loadCart() {
     .eq('user_id', uid)
 
   if (!error && data) {
-    for (const row of data as Pick<CartRow,'product_id'|'qty'>[]) {
+    for (const row of data as Pick<CartRow, 'product_id' | 'qty'>[]) {
       dbCartByProduct[row.product_id] = Math.max(0, Number(row.qty || 0))
     }
   }
@@ -748,27 +876,27 @@ const router = useRouter()
 
 /** BADGE reflects DB total items actually in the server cart. */
 const cartTotalItems = computed(() =>
-  Object.values(dbCartByProduct).reduce((a, b) => a + (Number(b) || 0), 0)
+  Object.values(dbCartByProduct).reduce((a, b) => a + (Number(b) || 0), 0),
 )
 
 /* Cart modal data */
 const showCart = ref(false)
 const showPlace = ref(false)
 const placingOrder = ref(false)
-const cartItems = ref<Array<{
-  product: Product,
-  qty: number,
-  imageUrl: string | null,
-  lineTotal: number
-}>>([])
+const cartItems = ref<
+  Array<{
+    product: Product
+    qty: number
+    imageUrl: string | null
+    lineTotal: number
+  }>
+>([])
 
 const paymentMethod = ref<'cod'>('cod')
 const checkingOut = ref(false) // kept for compatibility; not used for DB in this flow
 const clearingCart = ref(false)
 
-const cartGrandTotal = computed(() =>
-  cartItems.value.reduce((sum, it) => sum + it.lineTotal, 0)
-)
+const cartGrandTotal = computed(() => cartItems.value.reduce((sum, it) => sum + it.lineTotal, 0))
 
 async function openCartModal() {
   await loadCartDetails()
@@ -791,7 +919,7 @@ async function loadCartDetails() {
     .eq('user_id', uid)
 
   if (cartErr || !rows) return
-  const ids = (rows as Array<{product_id: string, qty: number}>).map(r => r.product_id)
+  const ids = (rows as Array<{ product_id: string; qty: number }>).map((r) => r.product_id)
   if (ids.length === 0) return
 
   const { data: prodRows, error: prodErr } = await supabase
@@ -804,8 +932,9 @@ async function loadCartDetails() {
   const map = new Map<string, Product>()
   for (const p of prodRows as Product[]) map.set(p.id, p)
 
-  const list: Array<{product: Product, qty: number, imageUrl: string | null, lineTotal: number}> = []
-  for (const row of rows as Array<{product_id: string, qty: number}>) {
+  const list: Array<{ product: Product; qty: number; imageUrl: string | null; lineTotal: number }> =
+    []
+  for (const row of rows as Array<{ product_id: string; qty: number }>) {
     const p = map.get(row.product_id)
     if (!p) continue
     let img = imageUrl(p) || null
@@ -860,7 +989,8 @@ function flyToCart(fromContainerEl: HTMLElement | null) {
   ghost.style.zIndex = '2000'
   ghost.style.pointerEvents = 'none'
   ghost.style.boxShadow = '0 8px 20px rgba(0,0,0,.15)'
-  ghost.style.transition = 'transform .6s cubic-bezier(.22,.61,.36,1), opacity .6s ease, width .6s ease, height .6s ease'
+  ghost.style.transition =
+    'transform .6s cubic-bezier(.22,.61,.36,1), opacity .6s ease, width .6s ease, height .6s ease'
   document.body.appendChild(ghost)
 
   const dx = cartRect.left + cartRect.width / 2 - (srcRect.left + srcRect.width / 2)
@@ -870,8 +1000,8 @@ function flyToCart(fromContainerEl: HTMLElement | null) {
   requestAnimationFrame(() => {
     ghost.style.transform = `translate(${dx}px, ${dy}px) scale(.2)`
     ghost.style.opacity = '0.15'
-    ghost.style.width = (srcRect.width * 0.2) + 'px'
-    ghost.style.height = (srcRect.height * 0.2) + 'px'
+    ghost.style.width = srcRect.width * 0.2 + 'px'
+    ghost.style.height = srcRect.height * 0.2 + 'px'
     ghost.style.boxShadow = '0 4px 12px rgba(0,0,0,.12)'
   })
 
@@ -891,8 +1021,8 @@ function popCartAddBadge(n: number) {
   badge.textContent = `+${n}`
   const rect = cartEl.getBoundingClientRect()
   badge.style.position = 'fixed'
-  badge.style.left = (rect.left + rect.width - 10) + 'px'
-  badge.style.top = (rect.top - 8) + 'px'
+  badge.style.left = rect.left + rect.width - 10 + 'px'
+  badge.style.top = rect.top - 8 + 'px'
   document.body.appendChild(badge)
   requestAnimationFrame(() => {
     badge.classList.add('cart-added-badge--show')
@@ -924,7 +1054,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
       .eq('product_id', p.id)
       .maybeSingle()
 
-    const currentInCart = (!selErr && existing?.qty != null) ? Number(existing.qty) : 0
+    const currentInCart = !selErr && existing?.qty != null ? Number(existing.qty) : 0
     const target = currentInCart + addQty
 
     if (target > stockCap && stockCap !== Infinity) {
@@ -937,7 +1067,10 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
       const { error: upErr } = await supabase
         .schema('games')
         .from('cart')
-        .upsert({ user_id: uid, product_id: p.id, qty: stockCap }, { onConflict: 'user_id,product_id' })
+        .upsert(
+          { user_id: uid, product_id: p.id, qty: stockCap },
+          { onConflict: 'user_id,product_id' },
+        )
       if (!upErr) {
         dbCartByProduct[p.id] = stockCap
         cartByProduct[p.id] = 1
@@ -949,10 +1082,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
     const { error } = await supabase
       .schema('games')
       .from('cart')
-      .upsert(
-        { user_id: uid, product_id: p.id, qty: target },
-        { onConflict: 'user_id,product_id' },
-      )
+      .upsert({ user_id: uid, product_id: p.id, qty: target }, { onConflict: 'user_id,product_id' })
 
     if (error) {
       console.error('addToCart error', error.message)
@@ -998,21 +1128,31 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
       .delete()
       .eq('user_id', uid)
       .eq('product_id', productId)
-    if (error) { alert(error.message); return }
+    if (error) {
+      alert(error.message)
+      return
+    }
     delete dbCartByProduct[productId]
   } else {
     // respect stock if a product is provided
     let capped = qty
     if (product) {
       const latestStock = await getLatestStock(product.id)
-      const stockCap = product.stock != null ? Math.min(Number(product.stock), latestStock) : latestStock
+      const stockCap =
+        product.stock != null ? Math.min(Number(product.stock), latestStock) : latestStock
       capped = Math.min(qty, stockCap)
     }
     const { error } = await supabase
       .schema('games')
       .from('cart')
-      .upsert({ user_id: uid, product_id: productId, qty: capped }, { onConflict: 'user_id,product_id' })
-    if (error) { alert(error.message); return }
+      .upsert(
+        { user_id: uid, product_id: productId, qty: capped },
+        { onConflict: 'user_id,product_id' },
+      )
+    if (error) {
+      alert(error.message)
+      return
+    }
     dbCartByProduct[productId] = capped
   }
 
@@ -1039,7 +1179,10 @@ async function removeCartProduct(productId: string) {
     .eq('user_id', uid)
     .eq('product_id', productId)
 
-  if (error) { alert(error.message); return }
+  if (error) {
+    alert(error.message)
+    return
+  }
   delete dbCartByProduct[productId]
   await loadCartDetails()
 }
@@ -1050,13 +1193,12 @@ async function clearCart() {
   if (!confirm('Clear all items from your cart?')) return
   clearingCart.value = true
   try {
-    const { error } = await supabase
-      .schema('games')
-      .from('cart')
-      .delete()
-      .eq('user_id', uid)
+    const { error } = await supabase.schema('games').from('cart').delete().eq('user_id', uid)
 
-    if (error) { alert(error.message); return }
+    if (error) {
+      alert(error.message)
+      return
+    }
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
     cartItems.value = []
   } finally {
@@ -1096,13 +1238,19 @@ function buildAddressString(s: ShippingRow): string {
 }
 function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
   if (!addr) return {}
-  const rawParts = addr.split(',').map(x => x.trim()).filter(Boolean)
+  const rawParts = addr
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
   const out: Partial<ShippingRow> = {}
   if (rawParts.length === 0) return out
   let parts = [...rawParts]
   const last = parts[parts.length - 1] || ''
   const zipMatch = last.match(/^\d{4}$/)
-  if (zipMatch) { out.postal_code = zipMatch[0]; parts.pop() }
+  if (zipMatch) {
+    out.postal_code = zipMatch[0]
+    parts.pop()
+  }
   if (parts.length >= 4) {
     out.province = parts.pop() as string
     out.city = parts.pop() as string
@@ -1124,7 +1272,10 @@ function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
 /* Load shipping from public.users */
 async function loadShipping() {
   const uid = await ensureUser()
-  if (!uid) { shippingLoaded.value = true; return }
+  if (!uid) {
+    shippingLoaded.value = true
+    return
+  }
 
   const { data: userRow } = await supabase
     .from('users')
@@ -1145,17 +1296,31 @@ async function loadShipping() {
 
   shippingLoaded.value = true
 }
-function openShippingModal() { showShipping.value = true }
-function closeShippingModal() { showShipping.value = false }
+function openShippingModal() {
+  showShipping.value = true
+}
+function closeShippingModal() {
+  showShipping.value = false
+}
 
 async function saveShipping() {
   const uid = await ensureUser()
-  if (!uid) { alert('Please log in to save your delivery details.'); return }
+  if (!uid) {
+    alert('Please log in to save your delivery details.')
+    return
+  }
   savingShipping.value = true
   try {
-    const payload = { phone_number: shipping.value.phone || null, address: buildAddressString(shipping.value) || null }
+    const payload = {
+      phone_number: shipping.value.phone || null,
+      address: buildAddressString(shipping.value) || null,
+    }
     const { error } = await supabase.from('users').update(payload).eq('id', uid)
-    if (error) { console.error('saveShipping error', error.message); alert(error.message); return }
+    if (error) {
+      console.error('saveShipping error', error.message)
+      alert(error.message)
+      return
+    }
     await loadShipping()
   } finally {
     savingShipping.value = false
@@ -1164,8 +1329,11 @@ async function saveShipping() {
 
 /* -------------------- Place Order flow -------------------- */
 function genReference(prefix = 'REF'): string {
-  const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0,14)
-  const rnd = Math.random().toString(36).slice(2,8).toUpperCase()
+  const ts = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, '')
+    .slice(0, 14)
+  const rnd = Math.random().toString(36).slice(2, 8).toUpperCase()
   return `${prefix}-${ts}-${rnd}`
 }
 
@@ -1180,8 +1348,14 @@ function closePlaceOrder() {
 
 async function placeOrder() {
   const uid = await ensureUser()
-  if (!uid) { alert('Please log in to place the order.'); return }
-  if (cartItems.value.length === 0) { alert('Your cart is empty.'); return }
+  if (!uid) {
+    alert('Please log in to place the order.')
+    return
+  }
+  if (cartItems.value.length === 0) {
+    alert('Your cart is empty.')
+    return
+  }
   if (!hasShipping.value) {
     alert('Please complete your delivery details first.')
     return
@@ -1194,7 +1368,7 @@ async function placeOrder() {
 
     // Insert into purchases table (one row per product)
     try {
-      const purchaseRows = cartItems.value.map(it => ({
+      const purchaseRows = cartItems.value.map((it) => ({
         user_id: uid,
         product_id: it.product.id,
         reference_number: genReference('PUR'),
@@ -1244,11 +1418,19 @@ async function fetchProducts() {
   }
 
   switch (sortKey.value) {
-    case 'newest':      query = query.order('created_at', { ascending: false }); break
-    case 'price_asc':   query = query.order('price', { ascending: true }); break
-    case 'price_desc':  query = query.order('price', { ascending: false }); break
+    case 'newest':
+      query = query.order('created_at', { ascending: false })
+      break
+    case 'price_asc':
+      query = query.order('price', { ascending: true })
+      break
+    case 'price_desc':
+      query = query.order('price', { ascending: false })
+      break
     case 'relevance':
-    default:            query = query.order('created_at', { ascending: false }); break
+    default:
+      query = query.order('created_at', { ascending: false })
+      break
   }
 
   query = query.range(from, to)
@@ -1264,8 +1446,7 @@ async function fetchProducts() {
       if (cartByProduct[p.id] == null) cartByProduct[p.id] = 1
     }
     saveStagedToLocal()
-  }
-  else {
+  } else {
     products.value = []
     total.value = 0
   }
@@ -1300,9 +1481,13 @@ function bindProductsRealtime() {
   if (productChannel) return
   productChannel = supabase
     .channel('rt-products')
-    .on('postgres_changes', { event: '*', schema: 'games', table: 'products' }, async (_payload) => {
-      await fetchProducts()
-    })
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'games', table: 'products' },
+      async (_payload) => {
+        await fetchProducts()
+      },
+    )
     .subscribe()
 }
 
@@ -1311,16 +1496,20 @@ async function bindCartRealtime() {
   if (!uid || cartChannel) return
   cartChannel = supabase
     .channel('rt-cart-' + uid)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'games',
-      table: 'cart',
-      filter: `user_id=eq.${uid}`,
-    }, async (_payload) => {
-      await loadCart()
-      if (showCart.value) await loadCartDetails()
-      if (showPlace.value) await loadCartDetails()
-    })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'games',
+        table: 'cart',
+        filter: `user_id=eq.${uid}`,
+      },
+      async (_payload) => {
+        await loadCart()
+        if (showCart.value) await loadCartDetails()
+        if (showPlace.value) await loadCartDetails()
+      },
+    )
     .subscribe()
 }
 
@@ -1329,14 +1518,18 @@ async function bindUsersRealtime() {
   if (!uid || usersChannel) return
   usersChannel = supabase
     .channel('rt-users-' + uid)
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'users',
-      filter: `id=eq.${uid}`,
-    }, async (_payload) => {
-      await loadShipping()
-    })
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'users',
+        filter: `id=eq.${uid}`,
+      },
+      async (_payload) => {
+        await loadShipping()
+      },
+    )
     .subscribe()
 }
 
@@ -1359,81 +1552,55 @@ watch(pageSize, () => goToPage(1))
 
 <style scoped>
 .shop-page {
-  --card-radius: 10px;            /* slightly smaller radius */
-  --tile-font: 0.92rem;           /* base font for tiles */
-  --tile-title: 0.96rem;          /* product title size */
-  --tile-price: 1rem;             /* price size */
-  --tile-small: 0.8rem;           /* small text */
-  --tile-pad-y: .55rem;           /* body vertical padding */
-  --tile-pad-x: .65rem;           /* body horizontal padding */
-  --tile-footer-pad-t: .35rem;    /* footer top padding */
-  --tile-footer-pad-x: .65rem;    /* footer side padding */
+  --card-radius: 12px;
 }
 
-/* Compact card */
+/* Card sizing & balance */
 .product-card {
   border-radius: var(--card-radius);
-  transition: transform .15s ease, box-shadow .15s ease;
-  font-size: var(--tile-font);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  font-size: 0.96rem;
 }
 .product-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.07);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
+
+/* Image area: 3:2 ratio (shallower than square) */
 .product-thumb {
   border-top-left-radius: var(--card-radius);
   border-top-right-radius: var(--card-radius);
   position: relative;
 }
-.object-fit-cover { object-fit: cover; }
-.product-title { 
-  line-height: 1.2;
-  min-height: 1.1em;
-  font-size: var(--tile-title);
+.product-thumb.ratio {
+  --bs-aspect-ratio: 100%;
 }
-.price { 
-  letter-spacing: .2px; 
-  font-size: var(--tile-price);
+.object-fit-cover {
+  object-fit: cover;
 }
 
-/* Tighten paddings inside card */
+/* Typography & spacing */
 .product-card .card-body {
-  padding: var(--tile-pad-y) var(--tile-pad-x);
+  padding: 0.75rem;
 }
 .product-card .card-footer {
-  padding: var(--tile-footer-pad-t) var(--tile-footer-pad-x) .6rem;
+  padding: 0.5rem 0.75rem 0.75rem;
+}
+.product-title {
+  font-size: 1rem;
+  line-height: 1.25;
+}
+.price {
+  font-size: 1.06rem;
+  letter-spacing: 0.2px;
+}
+.rotate-180 {
+  transform: rotate(180deg);
 }
 
-/* Make small text really small */
-.product-card .text-muted.small,
-.product-card .badge,
-.small {
-  font-size: var(--tile-small);
-}
-
-/* Reduce input/button heights in qty row to feel denser */
-.product-card .input-group .btn,
-.product-card .input-group .form-control,
-.product-card .input-group .input-group-text {
-  padding: .25rem .45rem;
-  font-size: .85rem;
-  height: 30px;
-}
-.product-card .btn {
-  padding: .38rem .55rem;
-  font-size: .9rem;
-}
-
-/* Shrink badge a bit */
-.product-card .badge {
-  padding: .25rem .4rem;
-  border-radius: .5rem;
-}
-
-/* Keep Search/sort area default, only icons */
-.rotate-180 { transform: rotate(180deg); }
-
-/* Modal styles */
+/* Modal */
 .modal-backdrop-custom {
   position: fixed;
   inset: 0;
@@ -1450,46 +1617,51 @@ watch(pageSize, () => goToPage(1))
   border-radius: 16px;
 }
 
-/* Cart pulse after animation */
-.cart-pulse { animation: cartPulse .25s ease; }
+/* Cart pulse */
+.cart-pulse {
+  animation: cartPulse 0.25s ease;
+}
 @keyframes cartPulse {
-  0% { transform: scale(1); box-shadow: 0 0 0 rgba(25,135,84,0); }
-  50% { transform: scale(1.06); box-shadow: 0 0 20px rgba(25,135,84,.25); }
-  100% { transform: scale(1); box-shadow: 0 0 0 rgba(25,135,84,0); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
-/* Success glow on product card after add */
+/* Added glow */
 .added-burst {
-  box-shadow: 0 0 0 0 rgba(25,135,84,.22);
-  animation: addedGlow .45s ease;
+  animation: addedGlow 0.45s ease;
 }
 @keyframes addedGlow {
-  0%   { box-shadow: 0 0 0 0 rgba(25,135,84,.0);   transform: translateY(-2px); }
-  40%  { box-shadow: 0 8px 24px rgba(25,135,84,.24); }
-  100% { box-shadow: 0 0 0 0 rgba(25,135,84,0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+  }
+  40% {
+    box-shadow: 0 8px 28px rgba(25, 135, 84, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+  }
 }
 
-/* Button pulse on add */
-.btn-added { animation: btnPulse .35s ease; }
-@keyframes btnPulse {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-  100% { transform: scale(1); }
-}
-
-/* Cart modal item image */
+/* Cart modal thumbs */
 .cart-thumb {
-  width: 58px;
-  min-width: 58px;
-  border-radius: 10px;
+  width: 64px;
+  min-width: 64px;
+  border-radius: 12px;
   overflow: hidden;
 }
-.product-img-fallback { 
-  border-top-left-radius: var(--card-radius); 
-  border-top-right-radius: var(--card-radius); 
+.product-img-fallback {
+  border-top-left-radius: var(--card-radius);
+  border-top-right-radius: var(--card-radius);
 }
 
-/* ======================= Carousel styles ======================= */
+/* Carousel */
 .carousel-thumb {
   position: absolute;
   inset: 0;
@@ -1511,7 +1683,9 @@ watch(pageSize, () => goToPage(1))
   object-fit: cover;
   opacity: 0;
   transform: scale(1.02);
-  transition: opacity .24s ease, transform .24s ease;
+  transition:
+    opacity 0.24s ease,
+    transform 0.24s ease;
 }
 .slide-img--active {
   opacity: 1;
@@ -1519,64 +1693,73 @@ watch(pageSize, () => goToPage(1))
 }
 .carousel-thumb .dots {
   position: absolute;
-  top: 6px;
+  top: 8px;
   inset-inline: 0;
   display: flex;
   justify-content: center;
-  gap: 5px;
+  gap: 6px;
 }
 .dot {
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: rgba(255,255,255,.65);
-  border: 1px solid rgba(0,0,0,.15);
-  box-shadow: 0 1px 2px rgba(0,0,0,.08);
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
   cursor: pointer;
 }
 .dot.active {
   background: #fff;
-  border-color: rgba(0,0,0,.35);
+  border-color: rgba(0, 0, 0, 0.35);
 }
-
 .carousel-thumb .nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   border: 0;
-  background: rgba(255,255,255,.85);
+  background: rgba(255, 255, 255, 0.85);
   display: grid;
   place-items: center;
   line-height: 1;
   cursor: pointer;
   z-index: 2;
-  box-shadow: 0 4px 10px rgba(0,0,0,.08);
-  padding: 0;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
-.carousel-thumb .nav i { font-size: 14px; }
-.carousel-thumb .nav.left { left: 6px; }
-.carousel-thumb .nav.right { right: 6px; }
-.carousel-thumb .nav:hover { background: #fff; }
-
-/* Touch-friendly */
+.carousel-thumb .nav.left {
+  left: 8px;
+}
+.carousel-thumb .nav.right {
+  right: 8px;
+}
+.carousel-thumb .nav:hover {
+  background: #fff;
+}
 @media (hover: none) {
-  .carousel-thumb .nav { display: none; }
+  .carousel-thumb .nav {
+    display: none;
+  }
 }
 
-/* === NEW: qty bump micro-interaction === */
+/* Qty micro interaction */
 .qty-field.qty-bump {
-  animation: qtyBump .22s ease;
+  animation: qtyBump 0.22s ease;
 }
 @keyframes qtyBump {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.05); }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.06);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
-/* === NEW: +N floating badge near cart button === */
+/* +N badge */
 .cart-added-badge {
   background: #198754;
   color: #fff;
@@ -1585,7 +1768,9 @@ watch(pageSize, () => goToPage(1))
   border-radius: 999px;
   opacity: 0;
   transform: translateY(6px);
-  transition: opacity .2s ease, transform .2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   z-index: 2200;
 }
 .cart-added-badge--show {
