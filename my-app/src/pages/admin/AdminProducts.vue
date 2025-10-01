@@ -95,7 +95,7 @@
                     </button>
 
                     <!-- dots (below) -->
-                    <div class="slider-dots slider-dots-below">
+                    <div class="slider-dots">
                       <button
                         v-for="(u, i) in p.product_url"
                         :key="i"
@@ -1638,11 +1638,17 @@ onMounted(() => {
 /* Dots */
 .slider-dots {
   position: absolute;
-  top: 100%;
+  top: 96%;
   left: 90%;
   transform: translateX(-50%);
   display: flex;
   gap: 0.5rem;
+
+  pointer-events: none;
+  z-index: 1;
+}
+.slider-dots .dot {
+  pointer-events: auto;
 }
 .dot {
   width: 8px;
@@ -1684,7 +1690,7 @@ onMounted(() => {
   position: relative;
   background: transparent;
   border-radius: 16px;
-  overflow: hidden;
+  overflow: hidden !important; 
   height: 240px;
 }
 
