@@ -1,34 +1,41 @@
 <template>
   <div class="admin-products-page">
     <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-4">
-      <h3 class="fw-bold mb-0 d-flex align-items-center gap-2">
-        <i class="bi bi-box-seam"></i>
-        Admin Products
+    <div class="mb-3">
+      <h3 class="fw-bold mb-3 d-flex gap-3 align-items-center">
+        <i class="bi bi-box-seam"></i>Admin Products
       </h3>
 
-      <div class="d-flex align-items-center gap-2">
-        <div class="input-group d-none d-md-flex">
-          <span class="input-group-text bg-white border-end-0">
-            <i class="bi bi-search"></i>
-          </span>
-          <input
-            v-model.trim="q"
-            type="search"
-            class="form-control border-start-0"
-            placeholder="Search products..."
-            @keydown.enter.prevent
-          />
+      <!-- tools -->
+      <div
+        class="header-tools d-flex flex-column flex-sm-row gap-2 align-items-stretch align-items-sm-center"
+      >
+        <!-- Search: grows on sm+ -->
+        <div class="flex-grow-1">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input
+              v-model.trim="q"
+              type="search"
+              class="form-control border-start-0"
+              placeholder="Search products..."
+              @keydown.enter.prevent
+            />
+          </div>
         </div>
 
-        <button
-          type="button"
-          class="btn btn-primary d-flex align-items-center gap-2"
-          @click="openForm()"
-        >
+        <!-- Button: full width on xs, auto on sm+ -->
+        <button type="button" class="btn btn-primary btn-add w-sm-auto" @click="openForm()">
           <i class="bi bi-plus-lg"></i>
           Add Product
         </button>
+
+        <!-- Total: sits at far right on sm+ -->
+        <div class="ms-sm-auto mt-2 mt-sm-0 fw-bold">
+          <span>Total Products: {{ products.length }}</span>
+        </div>
       </div>
     </div>
 
@@ -50,7 +57,7 @@
           <!-- Grid -->
           <div class="row g-3">
             <div
-              class="col-12 col-sm-6 col-lg-4 col-xl-3"
+              class="productDiv col-12 col-sm-6 col-lg-4 col-xl-3"
               v-for="p in filteredProducts"
               :key="p.id"
             >
@@ -73,7 +80,7 @@
                         :key="currentIndex(p.id)"
                         :src="imageUrlAt(p, currentIndex(p.id))"
                         :alt="p.name"
-                        class="w-100 h-100 object-fit-cover"
+                        class="w-100 h-100 object-fit-cover p-4"
                         :style="swipeStyle(p.id)"
                         draggable="false"
                       />
@@ -180,11 +187,6 @@
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Minimal footer -->
-          <div class="d-flex justify-content-end mt-3 small text-muted">
-            <span>Total: {{ products.length }}</span>
           </div>
         </template>
       </div>
@@ -1495,17 +1497,76 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* ==== BRAND THEME (scoped to this page) ==== */
 .admin-products-page {
-  padding: 1rem;
+  --brand-green: #20a44c;
+  --brand-azure: #20647c;
+  --ink: #0f1b1f;
+  --muted: #6b7f86;
+  --ring-azure: 32, 100, 124; /* for rgba() */
+  --ring-green: 32, 164, 76;
 }
 
-/* Cards */
+/* Header: make primary button on-brand */
+.btn.btn-primary {
+  background: linear-gradient(90deg, var(--brand-azure), var(--brand-green));
+  border-color: var(--brand-azure);
+}
+.btn.btn-primary:hover,
+.btn.btn-primary:focus-visible {
+  filter: brightness(0.95);
+  box-shadow: 0 6px 18px rgba(var(--ring-azure), 0.22);
+}
+
+/* Secondary outline with azure tint */
+.btn-outline-secondary {
+  color: var(--brand-azure);
+  border-color: rgba(var(--ring-azure), 0.35);
+}
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus-visible {
+  background: rgba(var(--ring-azure), 0.08);
+  border-color: var(--brand-azure);
+}
+
+/* Price badge -> brand green */
+.badge.text-bg-primary {
+  background-color: var(--brand-green) !important;
+  color: #fff !important;
+  box-shadow: 0 6px 14px rgba(var(--ring-green), 0.22);
+  border: 0;
+}
+
+/* Search focus ring in azure */
+.input-group .form-control:focus {
+  border-color: var(--brand-azure);
+  box-shadow: 0 0 0 0.18rem rgba(var(--ring-azure), 0.16);
+}
+
+/* Prevent the search from shrinking too small on wider screens */
+.header-tools .input-group {
+  min-width: 240px;
+}
+
+/* ===== CARD POLISH ===== */
 .product-card {
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease;
   background: #fff;
-  border-color: #e9ecef;
+  border-color: #e6eef0;
+  position: relative;
+  box-shadow:
+    rgba(50, 50, 93, 0.25) 0px 2px 5px -1px,
+    rgba(0, 0, 0, 0.3) 0px 1px 3px -1px;
+}
+.product-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto auto 0;
+  height: 3px;
+  width: 100%;
+  opacity: 0.9;
 }
 .product-card:hover {
   transform: translateY(-2px);
@@ -1515,7 +1576,12 @@ onMounted(() => {
   object-fit: cover;
 }
 
-/* Ratio */
+/* Meta text tone */
+.text-muted {
+  color: var(--muted) !important;
+}
+
+/* ===== SLIDER ===== */
 .ratio {
   position: relative;
   width: 100%;
@@ -1523,62 +1589,88 @@ onMounted(() => {
 .ratio-4x3 {
   padding-top: 75%;
 }
-.ratio > * {
+.ratio > img {
   position: absolute;
   inset: 0;
 }
 
-/* Slider core */
+/* Slider core*/
 .slider-btn {
-  position: relative;
-  top: 10%;
-  
-  border: 0;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  width: 36px;
-  height: 36px;
+  inset: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--brand-azure);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
   display: grid;
   place-items: center;
   cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    opacity 0.15s ease;
+  opacity: 0.95;
 }
-.slider-btn:hover {
-  background: rgba(0, 0, 0, 0.5);
+.slider-btn:hover,
+.slider-btn:focus-visible {
+  background: var(--brand-azure);
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(var(--ring-azure), 0.25);
+  transform: translateY(-50%) scale(1.04);
+  outline: none;
 }
 .slider-btn.left {
-  position: relative;
-  left: -10px;
+  left: 2%;
 }
 .slider-btn.right {
-  position: relative;
-  right: -30px;
+  right: 2%;
 }
-
+.slider-btn i {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+/* Dots */
 .slider-dots {
   position: absolute;
-  left: 50%;
+  top: 100%;
+  left: 90%;
   transform: translateX(-50%);
-  bottom: 0.5rem;
   display: flex;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
-.slider-dots-below {
-  bottom: -18px;
-}
-
 .dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   border: 0;
-  background: rgba(255, 255, 255, 0.7);
+  padding: 0;
+  line-height: 0;
+  background: rgba(255, 255, 255, 0.9);
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  box-shadow:
+    rgba(60, 64, 67, 0.3) 0px 1px 2px 0px,
+    rgba(60, 64, 67, 0.15) 0px 1px 3px 1px;
 }
 .dot.active {
-  background: #ffdf6e;
-  transform: scale(1.05);
+  background: var(--brand-azure);
+  box-shadow: 0 0 0 2px rgba(var(--ring-azure), 0.1);
+  transform: scale(1.5);
+}
+
+/* Publish switch in brand green */
+.form-check-input:checked {
+  background-color: var(--brand-green);
+  border-color: var(--brand-green);
+}
+.form-check-input:focus {
+  box-shadow: 0 0 0 0.18rem rgba(var(--ring-green), 0.18);
+  border-color: var(--brand-green);
 }
 
 .slider-touch {
@@ -1588,15 +1680,12 @@ onMounted(() => {
 .slider-touch:active {
   cursor: grabbing;
 }
-
 .slider-card {
   position: relative;
   background: transparent;
   border-radius: 16px;
-  overflow: visible;
-}
-.slider-card > img {
-  border-radius: 16px;
+  overflow: hidden;
+  height: 240px;
 }
 
 .img-count-pill {
@@ -1610,7 +1699,7 @@ onMounted(() => {
 }
 
 .product-card .ratio-4x3 {
-  margin-bottom: 22px;
+  margin-bottom: 1rem;
 }
 
 .fb-dropzone {
@@ -1621,10 +1710,11 @@ onMounted(() => {
   transition:
     border-color 0.15s ease,
     background 0.15s ease;
+  border-color: rgba(var(--ring-azure), 0.25);
 }
 .fb-dropzone.drag-over {
-  border-color: #0d6efd;
-  background: #eef5ff;
+  border-color: var(--brand-azure);
+  background: rgba(var(--ring-azure), 0.06);
 }
 
 .preview-grid {
@@ -1695,6 +1785,7 @@ onMounted(() => {
 }
 .card-header {
   background: #fff;
+  border-bottom: 1px solid #eef3f5;
 }
 .input-group .form-control:focus {
   box-shadow: none;
@@ -1702,6 +1793,7 @@ onMounted(() => {
 
 .xsmall {
   font-size: 0.8rem;
+  color: var(--muted);
 }
 
 /* Animations */
@@ -1754,47 +1846,6 @@ onMounted(() => {
 .slide-right-leave-to {
   transform: translateX(30%);
   opacity: 0;
-}
-
-/* Clean, inside arrows */
-.slider-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 2;
-  width: 40px;
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  background: rgba(255, 255, 255, 0.92);
-  color: #2b2b2b;
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background 0.15s ease,
-    opacity 0.15s ease;
-  opacity: 0.95;
-}
-.slider-btn:hover,
-.slider-btn:focus-visible {
-  background: #fff;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
-  transform: translateY(-50%) scale(1.04);
-  outline: none;
-}
-.slider-btn.left {
-  left: 8px;
-}
-.slider-btn.right {
-  right: 8px;
-}
-.slider-btn i {
-  font-size: 1.1rem;
-  line-height: 1;
 }
 
 @media (max-width: 576px) {
