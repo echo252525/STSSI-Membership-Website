@@ -34,6 +34,9 @@ import AdminProducts from '@/pages/admin/AdminProducts.vue'
 import Transactions from '@/pages/admin/Transactions.vue'
 import AdminSettings from '@/pages/admin/AdminSettings.vue'
 
+// 🆕 Admin Orders
+import Orders from '@/pages/admin/Orders.vue'
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -87,6 +90,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'mini-games', name: 'admin.minigames', component: AdminMiniGames },
       { path: 'products', name: 'admin.products', component: AdminProducts },
       { path: 'transactions', name: 'admin.transactions', component: Transactions },
+      { path: 'orders', name: 'admin.orders', component: Orders }, // 🆕 Orders page
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
     ],
   },

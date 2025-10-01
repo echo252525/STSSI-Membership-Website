@@ -119,6 +119,20 @@
             <span class="link-text">Products</span>
           </RouterLink>
         </li>
+        <!-- Add inside your admin sidebar nav list (kept out of your file to avoid edits) -->
+        <li class="nav-item" v-if="has('admin.orders')">
+          <RouterLink
+            :to="{ name: 'admin.orders' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'Orders' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-basket fs-5"></i>
+            <span class="link-text">Orders</span>
+          </RouterLink>
+        </li>
 
         <!-- 🔹 NEW: Transactions link (added above Settings) -->
         <li class="nav-item" v-if="has('admin.transactions')">
@@ -276,7 +290,7 @@ watch(
       }
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 onMounted(async () => {
