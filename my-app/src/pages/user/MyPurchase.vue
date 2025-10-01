@@ -28,6 +28,22 @@
       </li>
     </ul>
 
+    <!-- Return/Refund Subtabs -->
+    <div v-if="activeTab === STATUS.RETURN_REFUND" class="mb-3">
+      <ul class="nav nav-pills flex-wrap gap-2">
+        <li v-for="st in rrSubtabs" :key="st.value" class="nav-item">
+          <button
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ active: activeRR === st.value }"
+            @click="activeRR = st.value"
+          >
+            <span>{{ st.label }}</span>
+            <span class="badge text-bg-light border">{{ rrCounts[st.value] || 0 }}</span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
     <!-- Loading -->
     <div v-if="busy.load" class="text-center text-muted py-5">
       <div class="spinner-border mb-3"></div>
@@ -37,7 +53,7 @@
     <!-- Empty -->
     <div v-else-if="filtered.length === 0" class="text-center text-muted py-5">
       <i class="bi bi-bag-x" style="font-size: 1.6rem"></i>
-      <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”.</div>
+      <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”<span v-if="activeTab === STATUS.RETURN_REFUND"> · {{ rrTabLabel(activeRR) }}</span>.</div>
       <RouterLink :to="{ name: 'user.shop' }" class="btn btn-primary btn-sm mt-3">
         Go to Shop
       </RouterLink>
@@ -62,6 +78,14 @@
               <div class="d-flex align-items-center gap-2">
                 <span class="badge" :class="statusClass(p.status)">
                   {{ prettyStatus(p.status) }}
+                </span>
+                <!-- Show RR status chip when on Return/Refund tab -->
+                <span
+                  v-if="activeTab === STATUS.RETURN_REFUND && rrStatus(p.id)"
+                  class="badge text-bg-light border"
+                  :title="'RR status: ' + rrTabLabel(rrStatus(p.id)!)"
+                >
+                  {{ rrTabLabel(rrStatus(p.id)!) }}
                 </span>
               </div>
             </div>
@@ -124,7 +148,18 @@
                     Return/Refund
                   </button>
 
-                  <!-- return/refund status: NO BUTTON -->
+                  <!-- return/refund: Pending => Cancel RR -->
+                  <button
+                    v-else-if="p.status === STATUS.RETURN_REFUND && rrStatus(p.id) === 'pending'"
+                    class="btn btn-outline-danger btn-sm"
+                    :disabled="busy.rrCancel[p.id]"
+                    @click="cancelReturnRefund(p)"
+                  >
+                    <span v-if="busy.rrCancel[p.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    Cancel
+                  </button>
+
+                  <!-- return/refund: Approved/Completed => NO BUTTON -->
                   <template v-else-if="p.status === STATUS.RETURN_REFUND">
                     <!-- intentionally empty -->
                   </template>
@@ -238,8 +273,21 @@ const tabs = [
 
 const activeTab = ref<typeof tabs[number]['value']>(STATUS.TO_SHIP) // default for COD shops
 
+/** Return/Refund Subtabs */
+type RRState = 'pending' | 'approved' | 'completed'
+const rrSubtabs: Array<{ label: string; value: RRState }> = [
+  { label: 'Pending',   value: 'pending' },
+  { label: 'Approved',  value: 'approved' },
+  { label: 'Completed', value: 'completed' },
+]
+const activeRR = ref<RRState>('pending')
+
 /** UI state */
-const busy = ref<{ load: boolean; cancel: Record<string, boolean> }>({ load: false, cancel: {} })
+const busy = ref<{ load: boolean; cancel: Record<string, boolean>; rrCancel: Record<string, boolean> }>({
+  load: false,
+  cancel: {},
+  rrCancel: {},
+})
 const purchases = ref<Array<AnyRec>>([])
 
 /* ---------- Product lookup + image signing (Shopee-style tile) ---------- */
@@ -303,7 +351,20 @@ function productThumb(purchase: AnyRec): string {
   return ''
 }
 
-/** Load all purchases for the signed-in user + related products */
+/* ---------------- Return/Refund store (per purchase) ---------------- */
+type RRRow = { id: string; purchase_id: string; status: RRState; created_at?: string }
+const rrByPurchase = reactive<Record<string, RRRow>>({})
+
+function rrStatus(purchaseId: string): RRState | undefined {
+  return rrByPurchase[purchaseId]?.status
+}
+
+function rrTabLabel(v: RRState) {
+  const m: Record<RRState, string> = { pending: 'Pending', approved: 'Approved', completed: 'Completed' }
+  return m[v] || v
+}
+
+/** Load all purchases for the signed-in user + related products + RR rows */
 async function loadPurchases() {
   busy.value.load = true
   try {
@@ -311,10 +372,11 @@ async function loadPurchases() {
     const uid = auth?.user?.id
     if (!uid) {
       purchases.value = []
+      Object.keys(rrByPurchase).forEach(k => delete rrByPurchase[k])
       return
     }
 
-    // RLS: user can only see own rows
+    // Purchases
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
@@ -324,11 +386,12 @@ async function loadPurchases() {
 
     if (error) {
       purchases.value = []
+      Object.keys(rrByPurchase).forEach(k => delete rrByPurchase[k])
       return
     }
     purchases.value = Array.isArray(data) ? data : []
 
-    // Fetch product details for the displayed purchases
+    // Products for visible purchases
     const ids = Array.from(new Set(purchases.value.map(r => r.product_id).filter(Boolean)))
     if (ids.length > 0) {
       const { data: prows, error: perr } = await supabase
@@ -349,8 +412,36 @@ async function loadPurchases() {
         }
       }
     }
+
+    // RR rows for this user, limited to purchases currently on list (perf + correctness)
+    const purchaseIds = purchases.value.map(r => r.id)
+    Object.keys(rrByPurchase).forEach(k => delete rrByPurchase[k])
+    if (purchaseIds.length > 0) {
+      const { data: rrRows, error: rrErr } = await supabase
+        .schema('games')
+        .from('return_refunds')
+        .select('id, purchase_id, status, created_at')
+        .eq('user_id', uid)
+        .in('purchase_id', purchaseIds)
+        .order('created_at', { ascending: false })
+
+      if (!rrErr && Array.isArray(rrRows)) {
+        for (const row of rrRows as RRRow[]) {
+          // Keep the latest per purchase (query is ordered desc by created_at)
+          if (!rrByPurchase[row.purchase_id]) {
+            rrByPurchase[row.purchase_id] = {
+              id: row.id,
+              purchase_id: row.purchase_id,
+              status: (row.status as RRState) || 'pending',
+              created_at: row.created_at,
+            }
+          }
+        }
+      }
+    }
   } catch {
     purchases.value = []
+    Object.keys(rrByPurchase).forEach(k => delete rrByPurchase[k])
   } finally {
     busy.value.load = false
   }
@@ -383,6 +474,58 @@ async function cancelPurchase(purchaseId: string) {
   }
 }
 
+/** Cancel an RR (Pending only): delete RR row and revert purchase to Completed */
+async function cancelReturnRefund(purchase: AnyRec) {
+  const rec = rrByPurchase[purchase.id]
+  if (!rec || rec.status !== 'pending') {
+    alert('This return/refund is no longer pending.')
+    return
+  }
+
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) return
+
+  busy.value.rrCancel[purchase.id] = true
+  try {
+    // 1) Delete RR row
+    const { error: delErr } = await supabase
+      .schema('games')
+      .from('return_refunds')
+      .delete()
+      .eq('id', rec.id)
+      .eq('user_id', uid)
+
+    if (delErr) {
+      alert(delErr.message)
+      return
+    }
+
+    // 2) Revert purchase to completed
+    const { error: upErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ status: STATUS.COMPLETED })
+      .eq('id', purchase.id)
+      .eq('user_id', uid)
+
+    if (upErr) {
+      alert(upErr.message)
+      return
+    }
+
+    // Local updates
+    delete rrByPurchase[purchase.id]
+    const row = purchases.value.find(r => r.id === purchase.id)
+    if (row) row.status = STATUS.COMPLETED
+
+    // Optional UX: jump to Completed tab so user sees it disappear from RR
+    // activeTab.value = STATUS.COMPLETED
+  } finally {
+    busy.value.rrCancel[purchase.id] = false
+  }
+}
+
 /** Counts per tab */
 const counts = computed<Record<string, number>>(() => {
   const out: Record<string, number> = {}
@@ -394,10 +537,25 @@ const counts = computed<Record<string, number>>(() => {
   return out
 })
 
-/** Filtered rows for active tab */
-const filtered = computed(() =>
-  purchases.value.filter(r => String(r.status).toLowerCase() === activeTab.value)
-)
+/** RR Counts (within Return/Refund tab) */
+const rrCounts = computed<Record<RRState, number>>(() => {
+  const init: Record<RRState, number> = { pending: 0, approved: 0, completed: 0 }
+  for (const row of purchases.value) {
+    const isRR = String(row.status).toLowerCase() === STATUS.RETURN_REFUND
+    if (!isRR) continue
+    const st = rrStatus(row.id)
+    if (st && st in init) init[st]++
+  }
+  return init
+})
+
+/** Filtered rows for active tab (and RR subtab if applicable) */
+const filtered = computed(() => {
+  const base = purchases.value.filter(r => String(r.status).toLowerCase() === activeTab.value)
+  if (activeTab.value !== STATUS.RETURN_REFUND) return base
+  // Further filter by RR subtab status
+  return base.filter(r => rrStatus(r.id) === activeRR.value)
+})
 
 /** Helpers */
 const formatDate = (iso?: string) => {
@@ -486,20 +644,22 @@ async function submitReturnRefund() {
       product_id: rrForm.product_id,
       reason: rrForm.reason,
       details: rrForm.details || null,
-      status: 'pending', // initial status
+      status: 'pending' as RRState, // initial status
     }
 
-    const { error } = await supabase
+    const { data: ins, error } = await supabase
       .schema('games')
       .from('return_refunds')
       .insert([payload])
+      .select('id, purchase_id, status')
+      .single()
 
     if (error) {
       alert(error.message)
       return
     }
 
-    // Optionally move purchase to "return/refund" status for visibility
+    // Move purchase to "return/refund" status for visibility
     try {
       await supabase
         .schema('games')
@@ -511,6 +671,15 @@ async function submitReturnRefund() {
       const row = purchases.value.find(r => r.id === rrForm.purchase_id)
       if (row) row.status = STATUS.RETURN_REFUND
     } catch (_) {}
+
+    // Track RR locally (latest)
+    if (ins) {
+      rrByPurchase[ins.purchase_id] = {
+        id: ins.id,
+        purchase_id: ins.purchase_id,
+        status: (ins.status as RRState) || 'pending',
+      }
+    }
 
     closeReturnRefund()
     alert('Return/Refund request submitted.')

@@ -59,6 +59,17 @@
           Approved
         </button>
       </li>
+      <!-- NEW: Completed sub-tab -->
+      <li class="nav-item">
+        <button
+          class="nav-link d-flex align-items-center gap-2"
+          :class="{ active: rrStatusFilter === 'completed' }"
+          @click="setRRStatus('completed')"
+        >
+          Completed
+        </button>
+      </li>
+      <!-- /NEW -->
     </ul>
 
     <!-- Filters -->
@@ -220,8 +231,8 @@
                 Created: {{ formatDate(firstReturn(o.id)?.created_at) }}
               </div>
 
-              <!-- NEW: Approve Refund button when pending -->
-              <div class="mt-2 d-flex justify-content-end">
+              <!-- Approve Refund button when pending -->
+              <div class="mt-2 d-flex justify-content-end gap-2">
                 <button
                   v-if="isRRPending(firstReturn(o.id))"
                   class="btn btn-success btn-sm"
@@ -232,8 +243,20 @@
                   <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
                   Approve refund
                 </button>
+
+                <!-- NEW: Mark as Completed when approved -->
+                <button
+                  v-if="isRRApproved(firstReturn(o.id))"
+                  class="btn btn-primary btn-sm"
+                  :disabled="busy.action[firstReturn(o.id)!.id]"
+                  @click="completeRefund(firstReturn(o.id)!)"
+                  title="Mark refund as completed"
+                >
+                  <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                  Mark as Completed
+                </button>
+                <!-- /NEW -->
               </div>
-              <!-- /NEW -->
             </div>
 
             <div class="border rounded p-2 bg-body small" v-else>
@@ -343,7 +366,7 @@ const tabs = [
 ] as const
 
 /** Return/Refund sub-filter (only used when statusFilter === RETURN_REFUND) */
-type RRFilter = 'all' | 'pending' | 'approved'
+type RRFilter = 'all' | 'pending' | 'approved' | 'completed' // NEW: added 'completed'
 const rrStatusFilter = ref<RRFilter>('all')
 
 /** Purchases & view models */
@@ -456,20 +479,27 @@ function prettyRRStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === 'pending') return 'Pending'
   if (k === 'approved') return 'Approved'
+  if (k === 'completed') return 'Completed' // NEW
   if (k === 'rejected') return 'Rejected'
   return s || '—'
 }
 function rrBadgeClass(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === 'approved') return 'text-bg-success-subtle border'
+  if (k === 'completed') return 'text-bg-success-subtle border' // NEW (same style as approved)
   if (k === 'pending') return 'text-bg-warning-subtle border'
   if (k === 'rejected') return 'text-bg-danger-subtle border'
   return 'text-bg-light border'
 }
-/* NEW: helper to check if first RR is pending */
+/* helper to check if first RR is pending */
 function isRRPending(rr?: ReturnRefundRow) {
   if (!rr) return false
   return String(rr.status || '').toLowerCase() === 'pending'
+}
+/* NEW: helper to check if first RR is approved */
+function isRRApproved(rr?: ReturnRefundRow) {
+  if (!rr) return false
+  return String(rr.status || '').toLowerCase() === 'approved'
 }
 /* /NEW */
 
@@ -592,7 +622,7 @@ async function loadOrders(resetPage = false) {
         .in('purchase_id', purchaseIds)
 
       if (rrStatusFilter.value !== 'all') {
-        rrQ = rrQ.eq('status', rrStatusFilter.value) // enum values: 'pending' | 'approved' | 'rejected'
+        rrQ = rrQ.eq('status', rrStatusFilter.value) // enum values include: 'pending' | 'approved' | 'completed' | 'rejected'
       }
 
       const { data: rrRows } = await rrQ
@@ -638,7 +668,7 @@ async function loadOrders(resetPage = false) {
       }
     })
 
-    // If on Return/Refund and subfilter is pending/approved, keep only purchases that have RR rows in that sub-status
+    // If on Return/Refund and subfilter is pending/approved/completed, keep only purchases that have RR rows in that sub-status
     if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all' && rrPurchaseSet) {
       view = view.filter(v => rrPurchaseSet!.has(v.id))
       total.value = view.length
@@ -785,7 +815,7 @@ async function approveOrder(order: ViewOrder) {
   }
 }
 
-/* ---------- NEW: Approve Return/Refund ---------- */
+/* ---------- Approve Return/Refund ---------- */
 async function approveRefund(rr: ReturnRefundRow) {
   if (!rr) return
   const rrId = rr.id
@@ -795,7 +825,7 @@ async function approveRefund(rr: ReturnRefundRow) {
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .update({ status: 'approved' }) // enum value: games.return_refund_status
+      .update({ status: 'approved' }) // enum value
       .eq('id', rrId)
 
     if (error) {
@@ -805,6 +835,31 @@ async function approveRefund(rr: ReturnRefundRow) {
 
     // Reflect locally
     rr.status = 'approved'
+  } finally {
+    busy.value.action[rrId] = false
+  }
+}
+/* ---------- /Approve ---------- */
+
+/* ---------- NEW: Complete Return/Refund ---------- */
+async function completeRefund(rr: ReturnRefundRow) {
+  if (!rr) return
+  const rrId = rr.id
+  busy.value.action[rrId] = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('return_refunds')
+      .update({ status: 'completed' }) // NEW: mark as completed
+      .eq('id', rrId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    // Reflect locally
+    rr.status = 'completed'
   } finally {
     busy.value.action[rrId] = false
   }
@@ -874,3 +929,5 @@ onMounted(() => {
 }
 .object-fit-cover { object-fit: cover; }
 </style>
+
+
