@@ -611,17 +611,24 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // Return/Refund rows (only when we're in that main tab)
+    // Return/Refund rows
     let rrPurchaseSet: Set<string> | null = null
     for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key] // clear map
-    if (statusFilter.value === STATUS.RETURN_REFUND && purchaseIds.length > 0) {
+
+    // ✅ Load RR rows for BOTH the Return/Refund tab AND the All tab
+    const shouldLoadRR =
+      (statusFilter.value === STATUS.RETURN_REFUND || statusFilter.value === 'all') &&
+      purchaseIds.length > 0
+
+    if (shouldLoadRR) {
       let rrQ = supabase
         .schema('games')
         .from('return_refunds')
         .select('id,user_id,purchase_id,product_id,reason,details,status,created_at,updated_at')
         .in('purchase_id', purchaseIds)
 
-      if (rrStatusFilter.value !== 'all') {
+      // Only apply the sub-filter when we're on the Return/Refund tab
+      if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
         rrQ = rrQ.eq('status', rrStatusFilter.value) // enum values include: 'pending' | 'approved' | 'completed' | 'rejected'
       }
 
@@ -929,5 +936,3 @@ onMounted(() => {
 }
 .object-fit-cover { object-fit: cover; }
 </style>
-
-
