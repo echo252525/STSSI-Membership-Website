@@ -42,11 +42,8 @@
 
         <template v-else>
           <!-- Empty state -->
-          <div
-            v-if="filteredProducts.length === 0"
-            class="py-5 text-center text-muted"
-          >
-            <i class="bi bi-box" style="font-size:1.6rem"></i>
+          <div v-if="filteredProducts.length === 0" class="py-5 text-center text-muted">
+            <i class="bi bi-box" style="font-size: 1.6rem"></i>
             <div class="mt-2">No products found</div>
           </div>
 
@@ -98,7 +95,7 @@
                         class="dot"
                         :class="{ active: currentIndex(p.id) === i }"
                         @click="setIndex(p.id, i)"
-                        :aria-label="`Go to image ${i+1}`"
+                        :aria-label="`Go to image ${i + 1}`"
                       />
                     </div>
                   </template>
@@ -108,7 +105,7 @@
                     <template v-if="imageUrlAt(p, 0)">
                       <transition :name="slideName(p.id)" mode="out-in">
                         <img
-                          :key="'single-'+p.id"
+                          :key="'single-' + p.id"
                           :src="imageUrlAt(p, 0)"
                           :alt="p.name"
                           class="w-100 h-100 object-fit-cover"
@@ -119,9 +116,9 @@
                     <template v-else>
                       <div
                         class="d-flex flex-column align-items-center justify-content-center text-muted"
-                        style="inset:0;position:absolute"
+                        style="inset: 0; position: absolute"
                       >
-                        <i class="bi bi-image" style="font-size:1.6rem"></i>
+                        <i class="bi bi-image" style="font-size: 1.6rem"></i>
                         <small class="mt-1">No image</small>
                       </div>
                     </template>
@@ -132,13 +129,6 @@
                     class="position-absolute top-0 end-0 m-2 badge text-bg-secondary"
                   >
                     loading…
-                  </span>
-
-                  <span
-                    v-if="p.product_url.length > 1"
-                    class="img-count-pill position-absolute"
-                  >
-                    {{ p.product_url.length }} images
                   </span>
                 </div>
 
@@ -156,7 +146,9 @@
                     <i class="bi bi-tag me-1"></i>Supplier: ₱ {{ number(p.supplier_price) }}
                   </div>
 
-                  <div class="d-flex justify-content-between align-items-center mt-3 small text-muted">
+                  <div
+                    class="d-flex justify-content-between align-items-center mt-3 small text-muted"
+                  >
                     <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(p.created_at) }}</span>
                     <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
                   </div>
@@ -240,12 +232,10 @@
                   step="0.01"
                   min="0"
                   class="form-control"
-                  :class="{'is-invalid': !supplierOk}"
+                  :class="{ 'is-invalid': !supplierOk }"
                   required
                 />
-                <div class="invalid-feedback">
-                  Supplier price must be &lt; Price and ≥ 0.
-                </div>
+                <div class="invalid-feedback">Supplier price must be &lt; Price and ≥ 0.</div>
                 <div class="form-text" v-if="supplierOk">
                   Must be strictly lower than the selling price.
                 </div>
@@ -271,9 +261,7 @@
                     Paste URL(s)
                   </button>
                 </div>
-                <div class="form-text">
-                  Up to 5 images total.
-                </div>
+                <div class="form-text">Up to 5 images total.</div>
               </div>
 
               <!-- FACEBOOK-LIKE UPLOADER -->
@@ -289,9 +277,13 @@
                   @drop.prevent="onDrop"
                 >
                   <div class="text-center text-muted">
-                    <i class="bi bi-images" style="font-size:1.6rem"></i>
+                    <i class="bi bi-images" style="font-size: 1.6rem"></i>
                     <div class="mt-2">Drag photos here or</div>
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="triggerFile">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-primary mt-2"
+                      @click="triggerFile"
+                    >
                       Browse files
                     </button>
                     <div class="small mt-2">Max 5 images</div>
@@ -308,20 +300,33 @@
 
                 <!-- preview grid -->
                 <div v-if="filePreviews.length" class="preview-grid mt-3">
-                  <div
-                    class="preview-item"
-                    v-for="(p, i) in filePreviews"
-                    :key="p.key"
-                  >
+                  <div class="preview-item" v-for="(p, i) in filePreviews" :key="p.key">
                     <img :src="p.url" alt="" />
                     <div class="preview-actions">
-                      <button type="button" class="btn btn-sm btn-light" @click="moveUp(i)" :disabled="i===0" title="Move up">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-light"
+                        @click="moveUp(i)"
+                        :disabled="i === 0"
+                        title="Move up"
+                      >
                         <i class="bi bi-arrow-up"></i>
                       </button>
-                      <button type="button" class="btn btn-sm btn-light" @click="moveDown(i)" :disabled="i===filePreviews.length-1" title="Move down">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-light"
+                        @click="moveDown(i)"
+                        :disabled="i === filePreviews.length - 1"
+                        title="Move down"
+                      >
                         <i class="bi bi-arrow-down"></i>
                       </button>
-                      <button type="button" class="btn btn-sm btn-danger" @click="removeAt(i)" title="Remove">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-danger"
+                        @click="removeAt(i)"
+                        title="Remove"
+                      >
                         <i class="bi bi-x-lg"></i>
                       </button>
                     </div>
@@ -333,17 +338,31 @@
               <div class="col-12" v-else>
                 <label class="form-label">Picture URL(s)</label>
                 <div class="d-grid gap-2">
-                  <div v-for="(u, i) in form.product_urls" :key="i" class="d-flex gap-2 align-items-center">
+                  <div
+                    v-for="(u, i) in form.product_urls"
+                    :key="i"
+                    class="d-flex gap-2 align-items-center"
+                  >
                     <input
                       v-model.trim="form.product_urls[i]"
                       type="url"
                       class="form-control"
-                      :placeholder="`https://…/image_${i+1}.jpg`"
+                      :placeholder="`https://…/image_${i + 1}.jpg`"
                     />
-                    <button type="button" class="btn btn-outline-secondary btn-sm" @click="previewUrl(i)" title="Preview">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      @click="previewUrl(i)"
+                      title="Preview"
+                    >
                       <i class="bi bi-eye"></i>
                     </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm" @click="removeUrl(i)" title="Remove">
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      @click="removeUrl(i)"
+                      title="Remove"
+                    >
                       <i class="bi bi-x-lg"></i>
                     </button>
                   </div>
@@ -403,11 +422,7 @@
 
                 <!-- Rows -->
                 <div class="spec-rows">
-                  <div
-                    class="spec-row"
-                    v-for="(row, i) in form.specList"
-                    :key="row._key"
-                  >
+                  <div class="spec-row" v-for="(row, i) in form.specList" :key="row._key">
                     <input
                       v-model.trim="row.key"
                       type="text"
@@ -423,13 +438,30 @@
                       aria-label="Specification value"
                     />
                     <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" @click="moveSpecUp('create', i)" :disabled="i===0" title="Move up">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="moveSpecUp('create', i)"
+                        :disabled="i === 0"
+                        title="Move up"
+                      >
                         <i class="bi bi-arrow-up"></i>
                       </button>
-                      <button type="button" class="btn btn-outline-secondary" @click="moveSpecDown('create', i)" :disabled="i===form.specList.length-1" title="Move down">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="moveSpecDown('create', i)"
+                        :disabled="i === form.specList.length - 1"
+                        title="Move down"
+                      >
                         <i class="bi bi-arrow-down"></i>
                       </button>
-                      <button type="button" class="btn btn-outline-danger" @click="removeSpec('create', i)" title="Remove">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger"
+                        @click="removeSpec('create', i)"
+                        title="Remove"
+                      >
                         <i class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -441,10 +473,18 @@
                     Each row needs a non-empty <strong>Key</strong>. Values can be empty.
                   </div>
                   <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="addSpec('create')">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      @click="addSpec('create')"
+                    >
                       + Add row
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="clearSpecs('create')">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      @click="clearSpecs('create')"
+                    >
                       Clear all
                     </button>
                   </div>
@@ -454,7 +494,12 @@
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <button type="button" class="btn btn-outline-secondary" @click="closeForm" :disabled="submitting">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                @click="closeForm"
+                :disabled="submitting"
+              >
                 Cancel
               </button>
               <button type="submit" class="btn btn-primary" :disabled="submitting || !canSubmit">
@@ -510,12 +555,10 @@
                   step="0.01"
                   min="0"
                   class="form-control"
-                  :class="{'is-invalid': !editSupplierOk}"
+                  :class="{ 'is-invalid': !editSupplierOk }"
                   required
                 />
-                <div class="invalid-feedback">
-                  Supplier price must be &lt; Price and ≥ 0.
-                </div>
+                <div class="invalid-feedback">Supplier price must be &lt; Price and ≥ 0.</div>
               </div>
 
               <div class="col-12">
@@ -543,11 +586,7 @@
                 <label class="form-label mb-2">Specifications (optional)</label>
 
                 <div class="spec-rows">
-                  <div
-                    class="spec-row"
-                    v-for="(row, i) in editForm.specList"
-                    :key="row._key"
-                  >
+                  <div class="spec-row" v-for="(row, i) in editForm.specList" :key="row._key">
                     <input
                       v-model.trim="row.key"
                       type="text"
@@ -563,13 +602,30 @@
                       aria-label="Specification value"
                     />
                     <div class="btn-group btn-group-sm">
-                      <button type="button" class="btn btn-outline-secondary" @click="moveSpecUp('edit', i)" :disabled="i===0" title="Move up">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="moveSpecUp('edit', i)"
+                        :disabled="i === 0"
+                        title="Move up"
+                      >
                         <i class="bi bi-arrow-up"></i>
                       </button>
-                      <button type="button" class="btn btn-outline-secondary" @click="moveSpecDown('edit', i)" :disabled="i===editForm.specList.length-1" title="Move down">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        @click="moveSpecDown('edit', i)"
+                        :disabled="i === editForm.specList.length - 1"
+                        title="Move down"
+                      >
                         <i class="bi bi-arrow-down"></i>
                       </button>
-                      <button type="button" class="btn btn-outline-danger" @click="removeSpec('edit', i)" title="Remove">
+                      <button
+                        type="button"
+                        class="btn btn-outline-danger"
+                        @click="removeSpec('edit', i)"
+                        title="Remove"
+                      >
                         <i class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -581,10 +637,18 @@
                     Each row needs a non-empty <strong>Key</strong>.
                   </div>
                   <div class="d-flex gap-2">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="addSpec('edit')">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      @click="addSpec('edit')"
+                    >
                       + Add row
                     </button>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" @click="clearSpecs('edit')">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      @click="clearSpecs('edit')"
+                    >
                       Clear all
                     </button>
                   </div>
@@ -600,7 +664,11 @@
 
                 <!-- Existing photos with remove X -->
                 <div class="preview-grid">
-                  <div class="preview-item" v-for="(path, i) in editExisting" :key="`ex-${i}-${path}`">
+                  <div
+                    class="preview-item"
+                    v-for="(path, i) in editExisting"
+                    :key="`ex-${i}-${path}`"
+                  >
                     <img :src="signedForExisting(path)" alt="" />
                     <button
                       type="button"
@@ -616,7 +684,11 @@
                   </div>
 
                   <!-- New photos previews -->
-                  <div class="preview-item" v-for="(p, i) in editNewPreviews" :key="`new-${i}-${p.key}`">
+                  <div
+                    class="preview-item"
+                    v-for="(p, i) in editNewPreviews"
+                    :key="`new-${i}-${p.key}`"
+                  >
                     <img :src="p.url" alt="" />
                     <button
                       type="button"
@@ -639,9 +711,13 @@
                     @drop.prevent="onEditDrop"
                   >
                     <div class="text-center text-muted">
-                      <i class="bi bi-images" style="font-size:1.6rem"></i>
+                      <i class="bi bi-images" style="font-size: 1.6rem"></i>
                       <div class="mt-2">Drag photos here or</div>
-                      <button type="button" class="btn btn-sm btn-outline-primary mt-2" @click="triggerEditFile">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary mt-2"
+                        @click="triggerEditFile"
+                      >
                         Browse files
                       </button>
                       <div class="small mt-2">Max total 5 (existing + new)</div>
@@ -660,7 +736,12 @@
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <button type="button" class="btn btn-outline-secondary" @click="closeEdit" :disabled="busy.editSave">
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                @click="closeEdit"
+                :disabled="busy.editSave"
+              >
                 Cancel
               </button>
               <button
@@ -712,10 +793,10 @@ type FormMode = 'upload' | 'url'
 const formMode = ref<FormMode>('upload')
 const fileInput = ref<HTMLInputElement | null>(null)
 const selectedFiles = ref<File[]>([])
-const filePreviews = ref<{ key: string, url: string }[]>([])
+const filePreviews = ref<{ key: string; url: string }[]>([])
 const draggingOver = ref(false)
 
-const urlPreviews = ref<{ key: string, url: string }[]>([])
+const urlPreviews = ref<{ key: string; url: string }[]>([])
 
 const form = reactive({
   name: '',
@@ -724,7 +805,7 @@ const form = reactive({
   supplier_price: 0,
   product_urls: [''] as string[],
   warranty: '' as string,
-  specList: [] as SpecRow[],   // rows only
+  specList: [] as SpecRow[], // rows only
 })
 
 /** helpers */
@@ -733,12 +814,13 @@ function randId() {
     if (typeof crypto !== 'undefined' && typeof (crypto as any).randomUUID === 'function') {
       return (crypto as any).randomUUID()
     }
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-const number = (n: number | string | null | undefined) =>
-  Number(n ?? 0).toFixed(2)
+const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 
 const fmt = (x: string | null | undefined) => {
   if (!x) return '—'
@@ -771,7 +853,7 @@ function next(p: ProductRow) {
   setIndex(p.id, (i + 1) % Math.max(1, p.product_url.length))
 }
 function prev(id: string) {
-  const p = products.value.find(x => x.id === id)
+  const p = products.value.find((x) => x.id === id)
   if (!p) return
   slideDirMap[id] = 'right'
   const i = currentIndex(id)
@@ -817,22 +899,33 @@ async function loadProducts() {
   const { data, error } = await supabase
     .schema('games')
     .from('products')
-    .select('id, name, description, price, supplier_price, product_url, warranty, specifications, created_at, updated_at, ispublish')
+    .select(
+      'id, name, description, price, supplier_price, product_url, warranty, specifications, created_at, updated_at, ispublish',
+    )
     .order('created_at', { ascending: false })
 
   if (!error) {
     products.value = (data ?? []).map((row: any) => ({
       ...row,
-      product_url: Array.isArray(row.product_url) ? row.product_url : (row.product_url ? [row.product_url] : []),
-      ispublish: !!row.ispublish
+      product_url: Array.isArray(row.product_url)
+        ? row.product_url
+        : row.product_url
+          ? [row.product_url]
+          : [],
+      ispublish: !!row.ispublish,
     })) as ProductRow[]
   }
   loading.value = false
 }
 
 /** modal controls */
-function openForm() { resetForm(); showForm.value = true }
-function closeForm() { showForm.value = false }
+function openForm() {
+  resetForm()
+  showForm.value = true
+}
+function closeForm() {
+  showForm.value = false
+}
 function resetForm() {
   form.name = ''
   form.description = ''
@@ -843,7 +936,7 @@ function resetForm() {
   form.specList = []
   // clear files + revoke previews
   selectedFiles.value = []
-  filePreviews.value.forEach(p => URL.revokeObjectURL(p.url))
+  filePreviews.value.forEach((p) => URL.revokeObjectURL(p.url))
   filePreviews.value = []
   urlPreviews.value = []
   if (fileInput.value) fileInput.value.value = ''
@@ -851,12 +944,18 @@ function resetForm() {
 }
 
 /** drag & drop + file input */
-function triggerFile() { fileInput.value?.click() }
-function onDragOver() { draggingOver.value = true }
-function onDragLeave() { draggingOver.value = false }
+function triggerFile() {
+  fileInput.value?.click()
+}
+function onDragOver() {
+  draggingOver.value = true
+}
+function onDragLeave() {
+  draggingOver.value = false
+}
 function onDrop(e: DragEvent) {
   draggingOver.value = false
-  const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
+  const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith('image/'))
   appendFiles(files)
 }
 function onFiles(e: Event) {
@@ -878,13 +977,25 @@ function appendFiles(files: File[]) {
 /** preview reorder/remove */
 function moveUp(i: number) {
   if (i <= 0) return
-  ;[selectedFiles.value[i-1], selectedFiles.value[i]] = [selectedFiles.value[i], selectedFiles.value[i-1]]
-  ;[filePreviews.value[i-1], filePreviews.value[i]] = [filePreviews.value[i], filePreviews.value[i-1]]
+  ;[selectedFiles.value[i - 1], selectedFiles.value[i]] = [
+    selectedFiles.value[i],
+    selectedFiles.value[i - 1],
+  ]
+  ;[filePreviews.value[i - 1], filePreviews.value[i]] = [
+    filePreviews.value[i],
+    filePreviews.value[i - 1],
+  ]
 }
 function moveDown(i: number) {
   if (i >= selectedFiles.value.length - 1) return
-  ;[selectedFiles.value[i+1], selectedFiles.value[i]] = [selectedFiles.value[i], selectedFiles.value[i+1]]
-  ;[filePreviews.value[i+1], filePreviews.value[i]] = [filePreviews.value[i], filePreviews.value[i+1]]
+  ;[selectedFiles.value[i + 1], selectedFiles.value[i]] = [
+    selectedFiles.value[i],
+    selectedFiles.value[i + 1],
+  ]
+  ;[filePreviews.value[i + 1], filePreviews.value[i]] = [
+    filePreviews.value[i],
+    filePreviews.value[i + 1],
+  ]
 }
 function removeAt(i: number) {
   const [removed] = filePreviews.value.splice(i, 1)
@@ -893,9 +1004,11 @@ function removeAt(i: number) {
 }
 
 /** URL mode helpers */
-function addUrlField() { if (form.product_urls.length < 5) form.product_urls.push('') }
+function addUrlField() {
+  if (form.product_urls.length < 5) form.product_urls.push('')
+}
 function trimEmptyUrls() {
-  const cleaned = form.product_urls.map(s => s.trim()).filter(Boolean)
+  const cleaned = form.product_urls.map((s) => s.trim()).filter(Boolean)
   form.product_urls = cleaned.length ? cleaned : ['']
   buildUrlPreviews()
 }
@@ -904,10 +1017,15 @@ function removeUrl(i: number) {
   if (!form.product_urls.length) form.product_urls.push('')
   buildUrlPreviews()
 }
-function previewUrl(i: number) { buildUrlPreviews() }
+function previewUrl(i: number) {
+  buildUrlPreviews()
+}
 function buildUrlPreviews() {
-  const urls = form.product_urls.map(s => s.trim()).filter(Boolean).slice(0, 5)
-  urlPreviews.value = urls.map(u => ({ key: u, url: u }))
+  const urls = form.product_urls
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5)
+  urlPreviews.value = urls.map((u) => ({ key: u, url: u }))
 }
 
 /** specifications helpers (rows <-> object) */
@@ -916,7 +1034,7 @@ function newSpecRow(key = '', value = ''): SpecRow {
 }
 function rowsToObject(rows: SpecRow[]): Record<string, any> {
   const obj: Record<string, any> = {}
-  rows.forEach(r => {
+  rows.forEach((r) => {
     const k = (r.key || '').trim()
     if (!k) return
     obj[k] = r.value ?? ''
@@ -936,13 +1054,13 @@ const supplierOk = computed(() => {
   return sp >= 0 && sp < p
 })
 const specsOk = computed(() => {
-  return form.specList.every(r => (r.key || '').trim().length > 0)
+  return form.specList.every((r) => (r.key || '').trim().length > 0)
 })
 const imagesOk = computed(() => {
   if (formMode.value === 'upload') {
     return selectedFiles.value.length >= 1 && selectedFiles.value.length <= 5
   } else {
-    const urls = form.product_urls.map(s => s.trim()).filter(Boolean)
+    const urls = form.product_urls.map((s) => s.trim()).filter(Boolean)
     return urls.length >= 1 && urls.length <= 5
   }
 })
@@ -979,7 +1097,10 @@ async function submit() {
         urls.push(path)
       }
     } else {
-      const cleaned = form.product_urls.map(s => s.trim()).filter(Boolean).slice(0, 5)
+      const cleaned = form.product_urls
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .slice(0, 5)
       urls.push(...cleaned)
     }
 
@@ -1006,10 +1127,7 @@ async function submit() {
       return
     }
 
-    const { error } = await supabase
-      .schema('games')
-      .from('products')
-      .insert(payload)
+    const { error } = await supabase.schema('games').from('products').insert(payload)
 
     if (error) {
       console.error('insert product error:', error.message)
@@ -1029,10 +1147,7 @@ const filteredProducts = computed(() => {
   const s = q.value.toLowerCase().trim()
   if (!s) return products.value
   return products.value.filter((p) => {
-    return (
-      p.name.toLowerCase().includes(s) ||
-      (p.description ?? '').toLowerCase().includes(s)
-    )
+    return p.name.toLowerCase().includes(s) || (p.description ?? '').toLowerCase().includes(s)
   })
 })
 
@@ -1052,7 +1167,9 @@ function onTouchMove(e: TouchEvent) {
   if (swipeStartX.value === null) return
   swipeDeltaX.value = e.touches[0].clientX - swipeStartX.value
 }
-function onTouchEnd(p: ProductRow) { finishSwipe(p) }
+function onTouchEnd(p: ProductRow) {
+  finishSwipe(p)
+}
 
 function onMouseDown(e: MouseEvent, id: string) {
   isMouseDown.value = true
@@ -1088,8 +1205,13 @@ function finishSwipe(p: ProductRow) {
   swipeActiveId.value = null
 
   if (Math.abs(dx) < SWIPE_THRESHOLD) return
-  if (dx < 0) { slideDirMap[p.id] = 'left';  next(p) }
-  else        { slideDirMap[p.id] = 'right'; prev(p.id) }
+  if (dx < 0) {
+    slideDirMap[p.id] = 'left'
+    next(p)
+  } else {
+    slideDirMap[p.id] = 'right'
+    prev(p.id)
+  }
 }
 function swipeStyle(id: string) {
   if (swipeActiveId.value !== id) return {}
@@ -1132,10 +1254,12 @@ async function deleteProduct(p: ProductRow) {
 async function deleteAllInFolder(productId: string) {
   const folder = `products/${productId}`
   const { data } = await supabase.storage.from('prize_product').list(folder, { limit: 100 })
-  const paths = (data ?? []).map(obj => `${folder}/${obj.name}`)
+  const paths = (data ?? []).map((obj) => `${folder}/${obj.name}`)
   if (paths.length) {
     const { error: remErr } = await supabase.storage.from('prize_product').remove(paths)
-    if (remErr) { throw remErr }
+    if (remErr) {
+      throw remErr
+    }
   }
 }
 
@@ -1145,7 +1269,7 @@ const currentEdit = ref<ProductRow | null>(null)
 const editExisting = ref<string[]>([])
 const toRemove = reactive<Set<string>>(new Set())
 const editNewFiles = ref<File[]>([])
-const editNewPreviews = ref<{ key: string, url: string }[]>([])
+const editNewPreviews = ref<{ key: string; url: string }[]>([])
 const editFileInput = ref<HTMLInputElement | null>(null)
 const editDraggingOver = ref(false)
 const editSignedMap = reactive<Record<string, string>>({})
@@ -1170,26 +1294,30 @@ function openEdit(p: ProductRow) {
   try {
     const obj = p.specifications && typeof p.specifications === 'object' ? p.specifications : null
     editForm.specList = objectToRows(obj)
-  } catch { editForm.specList = [] }
+  } catch {
+    editForm.specList = []
+  }
 
   editExisting.value = [...p.product_url]
   toRemove.clear()
   editNewFiles.value = []
-  editNewPreviews.value.forEach(v => URL.revokeObjectURL(v.url))
+  editNewPreviews.value.forEach((v) => URL.revokeObjectURL(v.url))
   editNewPreviews.value = []
   showEdit.value = true
 }
 function closeEdit() {
   showEdit.value = false
   currentEdit.value = null
-  editNewPreviews.value.forEach(v => URL.revokeObjectURL(v.url))
+  editNewPreviews.value.forEach((v) => URL.revokeObjectURL(v.url))
   editNewPreviews.value = []
 }
 
 function signedForExisting(path: string) {
   if (!isStoragePath(path)) return path
   if (editSignedMap[path]) return editSignedMap[path]
-  supabase.storage.from('prize_product').createSignedUrl(path, 60 * 60)
+  supabase.storage
+    .from('prize_product')
+    .createSignedUrl(path, 60 * 60)
     .then(({ data, error }) => {
       if (!error && data?.signedUrl) editSignedMap[path] = data.signedUrl
     })
@@ -1200,12 +1328,18 @@ function toggleRemoveExisting(path: string) {
   if (toRemove.has(path)) toRemove.delete(path)
   else toRemove.add(path)
 }
-function triggerEditFile() { editFileInput.value?.click() }
-function onEditDragOver() { editDraggingOver.value = true }
-function onEditDragLeave() { editDraggingOver.value = false }
+function triggerEditFile() {
+  editFileInput.value?.click()
+}
+function onEditDragOver() {
+  editDraggingOver.value = true
+}
+function onEditDragLeave() {
+  editDraggingOver.value = false
+}
 function onEditDrop(e: DragEvent) {
   editDraggingOver.value = false
-  const files = Array.from(e.dataTransfer?.files || []).filter(f => f.type.startsWith('image/'))
+  const files = Array.from(e.dataTransfer?.files || []).filter((f) => f.type.startsWith('image/'))
   appendEditFiles(files)
 }
 function onEditFiles(e: Event) {
@@ -1215,7 +1349,7 @@ function onEditFiles(e: Event) {
 }
 function appendEditFiles(files: File[]) {
   if (!files.length) return
-  const keptExistingCount = editExisting.value.filter(p => !toRemove.has(p)).length
+  const keptExistingCount = editExisting.value.filter((p) => !toRemove.has(p)).length
   const available = Math.max(0, 5 - keptExistingCount - editNewFiles.value.length)
   const toAdd = files.slice(0, available)
   for (const f of toAdd) {
@@ -1237,10 +1371,10 @@ const editSupplierOk = computed(() => {
   return sp >= 0 && sp < p
 })
 const editSpecsOk = computed(() => {
-  return editForm.specList.every(r => (r.key || '').trim().length > 0)
+  return editForm.specList.every((r) => (r.key || '').trim().length > 0)
 })
 const editPhotosOk = computed(() => {
-  const kept = editExisting.value.filter(p => !toRemove.has(p)).length
+  const kept = editExisting.value.filter((p) => !toRemove.has(p)).length
   const total = kept + editNewFiles.value.length
   return total >= 1 && total <= 5
 })
@@ -1253,7 +1387,9 @@ const editAllValid = computed(() => {
   return true
 })
 
-function swap<T>(arr: T[], i: number, j: number) { [arr[i], arr[j]] = [arr[j], arr[i]] }
+function swap<T>(arr: T[], i: number, j: number) {
+  ;[arr[i], arr[j]] = [arr[j], arr[i]]
+}
 function addSpec(which: 'create' | 'edit') {
   const row = newSpecRow()
   if (which === 'create') form.specList.push(row)
@@ -1265,16 +1401,16 @@ function removeSpec(which: 'create' | 'edit', i: number) {
 }
 function moveSpecUp(which: 'create' | 'edit', i: number) {
   if (i <= 0) return
-  if (which === 'create') swap(form.specList, i, i-1)
-  else swap(editForm.specList, i, i-1)
+  if (which === 'create') swap(form.specList, i, i - 1)
+  else swap(editForm.specList, i, i - 1)
 }
 function moveSpecDown(which: 'create' | 'edit', i: number) {
   if (which === 'create') {
     if (i >= form.specList.length - 1) return
-    swap(form.specList, i, i+1)
+    swap(form.specList, i, i + 1)
   } else {
     if (i >= editForm.specList.length - 1) return
-    swap(editForm.specList, i, i+1)
+    swap(editForm.specList, i, i + 1)
   }
 }
 function clearSpecs(which: 'create' | 'edit') {
@@ -1293,10 +1429,13 @@ async function saveEdit() {
     const productId = currentEdit.value.id
 
     // delete removed existing storage files
-    const toDel = [...toRemove].filter(p => isStoragePath(p))
+    const toDel = [...toRemove].filter((p) => isStoragePath(p))
     if (toDel.length) {
       const { error: delErr } = await supabase.storage.from('prize_product').remove(toDel)
-      if (delErr) { alert('Failed deleting old images: ' + delErr.message); return }
+      if (delErr) {
+        alert('Failed deleting old images: ' + delErr.message)
+        return
+      }
     }
 
     // upload new files
@@ -1307,7 +1446,7 @@ async function saveEdit() {
     }
 
     // build final urls
-    const keptExisting = editExisting.value.filter(p => !toRemove.has(p))
+    const keptExisting = editExisting.value.filter((p) => !toRemove.has(p))
     const finalUrls = [...keptExisting, ...uploadedPaths]
     if (finalUrls.length < 1 || finalUrls.length > 5) {
       alert('Total images must be between 1 and 5.')
@@ -1350,36 +1489,52 @@ async function saveEdit() {
   }
 }
 
-onMounted(() => { loadProducts() })
+onMounted(() => {
+  loadProducts()
+})
 </script>
 
 <style scoped>
-.admin-products-page { padding: 1rem; }
+.admin-products-page {
+  padding: 1rem;
+}
 
 /* Cards */
 .product-card {
-  transition: transform .2s ease, box-shadow .2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
   background: #fff;
   border-color: #e9ecef;
 }
 .product-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 24px rgba(0,0,0,.06);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
 }
-.object-fit-cover { object-fit: cover; }
+.object-fit-cover {
+  object-fit: cover;
+}
 
 /* Ratio */
-.ratio { position: relative; width: 100%; }
-.ratio-4x3 { padding-top: 75%; }
-.ratio > * { position: absolute; inset: 0; }
+.ratio {
+  position: relative;
+  width: 100%;
+}
+.ratio-4x3 {
+  padding-top: 75%;
+}
+.ratio > * {
+  position: absolute;
+  inset: 0;
+}
 
 /* Slider core */
 .slider-btn {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
+  position: relative;
+  top: 10%;
+  
   border: 0;
-  background: rgba(0,0,0,.35);
+  background: rgba(0, 0, 0, 0.35);
   color: #fff;
   width: 36px;
   height: 36px;
@@ -1388,61 +1543,84 @@ onMounted(() => { loadProducts() })
   place-items: center;
   cursor: pointer;
 }
-.slider-btn:hover { background: rgba(0,0,0,.5); }
-.slider-btn.left  { left: -10px; }
-.slider-btn.right { right: -10px; }
+.slider-btn:hover {
+  background: rgba(0, 0, 0, 0.5);
+}
+.slider-btn.left {
+  position: relative;
+  left: -10px;
+}
+.slider-btn.right {
+  position: relative;
+  right: -30px;
+}
 
 .slider-dots {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: .5rem;
-  display: flex; gap: .4rem;
+  bottom: 0.5rem;
+  display: flex;
+  gap: 0.4rem;
 }
-.slider-dots-below { bottom: -18px; }
+.slider-dots-below {
+  bottom: -18px;
+}
 
 .dot {
-  width: 10px; height: 10px; border-radius: 999px; border: 0;
-  background: rgba(255,255,255,.7);
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 .dot.active {
   background: #ffdf6e;
   transform: scale(1.05);
 }
 
-.slider-touch { cursor: grab; user-select: none; }
-.slider-touch:active { cursor: grabbing; }
+.slider-touch {
+  cursor: grab;
+  user-select: none;
+}
+.slider-touch:active {
+  cursor: grabbing;
+}
 
 .slider-card {
+  position: relative;
   background: transparent;
   border-radius: 16px;
   overflow: visible;
 }
 .slider-card > img {
   border-radius: 16px;
-  box-shadow: 0 14px 28px rgba(0,0,0,.10), 0 10px 10px rgba(0,0,0,.06);
 }
 
 .img-count-pill {
-  left: .5rem;
-  bottom: .5rem;
-  background: rgba(0,0,0,.55);
+  left: 0.5rem;
+  bottom: 0.5rem;
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  padding: .15rem .5rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 999px;
-  font-size: .75rem;
+  font-size: 0.75rem;
 }
 
-.product-card .ratio-4x3 { margin-bottom: 22px; }
+.product-card .ratio-4x3 {
+  margin-bottom: 22px;
+}
 
 .fb-dropzone {
   border: 2px dashed #ced4da;
   background: #f8f9fa;
   padding: 1rem;
   border-radius: 12px;
-  transition: border-color .15s ease, background .15s ease;
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease;
 }
 .fb-dropzone.drag-over {
   border-color: #0d6efd;
@@ -1452,7 +1630,7 @@ onMounted(() => { loadProducts() })
 .preview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: .75rem;
+  gap: 0.75rem;
 }
 .preview-item {
   position: relative;
@@ -1469,28 +1647,34 @@ onMounted(() => { loadProducts() })
 }
 .preview-actions {
   position: absolute;
-  right: .4rem;
-  top: .4rem;
+  right: 0.4rem;
+  top: 0.4rem;
   display: flex;
   flex-direction: column;
-  gap: .25rem;
+  gap: 0.25rem;
 }
-.preview-actions .btn { padding: .15rem .35rem; }
+.preview-actions .btn {
+  padding: 0.15rem 0.35rem;
+}
 
-.btn-xs { padding: .1rem .35rem; font-size: .75rem; line-height: 1; }
+.btn-xs {
+  padding: 0.1rem 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1;
+}
 .remove-x {
   position: absolute;
-  top: .35rem;
-  right: .35rem;
+  top: 0.35rem;
+  right: 0.35rem;
 }
 .remove-mask {
   position: absolute;
   inset: 0;
-  background: rgba(220, 53, 69, .15);
+  background: rgba(220, 53, 69, 0.15);
   display: grid;
   place-items: center;
   color: #dc3545;
-  font-size: .85rem;
+  font-size: 0.85rem;
   font-weight: 600;
 }
 
@@ -1509,30 +1693,68 @@ onMounted(() => { loadProducts() })
   border: 0;
   border-radius: 16px;
 }
-.card-header { background: #fff; }
-.input-group .form-control:focus { box-shadow: none; }
+.card-header {
+  background: #fff;
+}
+.input-group .form-control:focus {
+  box-shadow: none;
+}
 
-.xsmall { font-size: 0.8rem; }
+.xsmall {
+  font-size: 0.8rem;
+}
 
 /* Animations */
-.fade-enter-active, .fade-leave-active { transition: opacity .22s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.22s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 
 .slide-left-enter-active,
 .slide-left-leave-active,
 .slide-right-enter-active,
 .slide-right-leave-active {
-  transition: transform .24s ease, opacity .24s ease;
+  transition:
+    transform 0.24s ease,
+    opacity 0.24s ease;
   will-change: transform, opacity;
 }
-.slide-left-enter-from { transform: translateX(30%); opacity: 0; }
-.slide-left-enter-to   { transform: translateX(0);    opacity: 1; }
-.slide-left-leave-from { transform: translateX(0);    opacity: 1; }
-.slide-left-leave-to   { transform: translateX(-30%); opacity: 0; }
-.slide-right-enter-from { transform: translateX(-30%); opacity: 0; }
-.slide-right-enter-to   { transform: translateX(0);     opacity: 1; }
-.slide-right-leave-from { transform: translateX(0);     opacity: 1; }
-.slide-right-leave-to   { transform: translateX(30%);   opacity: 0; }
+.slide-left-enter-from {
+  transform: translateX(30%);
+  opacity: 0;
+}
+.slide-left-enter-to {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-left-leave-from {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-left-leave-to {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+.slide-right-enter-from {
+  transform: translateX(-30%);
+  opacity: 0;
+}
+.slide-right-enter-to {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-right-leave-from {
+  transform: translateX(0);
+  opacity: 1;
+}
+.slide-right-leave-to {
+  transform: translateX(30%);
+  opacity: 0;
+}
 
 /* Clean, inside arrows */
 .slider-btn {
@@ -1543,48 +1765,69 @@ onMounted(() => { loadProducts() })
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  border: 1px solid rgba(0,0,0,.08);
-  background: rgba(255,255,255,.92);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: rgba(255, 255, 255, 0.92);
   color: #2b2b2b;
-  box-shadow: 0 6px 14px rgba(0,0,0,.12);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.12);
   display: grid;
   place-items: center;
   cursor: pointer;
-  transition: transform .15s ease, box-shadow .15s ease, background .15s ease, opacity .15s ease;
-  opacity: .95;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.15s ease,
+    opacity 0.15s ease;
+  opacity: 0.95;
 }
 .slider-btn:hover,
 .slider-btn:focus-visible {
   background: #fff;
-  box-shadow: 0 8px 18px rgba(0,0,0,.16);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
   transform: translateY(-50%) scale(1.04);
   outline: none;
 }
-.slider-btn.left  { left: 8px; }
-.slider-btn.right { right: 8px; }
-.slider-btn i { font-size: 1.1rem; line-height: 1; }
-
-@media (max-width: 576px) {
-  .slider-btn.left  { left: 8px; }
-  .slider-btn.right { right: 8px; }
+.slider-btn.left {
+  left: 8px;
+}
+.slider-btn.right {
+  right: 8px;
+}
+.slider-btn i {
+  font-size: 1.1rem;
+  line-height: 1;
 }
 
-.slider-card { overflow: visible; }
+@media (max-width: 576px) {
+  .slider-btn.left {
+    left: 8px;
+  }
+  .slider-btn.right {
+    right: 8px;
+  }
+}
+
+.slider-card {
+  overflow: visible;
+}
 
 /* Friendly Specs UI */
 .spec-rows {
   display: grid;
   grid-template-columns: 1fr;
-  gap: .5rem;
+  gap: 0.5rem;
 }
 .spec-row {
   display: grid;
   grid-template-columns: 1fr 1fr auto;
-  gap: .5rem;
+  gap: 0.5rem;
   align-items: center;
 }
 @media (max-width: 576px) {
-  .spec-row { grid-template-columns: 1fr 1fr; }
-  .spec-row .btn-group { grid-column: 1 / -1; }
+  .spec-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .spec-row .btn-group {
+    grid-column: 1 / -1;
+  }
 }
 </style>
