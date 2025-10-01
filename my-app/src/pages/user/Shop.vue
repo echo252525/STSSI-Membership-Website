@@ -561,6 +561,49 @@
             </div>
           </div>
 
+          <!-- NEW: Payment method -->
+          <div class="border rounded-3 p-3">
+            <div class="fw-semibold mb-2"><i class="bi bi-wallet2 me-2"></i>Payment method</div>
+            <div class="vstack gap-2">
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="paymentMethod"
+                  id="pmCOD"
+                  value="cod"
+                  v-model="paymentMethod"
+                  :disabled="placingOrder"
+                />
+                <label class="form-check-label" for="pmCOD">
+                  Cash on Delivery
+                </label>
+              </div>
+
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="paymentMethod"
+                  id="pmEW"
+                  value="ewallet"
+                  v-model="paymentMethod"
+                  :disabled="placingOrder || !enoughBalance"
+                />
+                <label class="form-check-label" for="pmEW">
+                  E-Wallet
+                  <span class="text-muted">
+                    (Balance: ₱ {{ number(userBalance) }})
+                  </span>
+                </label>
+              </div>
+
+              <div v-if="!enoughBalance" class="text-danger small">
+                Insufficient balance for E-Wallet. Choose Cash on Delivery or top up.
+              </div>
+            </div>
+          </div>
+
           <div class="border rounded-3 p-3">
             <div class="row g-3">
               <div class="col-md-6">
@@ -892,7 +935,11 @@ const cartItems = ref<
   }>
 >([])
 
-const paymentMethod = ref<'cod'>('cod')
+/* NEW: payment method & balance */
+const paymentMethod = ref<'cod' | 'ewallet'>('cod')
+const userBalance = ref<number>(0)
+const enoughBalance = computed(() => userBalance.value >= cartGrandTotal.value)
+
 const checkingOut = ref(false) // kept for compatibility; not used for DB in this flow
 const clearingCart = ref(false)
 
@@ -1231,7 +1278,8 @@ const shippingSummary = computed(() => {
   return `${s.phone} • ${parts.join(', ')}`
 })
 
-type UsersRow = { phone_number: string | null; address: string | null }
+/* UPDATED: include balance in user row */
+type UsersRow = { phone_number: string | null; address: string | null; balance: number | null }
 
 function buildAddressString(s: ShippingRow): string {
   return [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean).join(', ')
@@ -1269,7 +1317,7 @@ function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
   return out
 }
 
-/* Load shipping from public.users */
+/* Load shipping + balance from public.users */
 async function loadShipping() {
   const uid = await ensureUser()
   if (!uid) {
@@ -1279,13 +1327,14 @@ async function loadShipping() {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('phone_number, address')
+    .select('phone_number, address, balance') // UPDATED: balance
     .eq('id', uid)
     .maybeSingle()
 
   const u = (userRow ?? null) as UsersRow | null
   shipping.value.user_id = uid
   shipping.value.phone = u?.phone_number || ''
+  userBalance.value = Number(u?.balance ?? 0) // NEW: keep balance in state
 
   const parsed = parseAddressToParts(u?.address ?? null)
   shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
@@ -1361,18 +1410,25 @@ async function placeOrder() {
     return
   }
 
+  // Payment validation: prevent E-Wallet if balance is insufficient
+  if (paymentMethod.value === 'ewallet' && !enoughBalance.value) {
+    alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
+    return
+  }
+
   placingOrder.value = true
   try {
     // Persist any shipping edits
     await saveShipping()
 
-    // Insert into purchases table (one row per product)
+    // Insert into purchases table (one row per product) — NO BALANCE DEDUCTION HERE
     try {
       const purchaseRows = cartItems.value.map((it) => ({
         user_id: uid,
         product_id: it.product.id,
         reference_number: genReference('PUR'),
-        // status assumed via DB default (e.g., 'to pay')
+        // Optionally store payment choice if your schema supports it:
+        // payment_method: paymentMethod.value,
       }))
       if (purchaseRows.length > 0) {
         await supabase.schema('games').from('purchases').insert(purchaseRows)
@@ -1387,6 +1443,7 @@ async function placeOrder() {
     cartItems.value = []
 
     closePlaceOrder()
+    // NOTE: Balance is NOT deducted here by request.
     alert('Order placed! You will receive a confirmation shortly.')
   } finally {
     placingOrder.value = false
@@ -1527,6 +1584,7 @@ async function bindUsersRealtime() {
         filter: `id=eq.${uid}`,
       },
       async (_payload) => {
+        // Refresh shipping info AND balance when user row changes
         await loadShipping()
       },
     )

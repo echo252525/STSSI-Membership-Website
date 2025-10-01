@@ -455,6 +455,14 @@ const formatDate = (iso?: string) => {
   try { return new Date(iso).toLocaleString() } catch { return iso as string }
 }
 const shortId = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : '—')
+
+/* NEW: reference generator for transactions */
+function genReference(prefix = 'TXN'): string {
+  const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
+  const rnd = Math.random().toString(36).slice(2, 10).toUpperCase()
+  return `${prefix}-${ts}-${rnd}`
+}
+
 function prettyStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === STATUS.TO_PAY) return 'To Pay'
@@ -491,17 +499,14 @@ function rrBadgeClass(s?: string | null) {
   if (k === 'rejected') return 'text-bg-danger-subtle border'
   return 'text-bg-light border'
 }
-/* helper to check if first RR is pending */
 function isRRPending(rr?: ReturnRefundRow) {
   if (!rr) return false
   return String(rr.status || '').toLowerCase() === 'pending'
 }
-/* NEW: helper to check if first RR is approved */
 function isRRApproved(rr?: ReturnRefundRow) {
   if (!rr) return false
   return String(rr.status || '').toLowerCase() === 'approved'
 }
-/* /NEW */
 
 function toArray(u: any): string[] {
   if (!u) return []
@@ -554,18 +559,15 @@ async function loadOrders(resetPage = false) {
       .from('purchases')
       .select('id,user_id,product_id,reference_number,status,created_at,updated_at', { count: 'exact' })
 
-    // Status filter
     if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
 
-    // Date range
     if (dateFrom.value) q = q.gte('created_at', new Date(dateFrom.value).toISOString())
     if (dateTo.value) {
       const end = new Date(dateTo.value)
-      end.setDate(end.getDate() + 1) // inclusive
+      end.setDate(end.getDate() + 1)
       q = q.lt('created_at', end.toISOString())
     }
 
-    // Search (server-side for id/ref only; address/phone filtered client-side after join)
     if (search.value) {
       const term = search.value.trim()
       q = q.or(`reference_number.ilike.%${term}%,id.ilike.%${term}%`)
@@ -583,12 +585,10 @@ async function loadOrders(resetPage = false) {
     total.value = count ?? 0
     const purchaseRows = (rows || []) as PurchaseRow[]
 
-    // Collect ids for joins
     const productIds = Array.from(new Set(purchaseRows.map(p => p.product_id).filter(Boolean)))
     const userIds = Array.from(new Set(purchaseRows.map(p => p.user_id).filter(Boolean)))
     const purchaseIds = Array.from(new Set(purchaseRows.map(p => p.id)))
 
-    // Fetch products
     if (productIds.length > 0) {
       const { data: prows } = await supabase
         .schema('games')
@@ -600,7 +600,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // Fetch buyers (phone/address)
     if (userIds.length > 0) {
       const { data: urows } = await supabase
         .from('users')
@@ -611,11 +610,9 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // Return/Refund rows
     let rrPurchaseSet: Set<string> | null = null
-    for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key] // clear map
+    for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
 
-    // ✅ Load RR rows for BOTH the Return/Refund tab AND the All tab
     const shouldLoadRR =
       (statusFilter.value === STATUS.RETURN_REFUND || statusFilter.value === 'all') &&
       purchaseIds.length > 0
@@ -627,15 +624,13 @@ async function loadOrders(resetPage = false) {
         .select('id,user_id,purchase_id,product_id,reason,details,status,created_at,updated_at')
         .in('purchase_id', purchaseIds)
 
-      // Only apply the sub-filter when we're on the Return/Refund tab
       if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
-        rrQ = rrQ.eq('status', rrStatusFilter.value) // enum values include: 'pending' | 'approved' | 'completed' | 'rejected'
+        rrQ = rrQ.eq('status', rrStatusFilter.value)
       }
 
       const { data: rrRows } = await rrQ
       if (Array.isArray(rrRows)) {
         rrPurchaseSet = new Set(rrRows.map(r => r.purchase_id))
-        // group into rrByPurchase
         for (const r of rrRows as ReturnRefundRow[]) {
           const arr = rrByPurchase[r.purchase_id] || []
           arr.push(r)
@@ -646,7 +641,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // Map purchases -> ViewOrder (single item each)
     let view: ViewOrder[] = purchaseRows.map(pr => {
       const prod = productsMap[pr.product_id]
       const buyer = buyersMap[pr.user_id]
@@ -666,7 +660,7 @@ async function loadOrders(resetPage = false) {
         user_id: pr.user_id,
         reference_number: pr.reference_number,
         total_amount: price,
-        payment_method: 'COD',                // UI badge; adjust if you add payments later
+        payment_method: 'COD',
         shipping_address: buyer?.address ?? null,
         phone_number: buyer?.phone_number ?? null,
         status: pr.status,
@@ -675,13 +669,11 @@ async function loadOrders(resetPage = false) {
       }
     })
 
-    // If on Return/Refund and subfilter is pending/approved/completed, keep only purchases that have RR rows in that sub-status
     if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all' && rrPurchaseSet) {
       view = view.filter(v => rrPurchaseSet!.has(v.id))
       total.value = view.length
     }
 
-    // Client-side search extension for address/phone/product name
     if (search.value) {
       const term = search.value.trim().toLowerCase()
       view = view.filter(v =>
@@ -717,7 +709,6 @@ async function updateStatus(purchaseId: string, status: string) {
       alert(error.message)
       return
     }
-    // Reflect locally
     const row = orders.value.find(o => o.id === purchaseId)
     if (row) row.status = status
   } finally {
@@ -739,14 +730,18 @@ async function cancelOrder(purchaseId: string) {
 /**
  * Approve order:
  * 1) Check & decrement stock (conditional update to avoid races)
- * 2) If success, set purchase to "to ship"
- * 3) If step 2 fails, attempt a best-effort rollback (+1 stock)
+ * 2) Deduct user's balance by the order price (only at approval time)
+ * 3) Insert a row into ewallet.order_receipt (product_id, amount, purchase_id)
+ * 4) If success, set purchase to "to ship"
+ * 5) On any failure after a previous step, attempt best-effort rollback
  */
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
   const item = order.items[0]
   if (!item) return
   const productId = item.product_id
+
+  const priceToCharge = Number(item.price_each || 0) * Number(item.qty || 1)
 
   busy.value.action[purchaseId] = true
   try {
@@ -769,13 +764,13 @@ async function approveOrder(order: ViewOrder) {
       return
     }
 
-    // 2) Conditional decrement to avoid race:
+    // 1b) Conditional decrement to avoid race:
     const { data: decOk, error: decErr } = await supabase
       .schema('games')
       .from('products')
       .update({ stock: currentStock - 1 })
       .eq('id', productId)
-      .eq('stock', currentStock) // only succeed if no one changed stock meanwhile
+      .eq('stock', currentStock)
       .select('id')
       .maybeSingle()
 
@@ -784,7 +779,80 @@ async function approveOrder(order: ViewOrder) {
       return
     }
 
-    // 3) Move purchase to "to ship"
+    // 2) Deduct user's balance at approval time
+    const { data: userRow, error: userErr } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', order.user_id)
+      .maybeSingle()
+
+    if (userErr) {
+      const { data: prodRow2 } = await supabase
+        .schema('games')
+        .from('products')
+        .select('stock')
+        .eq('id', productId)
+        .maybeSingle()
+      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
+      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
+      alert(userErr.message)
+      return
+    }
+
+    const currentBalance = Number(userRow?.balance ?? 0)
+    if (currentBalance < priceToCharge) {
+      const { data: prodRow2 } = await supabase
+        .schema('games')
+        .from('products')
+        .select('stock')
+        .eq('id', productId)
+        .maybeSingle()
+      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
+      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
+
+      alert('Buyer has insufficient balance for approval.')
+      return
+    }
+
+    const newBalance = currentBalance - priceToCharge
+    const { data: balOk, error: balErr } = await supabase
+      .from('users')
+      .update({ balance: newBalance })
+      .eq('id', order.user_id)
+      .eq('balance', currentBalance)
+      .select('balance')
+      .maybeSingle()
+
+    if (balErr || !balOk) {
+      const { data: prodRow2 } = await supabase
+        .schema('games')
+        .from('products')
+        .select('stock')
+        .eq('id', productId)
+        .maybeSingle()
+      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
+      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
+
+      alert(balErr?.message || 'Failed to deduct balance. Please try again.')
+      return
+    }
+
+    // 3) Insert the order receipt (ewallet.order_receipt) with product_id, amount, purchase_id
+    try {
+      await supabase
+        .schema('ewallet')
+        .from('order_receipt')
+        .insert({
+          product_id: productId,
+          purchase_id: purchaseId,
+          amount: Number(priceToCharge.toFixed(2)), // numeric(12,2)
+        })
+    } catch (e) {
+      // Non-fatal: just log; order can still proceed since balance was already deducted
+      console.error('[order_receipt insert failed]', (e as any)?.message || e)
+    }
+
+    // 4) Move purchase to "to ship"
     const { error: upErr } = await supabase
       .schema('games')
       .from('purchases')
@@ -792,7 +860,7 @@ async function approveOrder(order: ViewOrder) {
       .eq('id', purchaseId)
 
     if (upErr) {
-      // Best-effort rollback: add the stock back (+1)
+      // Best-effort rollback:
       const { data: prodRow2 } = await supabase
         .schema('games')
         .from('products')
@@ -805,16 +873,22 @@ async function approveOrder(order: ViewOrder) {
         .from('products')
         .update({ stock: nowStock + 1 })
         .eq('id', productId)
+
+      await supabase
+        .from('users')
+        .update({ balance: currentBalance })
+        .eq('id', order.user_id)
+        .eq('balance', newBalance)
+
       alert(upErr.message)
       return
     }
 
-    // Local reflect: status and product stock (if available in map)
+    // Local reflect
     const row = orders.value.find(o => o.id === purchaseId)
     if (row) row.status = STATUS.TO_SHIP
     if (productsMap[productId]) {
-      // not strictly needed in this view, but keeps cache consistent
-      // @ts-ignore
+      // @ts-ignore keep cache coherent
       productsMap[productId].stock = (Number((productsMap as any)[productId].stock ?? currentStock) - 1)
     }
   } finally {
@@ -828,11 +902,10 @@ async function approveRefund(rr: ReturnRefundRow) {
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
-    // Update enum column to 'approved' in games.return_refunds
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .update({ status: 'approved' }) // enum value
+      .update({ status: 'approved' })
       .eq('id', rrId)
 
     if (error) {
@@ -840,7 +913,6 @@ async function approveRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // Reflect locally
     rr.status = 'approved'
   } finally {
     busy.value.action[rrId] = false
@@ -857,7 +929,7 @@ async function completeRefund(rr: ReturnRefundRow) {
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .update({ status: 'completed' }) // NEW: mark as completed
+      .update({ status: 'completed' })
       .eq('id', rrId)
 
     if (error) {
@@ -865,7 +937,6 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // Reflect locally
     rr.status = 'completed'
   } finally {
     busy.value.action[rrId] = false
@@ -877,7 +948,6 @@ async function completeRefund(rr: ReturnRefundRow) {
 function setStatus(v: typeof tabs[number]['value']) {
   if (statusFilter.value !== v) {
     statusFilter.value = v
-    // reset RR subfilter when leaving/entering the tab
     if (statusFilter.value !== STATUS.RETURN_REFUND) rrStatusFilter.value = 'all'
     loadOrders(true)
   }
