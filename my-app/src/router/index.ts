@@ -25,6 +25,9 @@ import Loser from '@/pages/user/Loser.vue' // ✅ NEW: add this import
 // 🆕 Shop
 import Shop from '@/pages/user/Shop.vue'
 
+// 🆕 My Purchases (ADDED)
+import MyPurchase from '@/pages/user/MyPurchase.vue'
+
 import AdminDashboard from '@/pages/admin/AdminDashboard.vue'
 import AdminMiniGames from '@/pages/admin/AdminMiniGames.vue'
 import AdminProducts from '@/pages/admin/AdminProducts.vue'
@@ -68,6 +71,10 @@ const routes: RouteRecordRaw[] = [
       { path: 'minigames', name: 'user.minigames', component: MiniGames },
       { path: 'deals', name: 'user.deals', component: DealsRewards }, // ✅ new route
       { path: 'shop', name: 'user.shop', component: Shop }, // 🆕 Shop
+
+      // 🆕 My Purchases (ADDED)
+      { path: 'purchases', name: 'user.mypurchase', component: MyPurchase },
+
       { path: 'ewallet', name: 'user.ewallet', component: ewallet },
       { path: 'settings', name: 'user.settings', component: Settings },
     ],

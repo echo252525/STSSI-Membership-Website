@@ -16,7 +16,11 @@
           <span
             v-if="showTier"
             class="tier-icon rounded-circle d-inline-flex align-items-center justify-content-center"
-            :style="{ backgroundColor: membershipMeta.bg, color: membershipMeta.fg, boxShadow: membershipMeta.ring }"
+            :style="{
+              backgroundColor: membershipMeta.bg,
+              color: membershipMeta.fg,
+              boxShadow: membershipMeta.ring,
+            }"
             :title="membershipMeta.label + ' Membership'"
           >
             <i class="bi" :class="membershipMeta.icon"></i>
@@ -39,7 +43,10 @@
           @click="toggle()"
           :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         >
-          <i class="bi" :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"></i>
+          <i
+            class="bi"
+            :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"
+          ></i>
         </button>
       </div>
 
@@ -47,15 +54,10 @@
       <div class="text-center mb-4 profile" :title="displayName" v-show="!isCollapsed">
         <div
           class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
-          style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden;"
+          style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden"
         >
           <!-- ✅ Profile photo (keeps initials as fallback) -->
-          <img
-            v-if="avatarUrl"
-            :src="avatarUrl"
-            alt="Profile"
-            class="profile-avatar-img"
-          />
+          <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
           {{ initials }}
         </div>
         <div class="profile-text">
@@ -125,6 +127,20 @@
           >
             <i class="bi bi-bag fs-5"></i>
             <span class="link-text" v-show="!isCollapsed">Shop</span>
+          </RouterLink>
+        </li>
+        <!-- INSERT THIS BLOCK DIRECTLY BELOW THE SHOP NAV ITEM -->
+        <li class="nav-item">
+          <RouterLink
+            :to="{ name: 'user.mypurchase' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isCollapsed }"
+            active-class="active"
+            :title="isCollapsed ? 'My Purchases' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-receipt fs-5"></i>
+            <span class="link-text" v-show="!isCollapsed">My Purchases</span>
           </RouterLink>
         </li>
 
@@ -227,7 +243,9 @@ function ensureOffcanvas() {
   const { Offcanvas } = w.bootstrap
   // Only instantiate on mobile; on md+ it acts like a static sidebar
   if (!isMobile()) return null // ⭐ keep
-  offcanvasInst = Offcanvas.getInstance(sidebarEl.value) || new Offcanvas(sidebarEl.value, { backdrop: true, scroll: false })
+  offcanvasInst =
+    Offcanvas.getInstance(sidebarEl.value) ||
+    new Offcanvas(sidebarEl.value, { backdrop: true, scroll: false })
   return offcanvasInst
 }
 
@@ -243,7 +261,9 @@ function cleanupBodyOffcanvasArtifacts() {
 
 const closeOffcanvasIfMobile = () => {
   const inst = ensureOffcanvas()
-  try { inst?.hide?.() } catch {}
+  try {
+    inst?.hide?.()
+  } catch {}
   cleanupBodyOffcanvasArtifacts()
 }
 
@@ -283,11 +303,18 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  try { offcanvasInst?.hide?.() } catch {}
-  try { offcanvasInst?.dispose?.() } catch {}
+  try {
+    offcanvasInst?.hide?.()
+  } catch {}
+  try {
+    offcanvasInst?.dispose?.()
+  } catch {}
   offcanvasInst = null
   cleanupBodyOffcanvasArtifacts()
-  if (removeAfterEach) { removeAfterEach(); removeAfterEach = null }
+  if (removeAfterEach) {
+    removeAfterEach()
+    removeAfterEach = null
+  }
 })
 /* ===== end offcanvas fix ===== */
 
@@ -308,16 +335,46 @@ const membershipMeta = computed(() => {
   const t = (membershipType.value || 'regular').toLowerCase()
   switch (t) {
     case 'gold':
-      return { label: 'Gold', icon: 'bi-gem', bg: '#FFF7E0', fg: '#A67C00', ring: '0 0 0 6px rgba(217,164,6,.18)' }
+      return {
+        label: 'Gold',
+        icon: 'bi-gem',
+        bg: '#FFF7E0',
+        fg: '#A67C00',
+        ring: '0 0 0 6px rgba(217,164,6,.18)',
+      }
     case 'silver':
-      return { label: 'Silver', icon: 'bi-gem', bg: '#F4F6F8', fg: '#6C757D', ring: '0 0 0 6px rgba(108,117,125,.18)' }
+      return {
+        label: 'Silver',
+        icon: 'bi-gem',
+        bg: '#F4F6F8',
+        fg: '#6C757D',
+        ring: '0 0 0 6px rgba(108,117,125,.18)',
+      }
     case 'diamond':
-      return { label: 'Diamond', icon: 'bi-diamond', bg: '#E8F9FF', fg: '#0AA2C0', ring: '0 0 0 6px rgba(13,202,240,.18)' }
+      return {
+        label: 'Diamond',
+        icon: 'bi-diamond',
+        bg: '#E8F9FF',
+        fg: '#0AA2C0',
+        ring: '0 0 0 6px rgba(13,202,240,.18)',
+      }
     case 'platinum':
-      return { label: 'Platinum', icon: 'bi-gem', bg: '#EEF1F8', fg: '#6F42C1', ring: '0 0 0 6px rgba(111,66,193,.16)' }
+      return {
+        label: 'Platinum',
+        icon: 'bi-gem',
+        bg: '#EEF1F8',
+        fg: '#6F42C1',
+        ring: '0 0 0 6px rgba(111,66,193,.16)',
+      }
     case 'regular':
     default:
-      return { label: 'Regular', icon: 'bi-person', bg: '#E9ECEF', fg: '#6C757D', ring: '0 0 0 0 rgba(0,0,0,0)' }
+      return {
+        label: 'Regular',
+        icon: 'bi-person',
+        bg: '#E9ECEF',
+        fg: '#6C757D',
+        ring: '0 0 0 0 rgba(0,0,0,0)',
+      }
   }
 })
 
@@ -329,7 +386,9 @@ const hardBlockBackToAuthed = () => {
 }
 
 const logout = async () => {
-  try { await supabase.auth.signOut() } catch {}
+  try {
+    await supabase.auth.signOut()
+  } catch {}
   currentUser.value = null
   hardBlockBackToAuthed()
   router.replace({ name: 'login' })
@@ -370,15 +429,16 @@ onMounted(async () => {
 
       const objectPath = urow?.profile_url as string | null
       if (objectPath) {
-        const { data: signed } = await supabase
-          .storage
+        const { data: signed } = await supabase.storage
           .from('user_profile')
           .createSignedUrl(objectPath, 3600)
         if (signed?.signedUrl) {
           avatarUrl.value = `${signed.signedUrl}&cb=${Date.now()}`
         }
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 })
 </script>
@@ -390,7 +450,9 @@ onMounted(async () => {
   top: 0;
   height: 100vh;
   overflow: hidden;
-  transition: width 200ms ease, padding 160ms ease;
+  transition:
+    width 200ms ease,
+    padding 160ms ease;
 }
 
 /* Offcanvas adjustments (mobile) */
@@ -413,8 +475,11 @@ onMounted(async () => {
 .nav-link {
   color: #495057;
   border-radius: 12px;
-  padding: .5rem .75rem;
-  transition: background-color .15s ease, color .15s ease, transform .12s ease;
+  padding: 0.5rem 0.75rem;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    transform 0.12s ease;
 }
 .nav-link:hover {
   background-color: #f1f3f5;
@@ -437,18 +502,25 @@ onMounted(async () => {
   justify-content: center;
   gap: 0 !important;
 }
-.icon-only:hover { transform: none !important; }
+.icon-only:hover {
+  transform: none !important;
+}
 
 /* Logout button style in collapsed mode */
 .icon-only.btn.btn-outline-danger {
-  border-color: #e9ecef; color: #dc3545; background: #fff;
+  border-color: #e9ecef;
+  color: #dc3545;
+  background: #fff;
 }
 .icon-only.btn.btn-outline-danger:hover {
-  background: #fff5f5; border-color: #f1c2c2;
+  background: #fff5f5;
+  border-color: #f1c2c2;
 }
 
 /* Hide tier icon if collapsed */
-.collapsed .tier-icon { display: none !important; }
+.collapsed .tier-icon {
+  display: none !important;
+}
 
 /* Avatar image fill */
 .profile-avatar-img {
