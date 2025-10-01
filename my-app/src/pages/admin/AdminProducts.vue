@@ -58,7 +58,7 @@
           <div class="row g-3">
             <div
               class="productDiv col-12 col-sm-6 col-lg-4 col-xl-3"
-              v-for="p in filteredProducts"
+              v-for="p in paginatedProducts"
               :key="p.id"
             >
               <div class="product-card h-100 border rounded-3 overflow-hidden">
@@ -188,6 +188,41 @@
               </div>
             </div>
           </div>
+
+          <!-- ===== Pagination (1–10 window + arrows) ===== -->
+          <div
+            v-if="totalPages > 1"
+            class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-4"
+          >
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              :disabled="page === 1"
+              @click="goPrev"
+              title="Previous page"
+            >
+              <i class="bi bi-chevron-left"></i>
+            </button>
+
+            <button
+              v-for="n in visiblePageNumbers"
+              :key="n"
+              class="btn btn-sm"
+              :class="n === page ? 'btn-primary' : 'btn-outline-secondary'"
+              @click="goToPage(n)"
+            >
+              {{ n }}
+            </button>
+
+            <button
+              class="btn btn-outline-secondary btn-sm"
+              :disabled="page === totalPages"
+              @click="goNext"
+              title="Next page"
+            >
+              <i class="bi bi-chevron-right"></i>
+            </button>
+          </div>
+          <!-- /Pagination -->
         </template>
       </div>
     </div>
@@ -765,7 +800,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
 type ProductRow = {
@@ -790,7 +825,36 @@ const showForm = ref(false)
 const submitting = ref(false)
 const q = ref('')
 
-/** modal state */
+/** ===== NEW: Pagination state (windowed 1–10) ===== */
+const page = ref(1)
+const pageSize = ref(8) // tweak if you prefer other page sizes
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredProducts.value.length / pageSize.value))
+)
+const pageWindowStart = computed(() => Math.floor((page.value - 1) / 10) * 10 + 1)
+const pageWindowEnd = computed(() => Math.min(pageWindowStart.value + 9, totalPages.value))
+const visiblePageNumbers = computed(() => {
+  const nums: number[] = []
+  for (let n = pageWindowStart.value; n <= pageWindowEnd.value; n++) nums.push(n)
+  return nums
+})
+const paginatedProducts = computed(() => {
+  const start = (page.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredProducts.value.slice(start, end)
+})
+function goToPage(n: number) {
+  const target = Math.min(Math.max(n, 1), totalPages.value)
+  page.value = target
+}
+function goPrev() {
+  goToPage(page.value - 1)
+}
+function goNext() {
+  goToPage(page.value + 1)
+}
+/** ===== /Pagination ===== */
+
 type FormMode = 'upload' | 'url'
 const formMode = ref<FormMode>('upload')
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -1139,6 +1203,8 @@ async function submit() {
 
     closeForm()
     await loadProducts()
+    // reset to first page so user sees the new item if filtering affects order
+    page.value = 1
   } finally {
     submitting.value = false
   }
@@ -1151,6 +1217,12 @@ const filteredProducts = computed(() => {
   return products.value.filter((p) => {
     return p.name.toLowerCase().includes(s) || (p.description ?? '').toLowerCase().includes(s)
   })
+})
+
+/** keep page in range when filter changes */
+watchEffect(() => {
+  if (page.value > totalPages.value) page.value = totalPages.value
+  if (page.value < 1) page.value = 1
 })
 
 /** SWIPE/DRAG SUPPORT */
@@ -1248,6 +1320,8 @@ async function deleteProduct(p: ProductRow) {
       return
     }
     await loadProducts()
+    // make sure page index is still valid after deletion
+    if (page.value > totalPages.value) page.value = totalPages.value
   } finally {
     busy.deleting = false
   }
@@ -1486,6 +1560,8 @@ async function saveEdit() {
 
     showEdit.value = false
     await loadProducts()
+    // keep pagination valid
+    if (page.value > totalPages.value) page.value = totalPages.value
   } finally {
     busy.editSave = false
   }

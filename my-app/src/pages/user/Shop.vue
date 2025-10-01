@@ -1359,15 +1359,26 @@ watch(pageSize, () => goToPage(1))
 
 <style scoped>
 .shop-page {
-  --card-radius: 14px;
+  --card-radius: 10px;            /* slightly smaller radius */
+  --tile-font: 0.92rem;           /* base font for tiles */
+  --tile-title: 0.96rem;          /* product title size */
+  --tile-price: 1rem;             /* price size */
+  --tile-small: 0.8rem;           /* small text */
+  --tile-pad-y: .55rem;           /* body vertical padding */
+  --tile-pad-x: .65rem;           /* body horizontal padding */
+  --tile-footer-pad-t: .35rem;    /* footer top padding */
+  --tile-footer-pad-x: .65rem;    /* footer side padding */
 }
+
+/* Compact card */
 .product-card {
   border-radius: var(--card-radius);
   transition: transform .15s ease, box-shadow .15s ease;
+  font-size: var(--tile-font);
 }
 .product-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(0,0,0,.08);
+  box-shadow: 0 10px 24px rgba(0,0,0,.07);
 }
 .product-thumb {
   border-top-left-radius: var(--card-radius);
@@ -1375,8 +1386,51 @@ watch(pageSize, () => goToPage(1))
   position: relative;
 }
 .object-fit-cover { object-fit: cover; }
-.product-title { line-height: 1.2; min-height: 1.2em; }
-.price { letter-spacing: .2px; }
+.product-title { 
+  line-height: 1.2;
+  min-height: 1.1em;
+  font-size: var(--tile-title);
+}
+.price { 
+  letter-spacing: .2px; 
+  font-size: var(--tile-price);
+}
+
+/* Tighten paddings inside card */
+.product-card .card-body {
+  padding: var(--tile-pad-y) var(--tile-pad-x);
+}
+.product-card .card-footer {
+  padding: var(--tile-footer-pad-t) var(--tile-footer-pad-x) .6rem;
+}
+
+/* Make small text really small */
+.product-card .text-muted.small,
+.product-card .badge,
+.small {
+  font-size: var(--tile-small);
+}
+
+/* Reduce input/button heights in qty row to feel denser */
+.product-card .input-group .btn,
+.product-card .input-group .form-control,
+.product-card .input-group .input-group-text {
+  padding: .25rem .45rem;
+  font-size: .85rem;
+  height: 30px;
+}
+.product-card .btn {
+  padding: .38rem .55rem;
+  font-size: .9rem;
+}
+
+/* Shrink badge a bit */
+.product-card .badge {
+  padding: .25rem .4rem;
+  border-radius: .5rem;
+}
+
+/* Keep Search/sort area default, only icons */
 .rotate-180 { transform: rotate(180deg); }
 
 /* Modal styles */
@@ -1406,19 +1460,17 @@ watch(pageSize, () => goToPage(1))
 
 /* Success glow on product card after add */
 .added-burst {
-  box-shadow: 0 0 0 0 rgba(25,135,84,.25);
+  box-shadow: 0 0 0 0 rgba(25,135,84,.22);
   animation: addedGlow .45s ease;
 }
 @keyframes addedGlow {
   0%   { box-shadow: 0 0 0 0 rgba(25,135,84,.0);   transform: translateY(-2px); }
-  40%  { box-shadow: 0 8px 28px rgba(25,135,84,.28); }
+  40%  { box-shadow: 0 8px 24px rgba(25,135,84,.24); }
   100% { box-shadow: 0 0 0 0 rgba(25,135,84,0); }
 }
 
 /* Button pulse on add */
-.btn-added {
-  animation: btnPulse .35s ease;
-}
+.btn-added { animation: btnPulse .35s ease; }
 @keyframes btnPulse {
   0% { transform: scale(1); }
   50% { transform: scale(1.06); }
@@ -1427,12 +1479,15 @@ watch(pageSize, () => goToPage(1))
 
 /* Cart modal item image */
 .cart-thumb {
-  width: 64px;
-  min-width: 64px;
-  border-radius: 12px;
+  width: 58px;
+  min-width: 58px;
+  border-radius: 10px;
   overflow: hidden;
 }
-.product-img-fallback { border-top-left-radius: var(--card-radius); border-top-right-radius: var(--card-radius); }
+.product-img-fallback { 
+  border-top-left-radius: var(--card-radius); 
+  border-top-right-radius: var(--card-radius); 
+}
 
 /* ======================= Carousel styles ======================= */
 .carousel-thumb {
@@ -1456,7 +1511,7 @@ watch(pageSize, () => goToPage(1))
   object-fit: cover;
   opacity: 0;
   transform: scale(1.02);
-  transition: opacity .28s ease, transform .28s ease;
+  transition: opacity .24s ease, transform .24s ease;
 }
 .slide-img--active {
   opacity: 1;
@@ -1464,15 +1519,15 @@ watch(pageSize, () => goToPage(1))
 }
 .carousel-thumb .dots {
   position: absolute;
-  top: 8px;
+  top: 6px;
   inset-inline: 0;
   display: flex;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
 }
 .dot {
-  width: 7px;
-  height: 7px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: rgba(255,255,255,.65);
   border: 1px solid rgba(0,0,0,.15);
@@ -1488,8 +1543,8 @@ watch(pageSize, () => goToPage(1))
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 0;
   background: rgba(255,255,255,.85);
@@ -1498,10 +1553,12 @@ watch(pageSize, () => goToPage(1))
   line-height: 1;
   cursor: pointer;
   z-index: 2;
-  box-shadow: 0 4px 10px rgba(0,0,0,.1);
+  box-shadow: 0 4px 10px rgba(0,0,0,.08);
+  padding: 0;
 }
-.carousel-thumb .nav.left { left: 8px; }
-.carousel-thumb .nav.right { right: 8px; }
+.carousel-thumb .nav i { font-size: 14px; }
+.carousel-thumb .nav.left { left: 6px; }
+.carousel-thumb .nav.right { right: 6px; }
 .carousel-thumb .nav:hover { background: #fff; }
 
 /* Touch-friendly */
@@ -1511,11 +1568,11 @@ watch(pageSize, () => goToPage(1))
 
 /* === NEW: qty bump micro-interaction === */
 .qty-field.qty-bump {
-  animation: qtyBump .25s ease;
+  animation: qtyBump .22s ease;
 }
 @keyframes qtyBump {
   0% { transform: scale(1); }
-  50% { transform: scale(1.06); }
+  50% { transform: scale(1.05); }
   100% { transform: scale(1); }
 }
 
