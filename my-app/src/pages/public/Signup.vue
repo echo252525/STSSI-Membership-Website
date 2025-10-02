@@ -182,7 +182,12 @@
           </div>
 
           <div class="col-12 d-flex flex-column flex-sm-row gap-2">
-            <button type="button" class="btn btn-outline-secondary flex-fill">Back</button>
+            <router-link
+              class="btn btn-outline-secondary flex-fill"
+              :to="{ name: 'home' }"
+            >
+              Back
+            </router-link>
             <button :disabled="loading" class="btn btn-primary flex-fill" type="submit">
               {{ loading ? 'Signing up…' : 'Sign Up' }}
             </button>

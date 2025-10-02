@@ -33,7 +33,12 @@
         </div>
 
         <div class="d-flex flex-column flex-sm-row gap-2">
-          <button type="button" class="btn btn-outline-secondary flex-fill">Back</button>
+          <router-link
+            class="btn btn-outline-secondary flex-fill"
+            :to="{ name: 'home' }"
+          >
+              Back
+          </router-link>
           <button type="submit" class="btn btn-primary flex-fill" :disabled="loading">
             <span
               v-if="loading"

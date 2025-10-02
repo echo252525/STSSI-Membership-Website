@@ -8,7 +8,7 @@
           :to="{ name: 'home' }"
         >
           <img src="/STSSI_logo.png" alt="STSSI Logo" class="simp-logo img-fluid" />
-          <span>STEQ Member Incentive Program</span>
+          <span class="logoText h5 m-0">STSSI Member Incentive Program</span>
         </router-link>
 
         <button
@@ -33,25 +33,27 @@
             <li class="nav-item"><a class="nav-link modern-link" href="#faq">FAQ</a></li>
           </ul>
 
-          <div class="d-flex gap-2">
+          <div class="d-flex align-items-center gap-3">
+            <!-- login -->
             <router-link class="btn btn-outline-primary btn-modern" :to="{ name: 'login' }">
               <i class="bi bi-box-arrow-in-right me-1"></i> Log in
             </router-link>
+            <!-- signup -->
             <router-link class="btn btn-primary btn-modern --pulse" :to="{ name: 'signup' }">
               <i class="bi bi-person-plus-fill me-1"></i> Sign up
+            </router-link>
+            <!-- admin -->
+            <router-link
+              :to="{ name: 'admin.login' }"
+              class="admin-icon-btn"
+              aria-label="Admin login"
+              title="Admin"
+            >
+              <i class="bi bi-shield-lock-fill"></i>
             </router-link>
           </div>
         </div>
       </div>
-      <!-- 🔐 Small Admin Icon (visible) -->
-      <router-link
-        :to="{ name: 'admin.login' }"
-        class="admin-icon-btn"
-        aria-label="Admin login"
-        title="Admin"
-      >
-        <i class="bi bi-shield-lock-fill"></i>
-      </router-link>
     </nav>
 
     <!-- ====================== HERO (Gradient) ====================== -->
@@ -203,8 +205,8 @@
         <div class="section-head">
           <h2 class="fw-bold">Membership Tiers & Benefits</h2>
           <p class="text-secondary mb-0">
-            Progress through tiers with every purchase and 
-            referral—more perks unlocked along the way.
+            Progress through tiers with every purchase and referral—more perks unlocked along the
+            way.
           </p>
         </div>
 
@@ -461,11 +463,11 @@ const has = (name: string) => router.hasRoute(name as any)
   --ring: rgba(13, 110, 253, 0.15);
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-bd: rgba(255, 255, 255, 0.4);
+  
 }
 html {
   scroll-behavior: smooth;
 }
-
 /* Respect motion preferences */
 @media (prefers-reduced-motion: reduce) {
   * {
@@ -473,12 +475,8 @@ html {
     transition: none !important;
   }
 }
-
 /* 🔐 Admin icon button */
 .admin-icon-btn {
-  position: absolute;
-  top: 12px;
-  right: 12px; /* desktop: tuck into top-right */
   width: 52px;
   height: 52px;
   border-radius: 999px;
@@ -504,15 +502,6 @@ html {
   transform: translateY(-1px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
 }
-
-/* On very small screens: offset to not block the burger */
-@media (max-width: 575.98px) {
-  .admin-icon-btn {
-    right: 54px;
-    top: 8px;
-  }
-}
-
 /* ---------- Navbar (glassy) ---------- */
 .glassy-nav {
   backdrop-filter: saturate(1.3) blur(10px);
@@ -542,9 +531,28 @@ html {
 .modern-link:hover::after {
   transform: scaleX(1);
 }
-
 .simp-logo {
   height: 45px;
+}
+
+@media (max-width: 500px) {
+  .glassy-nav {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  .logoText {
+    font-size: 1rem;
+  }
+  .simp-logo {
+    height: 30px;
+  }
+  .admin-icon-btn {
+    width: 42px;
+    height: 42px;
+  }
+  .admin-icon-btn i {
+    font-size: 1.4rem;
+  }
 }
 
 /* ---------- Buttons ---------- */
@@ -683,8 +691,8 @@ html {
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 
-    rgba(0, 0, 0, 0.1) 0px 10px 15px -3px, 
+  box-shadow:
+    rgba(0, 0, 0, 0.1) 0px 10px 15px -3px,
     rgba(0, 0, 0, 0.05) 0px 4px 6px -2px;
   transition:
     transform 0.15s ease,
@@ -708,18 +716,18 @@ html {
   height: auto;
 }
 .tier-logo {
-  max-height: 120px;   /* or whatever fits */
-  width: auto;         /* keep aspect ratio */
+  max-height: 120px; /* or whatever fits */
+  width: auto; /* keep aspect ratio */
 }
 .list-unstyled li {
   display: flex;
-    gap: 0.55rem;
-    align-items: flex-start;
-    padding: 0.4rem 0;
-    border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
+  gap: 0.55rem;
+  align-items: flex-start;
+  padding: 0.4rem 0;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
 }
 
-/* ---------- Testimonials ---------- */
+/* ---------- Testimonials
 .quote-card {
   padding: 1.25rem;
   border-radius: 16px;
@@ -737,6 +745,7 @@ html {
   margin-bottom: 0.5rem;
   font-size: 1.25rem;
 }
+---------- */
 
 /* ---------- Accordion ---------- */
 .modern-acc .accordion-button {
