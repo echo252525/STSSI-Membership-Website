@@ -139,14 +139,29 @@
                     <!-- intentionally empty -->
                   </template>
 
-                  <!-- to recieve & completed: Return/Refund button -->
-                  <button
-                    v-else-if="p.status === STATUS.TO_RECEIVE || p.status === STATUS.COMPLETED"
-                    class="btn btn-outline-warning btn-sm"
-                    @click="openReturnRefund(p)"
-                  >
-                    Return/Refund
-                  </button>
+                  <!-- to recieve: show BOTH Return/Refund and Order Received -->
+                  <template v-else-if="p.status === STATUS.TO_RECEIVE">
+                    <button
+                      class="btn btn-outline-warning btn-sm"
+                      @click="openReturnRefund(p)"
+                    >
+                      Return/Refund
+                    </button>
+                    <button
+                      class="btn btn-success btn-sm"
+                      :disabled="busy.received[p.id]"
+                      @click="orderReceived(p.id)"
+                      title="Mark as received"
+                    >
+                      <span v-if="busy.received[p.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      Order Received
+                    </button>
+                  </template>
+
+                  <!-- completed: NO BUTTONS -->
+                  <template v-else-if="p.status === STATUS.COMPLETED">
+                    <!-- intentionally empty -->
+                  </template>
 
                   <!-- return/refund: Pending => Cancel RR -->
                   <button
@@ -159,7 +174,7 @@
                     Cancel
                   </button>
 
-                  <!-- return/refund: Approved/Completed => NO BUTTON -->
+                  <!-- return/refund: Approved/Completed/Rejected => NO BUTTON -->
                   <template v-else-if="p.status === STATUS.RETURN_REFUND">
                     <!-- intentionally empty -->
                   </template>
@@ -220,15 +235,39 @@
                   <option v-for="r in rrReasons" :key="r" :value="r">{{ r }}</option>
                 </select>
               </div>
+
               <div class="col-12">
                 <label class="form-label">Details (optional)</label>
                 <textarea v-model.trim="rrForm.details" class="form-control" rows="4" placeholder="Describe the issue (e.g., defective on arrival, wrong color/size, missing parts)."></textarea>
               </div>
+
+              <!-- NEW: Pickup / Return Date -->
+              <div class="col-12">
+                <label class="form-label">Pickup Date</label>
+                <div class="d-flex gap-2 flex-wrap">
+                  <select v-model="rrQuickDate" class="form-select" style="max-width: 220px" @change="applyQuickDate">
+                    <option value="">Choose a quick date…</option>
+                    <option :value="quickDates.tomorrow">{{ labelFor(quickDates.tomorrow) }} (Tomorrow)</option>
+                    <option :value="quickDates.plus2">{{ labelFor(quickDates.plus2) }} (+2 days)</option>
+                    <option :value="quickDates.plus3">{{ labelFor(quickDates.plus3) }} (+3 days)</option>
+                  </select>
+                  <input
+                    v-model="rrForm.pickup_date"
+                    type="date"
+                    class="form-control"
+                    style="max-width: 180px"
+                    :min="todayYMD"
+                    required
+                  />
+                </div>
+                <div class="form-text">Select a quick option or pick an exact date.</div>
+              </div>
+              <!-- /NEW -->
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
               <button type="button" class="btn btn-outline-secondary" @click="closeReturnRefund">Cancel</button>
-              <button type="submit" class="btn btn-warning" :disabled="rrBusy || !rrForm.reason">
+              <button type="submit" class="btn btn-warning" :disabled="rrBusy || !rrForm.reason || !rrForm.pickup_date">
                 <span v-if="rrBusy" class="spinner-border spinner-border-sm me-2"></span>
                 Submit
               </button>
@@ -274,19 +313,21 @@ const tabs = [
 const activeTab = ref<typeof tabs[number]['value']>(STATUS.TO_SHIP) // default for COD shops
 
 /** Return/Refund Subtabs */
-type RRState = 'pending' | 'approved' | 'completed'
+type RRState = 'pending' | 'approved' | 'completed' | 'rejected'
 const rrSubtabs: Array<{ label: string; value: RRState }> = [
   { label: 'Pending',   value: 'pending' },
   { label: 'Approved',  value: 'approved' },
   { label: 'Completed', value: 'completed' },
+  { label: 'Rejected',  value: 'rejected' }, // NEW
 ]
 const activeRR = ref<RRState>('pending')
 
 /** UI state */
-const busy = ref<{ load: boolean; cancel: Record<string, boolean>; rrCancel: Record<string, boolean> }>({
+const busy = ref<{ load: boolean; cancel: Record<string, boolean>; rrCancel: Record<string, boolean>; received: Record<string, boolean> }>({
   load: false,
   cancel: {},
   rrCancel: {},
+  received: {},
 })
 const purchases = ref<Array<AnyRec>>([])
 
@@ -360,8 +401,40 @@ function rrStatus(purchaseId: string): RRState | undefined {
 }
 
 function rrTabLabel(v: RRState) {
-  const m: Record<RRState, string> = { pending: 'Pending', approved: 'Approved', completed: 'Completed' }
+  const m: Record<RRState, string> = {
+    pending: 'Pending',
+    approved: 'Approved',
+    completed: 'Completed',
+    rejected: 'Rejected', // NEW
+  }
   return m[v] || v
+}
+
+/* ---------------- Auto-complete "to recieve" after 7 days ---------------- */
+async function autocloseOverdue(uid: string) {
+  // 7 days ago from now
+  const now = new Date()
+  const threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Update DB first (guard user & status & created_at older than threshold)
+  const { data: updatedRows, error } = await supabase
+    .schema('games')
+    .from('purchases')
+    .update({ status: STATUS.COMPLETED })
+    .eq('user_id', uid)
+    .eq('status', STATUS.TO_RECEIVE)
+    .lt('created_at', threshold)
+    .select('id')
+
+  if (error) return
+
+  // Reflect locally
+  if (Array.isArray(updatedRows) && updatedRows.length) {
+    const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
+    for (const row of purchases.value) {
+      if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
+    }
+  }
 }
 
 /** Load all purchases for the signed-in user + related products + RR rows */
@@ -390,6 +463,9 @@ async function loadPurchases() {
       return
     }
     purchases.value = Array.isArray(data) ? data : []
+
+    // Auto-complete any overdue "to recieve" -> "completed"
+    await autocloseOverdue(uid)
 
     // Products for visible purchases
     const ids = Array.from(new Set(purchases.value.map(r => r.product_id).filter(Boolean)))
@@ -474,6 +550,34 @@ async function cancelPurchase(purchaseId: string) {
   }
 }
 
+/** Mark 'to recieve' purchase as completed */
+async function orderReceived(purchaseId: string) {
+  const { data: auth } = await supabase.auth.getUser()
+  const uid = auth?.user?.id
+  if (!uid) return
+  busy.value.received[purchaseId] = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ status: STATUS.COMPLETED })
+      .eq('id', purchaseId)
+      .eq('user_id', uid)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    // Update local list quickly
+    const row = purchases.value.find(r => r.id === purchaseId)
+    if (row) row.status = STATUS.COMPLETED
+    alert('Thanks! Your order has been marked as received.')
+  } finally {
+    busy.value.received[purchaseId] = false
+  }
+}
+
 /** Cancel an RR (Pending only): delete RR row and revert purchase to Completed */
 async function cancelReturnRefund(purchase: AnyRec) {
   const rec = rrByPurchase[purchase.id]
@@ -539,7 +643,7 @@ const counts = computed<Record<string, number>>(() => {
 
 /** RR Counts (within Return/Refund tab) */
 const rrCounts = computed<Record<RRState, number>>(() => {
-  const init: Record<RRState, number> = { pending: 0, approved: 0, completed: 0 }
+  const init: Record<RRState, number> = { pending: 0, approved: 0, completed: 0, rejected: 0 } // NEW include rejected
   for (const row of purchases.value) {
     const isRR = String(row.status).toLowerCase() === STATUS.RETURN_REFUND
     if (!isRR) continue
@@ -600,11 +704,12 @@ function goToShop() {
 const showRR = ref(false)
 const rrBusy = ref(false)
 const rrPurchase = ref<AnyRec | null>(null)
-const rrForm = reactive<{ purchase_id: string; product_id: string; reason: string; details: string }>({
+const rrForm = reactive<{ purchase_id: string; product_id: string; reason: string; details: string; pickup_date: string }>({
   purchase_id: '',
   product_id: '',
   reason: '',
   details: '',
+  pickup_date: '',
 })
 const rrReasons = [
   'Defective / Damaged',
@@ -615,12 +720,40 @@ const rrReasons = [
   'Changed Mind',
 ]
 
+/* NEW: quick date options */
+const RR_DATE_COL = 'return/refund date' // change if your column name differs
+const todayYMD = new Date().toISOString().slice(0,10)
+function addDaysYMD(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return d.toISOString().slice(0,10)
+}
+const quickDates = {
+  tomorrow: addDaysYMD(1),
+  plus2: addDaysYMD(2),
+  plus3: addDaysYMD(3),
+}
+const rrQuickDate = ref<string>('') // select value
+function applyQuickDate() {
+  if (rrQuickDate.value) rrForm.pickup_date = rrQuickDate.value
+}
+function labelFor(ymd: string) {
+  try {
+    const d = new Date(ymd + 'T00:00:00')
+    return d.toLocaleDateString()
+  } catch {
+    return ymd
+  }
+}
+
 function openReturnRefund(purchase: AnyRec) {
   rrPurchase.value = purchase
   rrForm.purchase_id = purchase?.id || ''
   rrForm.product_id = purchase?.product_id || ''
   rrForm.reason = ''
   rrForm.details = ''
+  rrForm.pickup_date = ''
+  rrQuickDate.value = ''
   showRR.value = true
 }
 function closeReturnRefund() {
@@ -628,7 +761,7 @@ function closeReturnRefund() {
 }
 
 async function submitReturnRefund() {
-  if (!rrForm.reason) return
+  if (!rrForm.reason || !rrForm.pickup_date) return
   rrBusy.value = true
   try {
     const { data: auth } = await supabase.auth.getUser()
@@ -638,7 +771,7 @@ async function submitReturnRefund() {
       return
     }
 
-    const payload = {
+    const basePayload: Record<string, any> = {
       user_id: uid,
       purchase_id: rrForm.purchase_id,
       product_id: rrForm.product_id,
@@ -646,11 +779,13 @@ async function submitReturnRefund() {
       details: rrForm.details || null,
       status: 'pending' as RRState, // initial status
     }
+    // attach pickup date to the configured column
+    basePayload[RR_DATE_COL] = rrForm.pickup_date
 
     const { data: ins, error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .insert([payload])
+      .insert([basePayload])
       .select('id, purchase_id, status')
       .single()
 

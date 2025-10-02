@@ -61,7 +61,14 @@
               v-for="p in paginatedProducts"
               :key="p.id"
             >
-              <div class="product-card h-100 border rounded-3 overflow-hidden">
+              <!-- Open modal when clicking ANYWHERE on the card -->
+              <div
+                class="product-card h-100 border rounded-3 overflow-hidden"
+                role="button"
+                tabindex="0"
+                @click="openView(p)"
+                @keydown.enter.space.prevent="openView(p)"
+              >
                 <!-- SLIDER / SINGLE IMAGE -->
                 <div
                   class="ratio ratio-4x3 position-relative slider-touch slider-card"
@@ -86,22 +93,22 @@
                       />
                     </transition>
 
-                    <!-- arrows -->
-                    <button class="slider-btn left" @click="prev(p.id)" aria-label="Previous image">
+                    <!-- arrows (prevent opening modal) -->
+                    <button class="slider-btn left" @click.stop="prev(p.id)" aria-label="Previous image">
                       <i class="bi bi-chevron-left"></i>
                     </button>
-                    <button class="slider-btn right" @click="next(p)" aria-label="Next image">
+                    <button class="slider-btn right" @click.stop="next(p)" aria-label="Next image">
                       <i class="bi bi-chevron-right"></i>
                     </button>
 
-                    <!-- dots (below) -->
+                    <!-- dots (prevent opening modal) -->
                     <div class="slider-dots">
                       <button
                         v-for="(u, i) in p.product_url"
                         :key="i"
                         class="dot"
                         :class="{ active: currentIndex(p.id) === i }"
-                        @click="setIndex(p.id, i)"
+                        @click.stop="setIndex(p.id, i)"
                         :aria-label="`Go to image ${i + 1}`"
                       />
                     </div>
@@ -140,12 +147,14 @@
                 </div>
 
                 <!-- Body -->
-                <div class="p-3">
+                <div class="p-3 card-body-stable">
                   <div class="d-flex justify-content-between align-items-start gap-2">
-                    <strong class="text-truncate">{{ p.name }}</strong>
+                    <strong class="text-truncate" @click.stop="openView(p)">{{ p.name }}</strong>
                     <span class="badge text-bg-primary">₱ {{ number(p.price) }}</span>
                   </div>
-                  <div class="text-muted small mt-1" :title="p.description || ''">
+
+                  <!-- Clamp to 2 lines for consistent height -->
+                  <div class="text-muted small mt-1 desc-clamp" :title="p.description || ''">
                     {{ p.description || '—' }}
                   </div>
 
@@ -160,15 +169,15 @@
                     <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
                   </div>
 
-                  <!-- Publish switch + actions -->
-                  <div class="d-flex align-items-center justify-content-between mt-3">
+                  <!-- Publish switch + actions (HIDDEN ON CARD; SHOWN IN MODAL) -->
+                  <div class="d-flex align-items-center justify-content-between mt-3 d-none">
                     <div class="form-check form-switch m-0">
                       <input
                         class="form-check-input"
                         type="checkbox"
                         :id="`pub-${p.id}`"
                         :checked="p.ispublish"
-                        @change="togglePublish(p)"
+                        @change.stop="togglePublish(p)"
                       />
                       <label class="form-check-label small" :for="`pub-${p.id}`">
                         {{ p.ispublish ? 'Published' : 'Unpublished' }}
@@ -176,14 +185,15 @@
                     </div>
 
                     <div class="d-flex gap-2" v-if="!p.ispublish">
-                      <button class="btn btn-sm btn-outline-secondary" @click="openEdit(p)">
+                      <button class="btn btn-sm btn-outline-secondary" @click.stop="openEdit(p)">
                         <i class="bi bi-pencil-square me-1"></i>Edit
                       </button>
-                      <button class="btn btn-sm btn-outline-danger" @click="deleteProduct(p)">
+                      <button class="btn btn-sm btn-outline-danger" @click.stop="deleteProduct(p)">
                         <i class="bi bi-trash me-1"></i>Delete
                       </button>
                     </div>
                   </div>
+                  <!-- /Hidden on card -->
                 </div>
               </div>
             </div>
@@ -549,6 +559,91 @@
       </div>
     </div>
 
+    <!-- ===== View Product Modal (NEW) ===== -->
+    <div v-if="showView && viewItem" class="modal-backdrop-custom" @click.self="closeView">
+      <div class="modal-card card shadow-lg">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <strong>{{ viewItem.name }}</strong>
+          <button class="btn btn-sm btn-outline-secondary" @click="closeView">✕</button>
+        </div>
+
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <!-- simple gallery -->
+              <div class="preview-grid">
+                <div
+                  class="preview-item"
+                  v-for="(path, i) in viewItem.product_url"
+                  :key="`view-${viewItem.id}-${i}`"
+                >
+                  <img :src="signedForExisting(path)" alt="" />
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="h5 mb-0">₱ {{ number(viewItem.price) }}</div>
+                <span class="badge" :class="viewItem.ispublish ? 'text-bg-success' : 'text-bg-secondary'">
+                  {{ viewItem.ispublish ? 'Published' : 'Unpublished' }}
+                </span>
+              </div>
+              <div class="text-muted mt-2">
+                <i class="bi bi-tag me-1"></i>Supplier: ₱ {{ number(viewItem.supplier_price) }}
+              </div>
+              <div class="mt-3">
+                <div class="text-muted small mb-1">Description</div>
+                <div class="border rounded p-2 bg-body">{{ viewItem.description || '—' }}</div>
+              </div>
+              <div class="mt-3">
+                <div class="text-muted small mb-1">Warranty</div>
+                <div class="border rounded p-2 bg-body">{{ viewItem.warranty || '—' }}</div>
+              </div>
+              <div class="mt-3">
+                <div class="text-muted small mb-1">Specifications</div>
+                <div class="border rounded p-2 bg-body">
+                  <template v-if="specEntries(viewItem).length">
+                    <div v-for="([k,v], i) in specEntries(viewItem)" :key="i" class="d-flex gap-2">
+                      <div class="fw-semibold" style="min-width: 120px;">{{ k }}</div>
+                      <div class="text-muted">{{ v }}</div>
+                    </div>
+                  </template>
+                  <template v-else>—</template>
+                </div>
+              </div>
+              <div class="mt-3 d-flex flex-wrap gap-3 small text-muted">
+                <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(viewItem.created_at) }}</span>
+                <span><i class="bi bi-clock-history me-1"></i>{{ fmt(viewItem.updated_at) }}</span>
+              </div>
+
+              <!-- Publish / Edit / Delete controls live in this modal -->
+              <div class="mt-4 d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-switch m-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    :id="`pub-modal-${viewItem.id}`"
+                    :checked="viewItem.ispublish"
+                    @change="togglePublish(viewItem!)"
+                  />
+                  <label class="form-check-label small" :for="`pub-modal-${viewItem.id}`">
+                    {{ viewItem.ispublish ? 'Published' : 'Unpublished' }}
+                  </label>
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" @click="openEdit(viewItem!)">
+                  <i class="bi bi-pencil-square me-1"></i>Edit
+                </button>
+                <button class="btn btn-outline-danger btn-sm" @click="deleteProduct(viewItem!)">
+                  <i class="bi bi-trash me-1"></i>Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /View Product Modal -->
+
     <!-- ===== Edit Product Modal (ALL FIELDS) ===== -->
     <div v-if="showEdit" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg">
@@ -825,6 +920,22 @@ const showForm = ref(false)
 const submitting = ref(false)
 const q = ref('')
 
+/** ===== NEW: View modal state ===== */
+const showView = ref(false)
+const viewItem = ref<ProductRow | null>(null)
+function openView(p: ProductRow) {
+  viewItem.value = p
+  showView.value = true
+}
+function closeView() {
+  showView.value = false
+  viewItem.value = null
+}
+function specEntries(p: ProductRow) {
+  const obj = p.specifications && typeof p.specifications === 'object' ? p.specifications : {}
+  return Object.entries(obj)
+}
+
 /** ===== NEW: Pagination state (windowed 1–10) ===== */
 const page = ref(1)
 const pageSize = ref(8) // tweak if you prefer other page sizes
@@ -888,11 +999,12 @@ function randId() {
 
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 
+/** Clean, user-friendly date/time (no seconds) */
 const fmt = (x: string | null | undefined) => {
   if (!x) return '—'
-  const d = new Date(x.replace(' ', 'T'))
+  const d = new Date(String(x).replace(' ', 'T'))
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString()
+  return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
 }
 
 /** slider state per product */
@@ -1320,6 +1432,8 @@ async function deleteProduct(p: ProductRow) {
       return
     }
     await loadProducts()
+    // keep view modal in sync
+    if (showView.value && viewItem.value?.id === p.id) closeView()
     // make sure page index is still valid after deletion
     if (page.value > totalPages.value) page.value = totalPages.value
   } finally {
@@ -1361,29 +1475,29 @@ const editForm = reactive({
 
 function openEdit(p: ProductRow) {
   currentEdit.value = p
+  // also keep the view modal synced
+  viewItem.value = p
+  showEdit.value = true
   editForm.name = p.name
   editForm.description = p.description ?? ''
   editForm.price = Number(p.price ?? 0)
   editForm.supplier_price = Number(p.supplier_price ?? 0)
   editForm.warranty = p.warranty ?? ''
-  // specs -> rows
   try {
     const obj = p.specifications && typeof p.specifications === 'object' ? p.specifications : null
     editForm.specList = objectToRows(obj)
   } catch {
     editForm.specList = []
   }
-
   editExisting.value = [...p.product_url]
   toRemove.clear()
   editNewFiles.value = []
   editNewPreviews.value.forEach((v) => URL.revokeObjectURL(v.url))
   editNewPreviews.value = []
-  showEdit.value = true
 }
 function closeEdit() {
   showEdit.value = false
-  currentEdit.value = null
+  // keep the view modal open; user can still see details
   editNewPreviews.value.forEach((v) => URL.revokeObjectURL(v.url))
   editNewPreviews.value = []
 }
@@ -1650,6 +1764,21 @@ onMounted(() => {
 }
 .object-fit-cover {
   object-fit: cover;
+}
+
+/* Ensure consistent body height regardless of description length */
+.card-body-stable {
+  min-height: 138px; /* title/price + meta + spacing; adjust if needed */
+}
+
+/* Clamp long descriptions to 2 lines with "..." */
+.desc-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 2.4em; /* keeps layout steady even if short */
 }
 
 /* Meta text tone */
@@ -1964,3 +2093,4 @@ onMounted(() => {
   }
 }
 </style>
+  

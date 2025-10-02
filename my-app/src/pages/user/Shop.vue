@@ -680,6 +680,9 @@ type ShippingRow = {
   updated_at: string
 }
 
+/** Helpers for inserts that return IDs */
+type InsertedPurchase = { id: string }
+
 /* -------------------- Products state -------------------- */
 const products = ref<Product[]>([])
 const total = ref(0)
@@ -1421,30 +1424,90 @@ async function placeOrder() {
     // Persist any shipping edits
     await saveShipping()
 
-    // Insert into purchases table (one row per product) — NO BALANCE DEDUCTION HERE
-    try {
-      const purchaseRows = cartItems.value.map((it) => ({
-        user_id: uid,
-        product_id: it.product.id,
-        reference_number: genReference('PUR'),
-        // Optionally store payment choice if your schema supports it:
-        // payment_method: paymentMethod.value,
-      }))
-      if (purchaseRows.length > 0) {
-        await supabase.schema('games').from('purchases').insert(purchaseRows)
+    // (1) Build rows we’ll need
+    const isEwallet = paymentMethod.value === 'ewallet'
+    const purchaseStatus = isEwallet ? 'to ship' : 'to pay'
+    const totalToDeduct = isEwallet ? cartGrandTotal.value : 0
+
+    // (2) If ewallet, deduct user balance first (simple guard update)
+    if (isEwallet && totalToDeduct > 0) {
+      // Optional server-side guard: ensure we still have enough
+      if (userBalance.value < totalToDeduct) {
+        alert('Your balance changed and is now insufficient. Please top up or choose COD.')
+        return
       }
-    } catch (e) {
-      console.error('[placeOrder] purchases insert error:', (e as any)?.message || e)
+      const newBalance = Number((userBalance.value - totalToDeduct).toFixed(2))
+      const { error: balErr } = await supabase
+        .from('users')
+        .update({ balance: newBalance })
+        .eq('id', uid)
+      if (balErr) {
+        alert('Failed to deduct balance: ' + balErr.message)
+        return
+      }
+      // reflect immediately in UI; realtime also updates later
+      userBalance.value = newBalance
     }
 
-    // Clear cart in DB
+    // (3) Insert one purchase per cart item with modeofpayment & status,
+    //     then insert matching ewallet.order_receipt for ewallet payments
+    for (const it of cartItems.value) {
+      // Insert purchase and get its id
+      const { data: inserted, error: insErr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .insert([
+          {
+            user_id: uid,
+            product_id: it.product.id,
+            reference_number: genReference('PUR'),
+            modeofpayment: paymentMethod.value, // << store chosen method
+            status: purchaseStatus,             // << to_ship for ewallet, to_pay for COD
+          } as any,
+        ])
+        .select('id')
+        .single()
+
+      if (insErr) {
+        console.error('[placeOrder] purchases insert error:', insErr.message)
+        alert('Failed to place order: ' + insErr.message)
+        return
+      }
+
+      const purchaseId = (inserted as InsertedPurchase).id
+
+      // For ewallet: create a receipt row per line with the line total
+      if (isEwallet) {
+        const amount = Number((it.lineTotal).toFixed(2))
+        const { error: recErr } = await supabase
+          .schema('ewallet')
+          .from('order_receipt')
+          .insert([
+            {
+              product_id: it.product.id,
+              amount,
+              purchase_id: purchaseId,
+            },
+          ])
+        if (recErr) {
+          console.error('[placeOrder] order_receipt insert error:', recErr.message)
+          alert('Failed to create receipt: ' + recErr.message)
+          return
+        }
+      }
+    }
+
+    // (4) Clear cart in DB
     await supabase.schema('games').from('cart').delete().eq('user_id', uid)
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
     cartItems.value = []
 
     closePlaceOrder()
-    // NOTE: Balance is NOT deducted here by request.
-    alert('Order placed! You will receive a confirmation shortly.')
+    if (isEwallet) {
+      alert('Payment successful! Your items are now set **to ship**. You’ll receive a confirmation shortly.')
+    } else {
+      alert('Order placed! Status is **to pay**. Please prepare payment upon delivery or wait for admin approval.')
+    }
   } finally {
     placingOrder.value = false
   }

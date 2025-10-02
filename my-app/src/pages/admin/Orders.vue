@@ -150,6 +150,7 @@
               <span class="badge" :class="statusClass(o.status)">
                 {{ prettyStatus(o.status) }}
               </span>
+              <!-- Shows modeofpayment pulled from purchases -->
               <span class="badge text-bg-light border">{{ o.payment_method || '—' }}</span>
             </div>
           </div>
@@ -231,22 +232,35 @@
                 Created: {{ formatDate(firstReturn(o.id)?.created_at) }}
               </div>
 
-              <!-- Approve Refund button when pending -->
+              <!-- Approve/Complete/Reject buttons per RR sub-status -->
               <div class="mt-2 d-flex justify-content-end gap-2">
-                <button
-                  v-if="isRRPending(firstReturn(o.id))"
-                  class="btn btn-success btn-sm"
-                  :disabled="busy.action[firstReturn(o.id)!.id]"
-                  @click="approveRefund(firstReturn(o.id)!)"
-                  title="Approve refund request"
-                >
-                  <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
-                  Approve refund
-                </button>
+                <!-- Pending: Approve + Reject -->
+                <template v-if="isRRPending(firstReturn(o.id))">
+                  <button
+                    class="btn btn-success btn-sm"
+                    :disabled="busy.action[firstReturn(o.id)!.id]"
+                    @click="approveRefund(firstReturn(o.id)!)"
+                    title="Approve refund request"
+                  >
+                    <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    Approve refund
+                  </button>
 
-                <!-- NEW: Mark as Completed when approved -->
+                  <!-- NEW: Reject refund -->
+                  <button
+                    class="btn btn-outline-danger btn-sm"
+                    :disabled="busy.action[firstReturn(o.id)!.id]"
+                    @click="rejectRefund(firstReturn(o.id)!)"
+                    title="Reject refund request"
+                  >
+                    <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    Reject refund
+                  </button>
+                </template>
+
+                <!-- Approved: Mark as Completed -->
                 <button
-                  v-if="isRRApproved(firstReturn(o.id))"
+                  v-else-if="isRRApproved(firstReturn(o.id))"
                   class="btn btn-primary btn-sm"
                   :disabled="busy.action[firstReturn(o.id)!.id]"
                   @click="completeRefund(firstReturn(o.id)!)"
@@ -255,7 +269,8 @@
                   <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
                   Mark as Completed
                 </button>
-                <!-- /NEW -->
+
+                <!-- Rejected / Completed: no buttons (renders nothing) -->
               </div>
             </div>
 
@@ -266,16 +281,16 @@
 
           <!-- Row 4: actions -->
           <div class="mt-3 d-flex flex-wrap gap-2 justify-content-end">
-            <!-- To Pay: approve (reserve stock) or cancel -->
+            <!-- To Pay: approve or cancel -->
             <button
               v-if="o.status === STATUS.TO_PAY"
               class="btn btn-primary btn-sm"
               :disabled="busy.action[o.id]"
               @click="approveOrder(o)"
-              title="Reserve 1 unit from stock and move to To Ship"
+              title="Approve order and move to To Ship (no deduction)"
             >
               <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Approve order
+              Approve
             </button>
 
             <button
@@ -288,7 +303,7 @@
               Cancel
             </button>
 
-            <!-- To Ship: seller can mark as shipped -->
+            <!-- To Ship: Mark as Shipped -->
             <button
               v-if="o.status === STATUS.TO_SHIP"
               class="btn btn-primary btn-sm"
@@ -299,9 +314,20 @@
               Mark as Shipped
             </button>
 
-            <!-- To Receive: seller can complete -->
+            <!-- To Ship: Cancel (still allowed as per your rule) -->
             <button
-              v-if="o.status === STATUS.TO_RECEIVE"
+              v-if="o.status === STATUS.TO_SHIP"
+              class="btn btn-outline-danger btn-sm"
+              :disabled="busy.action[o.id]"
+              @click="cancelOrder(o.id)"
+            >
+              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+              Cancel
+            </button>
+
+            <!-- To Receive: none (keep code but disable rendering) -->
+            <button
+              v-if="o.status === STATUS.TO_RECEIVE && false"
               class="btn btn-success btn-sm"
               :disabled="busy.action[o.id]"
               @click="markAsCompleted(o.id)"
@@ -310,9 +336,9 @@
               Complete
             </button>
 
-            <!-- Any active state: allow cancel (except already cancelled/completed/return/refund) -->
+            <!-- Generic cancel for other active states (EXCLUDED for TO_PAY/RETURN_REFUND/COMPLETED already) -->
             <button
-              v-if="o.status !== STATUS.CANCELLED && o.status !== STATUS.COMPLETED && o.status !== STATUS.RETURN_REFUND && o.status !== STATUS.TO_PAY"
+              v-if="o.status !== STATUS.CANCELLED && o.status !== STATUS.COMPLETED && o.status !== STATUS.RETURN_REFUND && o.status !== STATUS.TO_PAY && o.status !== STATUS.TO_SHIP && o.status !== STATUS.TO_RECEIVE"
               class="btn btn-outline-danger btn-sm"
               :disabled="busy.action[o.id]"
               @click="cancelOrder(o.id)"
@@ -366,7 +392,7 @@ const tabs = [
 ] as const
 
 /** Return/Refund sub-filter (only used when statusFilter === RETURN_REFUND) */
-type RRFilter = 'all' | 'pending' | 'approved' | 'completed' // NEW: added 'completed'
+type RRFilter = 'all' | 'pending' | 'approved' | 'completed'
 const rrStatusFilter = ref<RRFilter>('all')
 
 /** Purchases & view models */
@@ -378,6 +404,7 @@ type PurchaseRow = {
   status: string
   created_at: string
   updated_at: string
+  modeofpayment: string | null
 }
 type Product = {
   id: string
@@ -412,7 +439,7 @@ type OrderItem = {
   product?: Product
 }
 
-/** We adapt each purchase row into a "ViewOrder" (single item per purchase) */
+/** View model */
 type ViewOrder = {
   id: string
   user_id: string
@@ -456,7 +483,7 @@ const formatDate = (iso?: string) => {
 }
 const shortId = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : '—')
 
-/* NEW: reference generator for transactions */
+/* Kept utility */
 function genReference(prefix = 'TXN'): string {
   const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
   const rnd = Math.random().toString(36).slice(2, 10).toUpperCase()
@@ -487,14 +514,14 @@ function prettyRRStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === 'pending') return 'Pending'
   if (k === 'approved') return 'Approved'
-  if (k === 'completed') return 'Completed' // NEW
+  if (k === 'completed') return 'Completed'
   if (k === 'rejected') return 'Rejected'
   return s || '—'
 }
 function rrBadgeClass(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === 'approved') return 'text-bg-success-subtle border'
-  if (k === 'completed') return 'text-bg-success-subtle border' // NEW (same style as approved)
+  if (k === 'completed') return 'text-bg-success-subtle border'
   if (k === 'pending') return 'text-bg-warning-subtle border'
   if (k === 'rejected') return 'text-bg-danger-subtle border'
   return 'text-bg-light border'
@@ -557,7 +584,7 @@ async function loadOrders(resetPage = false) {
     let q = supabase
       .schema('games')
       .from('purchases')
-      .select('id,user_id,product_id,reference_number,status,created_at,updated_at', { count: 'exact' })
+      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment', { count: 'exact' })
 
     if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
 
@@ -646,7 +673,7 @@ async function loadOrders(resetPage = false) {
       const buyer = buyersMap[pr.user_id]
       const price = Number(prod?.price ?? 0)
 
-      const item: OrderItem = {
+    const item: OrderItem = {
         order_id: pr.id,
         product_id: pr.product_id,
         qty: 1,
@@ -660,7 +687,7 @@ async function loadOrders(resetPage = false) {
         user_id: pr.user_id,
         reference_number: pr.reference_number,
         total_amount: price,
-        payment_method: 'COD',
+        payment_method: pr.modeofpayment || null,
         shipping_address: buyer?.address ?? null,
         phone_number: buyer?.phone_number ?? null,
         status: pr.status,
@@ -722,137 +749,110 @@ async function markAsShipped(purchaseId: string) {
 async function markAsCompleted(purchaseId: string) {
   await updateStatus(purchaseId, STATUS.COMPLETED)
 }
+
+/* helper: detect e-wallet */
+function isEwalletPayment(method?: string | null) {
+  const k = String(method || '').trim().toLowerCase()
+  return k === 'ewallet' || k === 'e-wallet' || k === 'e wallet'
+}
+
+/* UPDATED: Cancel with e-wallet refund when status is TO_SHIP */
 async function cancelOrder(purchaseId: string) {
   if (!confirm('Cancel this order?')) return
-  await updateStatus(purchaseId, STATUS.CANCELLED)
+  const order = orders.value.find(o => o.id === purchaseId)
+  // Standard fallback if we somehow don't have the row
+  if (!order) {
+    await updateStatus(purchaseId, STATUS.CANCELLED)
+    return
+  }
+
+  const shouldRefund =
+    String(order.status || '').toLowerCase() === STATUS.TO_SHIP &&
+    isEwalletPayment(order.payment_method)
+
+  busy.value.action[purchaseId] = true
+  try {
+    if (!shouldRefund) {
+      // Normal cancel
+      await updateStatus(purchaseId, STATUS.CANCELLED)
+      return
+    }
+
+    // 1) Update purchase to CANCELLED, guarded to only succeed if it is currently TO_SHIP
+    const { error: upErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ status: STATUS.CANCELLED })
+      .eq('id', purchaseId)
+      .eq('status', STATUS.TO_SHIP)
+
+    if (upErr) {
+      alert(upErr.message)
+      return
+    }
+
+    // 2) Compute refund amount (sum of line totals from the view model)
+    const refundAmount = orderSubtotal(order)
+    const userId = order.user_id
+
+    // 3) Fetch current balance
+    const { data: urow, error: uErr } = await supabase
+      .from('users')
+      .select('id,balance')
+      .eq('id', userId)
+      .single()
+
+    if (uErr || !urow) {
+      console.error('[cancel ewallet refund] user fetch failed:', uErr?.message)
+    } else {
+      const newBal = Number(Number(urow.balance || 0) + Number(refundAmount)).toFixed(2)
+      const { error: balErr } = await supabase
+        .from('users')
+        .update({ balance: Number(newBal) })
+        .eq('id', userId)
+
+      if (balErr) {
+        console.error('[cancel ewallet refund] balance update failed:', balErr.message)
+      }
+    }
+
+    // 4) Insert cancelled receipt (id auto, unique by purchase)
+    try {
+      const { error: recErr } = await supabase
+        .schema('ewallet')
+        .from('cancelled_receipt')
+        .insert({ purchase_id: purchaseId })
+
+      if (recErr) {
+        console.error('[cancelled_receipt insert failed]', recErr.message)
+      }
+    } catch (e: any) {
+      console.error('[cancelled_receipt insert exception]', e?.message || e)
+    }
+
+    // 5) Reflect locally
+    order.status = STATUS.CANCELLED
+  } finally {
+    busy.value.action[purchaseId] = false
+  }
 }
 
 /**
  * Approve order:
- * 1) Check & decrement stock (conditional update to avoid races)
- * 2) Deduct user's balance by the order price (only at approval time)
- * 3) Insert a row into ewallet.order_receipt (product_id, amount, purchase_id)
- * 4) If success, set purchase to "to ship"
- * 5) On any failure after a previous step, attempt best-effort rollback
+ * - NO wallet deduction
+ * - NO stock reservation
+ * - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
  */
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
-  const item = order.items[0]
-  if (!item) return
-  const productId = item.product_id
-
-  const priceToCharge = Number(item.price_each || 0) * Number(item.qty || 1)
-
   busy.value.action[purchaseId] = true
   try {
-    // 1) Read current stock
-    const { data: prodRow, error: selErr } = await supabase
-      .schema('games')
-      .from('products')
-      .select('id, stock')
-      .eq('id', productId)
-      .maybeSingle()
-
-    if (selErr || !prodRow) {
-      alert(selErr?.message || 'Product not found.')
+    if (order.status !== STATUS.TO_PAY) {
+      alert('Only "To Pay" orders can be approved.')
       return
     }
 
-    const currentStock = Number(prodRow.stock ?? 0)
-    if (currentStock <= 0) {
-      alert('Insufficient stock. Cannot approve this order.')
-      return
-    }
-
-    // 1b) Conditional decrement to avoid race:
-    const { data: decOk, error: decErr } = await supabase
-      .schema('games')
-      .from('products')
-      .update({ stock: currentStock - 1 })
-      .eq('id', productId)
-      .eq('stock', currentStock)
-      .select('id')
-      .maybeSingle()
-
-    if (decErr || !decOk) {
-      alert('Stock changed while processing. Please try again.')
-      return
-    }
-
-    // 2) Deduct user's balance at approval time
-    const { data: userRow, error: userErr } = await supabase
-      .from('users')
-      .select('balance')
-      .eq('id', order.user_id)
-      .maybeSingle()
-
-    if (userErr) {
-      const { data: prodRow2 } = await supabase
-        .schema('games')
-        .from('products')
-        .select('stock')
-        .eq('id', productId)
-        .maybeSingle()
-      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
-      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
-      alert(userErr.message)
-      return
-    }
-
-    const currentBalance = Number(userRow?.balance ?? 0)
-    if (currentBalance < priceToCharge) {
-      const { data: prodRow2 } = await supabase
-        .schema('games')
-        .from('products')
-        .select('stock')
-        .eq('id', productId)
-        .maybeSingle()
-      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
-      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
-
-      alert('Buyer has insufficient balance for approval.')
-      return
-    }
-
-    const newBalance = currentBalance - priceToCharge
-    const { data: balOk, error: balErr } = await supabase
-      .from('users')
-      .update({ balance: newBalance })
-      .eq('id', order.user_id)
-      .eq('balance', currentBalance)
-      .select('balance')
-      .maybeSingle()
-
-    if (balErr || !balOk) {
-      const { data: prodRow2 } = await supabase
-        .schema('games')
-        .from('products')
-        .select('stock')
-        .eq('id', productId)
-        .maybeSingle()
-      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
-      await supabase.schema('games').from('products').update({ stock: nowStock + 1 }).eq('id', productId)
-
-      alert(balErr?.message || 'Failed to deduct balance. Please try again.')
-      return
-    }
-
-    // 3) Insert the order receipt (ewallet.order_receipt) with product_id, amount, purchase_id
-    try {
-      await supabase
-        .schema('ewallet')
-        .from('order_receipt')
-        .insert({
-          product_id: productId,
-          purchase_id: purchaseId,
-          amount: Number(priceToCharge.toFixed(2)), // numeric(12,2)
-        })
-    } catch (e) {
-      // Non-fatal: just log; order can still proceed since balance was already deducted
-      console.error('[order_receipt insert failed]', (e as any)?.message || e)
-    }
-
-    // 4) Move purchase to "to ship"
+    // Move purchase to "to ship"
     const { error: upErr } = await supabase
       .schema('games')
       .from('purchases')
@@ -860,26 +860,6 @@ async function approveOrder(order: ViewOrder) {
       .eq('id', purchaseId)
 
     if (upErr) {
-      // Best-effort rollback:
-      const { data: prodRow2 } = await supabase
-        .schema('games')
-        .from('products')
-        .select('stock')
-        .eq('id', productId)
-        .maybeSingle()
-      const nowStock = Number(prodRow2?.stock ?? currentStock - 1)
-      await supabase
-        .schema('games')
-        .from('products')
-        .update({ stock: nowStock + 1 })
-        .eq('id', productId)
-
-      await supabase
-        .from('users')
-        .update({ balance: currentBalance })
-        .eq('id', order.user_id)
-        .eq('balance', newBalance)
-
       alert(upErr.message)
       return
     }
@@ -887,9 +867,28 @@ async function approveOrder(order: ViewOrder) {
     // Local reflect
     const row = orders.value.find(o => o.id === purchaseId)
     if (row) row.status = STATUS.TO_SHIP
-    if (productsMap[productId]) {
-      // @ts-ignore keep cache coherent
-      productsMap[productId].stock = (Number((productsMap as any)[productId].stock ?? currentStock) - 1)
+
+    // If COD, insert into ewallet.order_receipt after approval
+    const isCOD = String(order.payment_method || '').toLowerCase() === 'cod'
+    if (isCOD) {
+      const item = order.items[0]
+      if (item) {
+        const productId = item.product_id
+        const amount = Number(item.price_each || 0) * Number(item.qty || 1)
+
+        const { error: recErr } = await supabase
+          .schema('ewallet')
+          .from('order_receipt')
+          .insert({
+            product_id: productId,
+            amount: Number(amount.toFixed(2)),
+            purchase_id: purchaseId,
+          })
+
+        if (recErr) {
+          console.error('[order_receipt insert failed]', recErr.message)
+        }
+      }
     }
   } finally {
     busy.value.action[purchaseId] = false
@@ -918,18 +917,18 @@ async function approveRefund(rr: ReturnRefundRow) {
     busy.value.action[rrId] = false
   }
 }
-/* ---------- /Approve ---------- */
 
-/* ---------- NEW: Complete Return/Refund ---------- */
-async function completeRefund(rr: ReturnRefundRow) {
+/* ---------- NEW: Reject Return/Refund (for pending) ---------- */
+async function rejectRefund(rr: ReturnRefundRow) {
   if (!rr) return
+  if (!confirm('Reject this refund request?')) return
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .update({ status: 'completed' })
+      .update({ status: 'rejected' })
       .eq('id', rrId)
 
     if (error) {
@@ -937,6 +936,117 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
+    rr.status = 'rejected'
+  } finally {
+    busy.value.action[rrId] = false
+  }
+}
+/* ---------- /NEW ---------- */
+
+/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ---------- */
+async function completeRefund(rr: ReturnRefundRow) {
+  if (!rr) return
+  if (!isRRApproved(rr)) {
+    alert('Only "Approved" refunds can be completed.')
+    return
+  }
+
+  const rrId = rr.id
+  busy.value.action[rrId] = true
+  try {
+    // 1) Load the related purchase (user_id, product_id)
+    const { data: purchase, error: pErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id,user_id,product_id')
+      .eq('id', rr.purchase_id)
+      .single()
+
+    if (pErr || !purchase) {
+      alert(pErr?.message || 'Purchase not found for this refund.')
+      return
+    }
+
+    // 2) Load the product price (assume qty = 1 per your current model)
+    const productId = rr.product_id || purchase.product_id
+    const { data: product, error: prodErr } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id,price')
+      .eq('id', productId)
+      .single()
+
+    if (prodErr || !product) {
+      alert(prodErr?.message || 'Product not found for this refund.')
+      return
+    }
+
+    const refundAmount = Number(product.price || 0)
+    if (!isFinite(refundAmount) || refundAmount <= 0) {
+      alert('Invalid refund amount computed.')
+      return
+    }
+
+    // 3) Guarded status update: only update if current status is 'approved'
+    const { error: rrUpdateErr } = await supabase
+      .schema('games')
+      .from('return_refunds')
+      .update({ status: 'completed' })
+      .eq('id', rrId)
+      .eq('status', 'approved') // prevent double-complete
+      .select('id')             // force postgrest to return something if changed
+      .single()
+
+    if (rrUpdateErr) {
+      alert(rrUpdateErr.message)
+      return
+    }
+
+    // 4) Fetch current user balance
+    const { data: urow, error: uErr } = await supabase
+      .from('users') // public schema
+      .select('id,balance')
+      .eq('id', purchase.user_id)
+      .single()
+
+    if (uErr || !urow) {
+      alert(uErr?.message || 'User not found for refund credit.')
+      return
+    }
+
+    const currentBal = Number(urow.balance || 0)
+    const newBal = Number((currentBal + refundAmount).toFixed(2))
+
+    // 5) Update user balance
+    const { error: balErr } = await supabase
+      .from('users')
+      .update({ balance: newBal })
+      .eq('id', purchase.user_id)
+
+    if (balErr) {
+      alert(balErr.message)
+      return
+    }
+
+    /* 6) NEW: Record the refund in ewallet.refund_receipt */
+    try {
+      const { error: rrRecErr } = await supabase
+        .schema('ewallet')
+        .from('refund_receipt')
+        .insert({
+          return_refund_id: rrId,
+          amount_refunded: Number(refundAmount.toFixed(2)),
+        })
+
+      if (rrRecErr) {
+        console.error('[refund_receipt insert failed]', rrRecErr.message)
+      }
+    } catch (e: any) {
+      console.error('[refund_receipt insert exception]', e?.message || e)
+    }
+    /* /NEW */
+
+    // 7) Reflect locally
     rr.status = 'completed'
   } finally {
     busy.value.action[rrId] = false
@@ -964,6 +1074,7 @@ function applyFilters() { loadOrders(true) }
 function clearFilters() {
   search.value = ''
   payment.value = ''
+  // FIX: set the ref values instead of reassigning the refs
   dateFrom.value = ''
   dateTo.value = ''
   loadOrders(true)
