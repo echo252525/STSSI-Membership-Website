@@ -125,41 +125,42 @@
     </div>
 
     <!-- Empty -->
-    <div v-else-if="orders.length === 0" class="text-center text-muted py-5">
+    <div v-else-if="orderGroups.length === 0" class="text-center text-muted py-5">
       <i class="bi bi-receipt" style="font-size: 1.6rem"></i>
       <div class="mt-2">No orders found.</div>
     </div>
 
-    <!-- Orders list -->
+    <!-- Orders list (GROUPED by reference_number) -->
     <div v-else class="vstack gap-3">
-      <div v-for="o in orders" :key="o.id" class="card shadow-sm rounded-4">
+      <div v-for="g in orderGroups" :key="g.groupKey" class="card shadow-sm rounded-4">
         <div class="card-body">
-          <!-- Row 1: Order meta -->
+          <!-- Row 1: Group meta -->
           <div class="d-flex flex-wrap align-items-center justify-content-between">
             <div class="d-flex flex-column">
               <div class="fw-semibold">
                 <span class="text-muted">Ref#</span>
-                <span class="ms-1">{{ o.reference_number || shortId(o.id) }}</span>
+                <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
               </div>
               <div class="small text-muted">
-                {{ formatDate(o.created_at) }}
+                {{ formatDate(g.created_at) }}
               </div>
             </div>
 
             <div class="d-flex align-items-center gap-2">
-              <span class="badge" :class="statusClass(o.status)">
-                {{ prettyStatus(o.status) }}
+              <span class="badge" :class="statusClass(g.statusSummaryClassKey)">
+                {{ g.statusSummaryLabel }}
               </span>
-              <!-- Shows modeofpayment pulled from purchases -->
-              <span class="badge text-bg-light border">{{ o.payment_method || '—' }}</span>
+              <span class="badge text-bg-light border" :title="g.paymentSummaryTitle">
+                {{ g.paymentSummaryLabel }}
+              </span>
             </div>
           </div>
 
-          <!-- Row 2: Items (one product per purchase) -->
+          <!-- Row 2: Items for the whole group -->
           <div class="mt-3">
             <div
-              v-for="it in o.items"
-              :key="o.id + ':' + it.product_id"
+              v-for="it in g.items"
+              :key="g.groupKey + ':' + it.product_id + ':' + it.order_id"
               class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle mb-2"
             >
               <div class="order-thumb ratio ratio-1x1 bg-white rounded">
@@ -193,158 +194,130 @@
             <div class="col-12 col-md-7">
               <div class="small text-muted mb-1">Ship to</div>
               <div class="border rounded p-2 bg-body small">
-                <div class="fw-semibold">{{ o.phone_number || '—' }}</div>
-                <div>{{ o.shipping_address || '—' }}</div>
+                <div class="fw-semibold">{{ g.phone_number || '—' }}</div>
+                <div>{{ g.shipping_address || '—' }}</div>
               </div>
             </div>
             <div class="col-12 col-md-5 d-flex align-items-end justify-content-md-end">
               <div class="text-end">
                 <div class="text-muted small">Subtotal</div>
-                <div class="fw-semibold fs-5">₱ {{ number(orderSubtotal(o)) }}</div>
-                <div class="small text-muted">Recorded total: ₱ {{ number(o.total_amount) }}</div>
+                <div class="fw-semibold fs-5">₱ {{ number(groupSubtotal(g)) }}</div>
+                <div class="small text-muted">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
           </div>
 
-          <!-- Row 3.5: Return/Refund info (only when in that status) -->
+          <!-- Row 3.5: Return/Refund info (per product rows) -->
           <div
-            v-if="o.status === STATUS.RETURN_REFUND"
+            v-if="g.containsRR"
             class="mt-3"
           >
             <div class="small text-muted mb-1">Return/Refund</div>
 
-            <div class="border rounded p-2 bg-body small" v-if="firstReturn(o.id)">
+            <div
+              v-for="rr in groupRRs(g)"
+              :key="rr.id"
+              class="border rounded p-2 bg-body small mb-2"
+            >
               <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="badge" :class="rrBadgeClass(firstReturn(o.id)?.status)">
-                  {{ prettyRRStatus(firstReturn(o.id)?.status) }}
+                <span class="badge" :class="rrBadgeClass(rr.status)">
+                  {{ prettyRRStatus(rr.status) }}
                 </span>
                 <span class="text-muted">•</span>
+                <span class="fw-semibold">Product:</span>
+                <span>{{ productsMap[rr.product_id]?.name || rr.product_id }}</span>
+                <span class="text-muted">•</span>
                 <span class="fw-semibold">Reason:</span>
-                <span>{{ firstReturn(o.id)?.reason }}</span>
+                <span>{{ rr.reason }}</span>
               </div>
 
-              <div v-if="firstReturn(o.id)?.details" class="mt-1">
+              <div v-if="rr.details" class="mt-1">
                 <span class="fw-semibold">Details:</span>
-                <span>{{ firstReturn(o.id)?.details }}</span>
+                <span>{{ rr.details }}</span>
               </div>
 
               <div class="text-muted mt-1">
-                Created: {{ formatDate(firstReturn(o.id)?.created_at) }}
+                Created: {{ formatDate(rr.created_at) }}
               </div>
 
-              <!-- Approve/Complete/Reject buttons per RR sub-status -->
+              <!-- Approve/Complete/Reject buttons per RR row (PER PRODUCT) -->
               <div class="mt-2 d-flex justify-content-end gap-2">
                 <!-- Pending: Approve + Reject -->
-                <template v-if="isRRPending(firstReturn(o.id))">
+                <template v-if="isRRPending(rr)">
                   <button
                     class="btn btn-success btn-sm"
-                    :disabled="busy.action[firstReturn(o.id)!.id]"
-                    @click="approveRefund(firstReturn(o.id)!)"
+                    :disabled="busy.action[rr.id]"
+                    @click="approveRefund(rr)"
                     title="Approve refund request"
                   >
-                    <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
                     Approve refund
                   </button>
 
-                  <!-- NEW: Reject refund -->
                   <button
                     class="btn btn-outline-danger btn-sm"
-                    :disabled="busy.action[firstReturn(o.id)!.id]"
-                    @click="rejectRefund(firstReturn(o.id)!)"
+                    :disabled="busy.action[rr.id]"
+                    @click="rejectRefund(rr)"
                     title="Reject refund request"
                   >
-                    <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
                     Reject refund
                   </button>
                 </template>
 
                 <!-- Approved: Mark as Completed -->
                 <button
-                  v-else-if="isRRApproved(firstReturn(o.id))"
+                  v-else-if="isRRApproved(rr)"
                   class="btn btn-primary btn-sm"
-                  :disabled="busy.action[firstReturn(o.id)!.id]"
-                  @click="completeRefund(firstReturn(o.id)!)"
+                  :disabled="busy.action[rr.id]"
+                  @click="completeRefund(rr)"
                   title="Mark refund as completed"
                 >
-                  <span v-if="busy.action[firstReturn(o.id)!.id]" class="spinner-border spinner-border-sm me-1"></span>
+                  <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
                   Mark as Completed
                 </button>
-
-                <!-- Rejected / Completed: no buttons (renders nothing) -->
               </div>
             </div>
 
-            <div class="border rounded p-2 bg-body small" v-else>
-              No return/refund record found for this purchase (filtered by "{{ rrStatusFilter }}").
+            <div class="border rounded p-2 bg-body small" v-if="groupRRs(g).length === 0">
+              No return/refund record found for this grouped order (filtered by "{{ rrStatusFilter }}").
             </div>
           </div>
 
-          <!-- Row 4: actions -->
+          <!-- Row 4: group actions -->
           <div class="mt-3 d-flex flex-wrap gap-2 justify-content-end">
-            <!-- To Pay: approve or cancel -->
+            <!-- Group Approve (only when ALL are TO_PAY) -->
             <button
-              v-if="o.status === STATUS.TO_PAY"
+              v-if="g.allToPay"
               class="btn btn-primary btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="approveOrder(o)"
-              title="Approve order and move to To Ship (no deduction)"
+              :disabled="busy.anyGroup(g.groupKey)"
+              @click="approveGroup(g)"
+              title="Approve all purchases in this reference and move to To Ship (no deduction)"
             >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Approve
+              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              Approve (all)
             </button>
 
+            <!-- Group Mark as Shipped (only when ALL are TO_SHIP) -->
             <button
-              v-if="o.status === STATUS.TO_PAY"
-              class="btn btn-outline-danger btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="cancelOrder(o.id)"
-            >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Cancel
-            </button>
-
-            <!-- To Ship: Mark as Shipped -->
-            <button
-              v-if="o.status === STATUS.TO_SHIP"
+              v-if="g.allToShip"
               class="btn btn-primary btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="markAsShipped(o.id)"
+              :disabled="busy.anyGroup(g.groupKey)"
+              @click="markGroupAsShipped(g)"
             >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Mark as Shipped
+              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              Mark as Shipped (all)
             </button>
 
-            <!-- To Ship: Cancel (still allowed as per your rule) -->
+            <!-- Group Cancel (allowed for TO_PAY and TO_SHIP per your rules; processes per order rules) -->
             <button
-              v-if="o.status === STATUS.TO_SHIP"
+              v-if="g.canGroupCancel"
               class="btn btn-outline-danger btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="cancelOrder(o.id)"
+              :disabled="busy.anyGroup(g.groupKey)"
+              @click="cancelGroup(g)"
             >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Cancel
-            </button>
-
-            <!-- To Receive: none (keep code but disable rendering) -->
-            <button
-              v-if="o.status === STATUS.TO_RECEIVE && false"
-              class="btn btn-success btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="markAsCompleted(o.id)"
-            >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Complete
-            </button>
-
-            <!-- Generic cancel for other active states (EXCLUDED for TO_PAY/RETURN_REFUND/COMPLETED already) -->
-            <button
-              v-if="o.status !== STATUS.CANCELLED && o.status !== STATUS.COMPLETED && o.status !== STATUS.RETURN_REFUND && o.status !== STATUS.TO_PAY && o.status !== STATUS.TO_SHIP && o.status !== STATUS.TO_RECEIVE"
-              class="btn btn-outline-danger btn-sm"
-              :disabled="busy.action[o.id]"
-              @click="cancelOrder(o.id)"
-            >
-              <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
-              Cancel
+              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              Cancel (all)
             </button>
           </div>
         </div>
@@ -374,7 +347,7 @@ import { supabase } from '@/lib/supabaseClient'
 const STATUS = {
   TO_PAY: 'to pay',
   TO_SHIP: 'to ship',
-  TO_RECEIVE: 'to recieve',   // kept spelling per your schema
+  TO_RECEIVE: 'to receive',   // kept spelling per your schema
   COMPLETED: 'completed',
   RETURN_REFUND: 'return/refund',
   CANCELLED: 'cancelled',
@@ -453,13 +426,40 @@ type ViewOrder = {
   items: Array<OrderItem>
 }
 
+/** Grouped view model */
+type ViewGroup = {
+  groupKey: string
+  reference_number: string
+  created_at: string
+  statusSummaryLabel: string
+  statusSummaryClassKey: string
+  paymentSummaryLabel: string
+  paymentSummaryTitle: string
+  total_amount: number
+  shipping_address: string | null
+  phone_number: string | null
+  items: Array<OrderItem>
+  purchases: Array<ViewOrder>
+  containsRR: boolean
+  allToPay: boolean
+  allToShip: boolean
+  canGroupCancel: boolean
+}
+
 /* ---------- UI state ---------- */
-const busy = ref<{ load: boolean; action: Record<string, boolean> }>({ load: false, action: {} })
+const busy = ref<{ load: boolean; action: Record<string, boolean>; anyGroup: (k: string) => boolean }>({
+  load: false,
+  action: {},
+  anyGroup: (k: string) => {
+    const ids = groupIndex[k] || []
+    return ids.some(id => !!busy.value.action[id])
+  }
+})
 const statusFilter = ref<typeof tabs[number]['value']>('all')
 const search = ref('')
-const payment = ref<string>('')        // kept for UI; not used by purchases table
-const dateFrom = ref<string>('')       // YYYY-MM-DD
-const dateTo = ref<string>('')         // YYYY-MM-DD
+const payment = ref<string>('')
+const dateFrom = ref<string>('')
+const dateTo = ref<string>('')
 
 /* pagination */
 const page = ref(1)
@@ -474,6 +474,9 @@ const buyersMap = reactive<Record<string, Buyer>>({})
 const rrByPurchase = reactive<Record<string, ReturnRefundRow[]>>({})
 const signedUrlMap: Record<string, string> = reactive({})
 const signingBusy: Record<string, boolean> = reactive({})
+
+/* index: reference_number -> member purchase IDs */
+const groupIndex: Record<string, string[]> = reactive({})
 
 /* ---------- Helpers ---------- */
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
@@ -520,8 +523,7 @@ function prettyRRStatus(s?: string | null) {
 }
 function rrBadgeClass(s?: string | null) {
   const k = String(s || '').toLowerCase()
-  if (k === 'approved') return 'text-bg-success-subtle border'
-  if (k === 'completed') return 'text-bg-success-subtle border'
+  if (k === 'approved' || k === 'completed') return 'text-bg-success-subtle border'
   if (k === 'pending') return 'text-bg-warning-subtle border'
   if (k === 'rejected') return 'text-bg-danger-subtle border'
   return 'text-bg-light border'
@@ -568,9 +570,93 @@ function productThumb(prod?: Product): string {
 function orderSubtotal(o: ViewOrder) {
   return o.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
 }
+/* replaced in group display: list all RRs per group */
 function firstReturn(purchaseId: string): ReturnRefundRow | undefined {
   const list = rrByPurchase[purchaseId] || []
   return list[0]
+}
+
+/* ---------- GROUPING (by reference_number) ---------- */
+const orderGroups = computed<ViewGroup[]>(() => {
+  const byRef: Record<string, ViewOrder[]> = {}
+  for (const o of orders.value) {
+    const key = o.reference_number || o.id
+    if (!byRef[key]) byRef[key] = []
+    byRef[key].push(o)
+  }
+
+  for (const k of Object.keys(groupIndex)) delete groupIndex[k]
+
+  const groups: ViewGroup[] = []
+  for (const [ref, arr] of Object.entries(byRef)) {
+    groupIndex[ref] = arr.map(a => a.id)
+
+    const created_at = arr
+      .map(a => a.created_at)
+      .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
+
+    const statuses = Array.from(new Set(arr.map(a => String(a.status || '').toLowerCase())))
+    const allToPay = statuses.length === 1 && statuses[0] === STATUS.TO_PAY
+    const allToShip = statuses.length === 1 && statuses[0] === STATUS.TO_SHIP
+    const canGroupCancel = statuses.every(s => s === STATUS.TO_PAY || s === STATUS.TO_SHIP)
+
+    let statusSummaryLabel = 'Mixed'
+    let statusSummaryClassKey = 'mixed'
+    if (statuses.length === 1) {
+      statusSummaryLabel = prettyStatus(statuses[0])
+      statusSummaryClassKey = statuses[0]
+    }
+
+    const pays = Array.from(new Set(arr.map(a => (a.payment_method || '—').toString())))
+    const paymentSummaryLabel = pays.length === 1 ? (pays[0] || '—') : 'Mixed'
+    const paymentSummaryTitle = pays.join(', ')
+
+    const shipping_address = arr[0]?.shipping_address ?? null
+    const phone_number = arr[0]?.phone_number ?? null
+
+    const items = arr.flatMap(a => a.items)
+    const total_amount = items.reduce((s, it) => s + Number(it.line_total || 0), 0)
+
+    const containsRR = arr.some(a => (rrByPurchase[a.id] || []).length > 0)
+
+    groups.push({
+      groupKey: ref,
+      reference_number: ref,
+      created_at,
+      statusSummaryLabel,
+      statusSummaryClassKey,
+      paymentSummaryLabel,
+      paymentSummaryTitle,
+      total_amount,
+      shipping_address,
+      phone_number,
+      items,
+      purchases: arr,
+      containsRR,
+      allToPay,
+      allToShip,
+      canGroupCancel
+    })
+  }
+
+  return groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+})
+
+function groupSubtotal(g: ViewGroup) {
+  return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
+}
+
+function groupRRs(g: ViewGroup): ReturnRefundRow[] {
+  const out: ReturnRefundRow[] = []
+  for (const p of g.purchases) {
+    const list = rrByPurchase[p.id] || []
+    if (rrStatusFilter.value === 'all') {
+      out.push(...list)
+    } else {
+      out.push(...list.filter(r => String(r.status).toLowerCase() === rrStatusFilter.value))
+    }
+  }
+  return out.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
 /* ---------- Fetch from games.purchases + join products & users (+ returns) ---------- */
@@ -637,7 +723,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    let rrPurchaseSet: Set<string> | null = null
     for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
 
     const shouldLoadRR =
@@ -657,14 +742,11 @@ async function loadOrders(resetPage = false) {
 
       const { data: rrRows } = await rrQ
       if (Array.isArray(rrRows)) {
-        rrPurchaseSet = new Set(rrRows.map(r => r.purchase_id))
         for (const r of rrRows as ReturnRefundRow[]) {
           const arr = rrByPurchase[r.purchase_id] || []
           arr.push(r)
           rrByPurchase[r.purchase_id] = arr
         }
-      } else {
-        rrPurchaseSet = new Set()
       }
     }
 
@@ -673,7 +755,7 @@ async function loadOrders(resetPage = false) {
       const buyer = buyersMap[pr.user_id]
       const price = Number(prod?.price ?? 0)
 
-    const item: OrderItem = {
+      const item: OrderItem = {
         order_id: pr.id,
         product_id: pr.product_id,
         qty: 1,
@@ -696,8 +778,12 @@ async function loadOrders(resetPage = false) {
       }
     })
 
-    if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all' && rrPurchaseSet) {
-      view = view.filter(v => rrPurchaseSet!.has(v.id))
+    if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
+      const keep = new Set<string>()
+      for (const [pid, list] of Object.entries(rrByPurchase)) {
+        if (list.some(r => String(r.status).toLowerCase() === rrStatusFilter.value)) keep.add(pid)
+      }
+      view = view.filter(v => keep.has(v.id))
       total.value = view.length
     }
 
@@ -755,83 +841,117 @@ function isEwalletPayment(method?: string | null) {
   const k = String(method || '').trim().toLowerCase()
   return k === 'ewallet' || k === 'e-wallet' || k === 'e wallet'
 }
+/* NEW helper: detect COD */
+function isCODPayment(method?: string | null) {
+  return String(method || '').trim().toLowerCase() === 'cod'
+}
 
-/* UPDATED: Cancel with e-wallet refund when status is TO_SHIP */
+/* UPDATED: Cancel with e-wallet refund when status is TO_SHIP
+   NEW: For COD with status TO_PAY or TO_SHIP, insert cancelled_receipt but DO NOT refund. */
 async function cancelOrder(purchaseId: string) {
   if (!confirm('Cancel this order?')) return
   const order = orders.value.find(o => o.id === purchaseId)
-  // Standard fallback if we somehow don't have the row
   if (!order) {
     await updateStatus(purchaseId, STATUS.CANCELLED)
     return
   }
 
-  const shouldRefund =
-    String(order.status || '').toLowerCase() === STATUS.TO_SHIP &&
-    isEwalletPayment(order.payment_method)
+  const statusKey = String(order.status || '').toLowerCase()
+  const isToShip = statusKey === STATUS.TO_SHIP
+  const isToPay  = statusKey === STATUS.TO_PAY
+
+  const isEwallet = isEwalletPayment(order.payment_method)
+  const isCOD     = isCODPayment(order.payment_method)
+
+  const shouldRefundEwallet = isEwallet && isToShip
+  const shouldInsertCODReceipt = isCOD && (isToPay || isToShip)
 
   busy.value.action[purchaseId] = true
   try {
-    if (!shouldRefund) {
-      // Normal cancel
-      await updateStatus(purchaseId, STATUS.CANCELLED)
-      return
-    }
+    if (shouldRefundEwallet) {
+      const { error: upErr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .update({ status: STATUS.CANCELLED })
+        .eq('id', purchaseId)
+        .eq('status', STATUS.TO_SHIP)
 
-    // 1) Update purchase to CANCELLED, guarded to only succeed if it is currently TO_SHIP
-    const { error: upErr } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ status: STATUS.CANCELLED })
-      .eq('id', purchaseId)
-      .eq('status', STATUS.TO_SHIP)
+      if (upErr) {
+        alert(upErr.message)
+        return
+      }
 
-    if (upErr) {
-      alert(upErr.message)
-      return
-    }
+      const refundAmount = orderSubtotal(order)
+      const userId = order.user_id
 
-    // 2) Compute refund amount (sum of line totals from the view model)
-    const refundAmount = orderSubtotal(order)
-    const userId = order.user_id
-
-    // 3) Fetch current balance
-    const { data: urow, error: uErr } = await supabase
-      .from('users')
-      .select('id,balance')
-      .eq('id', userId)
-      .single()
-
-    if (uErr || !urow) {
-      console.error('[cancel ewallet refund] user fetch failed:', uErr?.message)
-    } else {
-      const newBal = Number(Number(urow.balance || 0) + Number(refundAmount)).toFixed(2)
-      const { error: balErr } = await supabase
+      const { data: urow, error: uErr } = await supabase
         .from('users')
-        .update({ balance: Number(newBal) })
+        .select('id,balance')
         .eq('id', userId)
+        .single()
 
-      if (balErr) {
-        console.error('[cancel ewallet refund] balance update failed:', balErr.message)
+      if (uErr || !urow) {
+        console.error('[cancel ewallet refund] user fetch failed:', uErr?.message)
+      } else {
+        const newBal = Number(Number(urow.balance || 0) + Number(refundAmount)).toFixed(2)
+        const { error: balErr } = await supabase
+          .from('users')
+          .update({ balance: Number(newBal) })
+          .eq('id', userId)
+
+        if (balErr) {
+          console.error('[cancel ewallet refund] balance update failed:', balErr.message)
+        }
       }
+
+      try {
+        const { error: recErr } = await supabase
+          .schema('ewallet')
+          .from('cancelled_receipt')
+          .insert({ purchase_id: purchaseId })
+
+        if (recErr) {
+          console.error('[cancelled_receipt insert failed]', recErr.message)
+        }
+      } catch (e: any) {
+        console.error('[cancelled_receipt insert exception]', e?.message || e)
+      }
+
+      order.status = STATUS.CANCELLED
+      return
     }
 
-    // 4) Insert cancelled receipt (id auto, unique by purchase)
-    try {
-      const { error: recErr } = await supabase
-        .schema('ewallet')
-        .from('cancelled_receipt')
-        .insert({ purchase_id: purchaseId })
+    if (shouldInsertCODReceipt) {
+      const { error: upErr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .update({ status: STATUS.CANCELLED })
+        .eq('id', purchaseId)
+        .eq('status', order.status as string)
 
-      if (recErr) {
-        console.error('[cancelled_receipt insert failed]', recErr.message)
+      if (upErr) {
+        alert(upErr.message)
+        return
       }
-    } catch (e: any) {
-      console.error('[cancelled_receipt insert exception]', e?.message || e)
+
+      try {
+        const { error: recErr } = await supabase
+          .schema('ewallet')
+          .from('cancelled_receipt')
+          .insert({ purchase_id: purchaseId })
+
+        if (recErr) {
+          console.error('[cancelled_receipt insert failed - COD]', recErr.message)
+        }
+      } catch (e: any) {
+        console.error('[cancelled_receipt insert exception - COD]', e?.message || e)
+      }
+
+      order.status = STATUS.CANCELLED
+      return
     }
 
-    // 5) Reflect locally
-    order.status = STATUS.CANCELLED
+    await updateStatus(purchaseId, STATUS.CANCELLED)
   } finally {
     busy.value.action[purchaseId] = false
   }
@@ -873,16 +993,15 @@ async function approveOrder(order: ViewOrder) {
     if (isCOD) {
       const item = order.items[0]
       if (item) {
-        const productId = item.product_id
         const amount = Number(item.price_each || 0) * Number(item.qty || 1)
 
+        // CHANGED: insert using reference_number (FK to games.purchases.reference_number)
         const { error: recErr } = await supabase
           .schema('ewallet')
           .from('order_receipt')
           .insert({
-            product_id: productId,
             amount: Number(amount.toFixed(2)),
-            purchase_id: purchaseId,
+            reference_number: order.reference_number || null,
           })
 
         if (recErr) {
@@ -954,7 +1073,6 @@ async function completeRefund(rr: ReturnRefundRow) {
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
-    // 1) Load the related purchase (user_id, product_id)
     const { data: purchase, error: pErr } = await supabase
       .schema('games')
       .from('purchases')
@@ -967,7 +1085,6 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // 2) Load the product price (assume qty = 1 per your current model)
     const productId = rr.product_id || purchase.product_id
     const { data: product, error: prodErr } = await supabase
       .schema('games')
@@ -987,14 +1104,13 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // 3) Guarded status update: only update if current status is 'approved'
     const { error: rrUpdateErr } = await supabase
       .schema('games')
       .from('return_refunds')
       .update({ status: 'completed' })
       .eq('id', rrId)
-      .eq('status', 'approved') // prevent double-complete
-      .select('id')             // force postgrest to return something if changed
+      .eq('status', 'approved')
+      .select('id')
       .single()
 
     if (rrUpdateErr) {
@@ -1002,9 +1118,8 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // 4) Fetch current user balance
     const { data: urow, error: uErr } = await supabase
-      .from('users') // public schema
+      .from('users')
       .select('id,balance')
       .eq('id', purchase.user_id)
       .single()
@@ -1017,7 +1132,6 @@ async function completeRefund(rr: ReturnRefundRow) {
     const currentBal = Number(urow.balance || 0)
     const newBal = Number((currentBal + refundAmount).toFixed(2))
 
-    // 5) Update user balance
     const { error: balErr } = await supabase
       .from('users')
       .update({ balance: newBal })
@@ -1028,7 +1142,6 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    /* 6) NEW: Record the refund in ewallet.refund_receipt */
     try {
       const { error: rrRecErr } = await supabase
         .schema('ewallet')
@@ -1044,15 +1157,35 @@ async function completeRefund(rr: ReturnRefundRow) {
     } catch (e: any) {
       console.error('[refund_receipt insert exception]', e?.message || e)
     }
-    /* /NEW */
 
-    // 7) Reflect locally
     rr.status = 'completed'
   } finally {
     busy.value.action[rrId] = false
   }
 }
 /* ---------- /NEW ---------- */
+
+/* ---------- GROUP ACTION WRAPPERS (apply to all purchases with same reference_number) ---------- */
+async function approveGroup(g: ViewGroup) {
+  for (const o of g.purchases) {
+    if (o.status === STATUS.TO_PAY) {
+      await approveOrder(o)
+    }
+  }
+}
+async function markGroupAsShipped(g: ViewGroup) {
+  for (const o of g.purchases) {
+    if (o.status === STATUS.TO_SHIP) {
+      await markAsShipped(o.id)
+    }
+  }
+}
+async function cancelGroup(g: ViewGroup) {
+  if (!confirm('Cancel all purchases under this reference?')) return
+  for (const o of g.purchases) {
+    await cancelOrder(o.id)
+  }
+}
 
 /* ---------- Filters & pagination handlers ---------- */
 function setStatus(v: typeof tabs[number]['value']) {
@@ -1074,7 +1207,6 @@ function applyFilters() { loadOrders(true) }
 function clearFilters() {
   search.value = ''
   payment.value = ''
-  // FIX: set the ref values instead of reassigning the refs
   dateFrom.value = ''
   dateTo.value = ''
   loadOrders(true)

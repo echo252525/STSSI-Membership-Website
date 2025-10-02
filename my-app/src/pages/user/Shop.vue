@@ -575,9 +575,7 @@
                   v-model="paymentMethod"
                   :disabled="placingOrder"
                 />
-                <label class="form-check-label" for="pmCOD">
-                  Cash on Delivery
-                </label>
+                <label class="form-check-label" for="pmCOD"> Cash on Delivery </label>
               </div>
 
               <div class="form-check">
@@ -592,9 +590,7 @@
                 />
                 <label class="form-check-label" for="pmEW">
                   E-Wallet
-                  <span class="text-muted">
-                    (Balance: ₱ {{ number(userBalance) }})
-                  </span>
+                  <span class="text-muted"> (Balance: ₱ {{ number(userBalance) }}) </span>
                 </label>
               </div>
 
@@ -1429,6 +1425,9 @@ async function placeOrder() {
     const purchaseStatus = isEwallet ? 'to ship' : 'to pay'
     const totalToDeduct = isEwallet ? cartGrandTotal.value : 0
 
+    // === NEW === create ONE reference number for the whole checkout batch
+    const batchReference = genReference('PUR')
+
     // (2) If ewallet, deduct user balance first (simple guard update)
     if (isEwallet && totalToDeduct > 0) {
       // Optional server-side guard: ensure we still have enough
@@ -1449,9 +1448,14 @@ async function placeOrder() {
       userBalance.value = newBalance
     }
 
-    // (3) Insert one purchase per cart item with modeofpayment & status,
-    //     then insert matching ewallet.order_receipt for ewallet payments
+    // (3) Insert one purchase per cart item with modeofpayment & status
+    //     ALSO save qty per product, and reuse the SAME reference for all rows in this batch
+    let firstPurchaseId: string | null = null
+
     for (const it of cartItems.value) {
+      // use current DB-mirrored qty if available, else the item qty
+      const quantity = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1) // === NEW ===
+
       // Insert purchase and get its id
       const { data: inserted, error: insErr } = await supabase
         .schema('games')
@@ -1460,9 +1464,12 @@ async function placeOrder() {
           {
             user_id: uid,
             product_id: it.product.id,
-            reference_number: genReference('PUR'),
-            modeofpayment: paymentMethod.value, // << store chosen method
-            status: purchaseStatus,             // << to_ship for ewallet, to_pay for COD
+            // === NEW === use shared batch reference number
+            reference_number: batchReference,
+            // === NEW === store qty per product
+            qty: quantity,
+            modeofpayment: paymentMethod.value, // store chosen method
+            status: purchaseStatus, // to_ship for ewallet, to_pay for COD
           } as any,
         ])
         .select('id')
@@ -1475,25 +1482,27 @@ async function placeOrder() {
       }
 
       const purchaseId = (inserted as InsertedPurchase).id
+      if (!firstPurchaseId) firstPurchaseId = purchaseId
+      // NOTE: We no longer insert per-line receipts here, per your new schema.
+    }
 
-      // For ewallet: create a receipt row per line with the line total
-      if (isEwallet) {
-        const amount = Number((it.lineTotal).toFixed(2))
-        const { error: recErr } = await supabase
-          .schema('ewallet')
-          .from('order_receipt')
-          .insert([
-            {
-              product_id: it.product.id,
-              amount,
-              purchase_id: purchaseId,
-            },
-          ])
-        if (recErr) {
-          console.error('[placeOrder] order_receipt insert error:', recErr.message)
-          alert('Failed to create receipt: ' + recErr.message)
-          return
-        }
+    // === Insert ONE transaction row for this e-wallet checkout ===
+    if (isEwallet) {
+      const { error: txnErr } = await supabase
+        .schema('ewallet')
+        .from('order_transactions')
+        .insert([
+          {
+            reference_number: batchReference, // NOT NULL
+            purchase_id: firstPurchaseId ?? null, // optional link to any one purchase
+            total_amount: Number(totalToDeduct.toFixed(2)), // NEW total amount
+          } as any,
+        ])
+
+      if (txnErr) {
+        console.error('[order_transactions insert failed]', txnErr.message)
+        alert('Failed to create transaction record: ' + txnErr.message)
+        return
       }
     }
 
@@ -1504,9 +1513,13 @@ async function placeOrder() {
 
     closePlaceOrder()
     if (isEwallet) {
-      alert('Payment successful! Your items are now set **to ship**. You’ll receive a confirmation shortly.')
+      alert(
+        'Payment successful! Your items are now set **to ship**. You’ll receive a confirmation shortly.',
+      )
     } else {
-      alert('Order placed! Status is **to pay**. Please prepare payment upon delivery or wait for admin approval.')
+      alert(
+        'Order placed! Status is **to pay**. Please prepare payment upon delivery or wait for admin approval.',
+      )
     }
   } finally {
     placingOrder.value = false
