@@ -34,15 +34,15 @@
           </ul>
 
           <div class="d-flex align-items-center gap-3">
-            <!-- login -->
+            <!-- login button -->
             <router-link class="btn btn-outline-primary btn-modern" :to="{ name: 'login' }">
               <i class="bi bi-box-arrow-in-right me-1"></i> Log in
             </router-link>
-            <!-- signup -->
+            <!-- signup button -->
             <router-link class="btn btn-primary btn-modern --pulse" :to="{ name: 'signup' }">
               <i class="bi bi-person-plus-fill me-1"></i> Sign up
             </router-link>
-            <!-- admin -->
+            <!-- admin button -->
             <router-link
               :to="{ name: 'admin.login' }"
               class="admin-icon-btn"
@@ -342,78 +342,173 @@
         </div>
 
         <div class="accordion modern-acc" id="faqAcc">
+          <!-- question 1 -->
           <div class="accordion-item">
             <h2 class="accordion-header" id="q1">
               <button
                 class="accordion-button"
+                :class="{ collapsed: open !== 'a1' }"
                 type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#a1"
-                aria-expanded="true"
+                aria-expanded="false"
                 aria-controls="a1"
+                 @click="toggle('a1')"
               >
-                How do I sign up?
+                How do I create an account?
               </button>
             </h2>
             <div
               id="a1"
-              class="accordion-collapse collapse show"
+              class="accordion-collapse collapse"
+               :class="{ show: open === 'a1' }"
               aria-labelledby="q1"
-              data-bs-parent="#faqAcc"
             >
               <div class="accordion-body">
-                Click <router-link :to="{ name: 'signup' }">Sign up</router-link>, confirm your
-                email, and you’re in.
+                Click
+                <router-link :to="{ name: 'signup' }" class="text-decoration-none"
+                  >signup</router-link
+                >, verify your email, and complete your profile. That’s it—you’re a member!
               </div>
             </div>
           </div>
 
+          <!-- question 2 -->
           <div class="accordion-item">
             <h2 class="accordion-header" id="q2">
               <button
-                class="accordion-button collapsed"
+                class="accordion-button"
+                :class="{ collapsed: open !== 'a2' }"
                 type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#a2"
                 aria-expanded="false"
                 aria-controls="a2"
+                @click="toggle('a2')"
               >
-                Are my details secure?
+                Is membership free?
               </button>
             </h2>
             <div
               id="a2"
               class="accordion-collapse collapse"
+              :class="{ show: open === 'a2' }"
               aria-labelledby="q2"
-              data-bs-parent="#faqAcc"
             >
               <div class="accordion-body">
-                Yes—Supabase Auth and Row Level Security protect your profile data.
+                Yes. <strong>Regular</strong> membership is free. As you purchase or refer friends,
+                you can level up to Silver, Gold, Platinum, and Diamond for bigger perks.
               </div>
             </div>
           </div>
 
+          <!-- question 3 -->
           <div class="accordion-item">
             <h2 class="accordion-header" id="q3">
               <button
-                class="accordion-button collapsed"
+                class="accordion-button"
+                :class="{ collapsed: open !== 'a3' }"
                 type="button"
-                data-bs-toggle="collapse"
-                data-bs-target="#a3"
                 aria-expanded="false"
                 aria-controls="a3"
+                @click="toggle('a3')"
               >
-                Can I upgrade my tier later?
+                How do tiers and progress work?
               </button>
             </h2>
             <div
               id="a3"
               class="accordion-collapse collapse"
+              :class="{ show: open === 'a3' }"
               aria-labelledby="q3"
-              data-bs-parent="#faqAcc"
             >
               <div class="accordion-body">
-                Absolutely. Move from Regular → Silver → Gold → Platinum → Diamond anytime.
+                Your tier is based on <strong>total purchases</strong> and
+                <strong>qualified referrals</strong>. Hitting the tier milestones unlocks more
+                benefits like higher discounts, monthly credits, and delivery perks.
+              </div>
+            </div>
+          </div>
+
+          <!-- question 4 -->
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="q4">
+              <button
+                class="accordion-button"
+                :class="{ collapsed: open !== 'a4' }"
+                type="button"
+                aria-expanded="false"
+                aria-controls="a4"
+                @click="toggle('a4')"
+              >
+                What discounts do I get per tier?
+              </button>
+            </h2>
+            <div
+              id="a4"
+              class="accordion-collapse collapse"
+              :class="{ show: open === 'a4' }"
+              aria-labelledby="q4"
+            >
+              <div class="accordion-body">
+                <ul class="mb-0">
+                  <li><strong>Regular:</strong> 5% discount</li>
+                  <li><strong>Silver:</strong> 6% discount</li>
+                  <li><strong>Gold:</strong> 7% discount</li>
+                  <li><strong>Platinum:</strong> 8% discount</li>
+                  <li><strong>Diamond:</strong> 10% discount</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- question 5 -->
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="q5">
+              <button
+                class="accordion-button"
+                :class="{ collapsed: open !== 'a5' }"
+                type="button"
+                aria-expanded="false"
+                aria-controls="a5"
+                @click="toggle('a5')"
+              >
+                Do discounts, vouchers, and credits stack?
+              </button>
+            </h2>
+            <div
+              id="a5"
+              class="accordion-collapse collapse"
+              :class="{ show: open === 'a5' }"
+              aria-labelledby="q5
+"
+            >
+              <div class="accordion-body">
+                Yes, your tier discount applies first, then eligible <strong>vouchers</strong> and
+                <strong>discount credits</strong> are applied where allowed by promo rules.
+              </div>
+            </div>
+          </div>
+
+          <!-- question 6 -->
+          <div class="accordion-item">
+            <h2 class="accordion-header" id="q6">
+              <button
+                class="accordion-button"
+                :class="{ collapsed: open !== 'a6' }"
+                type="button"
+                aria-expanded="false"
+                aria-controls="a6"
+                @click="toggle('a6')"
+              >
+                How do referrals work?
+              </button>
+            </h2>
+            <div
+              id="a6"
+              class="accordion-collapse collapse"
+              :class="{ show: open === 'a6' }"
+              aria-labelledby="q6"
+            >
+              <div class="accordion-body">
+                Share your <strong>referral link</strong>. When a new user signs up and completes
+                qualified purchases, it counts toward your referral milestone for tier upgrades.
               </div>
             </div>
           </div>
@@ -422,13 +517,13 @@
     </section>
 
     <!-- ====================== CTA (Gradient) ====================== -->
-    <section class="section-pad text-center cta-grad">
+    <section class="section-pad text-center cta-grad d-flex justify-content-center align-items-center">
       <div class="container-xl">
-        <h3 class="fw-bold mb-2">Ready to join?</h3>
-        <p class="text-secondary mb-4">
+        <h1 class="fw-bold mb-3 fs-3">Ready to join?</h1>
+        <p class="text-secondary mb-5">
           Create your account and start exploring member perks today.
         </p>
-        <router-link class="btn btn-primary btn-lg btn-modern --lift" :to="{ name: 'signup' }"
+        <router-link class="btn btn-primary btn-lg btn-modern --lift fs-6" :to="{ name: 'signup' }"
           >Create Account</router-link
         >
       </div>
@@ -449,10 +544,17 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+
 const router = useRouter()
-/** Render admin icon only if the route exists */
 const has = (name: string) => router.hasRoute(name as any)
+
+// which panel is open; null means all closed
+const open = ref<string | null>(null)
+const toggle = (id: string) => {
+  open.value = open.value === id ? null : id
+}
 </script>
 
 <style scoped>
@@ -463,7 +565,6 @@ const has = (name: string) => router.hasRoute(name as any)
   --ring: rgba(13, 110, 253, 0.15);
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-bd: rgba(255, 255, 255, 0.4);
-  
 }
 html {
   scroll-behavior: smooth;
@@ -762,6 +863,7 @@ html {
 
 /* ---------- CTA ---------- */
 .cta-grad {
+  height: 50vh;
   background: linear-gradient(135deg, #eef4ff, #f7fcff 40%, #f6fff7);
 }
 
