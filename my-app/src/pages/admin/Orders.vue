@@ -447,14 +447,25 @@ type ViewGroup = {
 }
 
 /* ---------- UI state ---------- */
-const busy = ref<{ load: boolean; action: Record<string, boolean>; anyGroup: (k: string) => boolean }>({
+// define type (you can put this above busy)
+type BusyState = {
+  load: boolean
+  action: Record<string, boolean>
+  anyGroup: (k: string) => boolean
+}
+
+const busy = ref<BusyState>({
   load: false,
   action: {},
-  anyGroup: (k: string) => {
-    const ids = groupIndex[k] || []
-    return ids.some(id => !!busy.value.action[id])
-  }
+  anyGroup: () => false // temporary placeholder
 })
+
+// assign real function AFTER busy is created
+busy.value.anyGroup = (k: string): boolean => {
+  const ids = groupIndex[k] || []
+  return ids.some(id => !!busy.value.action[id])
+}
+
 const statusFilter = ref<typeof tabs[number]['value']>('all')
 const search = ref('')
 const payment = ref<string>('')

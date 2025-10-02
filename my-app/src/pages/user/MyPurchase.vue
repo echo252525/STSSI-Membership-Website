@@ -545,12 +545,13 @@
               <button
                 type="submit"
                 class="btn btn-warning"
-                :disabled="
-                  rrBusy ||
-                  !rrForm.reason ||
-                  !rrForm.pickup_date ||
-                  (rrGroup && rrForm.purchase_ids.length === 0)
-                "
+                :disabled="Boolean(
+  rrBusy ||
+  !rrForm.reason ||
+  !rrForm.pickup_date ||
+  (!!rrGroup && rrForm.purchase_ids.length === 0)
+)"
+
               >
                 <span v-if="rrBusy" class="spinner-border spinner-border-sm me-2"></span>
                 Submit
@@ -577,11 +578,14 @@ const router = useRouter()
 const STATUS = {
   TO_PAY: 'to pay',
   TO_SHIP: 'to ship',
-  TO_RECEIVE: 'to receive', // DB spelling kept as provided
+  TO_RECEIVE: 'to receive',
   COMPLETED: 'completed',
   RETURN_REFUND: 'return/refund',
   CANCELLED: 'cancelled',
 } as const
+
+/** Strong union type derived from STATUS */
+type Status = (typeof STATUS)[keyof typeof STATUS]
 
 /** Tabs (Shopee-like) */
 const tabs = [
@@ -591,7 +595,7 @@ const tabs = [
   { label: 'Completed', value: STATUS.COMPLETED },
   { label: 'Return/Refund', value: STATUS.RETURN_REFUND },
   { label: 'Cancelled', value: STATUS.CANCELLED },
-]
+] as const
 
 const activeTab = ref<(typeof tabs)[number]['value']>(STATUS.TO_SHIP) // default for COD shops
 
@@ -601,7 +605,7 @@ const rrSubtabs: Array<{ label: string; value: RRState }> = [
   { label: 'Pending', value: 'pending' },
   { label: 'Approved', value: 'approved' },
   { label: 'Completed', value: 'completed' },
-  { label: 'Rejected', value: 'rejected' }, // NEW
+  { label: 'Rejected', value: 'rejected' },
 ]
 const activeRR = ref<RRState>('pending')
 
@@ -707,14 +711,13 @@ function rrTabLabel(v: RRState) {
     pending: 'Pending',
     approved: 'Approved',
     completed: 'Completed',
-    rejected: 'Rejected', // NEW
+    rejected: 'Rejected',
   }
   return m[v] || v
 }
 
-/* ---------------- Auto-complete "to recieve" after 7 days ---------------- */
+/* ---------------- Auto-complete "to receive" after 7 days ---------------- */
 async function autocloseOverdue(uid: string) {
-  // 7 days ago from now
   const now = new Date()
   const threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -749,7 +752,7 @@ async function loadPurchases() {
       return
     }
 
-    // Purchases (include qty!)  === NEW: qty
+    // Purchases (include qty!)
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
@@ -764,7 +767,7 @@ async function loadPurchases() {
     }
     purchases.value = Array.isArray(data) ? data : []
 
-    // Auto-complete any overdue "to recieve" -> "completed"
+    // Auto-complete any overdue "to receive" -> "completed"
     await autocloseOverdue(uid)
 
     // Products for visible purchases
@@ -789,7 +792,7 @@ async function loadPurchases() {
       }
     }
 
-    // RR rows for this user, limited to purchases currently on list (perf + correctness)
+    // RR rows for this user, limited to purchases currently on list
     const purchaseIds = purchases.value.map((r) => r.id)
     Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
     if (purchaseIds.length > 0) {
@@ -828,11 +831,13 @@ type Group = {
   items: AnyRec[]
   created_at: string
   updated_at: string
-  status: string // dominant status
-  rrBadge?: RRState // for Return/Refund tab chip
+  status: Status           // <- union type
+  rrBadge?: RRState
 }
-const statusPriority = [
-  STATUS.RETURN_REFUND, // show RR first if any item in group is RR
+
+/** Priority list typed as Status[] */
+const statusPriority: Status[] = [
+  STATUS.RETURN_REFUND,
   STATUS.TO_PAY,
   STATUS.TO_SHIP,
   STATUS.TO_RECEIVE,
@@ -850,7 +855,7 @@ function buildGroups(rows: AnyRec[]): Group[] {
         items: [],
         created_at: r.created_at,
         updated_at: r.updated_at,
-        status: r.status,
+        status: r.status as Status,
       })
     }
     const g = map.get(ref)!
@@ -864,8 +869,8 @@ function buildGroups(rows: AnyRec[]): Group[] {
 
   // compute dominant status and rrBadge
   for (const g of map.values()) {
-    const statuses = new Set(g.items.map((i) => String(i.status).toLowerCase()))
-    let dom = STATUS.COMPLETED
+    const statuses = new Set<Status>(g.items.map((i) => i.status as Status))
+    let dom: Status = STATUS.COMPLETED
     for (const s of statusPriority) {
       if (statuses.has(s)) {
         dom = s
@@ -895,13 +900,13 @@ function buildGroups(rows: AnyRec[]): Group[] {
   )
 }
 
-/** Counts per tab — now based on groups */
+/** Counts per tab — now based on groups (simple Record<string, number> to avoid over-typing) */
 const counts = computed<Record<string, number>>(() => {
   const out: Record<string, number> = {}
   for (const t of tabs) out[t.value] = 0
   const groups = buildGroups(purchases.value)
   for (const g of groups) {
-    const k = (g.status || '').toLowerCase()
+    const k = g.status
     if (k in out) out[k]++
   }
   return out
@@ -920,7 +925,7 @@ const rrCounts = computed<Record<RRState, number>>(() => {
 
 /** Original per-row filtered (kept for fallback block) */
 const filtered = computed(() => {
-  const base = purchases.value.filter((r) => String(r.status).toLowerCase() === activeTab.value)
+  const base = purchases.value.filter((r) => (r.status as Status) === activeTab.value)
   if (activeTab.value !== STATUS.RETURN_REFUND) return base
   return base.filter((r) => rrStatus(r.id) === activeRR.value)
 })
@@ -951,7 +956,7 @@ function tabLabel(value: string) {
 
 /** Status label class + pretty label */
 function prettyStatus(s?: string) {
-  const k = (s || '').toLowerCase()
+  const k = (s || '') as Status
   if (k === STATUS.TO_PAY) return 'To Pay'
   if (k === STATUS.TO_SHIP) return 'To Ship'
   if (k === STATUS.TO_RECEIVE) return 'To Receive'
@@ -961,7 +966,7 @@ function prettyStatus(s?: string) {
   return s || '—'
 }
 function statusClass(s?: string) {
-  const k = (s || '').toLowerCase()
+  const k = (s || '') as Status
   if (k === STATUS.CANCELLED) return 'text-bg-danger-subtle border'
   if (k === STATUS.RETURN_REFUND) return 'text-bg-warning-subtle border'
   if (k === STATUS.COMPLETED) return 'text-bg-success-subtle border'
@@ -987,16 +992,13 @@ function groupTotal(g: Group): number {
 /* ---------------- Return/Refund modal + submit ---------------- */
 const showRR = ref(false)
 const rrBusy = ref(false)
-const rrPurchase = ref<AnyRec | null>(null) // kept for single-item path
-const rrGroup = ref<Group | null>(null) // NEW: group context
+const rrPurchase = ref<AnyRec | null>(null)
+const rrGroup = ref<Group | null>(null)
 
 const rrForm = reactive<{
-  // group mode
   purchase_ids: string[]
-  // single mode (kept)
   purchase_id: string
   product_id: string
-  // shared
   reason: string
   details: string
   pickup_date: string
@@ -1018,8 +1020,8 @@ const rrReasons = [
   'Changed Mind',
 ]
 
-/* Quick date options (kept) */
-const RR_DATE_COL = 'return/refund date' // change if your column name differs
+/* Quick date options */
+const RR_DATE_COL = 'return/refund date'
 const todayYMD = new Date().toISOString().slice(0, 10)
 function addDaysYMD(days: number) {
   const d = new Date()
@@ -1306,7 +1308,6 @@ async function createOrderReceiptForGroup(g: Group) {
       alert(`Order was completed, but creating receipt failed: ${recErr.message}`)
     }
   } catch (e) {
-    // swallow to avoid blocking UI; optionally log
     console.error(e)
   }
 }
