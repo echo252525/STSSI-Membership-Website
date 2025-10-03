@@ -218,8 +218,8 @@
 
                   <div class="price-row">
                     <div class="price-chip">
-                      <small>Winner Price</small>
-                      <div class="price">₱ {{ number(ev.winner_price) }}</div>
+                      <small>Winner Refund</small>
+                      <div class="price">₱ {{ number(ev.winner_refund_amount) }}</div>
                     </div>
                     <div class="price-chip">
                       <small>Loser Refund</small>
@@ -464,7 +464,7 @@
                 </div>
                 <div class="col-md-4">
                   <div class="border rounded p-2 h-100">
-                    <div class="text-muted">Winner Price</div>
+                    <div class="text-muted">Winner Refund</div>
                     <div class="fs-5">₱ {{ preview.winnerPrice.toFixed(2) }}</div>
                   </div>
                 </div>
@@ -684,7 +684,7 @@
                 <div class="d-flex justify-content-between small mb-2">
                   <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
                   <div>
-                    <i class="bi bi-cash-stack me-1"></i>Winner: ₱ {{ number(ev.winner_price) }}
+                    <i class="bi bi-cash-stack me-1"></i>Winner Refund: ₱ {{ number(ev.winner_refund_amount) }}
                   </div>
                 </div>
                 <div class="d-flex flex-wrap gap-2 mt-2">
@@ -787,7 +787,7 @@
               <th class="text-center">Cap</th>
               <th class="text-end">Entry Fee</th>
               <th class="text-end">Interest Pool</th>
-              <th class="text-end">Winner Price</th>
+              <th class="text-end">Winner Refund</th>
               <th class="text-end">Loser Refund</th>
               <th class="text-center">Status</th>
             </tr>
@@ -800,7 +800,7 @@
               <td class="text-center">{{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</td>
               <td class="text-end">₱ {{ number(ev.entry_fee) }}</td>
               <td class="text-end">₱ {{ number(ev.interest_pool) }}</td>
-              <td class="text-end">₱ {{ number(ev.winner_price) }}</td>
+              <td class="text-end">₱ {{ number(ev.winner_refund_amount) }}</td>
               <td class="text-end">₱ {{ number(ev.loser_refund_amount) }}</td>
               <td class="text-center">
                 <span class="badge" :class="statusBadge(ev.status)">{{ ev.status }}</span>
@@ -832,7 +832,7 @@ type EventRow = {
   entry_fee: number | string
   player_count: number | string
   interest_pool: number | string
-  winner_price: number | string // generated
+  winner_refund_amount: number | string // 🔄 renamed from winner_price
   loser_refund_amount: number | string // generated
   status: 'draft' | 'open' | 'locked' | 'spun' | 'settled' | 'cancelled'
   /* optional local typing for completeness */
@@ -926,15 +926,16 @@ async function loadProducts() {
   productsLoading.value = false
 }
 
-/* When product changes: prefill supplier cost and (if empty) set title (editable) */
+/* When product changes: prefill supplier cost and (prefill) entry fee from product price */
 const prevAutoTitle = ref('')
 watch(selectedProductId, () => {
   const p = selectedProduct.value
   if (!p) return
-  // ✅ prefill from supplier_price instead of price
+  // Supplier cost from supplier_price
   form.item_supplier_cost = Number(p.supplier_price ?? 0)
+  // ✅ Entry fee from product price
   form.entry_fee = Number(p.price ?? 0)
-  // recalc interest pool after supplier cost changes (using current percent)
+  // Recompute pool after changes (using current percent)
   form.interest_pool = computeInterestPool(form.entry_fee, form.item_supplier_cost, form.percent)
 
   if (!form.title || form.title.trim() === '' || form.title === prevAutoTitle.value) {
@@ -989,10 +990,14 @@ function calcInterestPerPlayer(interest_pool: number, player_cap: number) {
   const denom = Math.max(player_cap, 1)
   return round2(interest_pool / denom)
 }
-function calcWinnerPrice(entry_fee: number, interest_pool: number, player_cap: number) {
+
+/* 🔄 NEW: winner refund amount = IPP (interest per player) */
+function calcWinnerRefund(entry_fee: number, interest_pool: number, player_cap: number) {
   const ipp = calcInterestPerPlayer(interest_pool, player_cap)
-  return round2(entry_fee - ipp)
+  return ipp
 }
+
+/* Loser refund stays entry_fee + IPP */
 function calcLoserRefund(entry_fee: number, interest_pool: number, player_cap: number) {
   const ipp = calcInterestPerPlayer(interest_pool, player_cap)
   return round2(entry_fee + ipp)
@@ -1000,7 +1005,8 @@ function calcLoserRefund(entry_fee: number, interest_pool: number, player_cap: n
 
 const preview = reactive({
   interestPerPlayer: calcInterestPerPlayer(Number(form.interest_pool), Number(form.player_cap)),
-  winnerPrice: calcWinnerPrice(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
+  // keep the same key name but new meaning: "winnerPrice" now holds winner_refund_amount (IPP)
+  winnerPrice: calcWinnerRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
   loserRefund: calcLoserRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
 })
 
@@ -1012,7 +1018,7 @@ watch(
     const pool = Number(form.interest_pool)
     const cap = Number(form.player_cap)
     preview.interestPerPlayer = calcInterestPerPlayer(pool, cap)
-    preview.winnerPrice = calcWinnerPrice(fee, pool, cap)
+    preview.winnerPrice = calcWinnerRefund(fee, pool, cap)
     preview.loserRefund = calcLoserRefund(fee, pool, cap)
   },
   { deep: true },
@@ -1059,7 +1065,7 @@ async function loadEvents() {
       `
       id, title, product_id, item_supplier_cost,
       entry_fee, player_count, interest_pool, status,
-      winner_price, loser_refund_amount, player_cap
+      winner_refund_amount, loser_refund_amount, player_cap
     `,
     )
     .order('created_at', { ascending: false })
@@ -1556,7 +1562,7 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
 }
 
 /* Timestamp rows removed */
-.times {
+.times are {
   display: none;
 }
 

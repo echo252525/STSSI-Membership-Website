@@ -81,8 +81,8 @@
                     <div class="spin-stat__value">{{ joinedCount(ev) }}</div>
                   </div>
                   <div class="spin-stat">
-                    <div class="spin-stat__label">Loser Interest</div>
-                    <div class="spin-stat__value">₱ {{ money(ev.interest_per_loser) }}</div>
+                    <div class="spin-stat__label">Interest / Player</div>
+                    <div class="spin-stat__value">₱ {{ money(ev.interest_per_player) }}</div>
                   </div>
                 </div>
 
@@ -167,7 +167,7 @@ import { onMounted, onUnmounted, reactive, ref, computed, nextTick } from 'vue' 
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
-/* ==================== TYPES (UNCHANGED) ==================== */
+/* ==================== TYPES (UPDATED TO MATCH SCHEMA) ==================== */
 type EventRow = {
   id: string
   title: string
@@ -182,9 +182,11 @@ type EventRow = {
   product_id: string
   player_cap: number
   user_id_winner: string | null
-  interest_per_loser: number | string
-  winner_price: number | string
-  loser_refund_amount: number | string
+  /** GENERATED STORED COLUMNS FROM SCHEMA */
+  interest_per_player: number | string | null
+  winner_refund_amount: number | string | null
+  loser_refund_amount: number | string | null
+  /** UI helper */
   imageUrl?: string | null
 }
 
@@ -917,3 +919,4 @@ onUnmounted(() => {
 .join-btn:hover::after { transform: translateX(120%); }
 .join-btn--disabled, .join-btn:disabled { opacity: .7; box-shadow: none; cursor: not-allowed; }
 </style>
+  

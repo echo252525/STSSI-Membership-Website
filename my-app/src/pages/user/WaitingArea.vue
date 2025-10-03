@@ -67,7 +67,7 @@
                   alt="avatar"
                   @error="e => (e.target as HTMLImageElement).style.display = 'none'"
                 />
-                <div v-else class="wa-avatar wa-avatar-fallback">
+                <div class="wa-avatar wa-avatar-fallback" v-else>
                   {{ initials(u.full_name) }}
                 </div>
                 <div class="wa-username text-truncate">
@@ -114,16 +114,16 @@
             <div class="wa-stat-value">{{ formatMoney(event.entry_fee) }}</div>
           </div>
           <div class="wa-stat">
-            <div class="wa-stat-label">Winner Prize</div>
-            <div class="wa-stat-value">{{ formatMoney(event.winner_price) }}</div>
+            <div class="wa-stat-label">Winner Refund</div>
+            <div class="wa-stat-value">{{ formatMoney(event.winner_refund_amount) }}</div>
           </div>
           <div class="wa-stat">
             <div class="wa-stat-label">Loser Refund</div>
             <div class="wa-stat-value">{{ formatMoney(event.loser_refund_amount) }}</div>
           </div>
           <div class="wa-stat">
-            <div class="wa-stat-label">Interest / Loser</div>
-            <div class="wa-stat-value">{{ formatMoney(event.interest_per_loser) }}</div>
+            <div class="wa-stat-label">Interest / Player</div>
+            <div class="wa-stat-value">{{ formatMoney(event.interest_per_player) }}</div>
           </div>
           <div class="wa-stat">
             <div class="wa-stat-label">Interest Pool</div>
@@ -238,9 +238,10 @@ type EventRow = {
   product_id: string
   player_cap: number
   user_id_winner: string | null
-  interest_per_loser: number
-  winner_price: number
-  loser_refund_amount: number
+  /** 🔁 GENERATED STORED COLUMNS from schema */
+  interest_per_player: number | null
+  winner_refund_amount: number | null
+  loser_refund_amount: number | null
 }
 const event = ref<EventRow | null>(null)
 const imageUrl = ref<string | null>(null)
@@ -317,7 +318,6 @@ async function toSignedAvatar(path: string | null | undefined, expiresIn = 3600)
 function toPublicUrl(path: string | null | undefined): string | null {
   if (!path) return null
   if (isHttpUrl(path)) return path
-  // default to the first bucket naming if public URL ever needed
   const { data } = supabase.storage.from(PRODUCT_BUCKETS[0]).getPublicUrl(path)
   return data?.publicUrl || null
 }
@@ -600,7 +600,7 @@ async function fetchEventAndImage() {
       .select(`
         id, title, item_supplier_cost, entry_fee, player_count, interest_pool,
         status, created_by, created_at, updated_at, product_id, player_cap,
-        user_id_winner, interest_per_loser, winner_price, loser_refund_amount
+        user_id_winner, interest_per_player, winner_refund_amount, loser_refund_amount
       `)
       .eq('id', eventId)
       .single()
@@ -1010,6 +1010,7 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* (styles unchanged) */
 :root {
   --wa-bg: #0b1020;
   --wa-card: #0f1528;
