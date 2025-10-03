@@ -177,7 +177,7 @@
 </template>
 
 <script setup lang="ts">
-/* ========= EVERYTHING YOU ALREADY HAD, plus tiny additions ========= */
+/* ========= EVERYTHING YOU ALREADY HAD, with requested changes ========= */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
@@ -188,12 +188,16 @@ const eventId = route.query.eventId as string
 
 type EntryRow = { id: string; event_id: string; user_id: string; status: string }
 
-/* 🆕 Optional UI data to match mock (safe defaults, won’t affect backend) */
+/* UI data */
 const prizeTitle = ref('USB DRIVE')
 const costToEnter = ref<number | null>(50)   // or null to hide
 const costToBuy = ref<number | null>(48.5)   // or null to hide
 
-/* Signed-avatar cache */
+/* Interest config */
+const INTEREST_RATE = 0.02
+const calcInterest = (base:number) => Math.round(base * INTEREST_RATE * 100) / 100
+
+/* Avatars cache */
 type UserMeta = { id: string; full_name?: string|null; profile_url?: string|null; avatar?: string; signed_exp?: number }
 const userMeta = ref<Record<string, UserMeta>>({})
 const AVATAR_TTL_SEC = 3600, REFRESH_AHEAD_SEC = 300
@@ -210,20 +214,16 @@ const targetIndex = ref<number | null>(null)
 const winnerEntry = ref<EntryRow | null>(null)
 const revealWinner = ref(false)
 
-/* 🆕 Popup state */
+/* Popup state */
 const showOutcomeModal = ref(false)
 const outcomeType = ref<'winner' | 'loser' | null>(null)
 const myUserId = ref<string | null>(null)
 
-/* 🆕 Track if we already wrote the winner to event to avoid duplicate updates */
+/* Track updates */
 const eventWinnerUpdated = ref(false)
-
-/* 🧾 Track once-only inserts */
-const receiptInserted = ref(false)   // receipts per entry
-/* 🎟️ Track voucher creation */
+const receiptInserted = ref(false)   // game receipts per entry
 const voucherInserted = ref(false)
 
-/* 🆕 include product_id in eventInfo */
 const eventInfo = ref<{ id: string; player_cap: number; status: string; user_id_winner?: string | null; product_id?: string | null } | null>(null)
 const spinInfo = ref<{ event_id: string; winner_entry_id: string } | null>(null)
 
@@ -255,7 +255,7 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
   return entries.value.find(e => e.id === wid) || null
 })
 
-/* 🆕 derive outcome for current user and open modal */
+/* Popup helper */
 function openOutcomePopupIfMe() {
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
   const winnerUserId = displayWinnerEntry.value.user_id
@@ -282,7 +282,7 @@ function maskUser(id: string) { return id.slice(0,4)+'…'+id.slice(-4) }
 function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
 function pushJoinFeed(item: JoinFeedItem) { joinFeed.value.unshift(item); if (joinFeed.value.length > FEED_LIMIT) joinFeed.value.length = FEED_LIMIT }
 
-/* Palette + wheel style */
+/* Wheel style */
 function sliceColor(i:number, n:number) { const hue = Math.round((360*i)/Math.max(1,n)); return `hsl(${hue} 78% 55%)` }
 const wheelStyle = computed(() => {
   const n = Math.max(1, spinEntries.value.length)
@@ -316,7 +316,6 @@ async function fetchEntries() {
 }
 async function fetchEvent() {
   if (!eventId) return
-  /* 🆕 include product_id */
   const { data, error } = await supabase.schema('games').from('event').select('id, player_cap, status, user_id_winner, product_id').eq('id', eventId).single()
   if (error) { err.value = error.message; return }
   eventInfo.value = data as any
@@ -336,19 +335,18 @@ async function settleEntriesAfterSpin(winnerId:string){
   }catch(e:any){ err.value = e.message || 'Failed to settle entries' }
 }
 
-/* 🆕 Write winner user_id into games.event.user_id_winner */
+/* Update event.winner */
 async function updateEventWinnerUserId(winnerUserId: string | null | undefined){
   if (!eventId || !winnerUserId || eventWinnerUpdated.value) return
   try{
     await supabase.schema('games').from('event').update({ user_id_winner: winnerUserId }).eq('id', eventId)
     eventWinnerUpdated.value = true
   }catch(e:any){
-    // don’t block UX; just record error
     err.value = err.value || (e?.message ?? 'Failed to update event winner')
   }
 }
 
-/* 🧾 Insert one receipt per entry (winner + non-winners) */
+/* Insert game receipts INTO ewallet.game_receipt */
 async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
   if (!eventId || receiptInserted.value || !entriesList?.length) return
   try {
@@ -357,16 +355,17 @@ async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
       user_id: e.user_id,
       entry_id: e.id,
     }))
-    await supabase.schema('games')
-      .from('receipt')
+    await supabase
+      .schema('ewallet')
+      .from('game_receipt')
       .upsert(payload, { onConflict: 'entry_id', ignoreDuplicates: true })
     receiptInserted.value = true
   } catch (e:any) {
-    err.value = err.value || (e?.message ?? 'Failed to insert receipts')
+    err.value = err.value || (e?.message ?? 'Failed to insert game receipts')
   }
 }
 
-/* 🎟️ Create a voucher row only for the winner; include product_id from event */
+/* Winner voucher */
 async function ensureVoucherForWinner() {
   if (!eventId || voucherInserted.value || !displayWinnerEntry.value) return
   try {
@@ -375,7 +374,6 @@ async function ensureVoucherForWinner() {
 
     const productId = eventInfo.value?.product_id ?? null
 
-    // avoid duplicates: check if a voucher already exists for this event and this winner
     const { data: existing, error: qErr } = await supabase
       .schema('games')
       .from('voucher')
@@ -389,7 +387,6 @@ async function ensureVoucherForWinner() {
       return
     }
 
-    // create voucher tied to event + winner + product (if any)
     await supabase
       .schema('games')
       .from('voucher')
@@ -401,6 +398,82 @@ async function ensureVoucherForWinner() {
   }
 }
 
+/* ===== CHANGED: Create a purchase for the winner
+   - modeofpayment: 'ewallet'
+   - status: 'to ship'
+*/
+async function createWinnerPurchaseIfNeeded() {
+  try {
+    const winnerUid = displayWinnerEntry.value?.user_id
+    const productId = eventInfo.value?.product_id
+    if (!winnerUid || !productId) return
+
+    // avoid duplicates
+    const { data: existing, error: qErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id')
+      .eq('user_id', winnerUid)
+      .eq('product_id', productId)
+      .eq('reference_number', eventId)
+      .limit(1)
+
+    if (!qErr && existing && existing.length) return
+
+    await supabase
+      .schema('games')
+      .from('purchases')
+      .insert({
+        user_id: winnerUid,
+        product_id: productId,
+        reference_number: eventId, // tie back to event
+        status: 'to ship',         // <— requested
+        qty: 1,
+        modeofpayment: 'ewallet',  // <— requested
+      })
+  } catch (e:any) {
+    err.value = err.value || (e?.message ?? 'Failed to create winner purchase')
+  }
+}
+
+/* ===== CHANGED: Refunds immediately after game ends, directly into users.balance
+   - Winner: refund ONLY the interest
+   - Losers: refund entry fee + interest
+*/
+async function adjustUserBalance(userId: string, delta: number) {
+  try {
+    const { data, error } = await supabase.from('users').select('balance').eq('id', userId).single()
+    if (error) throw error
+    const current = Number(data?.balance ?? 0)
+    const next = Math.round((current + delta) * 100) / 100
+    const { error: uerr } = await supabase.from('users').update({ balance: next }).eq('id', userId)
+    if (uerr) throw uerr
+  } catch (e:any) {
+    err.value = err.value || (e?.message ?? `Failed to update balance for ${userId}`)
+  }
+}
+
+async function processRefunds() {
+  try {
+    if (!displayWinnerEntry.value) return
+    const winnerUid = displayWinnerEntry.value.user_id
+    const entryFee = Number(costToEnter.value ?? 0)
+    const interest = calcInterest(entryFee)
+
+    // Winner: interest-only refund
+    await adjustUserBalance(winnerUid, interest)
+
+    // Losers: entry fee + interest
+    const loserAmount = entryFee + interest
+    const losers = participantsSnapshot.filter(e => e.user_id !== winnerUid)
+    for (const l of losers) {
+      await adjustUserBalance(l.user_id, loserAmount)
+    }
+  } catch (e:any) {
+    err.value = err.value || (e?.message ?? 'Refund processing failed')
+  }
+}
+
 async function onSpinEnd(){
   if (!spinning.value) return
   spinning.value = false
@@ -409,18 +482,27 @@ async function onSpinEnd(){
     if (idx>=0) winnerEntry.value = participantsSnapshot[idx]
     await settleEntriesAfterSpin(rpcWinnerId.value)
     await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
-    // 🆕 Update event user_id_winner after we know the winner’s user_id
+
+    // Write event winner
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-    // 🧾 insert receipts for all participants from this spin snapshot
+
+    // Insert receipts (ewallet.game_receipt)
     await insertReceiptsForParticipants(participantsSnapshot)
-    // 🎟️ create voucher only for winner, include product_id from event
+
+    // Winner voucher (optional)
     await ensureVoucherForWinner()
+
+    // Create winner purchase (ewallet, to ship)
+    await createWinnerPurchaseIfNeeded()
+
+    // REFUNDS: immediate
+    await processRefunds()
 
     resolved.value = true; rpcWinnerId.value = null
   }
   busy.value.commit = false; spinStarted.value = false; revealWinner.value = true
 
-  // 🆕 Open outcome popup for current user
+  // Open popup for current user
   openOutcomePopupIfMe()
 }
 async function triggerServerSpinAndAnimate(){
@@ -438,12 +520,12 @@ async function triggerServerSpinAndAnimate(){
     if (forcedIdx < 0){ await fetchEntries(); participantsSnapshot = spinEntries.value.slice(); forcedIdx = participantsSnapshot.findIndex(e=>e.id===winner_id) }
     if (forcedIdx < 0){
       await settleEntriesAfterSpin(winner_id); await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
-      // 🆕 Try to update event winner even in this path
       await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-      // 🧾 Insert receipts even in this fallback path
+
       await insertReceiptsForParticipants(participantsSnapshot)
-      // 🎟️ Create voucher if winner known (only for winner, include product)
       await ensureVoucherForWinner()
+      await createWinnerPurchaseIfNeeded()
+      await processRefunds()
 
       resolved.value = true; busy.value.commit = false; spinStarted.value=false; revealWinner.value=true; return
     }
@@ -502,18 +584,16 @@ function makeRealtimeChannelSpin(){
       if (forcedIdx >= 0){ await startSpin(forcedIdx) }
       else {
         await settleEntriesAfterSpin(winner_id); await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
-        // 🆕 Even in this branch, try to update event winner
+
         await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-        // 🧾 Insert receipts in this branch too
         await insertReceiptsForParticipants(participantsSnapshot)
-        // 🎟️ Create voucher if winner is now known (only for winner, include product)
         await ensureVoucherForWinner()
+        await createWinnerPurchaseIfNeeded()
+        await processRefunds()
 
         resolved.value=true; rpcWinnerId.value=null; busy.value.commit=false; spinStarted.value=false; revealWinner.value=true
       }
-      // 🆕 If we already know the winner’s user_id now, write it
       await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-      // open popup if it concerns me
       openOutcomePopupIfMe()
     })
     .subscribe((s:any)=>{ if (s==='CLOSED'||s==='CHANNEL_ERROR') setTimeout(()=>makeRealtimeChannelSpin(),1000) })
@@ -532,9 +612,7 @@ function onVisibilityChange(){ if (document.visibilityState==='visible') schedul
 /* Watches */
 watch(entries, ()=>{ resolved.value = entries.value.some(e=>e.status==='winner') })
 watch(()=>[revealWinner.value, displayWinnerEntry.value, myUserId.value] as const, async ()=>{
-  // When we have a winner, make sure event.user_id_winner is updated
   await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-  // 🎟️ Ensure voucher exists once we know the winner (only for winner, includes product)
   await ensureVoucherForWinner()
   openOutcomePopupIfMe()
 })
@@ -616,24 +694,20 @@ onBeforeUnmount(()=>{
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
-/* 🆕 Winner/Loser action routing for popup button */
+/* Winner/Loser action routing */
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
-    // Winner → Winner.vue under PublicLayout
     try { router.push({ name: 'user.winner' }); return } catch {}
     try { router.push('/winner'); return } catch {}
-    // final fallback
     router.push({ name: 'user.minigames' })
   } else {
-    // Loser → Loser.vue under PublicLayout
     try { router.push({ name: 'user.loser' }); return } catch {}
     try { router.push('/loser'); return } catch {}
-    // final fallback
     router.push({ name: 'user.minigames' })
   }
 }
 
-/* (kept) simple redirect helper you had earlier — unused by popup now, but retained */
+/* Redirect helper (kept) */
 function goToMinigames() {
   try {
     router.push({ name: 'user.minigames' })
