@@ -141,8 +141,12 @@
                 <span class="text-muted">Ref#</span>
                 <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
               </div>
+              <!-- UPDATED: clean date/time + updated_at -->
               <div class="small text-muted">
-                {{ formatDate(g.created_at) }}
+                Created: {{ formatClean(g.created_at) }}
+              </div>
+              <div class="small text-muted" v-if="g.updated_at">
+                Updated: {{ formatClean(g.updated_at) }}
               </div>
             </div>
 
@@ -176,13 +180,33 @@
               </div>
 
               <div class="flex-grow-1">
-                <div class="fw-semibold text-truncate" :title="it.product?.name || it.product_id">
+                <!-- UPDATED: ellipsis title (no specs/desc) -->
+                <div
+                  class="fw-semibold title-ellipsis"
+                  :title="it.product?.name || it.product_id"
+                >
                   {{ it.product?.name || it.product_id }}
                 </div>
-                <div class="text-muted small text-truncate" v-if="it.product?.description">
+
+                <!-- HIDDEN but kept (do not remove existing code) -->
+                <div class="text-muted small text-truncate order-desc" v-if="it.product?.description">
                   {{ it.product?.description }}
                 </div>
+
                 <div class="text-muted small">₱ {{ number(it.price_each) }} × {{ it.qty }}</div>
+
+                <!-- NEW: visible badges per item (status + payment) -->
+                <div class="mt-1 d-flex flex-wrap gap-2">
+                  <span
+                    class="badge badge-tight"
+                    :class="statusClass(purchaseStatusKey(g, it.order_id))"
+                  >
+                    {{ prettyStatus(purchaseStatusKey(g, it.order_id)) }}
+                  </span>
+                  <span class="badge text-bg-light border badge-tight">
+                    {{ purchasePayment(g, it.order_id) || '—' }}
+                  </span>
+                </div>
               </div>
 
               <div class="text-end fw-semibold">₱ {{ number(it.line_total) }}</div>
@@ -220,9 +244,16 @@
               class="border rounded p-2 bg-body small mb-2"
             >
               <div class="d-flex flex-wrap align-items-center gap-2">
+                <!-- existing RR status badge -->
                 <span class="badge" :class="rrBadgeClass(rr.status)">
                   {{ prettyRRStatus(rr.status) }}
                 </span>
+
+                <!-- NEW: payment badge for this RR item -->
+                <span class="badge text-bg-light border">
+                  {{ purchasePayment(g, rr.purchase_id) || '—' }}
+                </span>
+
                 <span class="text-muted">•</span>
                 <span class="fw-semibold">Product:</span>
                 <span>{{ productsMap[rr.product_id]?.name || rr.product_id }}</span>
@@ -237,7 +268,8 @@
               </div>
 
               <div class="text-muted mt-1">
-                Created: {{ formatDate(rr.created_at) }}
+                <!-- UPDATED: clean date/time -->
+                Created: {{ formatClean(rr.created_at) }}
               </div>
 
               <!-- Approve/Complete/Reject buttons per RR row (PER PRODUCT) -->
@@ -283,6 +315,108 @@
               No return/refund record found for this grouped order (filtered by "{{ rrStatusFilter }}").
             </div>
           </div>
+
+          <!-- ===== NEW: In 'To Receive' tab, also show siblings (RR + Completed) ===== -->
+          <div v-if="statusFilter === STATUS.TO_RECEIVE && (g.siblingRRItems.length || g.siblingCompletedItems.length)" class="mt-3">
+            <div class="small text-muted mb-1">Other items in this reference</div>
+
+            <!-- RR siblings -->
+            <div
+              v-for="s in g.siblingRRItems"
+              :key="'rr-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              class="d-flex align-items-center justify-content-between border rounded p-2 bg-body mb-2"
+            >
+              <div class="d-flex align-items-center gap-3">
+                <div class="order-thumb ratio ratio-1x1 bg-white rounded">
+                  <img
+                    v-if="productThumb(s.product)"
+                    :src="productThumb(s.product)"
+                    :alt="s.product?.name || 'Product'"
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="fw-semibold title-ellipsis text-danger" :title="s.product?.name || s.product_id">
+                    {{ s.product?.name || s.product_id }} <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                  </div>
+                  <div class="text-danger small">
+                    Return/Refund — {{ prettyRRStatus(s.rrStatus) }}
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-danger btn-sm" @click="viewReturnDetails()">
+                  View return details
+                </button>
+              </div>
+            </div>
+
+            <!-- Completed siblings -->
+            <div
+              v-for="s in g.siblingCompletedItems"
+              :key="'done-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              class="d-flex align-items-center gap-3 border rounded p-2 bg-body mb-2"
+            >
+              <div class="order-thumb ratio ratio-1x1 bg-white rounded">
+                <img
+                  v-if="productThumb(s.product)"
+                  :src="productThumb(s.product)"
+                  :alt="s.product?.name || 'Product'"
+                  class="w-100 h-100 object-fit-cover rounded"
+                />
+                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                  <i class="bi bi-image"></i>
+                </div>
+              </div>
+              <div class="flex-grow-1">
+                <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
+                  {{ s.product?.name || s.product_id }} <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                </div>
+                <div class="small text-muted">₱ {{ number(s.line_total) }}</div>
+              </div>
+              <span class="badge text-bg-success-subtle border">Completed</span>
+            </div>
+          </div>
+          <!-- ===== /NEW ===== -->
+
+          <!-- NEW: In 'Completed' tab, also show RR items that are completed -->
+          <div v-if="statusFilter === STATUS.COMPLETED && g.completedRRItems.length" class="mt-3">
+            <div class="small text-muted mb-1">Refunded items (completed)</div>
+
+            <div
+              v-for="s in g.completedRRItems"
+              :key="'rrc-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              class="d-flex align-items-center justify-content-between border rounded p-2 bg-body mb-2"
+            >
+              <div class="d-flex align-items-center gap-3">
+                <div class="order-thumb ratio ratio-1x1 bg-white rounded">
+                  <img
+                    v-if="productThumb(s.product)"
+                    :src="productThumb(s.product)"
+                    :alt="s.product?.name || 'Product'"
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
+                    {{ s.product?.name || s.product_id }}
+                    <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                  </div>
+                  <div class="small text-success">
+                    Refund Completed
+                  </div>
+                </div>
+              </div>
+              <span class="badge text-bg-success-subtle border">Refunded</span>
+            </div>
+          </div>
+          <!-- /NEW -->
 
           <!-- Row 4: group actions -->
           <div class="mt-3 d-flex flex-wrap gap-2 justify-content-end">
@@ -378,6 +512,7 @@ type PurchaseRow = {
   created_at: string
   updated_at: string
   modeofpayment: string | null
+  qty: number
 }
 type Product = {
   id: string
@@ -423,6 +558,7 @@ type ViewOrder = {
   phone_number: string | null
   status: string | null
   created_at: string
+  updated_at: string
   items: Array<OrderItem>
 }
 
@@ -431,6 +567,7 @@ type ViewGroup = {
   groupKey: string
   reference_number: string
   created_at: string
+  updated_at: string | null
   statusSummaryLabel: string
   statusSummaryClassKey: string
   paymentSummaryLabel: string
@@ -444,10 +581,14 @@ type ViewGroup = {
   allToPay: boolean
   allToShip: boolean
   canGroupCancel: boolean
+  /* NEW for To Receive sibling display */
+  siblingRRItems: Array<OrderItem & { rrStatus: string | null }>
+  siblingCompletedItems: Array<OrderItem>
+  /* NEW for Completed tab display of refunded items */
+  completedRRItems: Array<OrderItem & { rrStatus: string | null }>
 }
 
 /* ---------- UI state ---------- */
-// define type (you can put this above busy)
 type BusyState = {
   load: boolean
   action: Record<string, boolean>
@@ -457,10 +598,9 @@ type BusyState = {
 const busy = ref<BusyState>({
   load: false,
   action: {},
-  anyGroup: () => false // temporary placeholder
+  anyGroup: () => false
 })
 
-// assign real function AFTER busy is created
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
   return ids.some(id => !!busy.value.action[id])
@@ -468,7 +608,7 @@ busy.value.anyGroup = (k: string): boolean => {
 
 const statusFilter = ref<typeof tabs[number]['value']>('all')
 const search = ref('')
-const payment = ref<string>('')
+const payment = ref<string>('') // UI-only currently
 const dateFrom = ref<string>('')
 const dateTo = ref<string>('')
 
@@ -489,9 +629,28 @@ const signingBusy: Record<string, boolean> = reactive({})
 /* index: reference_number -> member purchase IDs */
 const groupIndex: Record<string, string[]> = reactive({})
 
+/* NEW: for sibling fetches keyed by reference_number (includes all purchases for that ref) */
+const siblingsByRef = reactive<Record<string, PurchaseRow[]>>({})
+
 /* ---------- Helpers ---------- */
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
-const formatDate = (iso?: string) => {
+
+/* Clean formatter: "Dec 18, 2025 • 3 PM" */
+function formatClean(iso?: string) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  const month = d.toLocaleString('en-US', { month: 'short' })
+  const day = d.getDate()
+  const year = d.getFullYear()
+  let hours = d.getHours()
+  const ampm = hours >= 12 ? 'PM' : 'AM'
+  hours = hours % 12
+  if (hours === 0) hours = 12
+  return `${month} ${day}, ${year} • ${hours} ${ampm}`
+}
+
+const formatDate = (iso?: string) => { // kept (legacy)
   if (!iso) return '—'
   try { return new Date(iso).toLocaleString() } catch { return iso as string }
 }
@@ -587,6 +746,17 @@ function firstReturn(purchaseId: string): ReturnRefundRow | undefined {
   return list[0]
 }
 
+/* Helper: pull purchase info for badges */
+function purchaseFromGroup(g: ViewGroup, purchaseId: string): ViewOrder | undefined {
+  return g.purchases.find(p => p.id === purchaseId)
+}
+function purchaseStatusKey(g: ViewGroup, purchaseId: string): string {
+  return String(purchaseFromGroup(g, purchaseId)?.status || '')
+}
+function purchasePayment(g: ViewGroup, purchaseId: string): string | null {
+  return purchaseFromGroup(g, purchaseId)?.payment_method || null
+}
+
 /* ---------- GROUPING (by reference_number) ---------- */
 const orderGroups = computed<ViewGroup[]>(() => {
   const byRef: Record<string, ViewOrder[]> = {}
@@ -605,6 +775,10 @@ const orderGroups = computed<ViewGroup[]>(() => {
     const created_at = arr
       .map(a => a.created_at)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
+
+    const updated_at = arr
+      .map(a => a.updated_at)
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
 
     const statuses = Array.from(new Set(arr.map(a => String(a.status || '').toLowerCase())))
     const allToPay = statuses.length === 1 && statuses[0] === STATUS.TO_PAY
@@ -630,10 +804,55 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const containsRR = arr.some(a => (rrByPurchase[a.id] || []).length > 0)
 
+    /* NEW: build sibling display arrays for To Receive */
+    const siblingRRItems: Array<OrderItem & { rrStatus: string | null }> = []
+    const siblingCompletedItems: Array<OrderItem> = []
+
+    /* NEW: for Completed tab — gather RR purchases with rr status = completed */
+    const completedRRItems: Array<OrderItem & { rrStatus: string | null }> = []
+    if (statusFilter.value === STATUS.COMPLETED) {
+      const allForRef: PurchaseRow[] = (siblingsByRef[ref] || []).length
+        ? siblingsByRef[ref]
+        : arr.map(a => ({
+            id: a.id,
+            user_id: a.user_id,
+            product_id: a.items[0]?.product_id || '',
+            reference_number: ref,
+            status: String(a.status || ''),
+            created_at: a.created_at,
+            updated_at: a.updated_at,
+            modeofpayment: a.payment_method,
+            qty: a.items[0]?.qty || 1
+          } as PurchaseRow))
+
+      for (const pr of allForRef) {
+        const st = String(pr.status || '').toLowerCase()
+        if (st === STATUS.RETURN_REFUND) {
+          const rrList = rrByPurchase[pr.id] || []
+          const hasCompletedRR = rrList.some(r => String(r.status).toLowerCase() === 'completed')
+          if (hasCompletedRR) {
+            const prod = productsMap[pr.product_id]
+            const qty = Number(pr.qty ?? 1) || 1
+            const price = Number(prod?.price ?? 0)
+            completedRRItems.push({
+              order_id: pr.id,
+              product_id: pr.product_id,
+              qty,
+              price_each: price,
+              line_total: Number((price * qty).toFixed(2)),
+              product: prod,
+              rrStatus: 'completed'
+            })
+          }
+        }
+      }
+    }
+
     groups.push({
       groupKey: ref,
       reference_number: ref,
       created_at,
+      updated_at,
       statusSummaryLabel,
       statusSummaryClassKey,
       paymentSummaryLabel,
@@ -646,11 +865,59 @@ const orderGroups = computed<ViewGroup[]>(() => {
       containsRR,
       allToPay,
       allToShip,
-      canGroupCancel
+      canGroupCancel,
+      siblingRRItems,
+      siblingCompletedItems,
+      completedRRItems
     })
   }
 
-  return groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  let out = groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
+  // NEW: Completed tab visibility filter based on whole reference state
+  if (statusFilter.value === STATUS.COMPLETED) {
+    out = out.filter(g => {
+      const allPurchasesForRef = (siblingsByRef[g.reference_number] || [])
+        // join with current visible ones (which are completed)
+        .concat(g.purchases.map(p => ({
+          id: p.id,
+          user_id: p.user_id,
+          product_id: p.items[0]?.product_id || '',
+          reference_number: g.reference_number,
+          status: String(p.status || ''),
+          created_at: p.created_at,
+          updated_at: p.updated_at,
+          modeofpayment: p.payment_method,
+          qty: p.items[0]?.qty || 1
+        } as PurchaseRow)))
+
+      // For a reference to show in Completed:
+      // - every purchase must be either completed
+      // - or return/refund with status approved/completed
+      // - if any pending RR or any other status (to pay/ship/receive), hide
+      for (const pr of allPurchasesForRef) {
+        const st = String(pr.status || '').toLowerCase()
+        if (st === STATUS.COMPLETED) continue
+        if (st === STATUS.RETURN_REFUND) {
+          const list = rrByPurchase[pr.id] || []
+          // consider presence of any pending => hide
+          const hasPending = list.some(r => String(r.status).toLowerCase() === 'pending')
+          const okNonPending = list.length > 0 && list.every(r => {
+            const rs = String(r.status).toLowerCase()
+            return rs === 'approved' || rs === 'completed'
+          })
+          if (hasPending) return false
+          if (!okNonPending) return false
+          continue
+        }
+        // any other status blocks
+        return false
+      }
+      return true
+    })
+  }
+
+  return out
 })
 
 function groupSubtotal(g: ViewGroup) {
@@ -681,7 +948,7 @@ async function loadOrders(resetPage = false) {
     let q = supabase
       .schema('games')
       .from('purchases')
-      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment', { count: 'exact' })
+      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty', { count: 'exact' })
 
     if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
 
@@ -709,43 +976,85 @@ async function loadOrders(resetPage = false) {
     total.value = count ?? 0
     const purchaseRows = (rows || []) as PurchaseRow[]
 
-    const productIds = Array.from(new Set(purchaseRows.map(p => p.product_id).filter(Boolean)))
-    const userIds = Array.from(new Set(purchaseRows.map(p => p.user_id).filter(Boolean)))
-    const purchaseIds = Array.from(new Set(purchaseRows.map(p => p.id)))
+    // collect primary id sets
+    const productIds = new Set<string>()
+    const userIds = new Set<string>()
+    const purchaseIds = new Set<string>()
+    const refSet = new Set<string>()
 
-    if (productIds.length > 0) {
+    for (const p of purchaseRows) {
+      if (p.product_id) productIds.add(p.product_id)
+      if (p.user_id) userIds.add(p.user_id)
+      purchaseIds.add(p.id)
+      if (p.reference_number) refSet.add(p.reference_number)
+    }
+
+    // === NEW: fetch siblings for To Receive & Completed tabs ===
+    // for those references, we need all purchases in that reference (any status)
+    let siblingRows: PurchaseRow[] = []
+    if (refSet.size && (statusFilter.value === STATUS.TO_RECEIVE || statusFilter.value === STATUS.COMPLETED)) {
+      const refs = Array.from(refSet)
+      const { data: sib } = await supabase
+        .schema('games')
+        .from('purchases')
+        .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty')
+        .in('reference_number', refs)
+
+      siblingRows = Array.isArray(sib) ? (sib as PurchaseRow[]) : []
+      for (const s of siblingRows) {
+        if (s.product_id) productIds.add(s.product_id)
+        if (s.user_id) userIds.add(s.user_id)
+        // include siblings in RR fetch set
+        purchaseIds.add(s.id)
+      }
+
+      // store siblings by reference (for display/filtering)
+      for (const r of refs) siblingsByRef[r] = siblingRows.filter(s => s.reference_number === r)
+    } else {
+      // clear old cache to avoid leaking old state
+      for (const k of Object.keys(siblingsByRef)) delete siblingsByRef[k]
+    }
+
+    // products
+    if (productIds.size > 0) {
       const { data: prows } = await supabase
         .schema('games')
         .from('products')
         .select('id,name,description,price,product_url')
-        .in('id', productIds)
+        .in('id', Array.from(productIds))
       if (Array.isArray(prows)) {
         for (const p of prows as Product[]) productsMap[p.id] = p
       }
     }
 
-    if (userIds.length > 0) {
+    // users
+    if (userIds.size > 0) {
       const { data: urows } = await supabase
         .from('users')
         .select('id, phone_number, address')
-        .in('id', userIds)
+        .in('id', Array.from(userIds))
       if (Array.isArray(urows)) {
         for (const u of urows as Buyer[]) buyersMap[u.id] = u
       }
     }
 
+    // clear RR map before refill
     for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
 
-    const shouldLoadRR =
-      (statusFilter.value === STATUS.RETURN_REFUND || statusFilter.value === 'all') &&
-      purchaseIds.length > 0
+    // We now ALSO need RR when statusFilter is TO_RECEIVE or COMPLETED (for sibling/visibility logic)
+    const needRR = (
+      statusFilter.value === STATUS.RETURN_REFUND ||
+      statusFilter.value === 'all' ||
+      statusFilter.value === STATUS.TO_RECEIVE ||
+      statusFilter.value === STATUS.COMPLETED
+    ) && purchaseIds.size > 0
 
-    if (shouldLoadRR) {
+    if (needRR) {
       let rrQ = supabase
         .schema('games')
         .from('return_refunds')
         .select('id,user_id,purchase_id,product_id,reason,details,status,created_at,updated_at')
-        .in('purchase_id', purchaseIds)
+        .in('purchase_id', Array.from(purchaseIds))
 
       if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
         rrQ = rrQ.eq('status', rrStatusFilter.value)
@@ -761,17 +1070,19 @@ async function loadOrders(resetPage = false) {
       }
     }
 
+    // build view rows (only for the fetched set for this tab)
     let view: ViewOrder[] = purchaseRows.map(pr => {
       const prod = productsMap[pr.product_id]
       const buyer = buyersMap[pr.user_id]
       const price = Number(prod?.price ?? 0)
+      const qty = Number(pr.qty ?? 1) || 1
 
       const item: OrderItem = {
         order_id: pr.id,
         product_id: pr.product_id,
-        qty: 1,
+        qty,
         price_each: price,
-        line_total: price,
+        line_total: Number((price * qty).toFixed(2)),
         product: prod,
       }
 
@@ -779,12 +1090,13 @@ async function loadOrders(resetPage = false) {
         id: pr.id,
         user_id: pr.user_id,
         reference_number: pr.reference_number,
-        total_amount: price,
+        total_amount: item.line_total,
         payment_method: pr.modeofpayment || null,
         shipping_address: buyer?.address ?? null,
         phone_number: buyer?.phone_number ?? null,
         status: pr.status,
         created_at: pr.created_at,
+        updated_at: pr.updated_at,
         items: [item],
       }
     })
@@ -857,10 +1169,11 @@ function isCODPayment(method?: string | null) {
   return String(method || '').trim().toLowerCase() === 'cod'
 }
 
-/* UPDATED: Cancel with e-wallet refund when status is TO_SHIP
-   NEW: For COD with status TO_PAY or TO_SHIP, insert cancelled_receipt but DO NOT refund. */
-async function cancelOrder(purchaseId: string) {
-  if (!confirm('Cancel this order?')) return
+/* UPDATED: supports bulk cancellation without per-item prompts when skipConfirm=true.
+   E-WALLET + TO_SHIP: refund balance + insert into ewallet.cancelled_ewallet_receipt.
+   COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
+async function cancelOrder(purchaseId: string, skipConfirm = false) {
+  if (!skipConfirm && !confirm('Cancel this order?')) return
   const order = orders.value.find(o => o.id === purchaseId)
   if (!order) {
     await updateStatus(purchaseId, STATUS.CANCELLED)
@@ -911,21 +1224,26 @@ async function cancelOrder(purchaseId: string) {
           .eq('id', userId)
 
         if (balErr) {
-          console.error('[cancel ewallet refund] balance update failed:', balErr.message)
+          console.error('[cancel ewallet refund] balance update failed]', balErr.message)
         }
       }
 
+      // Insert into ewallet.cancelled_ewallet_receipt (bulk-friendly; includes reference_number)
       try {
-        const { error: recErr } = await supabase
+        const { error: ewRecErr } = await supabase
           .schema('ewallet')
-          .from('cancelled_receipt')
-          .insert({ purchase_id: purchaseId })
+          .from('cancelled_ewallet_receipt')
+          .insert({
+            amount: Number(refundAmount.toFixed(2)),
+            reference_number: order.reference_number || null,
+            purchase_id: purchaseId,
+          })
 
-        if (recErr) {
-          console.error('[cancelled_receipt insert failed]', recErr.message)
+        if (ewRecErr) {
+          console.error('[cancelled_ewallet_receipt insert failed]', ewRecErr.message)
         }
       } catch (e: any) {
-        console.error('[cancelled_receipt insert exception]', e?.message || e)
+        console.error('[cancelled_ewallet_receipt insert exception]', e?.message || e)
       }
 
       order.status = STATUS.CANCELLED
@@ -945,11 +1263,15 @@ async function cancelOrder(purchaseId: string) {
         return
       }
 
+      // Insert COD cancelled receipt AND include reference_number (requested)
       try {
         const { error: recErr } = await supabase
           .schema('ewallet')
           .from('cancelled_receipt')
-          .insert({ purchase_id: purchaseId })
+          .insert({
+            purchase_id: purchaseId,
+            reference_number: order.reference_number || null,
+          })
 
         if (recErr) {
           console.error('[cancelled_receipt insert failed - COD]', recErr.message)
@@ -983,7 +1305,6 @@ async function approveOrder(order: ViewOrder) {
       return
     }
 
-    // Move purchase to "to ship"
     const { error: upErr } = await supabase
       .schema('games')
       .from('purchases')
@@ -995,18 +1316,15 @@ async function approveOrder(order: ViewOrder) {
       return
     }
 
-    // Local reflect
     const row = orders.value.find(o => o.id === purchaseId)
     if (row) row.status = STATUS.TO_SHIP
 
-    // If COD, insert into ewallet.order_receipt after approval
     const isCOD = String(order.payment_method || '').toLowerCase() === 'cod'
     if (isCOD) {
       const item = order.items[0]
       if (item) {
         const amount = Number(item.price_each || 0) * Number(item.qty || 1)
 
-        // CHANGED: insert using reference_number (FK to games.purchases.reference_number)
         const { error: recErr } = await supabase
           .schema('ewallet')
           .from('order_receipt')
@@ -1193,8 +1511,9 @@ async function markGroupAsShipped(g: ViewGroup) {
 }
 async function cancelGroup(g: ViewGroup) {
   if (!confirm('Cancel all purchases under this reference?')) return
+  // Bulk cancel — no per-item confirmations:
   for (const o of g.purchases) {
-    await cancelOrder(o.id)
+    await cancelOrder(o.id, true /* skipConfirm */)
   }
 }
 
@@ -1231,6 +1550,13 @@ function goTo(p: number) {
   }
 }
 
+/* NEW: jump to Return/Refund tab */
+function viewReturnDetails() {
+  statusFilter.value = STATUS.RETURN_REFUND
+  rrStatusFilter.value = 'all'
+  loadOrders(true)
+}
+
 /* ---------- Init ---------- */
 onMounted(() => {
   loadOrders(true)
@@ -1259,4 +1585,24 @@ onMounted(() => {
   overflow: hidden;
 }
 .object-fit-cover { object-fit: cover; }
+
+/* Hide messy descriptions but keep original node intact */
+.order-desc { display: none !important; }
+
+/* Ellipsis for long titles in card body */
+.title-ellipsis {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tight badges for item metadata */
+.badge-tight {
+  font-weight: 500;
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  line-height: 1;
+}
 </style>

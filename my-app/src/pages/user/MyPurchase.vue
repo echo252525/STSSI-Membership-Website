@@ -32,8 +32,8 @@
       </li>
     </ul>
 
-    <!-- Return/Refund Subtabs -->
-    <div v-if="activeTab === STATUS.RETURN_REFUND" class="mb-3">
+    <!-- Return/Refund Subtabs (hidden but kept) -->
+    <div v-if="false && activeTab === STATUS.RETURN_REFUND" class="mb-3">
       <ul class="nav nav-pills flex-wrap gap-2">
         <li v-for="st in rrSubtabs" :key="st.value" class="nav-item">
           <button
@@ -57,22 +57,16 @@
     <!-- Empty -->
     <div v-else-if="groupedFiltered.length === 0" class="text-center text-muted py-5">
       <i class="bi bi-bag-x" style="font-size: 1.6rem"></i>
-      <div class="mt-2">
-        No purchases found for “{{ tabLabel(activeTab) }}”<span
-          v-if="activeTab === STATUS.RETURN_REFUND"
-        >
-          · {{ rrTabLabel(activeRR) }}</span
-        >.
-      </div>
+      <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”.</div>
       <RouterLink :to="{ name: 'user.shop' }" class="btn btn-primary btn-sm mt-3">
         Go to Shop
       </RouterLink>
     </div>
 
-    <!-- ====== NEW: Grouped Purchases list (default) ====== -->
+    <!-- ====== Grouped Purchases list ====== -->
     <div v-else-if="showGrouped" class="row g-3">
       <div v-for="g in groupedFiltered" :key="g.ref" class="col-12">
-        <div class="card shadow-sm rounded-4">
+        <div class="card shadow-sm rounded-4" :class="{ 'border-warning': g.ref === highlightRef }">
           <div class="card-body">
             <!-- Group header -->
             <div class="d-flex flex-wrap align-items-center justify-content-between">
@@ -81,22 +75,12 @@
                   <span class="text-muted">Ref#</span>
                   <span class="ms-1">{{ g.ref }}</span>
                 </div>
-                <div class="small text-muted">
-                  {{ formatDate(g.created_at) }}
-                </div>
+                <div class="small text-muted">Updated: {{ formatDate(g.updated_at) }}</div>
               </div>
 
               <div class="d-flex align-items-center gap-2">
                 <span class="badge" :class="statusClass(g.status)">
-                  {{ prettyStatus(g.status) }}
-                </span>
-                <!-- Show RR status chip when on Return/Refund tab -->
-                <span
-                  v-if="activeTab === STATUS.RETURN_REFUND && g.rrBadge"
-                  class="badge text-bg-light border"
-                  :title="'RR status: ' + rrTabLabel(g.rrBadge)"
-                >
-                  {{ rrTabLabel(g.rrBadge) }}
+                  {{ prettyStatusWithRR(g.status, undefined, g) }}
                 </span>
               </div>
             </div>
@@ -122,21 +106,47 @@
                     <i class="bi bi-image"></i>
                   </div>
                 </div>
+
                 <div class="flex-grow-1">
-                  <div class="fw-semibold text-truncate" :title="productName(it)">
-                    {{ productName(it) }}
+                  <div class="d-flex align-items-center justify-content-between gap-2">
+                    <div
+                      class="fw-semibold title-ellipsis"
+                      :title="productName(it)"
+                      :class="{ 'text-danger': !!rrStatus(it.id) }"
+                    >
+                      {{ productName(it) }}
+                    </div>
+                    <div class="text-end ms-2">
+                      <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">
+                        ₱ {{ number(productPrice(it)) }}
+                      </div>
+                    </div>
                   </div>
-                  <div class="text-muted small text-truncate" v-if="productDesc(it)">
-                    {{ productDesc(it) }}
+
+                  <!-- Two badges: status + mode of payment -->
+                  <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
+                    <span class="badge" :class="statusClass(it.status)">
+                      {{ prettyStatusWithRR(it.status, it.id) }}
+                    </span>
+                    <span class="badge text-bg-secondary-subtle border">
+                      {{ prettyModeOfPayment(it.modeofpayment) }}
+                    </span>
                   </div>
                 </div>
+
+                <!-- View RR details (disabled on RR tab) -->
                 <div class="text-end">
-                  <div class="fw-semibold">₱ {{ number(productPrice(it)) }}</div>
-                  <div class="small text-muted">Qty: {{ Number(it.qty ?? 1) }}</div>
-                  <div class="small">
-                    Line: ₱ {{ number(Number(it.qty ?? 1) * Number(productPrice(it) || 0)) }}
+                  <div class="mt-2" v-if="rrStatus(it.id) && activeTab !== STATUS.RETURN_REFUND">
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      @click="goToReturnTab(g.ref)"
+                      title="View return details for this reference"
+                    >
+                      View return details
+                    </button>
                   </div>
                 </div>
+                <!-- NOTE: per-item Order Received button removed -->
               </div>
             </div>
 
@@ -170,59 +180,56 @@
                   <!-- intentionally empty -->
                 </template>
 
-                <!-- to recieve: Return/Refund group & Order Received group -->
-                <template v-else-if="g.status === STATUS.TO_RECEIVE">
+                <!-- RETURN/REFUND tab: show 'Refund Other Product' only when there are items still TO_RECEIVE -->
+                <template
+                  v-else-if="
+                    activeTab === STATUS.RETURN_REFUND &&
+                    g.items.some((it) => it.status === STATUS.TO_RECEIVE)
+                  "
+                >
+                  <button
+                    class="btn btn-outline-warning btn-sm"
+                    @click="goRefundOtherProducts(g)"
+                    title="Go to To Receive tab to refund remaining product(s)"
+                  >
+                    Refund Other Product
+                  </button>
+                  <!-- No Order Received button in RR tab -->
+                </template>
+
+                <!-- to receive (on any tab EXCEPT RR tab): RR + Order Received group/N -->
+                <template v-else-if="g.items.some((it) => it.status === STATUS.TO_RECEIVE)">
                   <button class="btn btn-outline-warning btn-sm" @click="openReturnRefundGroup(g)">
                     Return/Refund
                   </button>
                   <button
                     class="btn btn-success btn-sm"
-                    :disabled="groupBusy.received[g.ref]"
+                    :disabled="groupBusy.received[g.ref] || groupToReceiveCount(g) === 0"
                     @click="orderReceivedGroup(g)"
-                    title="Mark all as received"
+                    :title="
+                      groupAllToReceive(g)
+                        ? 'Mark all as received'
+                        : 'Mark remaining To Receive as received'
+                    "
                   >
                     <span
                       v-if="groupBusy.received[g.ref]"
                       class="spinner-border spinner-border-sm me-1"
                     ></span>
-                    Order Received
+                    {{
+                      groupAllToReceive(g)
+                        ? 'Order Received (All)'
+                        : 'Order Received (' + groupToReceiveCount(g) + ')'
+                    }}
                   </button>
                 </template>
 
-                <!-- completed: NO BUTTONS -->
-                <template v-else-if="g.status === STATUS.COMPLETED">
-                  <!-- intentionally empty -->
-                </template>
-
-                <!-- return/refund: Pending => Cancel RR group -->
-                <button
-                  v-else-if="g.status === STATUS.RETURN_REFUND && g.rrBadge === 'pending'"
-                  class="btn btn-outline-danger btn-sm"
-                  :disabled="groupBusy.rrCancel[g.ref]"
-                  @click="cancelReturnRefundGroup(g)"
-                >
-                  <span
-                    v-if="groupBusy.rrCancel[g.ref]"
-                    class="spinner-border spinner-border-sm me-1"
-                  ></span>
-                  Cancel
-                </button>
-
-                <!-- return/refund: Approved/Completed/Rejected => NO BUTTON -->
-                <template v-else-if="g.status === STATUS.RETURN_REFUND">
-                  <!-- intentionally empty -->
-                </template>
-
-                <!-- cancelled: NO BUTTON -->
-                <template v-else-if="g.status === STATUS.CANCELLED">
-                  <!-- intentionally empty -->
-                </template>
+                <!-- completed / cancelled: no extra buttons -->
               </div>
             </div>
 
             <!-- Footer (timestamps) -->
             <div class="mt-3 small text-muted d-flex flex-wrap gap-3">
-              <span>Created: {{ formatDate(g.created_at) }}</span>
               <span>Updated: {{ formatDate(g.updated_at) }}</span>
             </div>
           </div>
@@ -231,7 +238,7 @@
       <!-- /group cards -->
     </div>
 
-    <!-- ====== Original Purchases list (kept, fallback) ====== -->
+    <!-- ====== Fallback list (kept); per-item Order Received removed ====== -->
     <div v-else class="row g-3">
       <div v-for="p in filtered" :key="p.id" class="col-12">
         <div class="card shadow-sm rounded-4">
@@ -242,28 +249,18 @@
                   <span class="text-muted">Ref#</span>
                   <span class="ms-1">{{ p.reference_number || shortId(p.id) }}</span>
                 </div>
-                <div class="small text-muted">
-                  {{ formatDate(p.created_at) }}
-                </div>
+                <div class="small text-muted">Updated: {{ formatDate(p.updated_at) }}</div>
               </div>
 
               <div class="d-flex align-items-center gap-2">
                 <span class="badge" :class="statusClass(p.status)">
-                  {{ prettyStatus(p.status) }}
-                </span>
-                <!-- Show RR status chip when on Return/Refund tab -->
-                <span
-                  v-if="activeTab === STATUS.RETURN_REFUND && rrStatus(p.id)"
-                  class="badge text-bg-light border"
-                  :title="'RR status: ' + rrTabLabel(rrStatus(p.id)!)"
-                >
-                  {{ rrTabLabel(rrStatus(p.id)!) }}
+                  {{ prettyStatusWithRR(p.status, p.id) }}
                 </span>
               </div>
             </div>
 
             <div class="mt-3 row g-3">
-              <!-- Product tile (Shopee-like) -->
+              <!-- Product tile -->
               <div class="col-12">
                 <div class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle">
                   <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
@@ -281,16 +278,42 @@
                     </div>
                   </div>
                   <div class="flex-grow-1">
-                    <div class="fw-semibold text-truncate" :title="productName(p)">
-                      {{ productName(p) }}
+                    <div class="d-flex align-items-center justify-content-between gap-2">
+                      <div
+                        class="fw-semibold title-ellipsis"
+                        :title="productName(p)"
+                        :class="{ 'text-danger': !!rrStatus(p.id) }"
+                      >
+                        {{ productName(p) }}
+                      </div>
+                      <div class="text-end ms-2">
+                        <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">
+                          ₱ {{ number(productPrice(p)) }}
+                        </div>
+                      </div>
                     </div>
-                    <div class="text-muted small text-truncate" v-if="productDesc(p)">
-                      {{ productDesc(p) }}
+
+                    <!-- Two badges -->
+                    <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
+                      <span class="badge" :class="statusClass(p.status)">
+                        {{ prettyStatusWithRR(p.status, p.id) }}
+                      </span>
+                      <span class="badge text-bg-secondary-subtle border">
+                        {{ prettyModeOfPayment(p.modeofpayment) }}
+                      </span>
                     </div>
                   </div>
+
+                  <!-- View return details -->
                   <div class="text-end">
-                    <div class="fw-semibold">₱ {{ number(productPrice(p)) }}</div>
-                    <div class="small text-muted">Qty: {{ Number(p.qty ?? 1) }}</div>
+                    <div class="mt-2" v-if="rrStatus(p.id) && activeTab !== STATUS.RETURN_REFUND">
+                      <button
+                        class="btn btn-outline-danger btn-sm"
+                        @click="goToReturnTab(p.reference_number || p.id)"
+                      >
+                        View return details
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -298,7 +321,6 @@
               <!-- Actions -->
               <div class="col-12 d-flex align-items-center justify-content-end">
                 <div class="d-flex gap-2 flex-wrap">
-                  <!-- to pay: show Cancel -->
                   <button
                     v-if="p.status === STATUS.TO_PAY"
                     class="btn btn-outline-danger btn-sm"
@@ -312,71 +334,30 @@
                     Cancel
                   </button>
 
-                  <!-- to ship: NO BUTTONS -->
-                  <template v-else-if="p.status === STATUS.TO_SHIP">
-                    <!-- intentionally empty -->
-                  </template>
+                  <template v-else-if="p.status === STATUS.TO_SHIP"> </template>
 
-                  <!-- to recieve: show BOTH Return/Refund and Order Received -->
                   <template v-else-if="p.status === STATUS.TO_RECEIVE">
                     <button class="btn btn-outline-warning btn-sm" @click="openReturnRefund(p)">
                       Return/Refund
                     </button>
-                    <button
-                      class="btn btn-success btn-sm"
-                      :disabled="busy.received[p.id]"
-                      @click="orderReceived(p.id)"
-                      title="Mark as received"
-                    >
-                      <span
-                        v-if="busy.received[p.id]"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
-                      Order Received
-                    </button>
+                    <!-- per-item Order Received removed -->
                   </template>
 
-                  <!-- completed: NO BUTTONS -->
-                  <template v-else-if="p.status === STATUS.COMPLETED">
-                    <!-- intentionally empty -->
-                  </template>
+                  <template v-else-if="p.status === STATUS.COMPLETED"> </template>
 
-                  <!-- return/refund: Pending => Cancel RR -->
-                  <button
-                    v-else-if="p.status === STATUS.RETURN_REFUND && rrStatus(p.id) === 'pending'"
-                    class="btn btn-outline-danger btn-sm"
-                    :disabled="busy.rrCancel[p.id]"
-                    @click="cancelReturnRefund(p)"
-                  >
-                    <span
-                      v-if="busy.rrCancel[p.id]"
-                      class="spinner-border spinner-border-sm me-1"
-                    ></span>
-                    Cancel
-                  </button>
+                  <template v-else-if="p.status === STATUS.RETURN_REFUND"> </template>
 
-                  <!-- return/refund: Approved/Completed/Rejected => NO BUTTON -->
-                  <template v-else-if="p.status === STATUS.RETURN_REFUND">
-                    <!-- intentionally empty -->
-                  </template>
-
-                  <!-- cancelled: NO BUTTON -->
-                  <template v-else-if="p.status === STATUS.CANCELLED">
-                    <!-- intentionally empty -->
-                  </template>
+                  <template v-else-if="p.status === STATUS.CANCELLED"> </template>
                 </div>
               </div>
             </div>
 
-            <!-- Footer (timestamps) -->
             <div class="mt-3 small text-muted d-flex flex-wrap gap-3">
-              <span>Created: {{ formatDate(p.created_at) }}</span>
               <span>Updated: {{ formatDate(p.updated_at) }}</span>
             </div>
           </div>
         </div>
       </div>
-
       <!-- (Optional pagination spot) -->
     </div>
 
@@ -389,14 +370,13 @@
         </div>
 
         <div class="card-body">
-          <!-- Group/Purchase preview -->
+          <!-- Group preview -->
           <div v-if="rrGroup" class="mb-3">
             <div class="d-flex align-items-center justify-content-between">
               <div class="fw-semibold">Ref# {{ rrGroup.ref }}</div>
-              <div class="small text-muted">
-                {{ formatDate(rrGroup.created_at) }}
-              </div>
+              <div class="small text-muted">Updated: {{ formatDate(rrGroup.updated_at) }}</div>
             </div>
+
             <!-- Select items inside this group -->
             <div class="mt-2 border rounded p-2">
               <div class="d-flex align-items-center justify-content-between mb-2">
@@ -412,51 +392,104 @@
                   <label for="rrSelAll" class="form-check-label small">Select All</label>
                 </div>
               </div>
+
               <div class="vstack gap-2">
-                <label
+                <div
                   v-for="it in rrGroup.items"
                   :key="'rr-' + it.id"
-                  class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle"
+                  class="border rounded p-2 bg-light-subtle"
                 >
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    :value="it.id"
-                    v-model="rrForm.purchase_ids"
-                    @change="syncRRSelectAll"
-                  />
-                  <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
-                    <img
-                      v-if="productThumb(it)"
-                      :src="productThumb(it)"
-                      :alt="productName(it)"
-                      class="w-100 h-100 object-fit-cover rounded"
+                  <label class="d-flex align-items-center gap-3">
+                    <input
+                      v-if="isSelectableForRR(it)"
+                      class="form-check-input"
+                      type="checkbox"
+                      :value="it.id"
+                      v-model="rrForm.purchase_ids"
+                      @change="onToggleRRItem(it.id)"
                     />
-                    <div
-                      v-else
-                      class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                    >
-                      <i class="bi bi-image"></i>
+                    <input v-else class="form-check-input" type="checkbox" checked disabled />
+                    <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+                      <img
+                        v-if="productThumb(it)"
+                        :src="productThumb(it)"
+                        :alt="productName(it)"
+                        class="w-100 h-100 object-fit-cover rounded"
+                      />
+                      <div
+                        v-else
+                        class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                      >
+                        <i class="bi bi-image"></i>
+                      </div>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold title-ellipsis" :title="productName(it)">
+                        {{ productName(it) }}
+                      </div>
+                      <div v-if="!!rrStatus(it.id)" class="small text-muted">
+                        Already submitted • {{ capitalize(rrStatus(it.id)!) }}
+                      </div>
+                    </div>
+                    <div class="text-end">
+                      <div class="small fw-semibold">₱ {{ number(productPrice(it)) }}</div>
+                    </div>
+                  </label>
+
+                  <!-- Locked, prefilled -->
+                  <div v-if="!!rrStatus(it.id)" class="mt-2">
+                    <div class="row g-2">
+                      <div class="col-12 col-md-5">
+                        <label class="form-label small mb-1">Reason</label>
+                        <input
+                          class="form-control form-control-sm"
+                          :value="prefillReason(it.id)"
+                          disabled
+                        />
+                      </div>
+                      <div class="col-12 col-md-7">
+                        <label class="form-label small mb-1">Details</label>
+                        <textarea
+                          class="form-control form-control-sm"
+                          rows="2"
+                          :value="prefillDetails(it.id)"
+                          disabled
+                        ></textarea>
+                      </div>
                     </div>
                   </div>
-                  <div class="flex-grow-1">
-                    <div class="fw-semibold text-truncate" :title="productName(it)">
-                      {{ productName(it) }}
+
+                  <!-- Editable for newly selected -->
+                  <div v-else-if="rrForm.purchase_ids.includes(it.id)" class="mt-2">
+                    <div class="row g-2">
+                      <div class="col-12 col-md-5">
+                        <label class="form-label small mb-1">Reason</label>
+                        <select
+                          class="form-select form-select-sm"
+                          v-model.trim="rrItemForms[it.id].reason"
+                          required
+                        >
+                          <option value="" disabled>Select a reason</option>
+                          <option v-for="r in rrReasons" :key="r" :value="r">{{ r }}</option>
+                        </select>
+                      </div>
+                      <div class="col-12 col-md-7">
+                        <label class="form-label small mb-1">Details (optional)</label>
+                        <textarea
+                          class="form-control form-control-sm"
+                          rows="2"
+                          v-model.trim="rrItemForms[it.id].details"
+                          placeholder="Describe the issue…"
+                        ></textarea>
+                      </div>
                     </div>
-                    <div class="text-muted small">Qty: {{ Number(it.qty ?? 1) }}</div>
                   </div>
-                  <div class="text-end">
-                    <div class="small">₱ {{ number(productPrice(it)) }}</div>
-                    <div class="small text-muted">
-                      Line: ₱ {{ number(Number(it.qty ?? 1) * Number(productPrice(it) || 0)) }}
-                    </div>
-                  </div>
-                </label>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- (Kept) Purchase + Product preview (single) -->
+          <!-- Single purchase RR (kept) -->
           <div v-else-if="rrPurchase" class="d-flex align-items-center gap-3 mb-3">
             <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
               <img
@@ -473,37 +506,18 @@
               </div>
             </div>
             <div class="flex-grow-1">
-              <div class="fw-semibold text-truncate">{{ productName(rrPurchase) }}</div>
+              <div class="fw-semibold title-ellipsis">{{ productName(rrPurchase) }}</div>
               <div class="text-muted small">
                 Ref# {{ rrPurchase.reference_number || shortId(rrPurchase.id) }}
               </div>
             </div>
             <div class="text-end">
               <div class="fw-semibold">₱ {{ number(productPrice(rrPurchase)) }}</div>
-              <div class="small text-muted">Qty: {{ Number(rrPurchase.qty ?? 1) }}</div>
             </div>
           </div>
 
           <form @submit.prevent="submitReturnRefund">
             <div class="row g-3">
-              <div class="col-12">
-                <label class="form-label">Reason</label>
-                <select v-model.trim="rrForm.reason" class="form-select" required>
-                  <option value="" disabled>Select a reason</option>
-                  <option v-for="r in rrReasons" :key="r" :value="r">{{ r }}</option>
-                </select>
-              </div>
-
-              <div class="col-12">
-                <label class="form-label">Details (optional)</label>
-                <textarea
-                  v-model.trim="rrForm.details"
-                  class="form-control"
-                  rows="4"
-                  placeholder="Describe the issue (e.g., defective on arrival, wrong color/size, missing parts)."
-                ></textarea>
-              </div>
-
               <!-- Pickup / Return Date -->
               <div class="col-12">
                 <label class="form-label">Pickup Date</label>
@@ -536,6 +550,27 @@
                 </div>
                 <div class="form-text">Select a quick option or pick an exact date.</div>
               </div>
+
+              <!-- Single path -->
+              <template v-if="rrPurchase">
+                <div class="col-12">
+                  <label class="form-label">Reason</label>
+                  <select v-model.trim="rrForm.reason" class="form-select" required>
+                    <option value="" disabled>Select a reason</option>
+                    <option v-for="r in rrReasons" :key="r" :value="r">{{ r }}</option>
+                  </select>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label">Details (optional)</label>
+                  <textarea
+                    v-model.trim="rrForm.details"
+                    class="form-control"
+                    rows="4"
+                    placeholder="Describe the issue (e.g., defective on arrival, wrong color/size, missing parts)."
+                  ></textarea>
+                </div>
+              </template>
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
@@ -545,13 +580,13 @@
               <button
                 type="submit"
                 class="btn btn-warning"
-                :disabled="Boolean(
-  rrBusy ||
-  !rrForm.reason ||
-  !rrForm.pickup_date ||
-  (!!rrGroup && rrForm.purchase_ids.length === 0)
-)"
-
+                :disabled="
+                  Boolean(
+                    rrBusy ||
+                      !rrForm.pickup_date ||
+                      (!!rrGroup && (rrForm.purchase_ids.length === 0 || !allSelectedHaveReasons)),
+                  )
+                "
               >
                 <span v-if="rrBusy" class="spinner-border spinner-border-sm me-2"></span>
                 Submit
@@ -566,7 +601,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, reactive } from 'vue'
+import { onMounted, ref, computed, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -574,7 +609,7 @@ type AnyRec = Record<string, any>
 
 const router = useRouter()
 
-/** Enum constants (match DB exactly) */
+/** Enum constants */
 const STATUS = {
   TO_PAY: 'to pay',
   TO_SHIP: 'to ship',
@@ -583,11 +618,9 @@ const STATUS = {
   RETURN_REFUND: 'return/refund',
   CANCELLED: 'cancelled',
 } as const
-
-/** Strong union type derived from STATUS */
 type Status = (typeof STATUS)[keyof typeof STATUS]
 
-/** Tabs (Shopee-like) */
+/** Tabs */
 const tabs = [
   { label: 'To Pay', value: STATUS.TO_PAY },
   { label: 'To Ship', value: STATUS.TO_SHIP },
@@ -597,9 +630,9 @@ const tabs = [
   { label: 'Cancelled', value: STATUS.CANCELLED },
 ] as const
 
-const activeTab = ref<(typeof tabs)[number]['value']>(STATUS.TO_SHIP) // default for COD shops
+const activeTab = ref<(typeof tabs)[number]['value']>(STATUS.TO_SHIP)
 
-/** Return/Refund Subtabs */
+/** RR states */
 type RRState = 'pending' | 'approved' | 'completed' | 'rejected'
 const rrSubtabs: Array<{ label: string; value: RRState }> = [
   { label: 'Pending', value: 'pending' },
@@ -609,7 +642,7 @@ const rrSubtabs: Array<{ label: string; value: RRState }> = [
 ]
 const activeRR = ref<RRState>('pending')
 
-/** Show grouped mode (kept original list as fallback) */
+/** Mode flags */
 const showGrouped = true
 
 /** UI state */
@@ -624,7 +657,6 @@ const busy = ref<{
   rrCancel: {},
   received: {},
 })
-/** NEW: group-level busy flags */
 const groupBusy = reactive<{
   cancel: Record<string, boolean>
   rrCancel: Record<string, boolean>
@@ -634,10 +666,11 @@ const groupBusy = reactive<{
   rrCancel: {},
   received: {},
 })
+const highlightRef = ref<string>('')
 
 const purchases = ref<Array<AnyRec>>([])
 
-/* ---------- Product lookup + image signing (Shopee-style tile) ---------- */
+/* ---------- Product lookup + image signing ---------- */
 type Product = {
   id: string
   name: string
@@ -645,14 +678,12 @@ type Product = {
   price: number | string
   product_url: string[] | null
 }
-
 const productsMap = reactive<Record<string, Product>>({})
 const signedUrlMap: Record<string, string> = reactive({})
 const signingBusy: Record<string, boolean> = reactive({})
 
 function toArray(u: any): string[] {
-  if (!u) return []
-  return Array.isArray(u) ? u.filter(Boolean) : [u]
+  return !u ? [] : Array.isArray(u) ? u.filter(Boolean) : [u]
 }
 function firstUrl(u: string[] | null): string {
   const arr = toArray(u)
@@ -665,14 +696,10 @@ function number(n: number | string | null | undefined) {
   return Number(n ?? 0).toFixed(2)
 }
 function productOf(purchase: AnyRec): Product | undefined {
-  const id = purchase?.product_id
-  return id ? productsMap[id] : undefined
+  return purchase?.product_id ? productsMap[purchase.product_id] : undefined
 }
 function productName(purchase: AnyRec): string {
   return productOf(purchase)?.name ?? purchase?.product_id ?? '—'
-}
-function productDesc(purchase: AnyRec): string {
-  return productOf(purchase)?.description ?? ''
 }
 function productPrice(purchase: AnyRec): number {
   const raw = productOf(purchase)?.price
@@ -699,28 +726,29 @@ function productThumb(purchase: AnyRec): string {
 }
 
 /* ---------------- Return/Refund store (per purchase) ---------------- */
-type RRRow = { id: string; purchase_id: string; status: RRState; created_at?: string }
+type RRRow = {
+  id: string
+  purchase_id: string
+  status: RRState
+  reason?: string | null
+  details?: string | null
+  created_at?: string
+}
 const rrByPurchase = reactive<Record<string, RRRow>>({})
 
 function rrStatus(purchaseId: string): RRState | undefined {
   return rrByPurchase[purchaseId]?.status
 }
-
-function rrTabLabel(v: RRState) {
-  const m: Record<RRState, string> = {
-    pending: 'Pending',
-    approved: 'Approved',
-    completed: 'Completed',
-    rejected: 'Rejected',
-  }
-  return m[v] || v
+function prefillReason(purchaseId: string): string {
+  return (rrByPurchase[purchaseId]?.reason || '') as string
+}
+function prefillDetails(purchaseId: string): string {
+  return (rrByPurchase[purchaseId]?.details || '') as string
 }
 
 /* ---------------- Auto-complete "to receive" after 7 days ---------------- */
 async function autocloseOverdue(uid: string) {
-  const now = new Date()
-  const threshold = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
+  const threshold = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
   const { data: updatedRows, error } = await supabase
     .schema('games')
     .from('purchases')
@@ -729,18 +757,14 @@ async function autocloseOverdue(uid: string) {
     .eq('status', STATUS.TO_RECEIVE)
     .lt('created_at', threshold)
     .select('id')
-
   if (error) return
-
   if (Array.isArray(updatedRows) && updatedRows.length) {
     const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
-    for (const row of purchases.value) {
-      if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
-    }
+    for (const row of purchases.value) if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
   }
 }
 
-/** Load all purchases for the signed-in user + related products + RR rows */
+/** Load all purchases + products + RR rows */
 async function loadPurchases() {
   busy.value.load = true
   try {
@@ -752,14 +776,14 @@ async function loadPurchases() {
       return
     }
 
-    // Purchases (include qty!)
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id, user_id, product_id, reference_number, status, qty, created_at, updated_at')
+      .select(
+        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at',
+      )
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
-
     if (error) {
       purchases.value = []
       Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
@@ -767,18 +791,15 @@ async function loadPurchases() {
     }
     purchases.value = Array.isArray(data) ? data : []
 
-    // Auto-complete any overdue "to receive" -> "completed"
     await autocloseOverdue(uid)
 
-    // Products for visible purchases
     const ids = Array.from(new Set(purchases.value.map((r) => r.product_id).filter(Boolean)))
-    if (ids.length > 0) {
+    if (ids.length) {
       const { data: prows, error: perr } = await supabase
         .schema('games')
         .from('products')
-        .select('id, name, description, price, product_url')
+        .select('id,name,description,price,product_url')
         .in('id', ids)
-
       if (!perr && Array.isArray(prows)) {
         for (const pr of prows as Product[]) {
           productsMap[pr.id] = {
@@ -792,18 +813,16 @@ async function loadPurchases() {
       }
     }
 
-    // RR rows for this user, limited to purchases currently on list
     const purchaseIds = purchases.value.map((r) => r.id)
     Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
-    if (purchaseIds.length > 0) {
+    if (purchaseIds.length) {
       const { data: rrRows, error: rrErr } = await supabase
         .schema('games')
         .from('return_refunds')
-        .select('id, purchase_id, status, created_at')
+        .select('id,purchase_id,status,reason,details,created_at')
         .eq('user_id', uid)
         .in('purchase_id', purchaseIds)
         .order('created_at', { ascending: false })
-
       if (!rrErr && Array.isArray(rrRows)) {
         for (const row of rrRows as RRRow[]) {
           if (!rrByPurchase[row.purchase_id]) {
@@ -811,15 +830,14 @@ async function loadPurchases() {
               id: row.id,
               purchase_id: row.purchase_id,
               status: (row.status as RRState) || 'pending',
+              reason: row.reason ?? null,
+              details: row.details ?? null,
               created_at: row.created_at,
             }
           }
         }
       }
     }
-  } catch {
-    purchases.value = []
-    Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
   } finally {
     busy.value.load = false
   }
@@ -831,11 +849,10 @@ type Group = {
   items: AnyRec[]
   created_at: string
   updated_at: string
-  status: Status           // <- union type
+  status: Status
   rrBadge?: RRState
 }
 
-/** Priority list typed as Status[] */
 const statusPriority: Status[] = [
   STATUS.RETURN_REFUND,
   STATUS.TO_PAY,
@@ -860,14 +877,12 @@ function buildGroups(rows: AnyRec[]): Group[] {
     }
     const g = map.get(ref)!
     g.items.push(r)
-    // timestamps
     if (new Date(r.created_at).getTime() < new Date(g.created_at).getTime())
       g.created_at = r.created_at
     if (new Date(r.updated_at).getTime() > new Date(g.updated_at).getTime())
       g.updated_at = r.updated_at
   }
 
-  // compute dominant status and rrBadge
   for (const g of map.values()) {
     const statuses = new Set<Status>(g.items.map((i) => i.status as Status))
     let dom: Status = STATUS.COMPLETED
@@ -879,82 +894,95 @@ function buildGroups(rows: AnyRec[]): Group[] {
     }
     g.status = dom
 
-    if (dom === STATUS.RETURN_REFUND) {
-      // if RR, show a chip representing the most "dominant" RR state in group
-      // priority: pending > approved > completed > rejected
+    if (g.items.some((it) => it.status === STATUS.RETURN_REFUND)) {
       const rrPriority: RRState[] = ['pending', 'approved', 'completed', 'rejected']
-      let badge: RRState | undefined
       for (const st of rrPriority) {
         if (g.items.some((it) => rrStatus(it.id) === st)) {
-          badge = st
+          g.rrBadge = st
           break
         }
       }
-      g.rrBadge = badge
     }
   }
 
-  // sort by created_at desc (same as purchases)
   return Array.from(map.values()).sort(
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
 }
 
-/** Counts per tab — now based on groups (simple Record<string, number> to avoid over-typing) */
+/** Filter groups per tab */
+function groupsForTab(tab: Status, groups: Group[]) {
+  if (tab === STATUS.TO_RECEIVE)
+    return groups.filter((g) => g.items.some((it) => it.status === STATUS.TO_RECEIVE))
+  if (tab === STATUS.RETURN_REFUND)
+    return groups.filter((g) => g.items.some((it) => it.status === STATUS.RETURN_REFUND))
+  if (tab === STATUS.COMPLETED)
+    return groups.filter((g) => g.items.some((it) => it.status === STATUS.COMPLETED))
+  return groups.filter((g) => g.status === tab)
+}
+
 const counts = computed<Record<string, number>>(() => {
   const out: Record<string, number> = {}
   for (const t of tabs) out[t.value] = 0
   const groups = buildGroups(purchases.value)
-  for (const g of groups) {
-    const k = g.status
-    if (k in out) out[k]++
-  }
+  for (const t of tabs) out[t.value] = groupsForTab(t.value as Status, groups).length
   return out
 })
 
-/** RR Counts (within Return/Refund tab) — based on groups */
 const rrCounts = computed<Record<RRState, number>>(() => {
   const init: Record<RRState, number> = { pending: 0, approved: 0, completed: 0, rejected: 0 }
-  const groups = buildGroups(purchases.value).filter((g) => g.status === STATUS.RETURN_REFUND)
+  const groups = buildGroups(purchases.value).filter((g) =>
+    g.items.some((it) => it.status === STATUS.RETURN_REFUND),
+  )
   for (const g of groups) {
-    const badge = g.rrBadge
-    if (badge) init[badge]++
+    const st = g.rrBadge
+    if (st) init[st]++
   }
   return init
 })
 
-/** Original per-row filtered (kept for fallback block) */
-const filtered = computed(() => {
-  const base = purchases.value.filter((r) => (r.status as Status) === activeTab.value)
-  if (activeTab.value !== STATUS.RETURN_REFUND) return base
-  return base.filter((r) => rrStatus(r.id) === activeRR.value)
-})
-
-/** NEW: Grouped filtered for main view */
-const groupedFiltered = computed<Group[]>(() => {
-  let groups = buildGroups(purchases.value).filter((g) => g.status === activeTab.value)
-  if (activeTab.value === STATUS.RETURN_REFUND) {
-    groups = groups.filter((g) => g.rrBadge === activeRR.value)
-  }
-  return groups
-})
+const filtered = computed(() =>
+  purchases.value.filter((r) => (r.status as Status) === activeTab.value),
+)
+const groupedFiltered = computed<Group[]>(() =>
+  groupsForTab(activeTab.value as Status, buildGroups(purchases.value)),
+)
 
 /** Helpers */
 const formatDate = (iso?: string) => {
   if (!iso) return '—'
   try {
-    return new Date(iso).toLocaleString()
+    const d = new Date(iso)
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]
+    const mon = months[d.getMonth()],
+      day = d.getDate(),
+      year = d.getFullYear()
+    let h = d.getHours()
+    const ampm = h >= 12 ? 'PM' : 'AM'
+    h = h % 12
+    if (h === 0) h = 12
+    return `${mon} ${day}, ${year} • ${h} ${ampm}`
   } catch {
-    return iso
+    return iso!
   }
 }
 const shortId = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : '—')
-
 function tabLabel(value: string) {
   return tabs.find((t) => t.value === value)?.label ?? value
 }
-
-/** Status label class + pretty label */
 function prettyStatus(s?: string) {
   const k = (s || '') as Status
   if (k === STATUS.TO_PAY) return 'To Pay'
@@ -974,27 +1002,79 @@ function statusClass(s?: string) {
   if (k === STATUS.TO_PAY) return 'text-bg-light border'
   return 'text-bg-light border'
 }
+function prettyModeOfPayment(m?: string) {
+  if (!m) return '—'
+  const s = String(m).toLowerCase()
+  if (s === 'cod') return 'COD'
+  return s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
 
-/** Actions (kept) */
+/** NEW: show RR state after Return/Refund */
+function capitalize(s: string) {
+  if (!s) return s
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+function prettyStatusWithRR(
+  s?: string,
+  purchaseId?: string,
+  group?: Group,
+): string {
+  const base = prettyStatus(s)
+  const k = (s || '') as Status
+  if (k !== STATUS.RETURN_REFUND) return base
+  // prefer item-level rr status if purchaseId present
+  let rr: RRState | undefined
+  if (purchaseId) rr = rrStatus(purchaseId)
+  if (!rr && group?.rrBadge) rr = group.rrBadge
+  return rr ? `${base} • ${capitalize(rr)}` : base
+}
+
+/** Navigation & actions */
 function goToShop() {
   router.push({ name: 'user.shop' })
 }
+async function goToReturnTab(refNo?: string) {
+  highlightRef.value = refNo || ''
+  activeTab.value = STATUS.RETURN_REFUND
+  await nextTick()
+  setTimeout(() => {
+    if (highlightRef.value === refNo) highlightRef.value = ''
+  }, 3000)
+}
 
-/** Totals per group */
+/** New: from RR tab, send user to To Receive and open the RR modal for this group */
+async function goRefundOtherProducts(g: Group) {
+  activeTab.value = STATUS.TO_RECEIVE
+  await nextTick()
+  // Re-find the group by ref from current purchases, then open the modal
+  const groups = buildGroups(purchases.value)
+  const found = groups.find((x) => x.ref === g.ref)
+  if (found) openReturnRefundGroup(found)
+}
+
 function groupTotal(g: Group): number {
   return g.items.reduce((sum, it) => {
-    const q = Number(it.qty ?? 1)
+    const q = Number(it.qty ?? 1) || 1
     const pr = productPrice(it)
     return sum + q * pr
   }, 0)
 }
 
-/* ---------------- Return/Refund modal + submit ---------------- */
+/** New helpers for To Receive logic */
+function groupToReceiveCount(g: Group): number {
+  return g.items.filter((it) => it.status === STATUS.TO_RECEIVE).length
+}
+function groupAllToReceive(g: Group): boolean {
+  return g.items.length > 0 && g.items.every((it) => it.status === STATUS.TO_RECEIVE)
+}
+
+/* ---------------- RR modal + submit ---------------- */
 const showRR = ref(false)
 const rrBusy = ref(false)
 const rrPurchase = ref<AnyRec | null>(null)
 const rrGroup = ref<Group | null>(null)
 
+const rrItemForms = reactive<Record<string, { reason: string; details: string }>>({})
 const rrForm = reactive<{
   purchase_ids: string[]
   purchase_id: string
@@ -1020,7 +1100,6 @@ const rrReasons = [
   'Changed Mind',
 ]
 
-/* Quick date options */
 const RR_DATE_COL = 'return/refund date'
 const todayYMD = new Date().toISOString().slice(0, 10)
 function addDaysYMD(days: number) {
@@ -1028,25 +1107,23 @@ function addDaysYMD(days: number) {
   d.setDate(d.getDate() + days)
   return d.toISOString().slice(0, 10)
 }
-const quickDates = {
-  tomorrow: addDaysYMD(1),
-  plus2: addDaysYMD(2),
-  plus3: addDaysYMD(3),
-}
-const rrQuickDate = ref<string>('') // select value
+const quickDates = { tomorrow: addDaysYMD(1), plus2: addDaysYMD(2), plus3: addDaysYMD(3) }
+const rrQuickDate = ref<string>('')
 function applyQuickDate() {
   if (rrQuickDate.value) rrForm.pickup_date = rrQuickDate.value
 }
 function labelFor(ymd: string) {
   try {
-    const d = new Date(ymd + 'T00:00:00')
-    return d.toLocaleDateString()
+    return new Date(ymd + 'T00:00:00').toLocaleDateString()
   } catch {
     return ymd
   }
 }
 
-/** NEW: group modal open */
+function isSelectableForRR(it: AnyRec): boolean {
+  return it.status === STATUS.TO_RECEIVE && !rrStatus(it.id)
+}
+
 function openReturnRefundGroup(g: Group) {
   rrGroup.value = g
   rrPurchase.value = null
@@ -1058,10 +1135,17 @@ function openReturnRefundGroup(g: Group) {
   rrForm.pickup_date = ''
   rrQuickDate.value = ''
   rrSelectAll.value = false
+
+  for (const it of g.items) {
+    if (rrStatus(it.id)) {
+      rrItemForms[it.id] = { reason: prefillReason(it.id), details: prefillDetails(it.id) }
+    } else if (isSelectableForRR(it) && !rrItemForms[it.id]) {
+      rrItemForms[it.id] = { reason: '', details: '' }
+    }
+  }
   showRR.value = true
 }
 
-/** (Kept) single-item RR open */
 function openReturnRefund(purchase: AnyRec) {
   rrGroup.value = null
   rrPurchase.value = purchase
@@ -1079,24 +1163,34 @@ function closeReturnRefund() {
   showRR.value = false
 }
 
-/** NEW: select all toggle in group modal */
 const rrSelectAll = ref(false)
 function toggleRRSelectAll() {
   if (!rrGroup.value) return
   if (rrSelectAll.value) {
-    rrForm.purchase_ids = rrGroup.value.items.map((it) => it.id)
+    rrForm.purchase_ids = rrGroup.value.items.filter(isSelectableForRR).map((it) => it.id)
+    for (const it of rrGroup.value.items)
+      if (isSelectableForRR(it) && !rrItemForms[it.id])
+        rrItemForms[it.id] = { reason: '', details: '' }
   } else {
     rrForm.purchase_ids = []
   }
 }
 function syncRRSelectAll() {
   if (!rrGroup.value) return
-  rrSelectAll.value = rrForm.purchase_ids.length === rrGroup.value.items.length
+  const selectable = rrGroup.value.items.filter(isSelectableForRR).length
+  rrSelectAll.value = selectable > 0 && rrForm.purchase_ids.length === selectable
 }
+function onToggleRRItem(pid: string) {
+  if (rrForm.purchase_ids.includes(pid) && !rrItemForms[pid])
+    rrItemForms[pid] = { reason: '', details: '' }
+  syncRRSelectAll()
+}
+const allSelectedHaveReasons = computed(() =>
+  rrForm.purchase_ids.every((pid) => (rrItemForms[pid]?.reason || '').trim().length > 0),
+)
 
-/** Submit RR (supports group w/ multi-select and single) */
 async function submitReturnRefund() {
-  if (!rrForm.reason || !rrForm.pickup_date) return
+  if (!rrForm.pickup_date) return
   rrBusy.value = true
   try {
     const { data: auth } = await supabase.auth.getUser()
@@ -1106,12 +1200,10 @@ async function submitReturnRefund() {
       return
     }
 
-    // Build insert payload(s)
     const payloads: Record<string, any>[] = []
     const purchaseIdsToMark: string[] = []
 
     if (rrGroup.value) {
-      // Group mode: use selected purchase_ids
       if (rrForm.purchase_ids.length === 0) {
         alert('Please select at least one item to return/refund.')
         return
@@ -1119,12 +1211,17 @@ async function submitReturnRefund() {
       for (const pid of rrForm.purchase_ids) {
         const row = rrGroup.value.items.find((x) => x.id === pid)
         if (!row) continue
+        const per = rrItemForms[pid] || { reason: '', details: '' }
+        if (!per.reason) {
+          alert('Please choose a reason for each selected item.')
+          return
+        }
         const p: Record<string, any> = {
           user_id: uid,
           purchase_id: pid,
           product_id: row.product_id,
-          reason: rrForm.reason,
-          details: rrForm.details || null,
+          reason: per.reason,
+          details: per.details || null,
           status: 'pending' as RRState,
         }
         p[RR_DATE_COL] = rrForm.pickup_date
@@ -1132,7 +1229,10 @@ async function submitReturnRefund() {
         purchaseIdsToMark.push(pid)
       }
     } else if (rrPurchase.value) {
-      // Single mode (kept)
+      if (!rrForm.reason) {
+        alert('Please select a reason.')
+        return
+      }
       const basePayload: Record<string, any> = {
         user_id: uid,
         purchase_id: rrForm.purchase_id,
@@ -1144,36 +1244,35 @@ async function submitReturnRefund() {
       basePayload[RR_DATE_COL] = rrForm.pickup_date
       payloads.push(basePayload)
       purchaseIdsToMark.push(rrForm.purchase_id)
-    } else {
-      return
-    }
+    } else return
 
-    // Insert rows (batch)
     const { error: insErr } = await supabase.schema('games').from('return_refunds').insert(payloads)
-
     if (insErr) {
       alert(insErr.message)
       return
     }
 
-    // Move affected purchases to "return/refund"
     const { error: upErr } = await supabase
       .schema('games')
       .from('purchases')
       .update({ status: STATUS.RETURN_REFUND })
       .in('id', purchaseIdsToMark)
       .eq('user_id', uid)
-
     if (upErr) {
       alert(upErr.message)
       return
     }
 
-    // Local updates
     for (const row of purchases.value) {
       if (purchaseIdsToMark.includes(row.id)) {
         row.status = STATUS.RETURN_REFUND
-        rrByPurchase[row.id] = { id: 'local', purchase_id: row.id, status: 'pending' }
+        rrByPurchase[row.id] = {
+          id: 'local',
+          purchase_id: row.id,
+          status: 'pending',
+          reason: rrItemForms[row.id]?.reason || '',
+          details: rrItemForms[row.id]?.details || '',
+        }
       }
     }
 
@@ -1184,7 +1283,7 @@ async function submitReturnRefund() {
   }
 }
 
-/** --------- Original per-row actions (kept) --------- */
+/** Per-row actions */
 async function cancelPurchase(purchaseId: string) {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
@@ -1197,7 +1296,6 @@ async function cancelPurchase(purchaseId: string) {
       .update({ status: STATUS.CANCELLED })
       .eq('id', purchaseId)
       .eq('user_id', uid)
-
     if (error) {
       alert(error.message)
       return
@@ -1209,110 +1307,32 @@ async function cancelPurchase(purchaseId: string) {
   }
 }
 
-async function orderReceived(purchaseId: string) {
+async function orderReceivedGroup(g: Group) {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
   if (!uid) return
-  busy.value.received[purchaseId] = true
+  groupBusy.received[g.ref] = true
   try {
+    const ids = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
+    if (!ids.length) return
     const { error } = await supabase
       .schema('games')
       .from('purchases')
       .update({ status: STATUS.COMPLETED })
-      .eq('id', purchaseId)
+      .in('id', ids)
       .eq('user_id', uid)
-
     if (error) {
       alert(error.message)
       return
     }
-
-    const row = purchases.value.find((r) => r.id === purchaseId)
-    if (row) row.status = STATUS.COMPLETED
+    for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.COMPLETED
+    await createOrderReceiptForGroup(g)
     alert('Thanks! Your order has been marked as received.')
   } finally {
-    busy.value.received[purchaseId] = false
+    groupBusy.received[g.ref] = false
   }
 }
 
-async function cancelReturnRefund(purchase: AnyRec) {
-  const rec = rrByPurchase[purchase.id]
-  if (!rec || rec.status !== 'pending') {
-    alert('This return/refund is no longer pending.')
-    return
-  }
-
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) return
-
-  busy.value.rrCancel[purchase.id] = true
-  try {
-    const { error: delErr } = await supabase
-      .schema('games')
-      .from('return_refunds')
-      .delete()
-      .eq('id', rec.id)
-      .eq('user_id', uid)
-
-    if (delErr) {
-      alert(delErr.message)
-      return
-    }
-
-    const { error: upErr } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ status: STATUS.COMPLETED })
-      .eq('id', purchase.id)
-      .eq('user_id', uid)
-
-    if (upErr) {
-      alert(upErr.message)
-      return
-    }
-
-    delete rrByPurchase[purchase.id]
-    const row = purchases.value.find((r) => r.id === purchase.id)
-    if (row) row.status = STATUS.COMPLETED
-  } finally {
-    busy.value.rrCancel[purchase.id] = false
-  }
-}
-
-/** --------- NEW: Helper to create ONE order_receipt row for a group --------- */
-// Assumes ewallet.order_receipt has columns: amount (not null), reference_number (text), purchase_id (uuid, nullable/exists).
-async function createOrderReceiptForGroup(g: Group) {
-  try {
-    // pick any one purchase id from the group (first item)
-    const onePurchaseId = g.items?.[0]?.id
-    if (!onePurchaseId) return
-
-    // compute total amount for the whole group
-    const amount = groupTotal(g)
-
-    // Insert exactly ONE receipt row for the entire group using the group's reference number
-    const { error: recErr } = await supabase
-      .schema('ewallet') // <-- adjust only if your table lives in a different schema
-      .from('order_receipt')
-      .insert([
-        {
-          amount, // numeric(12,2) not null
-          reference_number: g.ref, // group's reference number
-          purchase_id: onePurchaseId, // any one purchase id from the group
-        },
-      ])
-
-    if (recErr) {
-      // Non-blocking: show error but do not revert completion
-      alert(`Order was completed, but creating receipt failed: ${recErr.message}`)
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-/** --------- NEW: Group-level actions --------- */
 async function cancelGroup(g: Group) {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
@@ -1326,109 +1346,32 @@ async function cancelGroup(g: Group) {
       .update({ status: STATUS.CANCELLED })
       .in('id', ids)
       .eq('user_id', uid)
-
     if (error) {
       alert(error.message)
       return
     }
-    for (const r of purchases.value) {
-      if (ids.includes(r.id)) r.status = STATUS.CANCELLED
-    }
+    for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.CANCELLED
   } finally {
     groupBusy.cancel[g.ref] = false
   }
 }
 
-async function orderReceivedGroup(g: Group) {
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) return
-  groupBusy.received[g.ref] = true
+/** Receipts */
+async function createOrderReceiptForGroup(g: Group) {
   try {
-    const ids = g.items.map((it) => it.id)
-    const { error } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ status: STATUS.COMPLETED })
-      .in('id', ids)
-      .eq('user_id', uid)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-    for (const r of purchases.value) {
-      if (ids.includes(r.id)) r.status = STATUS.COMPLETED
-    }
-
-    // NEW: create a single order_receipt row for the whole group
-    await createOrderReceiptForGroup(g)
-
-    alert('Thanks! Your order has been marked as received.')
-  } finally {
-    groupBusy.received[g.ref] = false
-  }
-}
-
-async function cancelReturnRefundGroup(g: Group) {
-  // only pending RR should be cancellable
-  if (g.status !== STATUS.RETURN_REFUND || g.rrBadge !== 'pending') {
-    alert('No pending return/refund to cancel for this group.')
-    return
-  }
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) return
-  groupBusy.rrCancel[g.ref] = true
-  try {
-    // Find all purchases in group that have a pending RR row
-    const pendingIds = g.items.filter((it) => rrStatus(it.id) === 'pending').map((it) => it.id)
-
-    if (pendingIds.length === 0) {
-      alert('No pending return/refund found to cancel.')
-      return
-    }
-
-    // Delete RR rows for these purchases
-    const rrIdsToDelete = Object.values(rrByPurchase)
-      .filter((rr) => pendingIds.includes(rr.purchase_id) && rr.status === 'pending')
-      .map((rr) => rr.id)
-
-    if (rrIdsToDelete.length > 0) {
-      const { error: delErr } = await supabase
-        .schema('games')
-        .from('return_refunds')
-        .delete()
-        .in('id', rrIdsToDelete)
-        .eq('user_id', uid)
-
-      if (delErr) {
-        alert(delErr.message)
-        return
-      }
-    }
-
-    // Revert those purchases to completed
-    const { error: upErr } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ status: STATUS.COMPLETED })
-      .in('id', pendingIds)
-      .eq('user_id', uid)
-
-    if (upErr) {
-      alert(upErr.message)
-      return
-    }
-
-    // Local updates
-    for (const pid of pendingIds) {
-      delete rrByPurchase[pid]
-      const row = purchases.value.find((r) => r.id === pid)
-      if (row) row.status = STATUS.COMPLETED
-    }
-  } finally {
-    groupBusy.rrCancel[g.ref] = false
+    const rows = g.items
+      .filter((it) => it.status === STATUS.TO_RECEIVE)
+      .map((it) => {
+        const qty = Number(it?.qty ?? 1) || 1
+        const price = productPrice(it) || 0
+        const amount = Number((qty * price).toFixed(2))
+        return { amount, reference_number: g.ref, purchase_id: it.id }
+      })
+    if (!rows.length) return
+    const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
+    if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+  } catch (e) {
+    console.error(e)
   }
 }
 
@@ -1438,7 +1381,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Card & subtle bg */
 .card {
   border: 1px solid #edf0f3;
 }
@@ -1457,14 +1399,12 @@ onMounted(() => {
   border-color: #e9ecef !important;
 }
 
-/* Monospace snippet for product_id */
 .text-monospace {
   font-family:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
 }
 
-/* Purchase product thumb */
 .purchase-thumb {
   width: 64px;
   min-width: 64px;
@@ -1475,7 +1415,13 @@ onMounted(() => {
   object-fit: cover;
 }
 
-/* Simple modal styles (separate class to avoid conflicts) */
+.title-ellipsis {
+  max-width: clamp(140px, 48vw, 380px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .modal-backdrop-custom2 {
   position: fixed;
   inset: 0;
