@@ -3,51 +3,48 @@
     <!-- Sidebar (desktop = sticky, mobile = offcanvas) -->
     <div
       :id="mobileId"
-      class="sidebar offcanvas-md offcanvas-start bg-white border-end d-flex flex-column h-100% p-3 shadow-sm"
+      class="sidebar offcanvas offcanvas-start offcanvas-md bg-white border-end d-flex flex-column p-3 shadow-sm"
       tabindex="-1"
       :class="{ collapsed: isCollapsed }"
       :style="{ width: isCollapsed ? collapsedWidth : '280px' }"
     >
-      <!-- Top: admin badge + collapse toggle -->
+      <!-- Header: badge + desktop collapse + mobile close (X) -->
       <div class="d-flex align-items-center justify-content-between mb-3">
         <div class="d-flex align-items-center gap-2 overflow-hidden header-meta">
-          <!-- Admin badge icon -->
           <span
             class="tier-icon rounded-circle d-inline-flex align-items-center justify-content-center"
-            :style="{
-              backgroundColor: adminMeta.bg,
-              color: adminMeta.fg,
-              boxShadow: adminMeta.ring,
-            }"
+            :style="{ backgroundColor: adminMeta.bg, color: adminMeta.fg, boxShadow: adminMeta.ring }"
             :title="adminMeta.label"
             aria-hidden="true"
           >
             <i class="bi" :class="adminMeta.icon"></i>
           </span>
 
-          <!-- Admin label -->
           <span class="brand-text fw-semibold text-truncate d-flex align-items-center gap-2">
-            <span class="badge text-bg-light border small fw-normal">
-              {{ adminMeta.label }}
-            </span>
+            <span class="badge text-bg-light border small fw-normal">{{ adminMeta.label }}</span>
           </span>
         </div>
 
         <!-- Desktop collapse toggle -->
         <button
           type="button"
-          class="btn btn-outline-secondary btn-sm rounded-circle toggle-btn d-none d-md-inline-flex"
+          class="btn btn-outline-secondary btn-sm rounded-circle d-none d-md-inline-flex"
           @click="toggle()"
           :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
         >
-          <i
-            class="bi"
-            :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"
-          ></i>
+          <i class="bi" :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"></i>
         </button>
+
+        <!-- Mobile close (lets Bootstrap remove the backdrop) -->
+        <button
+          type="button"
+          class="btn-close d-inline-flex d-md-none ms-2"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
       </div>
 
-      <!-- Profile (hidden by CSS when collapsed) -->
+      <!-- Profile (hidden when collapsed via CSS) -->
       <div class="text-center mb-4 profile">
         <div
           class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
@@ -119,7 +116,7 @@
             <span class="link-text">Products</span>
           </RouterLink>
         </li>
-        <!-- Add inside your admin sidebar nav list (kept out of your file to avoid edits) -->
+
         <li class="nav-item" v-if="has('admin.orders')">
           <RouterLink
             :to="{ name: 'admin.orders' }"
@@ -134,7 +131,6 @@
           </RouterLink>
         </li>
 
-        <!-- 🔹 NEW: Transactions link (added above Settings) -->
         <li class="nav-item" v-if="has('admin.transactions')">
           <RouterLink
             :to="{ name: 'admin.transactions' }"
@@ -148,7 +144,6 @@
             <span class="link-text">Transactions</span>
           </RouterLink>
         </li>
-        <!-- 🔹 END NEW -->
 
         <li class="nav-item" v-if="has('admin.settings')">
           <RouterLink
@@ -165,7 +160,7 @@
         </li>
       </ul>
 
-      <!-- Logout at bottom -->
+      <!-- Logout -->
       <div class="pt-3 border-top">
         <button
           type="button"
@@ -183,32 +178,35 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, computed, watch } from 'vue'
+/* IMPORTANT: Ensure you import Bootstrap bundle once (e.g. in main.ts)
+   import 'bootstrap/dist/js/bootstrap.bundle.min.js'
+*/
+import { onMounted, onBeforeUnmount, ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
-import { currentUser } from '@/lib/authState' // <-- use your authState.ts
+import { currentUser } from '@/lib/authState'
 
-// ------- config -------
+/* ---------- config ---------- */
 const collapsedWidth = '75px'
-const mobileId = 'adminSidebar' // your topbar button should target #adminSidebar
+const mobileId = 'adminSidebar'
 
-// ------- state & router -------
+/* ---------- router ---------- */
 const router = useRouter()
-const isCollapsed = ref(localStorage.getItem('adminSidebarCollapsed') === '1')
 
+/* ---------- collapse state ---------- */
+const isCollapsed = ref(localStorage.getItem('adminSidebarCollapsed') === '1')
 const toggle = () => {
   isCollapsed.value = !isCollapsed.value
   localStorage.setItem('adminSidebarCollapsed', isCollapsed.value ? '1' : '0')
 }
 
-// Helper: show link only if route exists
+/* ---------- route guard helper ---------- */
 const has = (name: string) => router.hasRoute(name)
 
-// ------- identity (admin) -------
+/* ---------- identity ---------- */
 const adminEmail = ref<string>('')
 const fullName = ref<string>('')
 
-// initials from name/email
 const initials = computed(() => {
   const name = (fullName.value || adminEmail.value || '').trim()
   if (!name) return 'A'
@@ -218,7 +216,6 @@ const initials = computed(() => {
 })
 const displayName = computed(() => fullName.value || 'Admin')
 
-// admin badge visuals
 const adminMeta = {
   label: 'Admin',
   icon: 'bi-shield-lock',
@@ -227,77 +224,38 @@ const adminMeta = {
   ring: '0 0 0 6px rgba(13,110,253,.12)',
 }
 
-// Prevent going back to a protected page after logout
+/* ---------- logout ---------- */
 const hardBlockBackToAuthed = () => {
-  // Replace current history entry so Back won't return to the authed page
   window.history.replaceState(null, '', window.location.href)
-  // On immediate back attempt, force to login (one-shot)
   const handler = () => router.replace({ name: 'admin.login' })
   window.addEventListener('popstate', handler, { once: true })
 }
-
-// Logout
 const logout = async () => {
   try {
     await supabase.auth.signOut()
   } catch (_) {}
-
-  // Clear in-memory auth immediately
   currentUser.value = null
-
-  // Harden against "Back" to dashboard
   hardBlockBackToAuthed()
-
-  // Replace so the authed page isn't in history
   router.replace({ name: 'admin.login' })
-
   closeOffcanvasIfMobile()
 }
 
-// If opened as Bootstrap offcanvas on mobile, hide after clicking
-const closeOffcanvasIfMobile = () => {
-  // Only attempt if Bootstrap is present
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any
-  if (!w?.bootstrap) return
-  const el = document.getElementById(mobileId)
-  if (!el) return
-  const oc = w.bootstrap.Offcanvas.getInstance(el) || new w.bootstrap.Offcanvas(el)
-  oc?.hide?.()
+/* ---------- bootstrap offcanvas mgmt ---------- */
+const oc = ref<any>(null) // Bootstrap Offcanvas instance
+
+const killBackdrops = () => {
+  document.querySelectorAll('.offcanvas-backdrop').forEach((el) => el.remove())
+  document.body.classList.remove('offcanvas-backdrop', 'show')
+  document.body.style.removeProperty('overflow')
 }
 
-// Keep profile info in sync with your auth state
-watch(
-  () => currentUser.value,
-  async (u) => {
-    adminEmail.value = u?.email ?? ''
-    fullName.value = '' // reset; will load below
-
-    if (u) {
-      // Prefer auth metadata's full_name when available
-      const { data: userData } = await supabase.auth.getUser()
-      const metaName = (userData.user?.user_metadata?.full_name as string) || ''
-      if (metaName) {
-        fullName.value = metaName
-      } else {
-        // Fallback to admins table
-        const { data: row } = await supabase
-          .from('admins')
-          .select('full_name')
-          .eq('id', u.id)
-          .single()
-        if (row?.full_name) fullName.value = String(row.full_name)
-      }
-    }
-  },
-  { immediate: true },
-)
+const closeOffcanvasIfMobile = () => {
+  oc.value?.hide?.()
+}
 
 onMounted(async () => {
-  // Initialize from currentUser if already set by initAuth()
   if (currentUser.value) {
     adminEmail.value = currentUser.value.email
-    // Try to read full name from auth metadata first
     const { data } = await supabase.auth.getUser()
     const metaName = (data.user?.user_metadata?.full_name as string) || ''
     if (metaName) {
@@ -311,6 +269,45 @@ onMounted(async () => {
       if (row?.full_name) fullName.value = String(row.full_name)
     }
   }
+
+  // init bootstrap offcanvas
+  // @ts-ignore
+  const bs = window.bootstrap
+  const el = document.getElementById(mobileId)
+  if (bs && el) {
+    oc.value = bs.Offcanvas.getOrCreateInstance(el, { backdrop: true, scroll: true })
+    el.addEventListener('hidden.bs.offcanvas', killBackdrops)
+  }
+
+  // keep profile in sync with auth changes
+  watch(
+    () => currentUser.value,
+    async (u) => {
+      adminEmail.value = u?.email ?? ''
+      fullName.value = ''
+      if (u) {
+        const { data: userData } = await supabase.auth.getUser()
+        const metaName = (userData.user?.user_metadata?.full_name as string) || ''
+        if (metaName) fullName.value = metaName
+        else {
+          const { data: row } = await supabase.from('admins').select('full_name').eq('id', u.id).single()
+          if (row?.full_name) fullName.value = String(row.full_name)
+        }
+      }
+    },
+    { immediate: false },
+  )
+
+  // hide sidebar on every route change (prevents stuck backdrop)
+  router.afterEach(() => {
+    oc.value?.hide?.()
+    killBackdrops()
+  })
+})
+
+onBeforeUnmount(() => {
+  oc.value?.hide?.()
+  killBackdrops()
 })
 </script>
 
@@ -321,13 +318,11 @@ onMounted(async () => {
   top: 0;
   height: 100vh;
   overflow: hidden;
-  transition:
-    width 200ms ease,
-    padding 160ms ease;
-  z-index: 2045; /* over content when used as offcanvas */
+  transition: width 200ms ease, padding 160ms ease;
+  z-index: 2045; /* above content and backdrop */
 }
 
-/* Offcanvas adjustments (mobile) */
+/* Mobile: offcanvas takes over; force fixed width */
 @media (max-width: 767.98px) {
   .sidebar {
     width: 280px !important;
@@ -341,7 +336,7 @@ onMounted(async () => {
   width: v-bind(collapsedWidth);
 }
 
-/* Hide header meta (badge + label) & profile when collapsed */
+/* Hide meta & profile when collapsed */
 .collapsed .header-meta,
 .collapsed .profile {
   display: none !important;
@@ -359,10 +354,7 @@ onMounted(async () => {
   color: #495057;
   border-radius: 12px;
   padding: 0.5rem 0.75rem;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease,
-    transform 0.12s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.12s ease;
   display: flex;
   align-items: center;
 }
@@ -376,7 +368,7 @@ onMounted(async () => {
   color: #fff !important;
 }
 
-/* When collapsed, show icons only */
+/* Icons only (collapsed) */
 .icon-only {
   width: 44px;
   height: 44px;
@@ -394,7 +386,7 @@ onMounted(async () => {
   transform: none !important;
 }
 
-/* Logout button style in collapsed mode */
+/* Logout in collapsed look */
 .icon-only.btn.btn-outline-danger {
   border-color: #e9ecef;
   color: #dc3545;

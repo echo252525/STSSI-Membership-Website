@@ -1,22 +1,27 @@
 <template>
   <div class="admin-layout d-flex">
-    <!-- Sidebar (overlays when open) -->
+    <!-- Sidebar -->
     <AdminSidebar />
 
-    <!-- Main content -->
+    <!-- Main panel -->
     <div class="content flex-grow-1 d-flex flex-column">
-      <!-- Topbar (optional) -->
+      <!-- Topbar -->
+      <header class="topbar d-flex align-items-center gap-2 p-2 border-bottom bg-white">
+        <!-- Mobile toggler (opens the offcanvas sidebar) -->
+        <button
+          type="button"
+          class="btn btn-outline-secondary d-md-none"
+          data-bs-toggle="offcanvas"
+          data-bs-target="#adminSidebar"
+          aria-controls="adminSidebar"
+        >
+          <i class="bi bi-list"></i> Menu
+        </button>
+        <div class="ms-auto"></div>
+      </header>
 
       <!-- Content outlet -->
-      <main
-        class="flex-grow-1 p-4 bg-light"
-        :style="{
-          marginLeft: sidebarWidth + 'px',
-          width: `calc(100vw - ${sidebarWidth}px)`,
-          transition:
-            'margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), width 0.22s cubic-bezier(0.4, 0, 0.2, 1)',
-        }"
-      >
+      <main class="flex-grow-1 p-4 bg-light">
         <router-view />
       </main>
     </div>
@@ -34,96 +39,36 @@ const handleLogout = async () => {
   await supabase.auth.signOut()
   router.push({ name: 'admin.login' })
 }
-
-/* para sa sidebar overlapping issue*/
-import { ref, computed } from 'vue'
-const isCollapsed = ref(true) // default state
-const sidebarWidth = computed(() => (isCollapsed.value ? 75 : 280))
 </script>
 
 <style scoped>
-/* Collapsed width must match your AdminSidebar collapsedWidth */
 :root {
+  /* Keep some space for the collapsed sidebar on desktop */
   --sidebar-collapsed-width: 75px;
 }
 
-/* Make the layout occupy full height */
 .admin-layout {
   min-height: 100vh;
-  position: relative;
 }
 
-/* FIXED main content wrapper (kept as-is)
-   We'll override left/width below so that MAIN handles the offset. */
+/* Let the main content own the scroll */
 .content {
-  margin-left: var(--sidebar-collapsed-width);
-  transition: margin-left 220ms cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* fixed layout */
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: var(--sidebar-collapsed-width);
-
-  /* computed width */
-  width: calc(100vw - var(--sidebar-collapsed-width));
-
-  /* keep column layout inside the fixed panel */
   display: flex;
   flex-direction: column;
-
-  /* ensure inner <main> owns the scroll, not the body */
-  overflow: hidden;
-  z-index: 1; /* keep below the sidebar overlay */
+  min-width: 0;
 }
 
-/* ======================= OVERRIDES =======================
-   Move the sidebar offset responsibility from .content to MAIN.
-   We keep the original block above (not removed), then override here.
-*/
-.content {
-  /* Let content occupy the full viewport; MAIN will offset itself. */
-  margin-left: 0; /* override */
-  left: 0; /* override */
-  width: 100vw; /* override */
-}
-
-/* MAIN handles the left offset equal to collapsed sidebar width */
-.content > main {
-  /* scroll area */
-  overflow: auto;
-  height: 100%;
-  -webkit-overflow-scrolling: touch;
-
-  width: calc(100vw - var(--sidebar-collapsed-width)); /* fill remaining width */
-  margin-left: var(--sidebar-collapsed-width); /* offset next to collapsed sidebar */
-  box-sizing: border-box;
-}
-
-/* On small screens (offcanvas), MAIN should be full width (no reserve) */
-@media (max-width: 1600px) {
-  .content {
-    /* full-screen wrapper */
-    margin-left: 0; /* override stays */
-    left: 0;
-    width: 100vw;
-  }
-
+/* Desktop: reserve space for collapsed sidebar so content isn't hidden */
+@media (min-width: 768px) {
   .content > main {
-    margin-left: 0; /* no reserve in off-canvas mode */
-    width: 100vw; /* full width */
+    margin-left: var(--sidebar-collapsed-width);
   }
 }
 
-/* OPTIONAL: Guarantees the sidebar overlays the content */
-:deep(.admin-sidebar),
-:deep(.sidebar-shell),
-:deep(.sidebar) {
-  position: fixed;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 1040; /* above .content (z-index:1) */
+/* Mobile: sidebar is offcanvas overlay, content is full width */
+@media (max-width: 767.98px) {
+  .content > main {
+    margin-left: 0;
+  }
 }
 </style>
