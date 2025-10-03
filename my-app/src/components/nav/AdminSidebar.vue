@@ -331,6 +331,26 @@ onBeforeUnmount(() => {
   }
 }
 
+/* ⬆️ Make the offcanvas behave like a normal sidebar on ≥ md */
+@media (min-width: 768px) {
+  /* show it */
+  .sidebar.offcanvas {
+    transform: none !important;
+    visibility: visible !important;
+  }
+  /* make it sticky and full height */
+  .sidebar.offcanvas.offcanvas-start {
+    position: sticky !important;
+    top: 0;
+    height: 100vh;
+    box-shadow: none;
+  }
+  /* ensure the body doesn't keep offcanvas state on desktop */
+  :global(body.offcanvas-open) { overflow: auto !important; }
+  :global(.offcanvas-backdrop) { display: none !important; }
+}
+
+
 /* Collapsed width */
 .collapsed {
   width: v-bind(collapsedWidth);
