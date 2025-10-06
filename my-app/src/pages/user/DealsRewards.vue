@@ -193,8 +193,21 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+
+import { computed, onMounted, ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'vue-router'
+import { currentUser } from '@/lib/authState'
+
+const router = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+  }
+})
 
 type Discount = {
   id: string

@@ -86,7 +86,17 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import { currentUser } from '@/lib/authState'
 
+const routers = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return routers.push({ name: 'login' })
+  }
+})
 type EventRow = {
   id: string
   product_id: string

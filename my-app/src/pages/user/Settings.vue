@@ -96,6 +96,17 @@
 import { onMounted, ref, computed } from 'vue'
 import { createClient, type User } from '@supabase/supabase-js'
 import { useRouter } from 'vue-router' // for redirect
+import { currentUser } from '@/lib/authState'
+
+const routers = useRouter()
+const users = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!users.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return routers.push({ name: 'login' })
+  }
+})
 
 // If you already have a centralized client, import and use that instead:
 const supabase = createClient(

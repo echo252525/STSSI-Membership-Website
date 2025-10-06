@@ -476,7 +476,18 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'vue-router'
+import { currentUser } from '@/lib/authState'
 
+const router = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+  }
+})
 /** Status constants (align with your purchase_status enum) */
 const STATUS = {
   TO_PAY: 'to pay',

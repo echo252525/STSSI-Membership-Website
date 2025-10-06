@@ -287,6 +287,19 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'vue-router'
+import { currentUser } from '@/lib/authState'
+
+const router = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+  }
+})
+
 
 type BankName = 'gcash' | 'maya' | 'gotyme'
 type Status = 'pending' | 'disbursed' | 'rejected'

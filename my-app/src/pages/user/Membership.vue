@@ -251,6 +251,20 @@
 </template>
 
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'vue-router'
+import { currentUser } from '@/lib/authState'
+
+const router = useRouter()
+const users = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!users.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+  }
+})
 /**
  * Tier type — this mirrors your business rules.
  * If backend changes requirements/benefits, update the 'tiers' config below

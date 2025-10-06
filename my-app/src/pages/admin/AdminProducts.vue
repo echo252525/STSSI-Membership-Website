@@ -897,7 +897,18 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { useRouter } from 'vue-router'
+import { currentUser } from '@/lib/authState'
 
+const router = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+  }
+})
 type ProductRow = {
   id: string
   name: string

@@ -143,10 +143,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import { computed, onMounted, ref } from 'vue'
+import { currentUser } from '@/lib/authState'
 
+const routers = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return routers.push({ name: 'login' })
+  }
+})
 const router = useRouter()
 
 const totalUsers = ref<number>(0)

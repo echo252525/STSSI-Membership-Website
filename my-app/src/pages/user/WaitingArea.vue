@@ -200,7 +200,17 @@
 import { useRoute, useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import { currentUser } from '@/lib/authState'
 
+const routers = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return routers.push({ name: 'login' })
+  }
+})
 const route = useRoute()
 const router = useRouter()
 

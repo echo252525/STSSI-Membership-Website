@@ -604,6 +604,17 @@
 import { onMounted, ref, computed, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import { currentUser } from '@/lib/authState'
+
+const routers = useRouter()
+const user = computed(() => currentUser.value)
+
+onMounted(async () => {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return routers.push({ name: 'login' })
+  }
+})
 
 type AnyRec = Record<string, any>
 
