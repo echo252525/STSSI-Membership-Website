@@ -612,6 +612,13 @@ const busy = ref<BusyState>({
   anyGroup: () => false
 })
 
+/**
+ * IMPORTANT: Make groupIndex NON-REACTIVE.
+ * We fill/clear it inside the `orderGroups` computed. If this were reactive,
+ * those mutations would retrigger the computed and cause an infinite loop.
+ */
+let groupIndex: Record<string, string[]> = Object.create(null)
+
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
   return ids.some(id => !!busy.value.action[id])
@@ -636,9 +643,6 @@ const buyersMap = reactive<Record<string, Buyer>>({})
 const rrByPurchase = reactive<Record<string, ReturnRefundRow[]>>({})
 const signedUrlMap: Record<string, string> = reactive({})
 const signingBusy: Record<string, boolean> = reactive({})
-
-/* index: reference_number -> member purchase IDs */
-const groupIndex: Record<string, string[]> = reactive({})
 
 /* NEW: for sibling fetches keyed by reference_number (includes all purchases for that ref) */
 const siblingsByRef = reactive<Record<string, PurchaseRow[]>>({})
@@ -777,6 +781,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
     byRef[key].push(o)
   }
 
+  // Clear & rebuild NON-REACTIVE cache safely inside computed
   for (const k of Object.keys(groupIndex)) delete groupIndex[k]
 
   const groups: ViewGroup[] = []
