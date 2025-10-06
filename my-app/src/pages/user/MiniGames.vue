@@ -22,141 +22,180 @@
           <div class="mt-2">No open events right now.</div>
         </div>
 
-        <!-- Grid -->
-        <div v-else class="row g-3">
-          <div class="col-12 col-md-6 col-lg-4" v-for="ev in openEvents" :key="ev.id">
+        <!-- Slider (replaces grid; keeps card markup intact) -->
+        <div v-else class="slider" @keydown.left.prevent="prev" @keydown.right.prevent="next" tabindex="0">
+          <div class="slider__holder">
+            <!-- one “slide” per event -->
             <div
-              class="spin-card h-100 border rounded-4"
-              :class="{ 'spin-card--locked': ev.status !== 'open' }"
-              tabindex="0"
+              v-for="(ev, i) in openEvents"
+              :key="ev.id"
+              class="slider__item"
+              :style="slideStyle(i)"
+              @click="goTo(i)"
             >
-              <!-- Subtle animated halo -->
-              <div class="spin-card__halo" aria-hidden="true"></div>
+              <!-- ORIGINAL CARD CONTENT STARTS (unchanged) -->
+              <div
+                class="spin-card h-100 border rounded-4"
+                :class="{ 'spin-card--locked': ev.status !== 'open' }"
+                tabindex="0"
+              >
+                <!-- Subtle animated halo -->
+                <div class="spin-card__halo" aria-hidden="true"></div>
 
-              <div class="spin-card__body p-3">
-                <div class="d-flex justify-content-between align-items-start mb-2">
-                  <h4 class="h6 mb-1 text-truncate spin-card__title" :title="ev.title">
-                    {{ ev.title }}
-                  </h4>
-                  <span
-                    class="badge bg-success-subtle text-success border-success-subtle text-capitalize spin-card__status"
+                <div class="spin-card__body p-3">
+                  <div class="d-flex justify-content-between align-items-start mb-2 ">
+                    <h4 class="h6 mb-1 text-truncate spin-card__title" :title="ev.title">
+                      {{ ev.title }}
+                    </h4>
+                    <span
+                      class="badge bg-success-subtle text-success border-success-subtle text-capitalize spin-card__status"
+                    >
+                      {{ ev.status }}
+                    </span>
+                  </div>
+
+                  <!-- Wheel block -->
+                  <div
+                    class="spin-wheel mb-3"
+                    :class="{ 'spin-wheel--paused': ev.status !== 'open' }"
                   >
-                    {{ ev.status }}
-                  </span>
-                </div>
+                    <div class="spin-wheel__ring"></div>
+                    <div class="spin-wheel__mask">
+                      <img
+                        v-if="ev.imageUrl"
+                        :src="ev.imageUrl"
+                        alt="Event Prize"
+                        class="spin-wheel__img"
+                      />
+                      <div v-else class="spin-wheel__placeholder">
+                        <i class="bi bi-gift"></i>
+                      </div>
+                    </div>
+                    <!-- pointer notch -->
+                    <div class="spin-wheel__pointer" aria-hidden="true"></div>
+                  </div>
 
-                <!-- Wheel block -->
-                <div
-                  class="spin-wheel mb-3"
-                  :class="{ 'spin-wheel--paused': ev.status !== 'open' }"
-                >
-                  <div class="spin-wheel__ring"></div>
-                  <div class="spin-wheel__mask">
-                    <img
-                      v-if="ev.imageUrl"
-                      :src="ev.imageUrl"
-                      alt="Event Prize"
-                      class="spin-wheel__img"
-                    />
-                    <div v-else class="spin-wheel__placeholder">
-                      <i class="bi bi-gift"></i>
+                  <!-- Stats -->
+                  <div class="spin-stats mb-3">
+                    <div class="spin-stat">
+                      <div class="spin-stat__label">Entry Fee</div>
+                      <div class="spin-stat__value">₱ {{ money(ev.entry_fee) }}</div>
+                    </div>
+
+                    <div class="spin-stat">
+                      <div class="spin-stat__label">Joined</div>
+                      <div class="spin-stat__value">{{ joinedCount(ev) }}/{{ ev.player_cap }}</div>
+                    </div>
+
+                    <div v-if="hasProductPrice(ev)" class="spin-stat">
+                      <div class="spin-stat__label">Price</div>
+                      <div class="spin-stat__value d-flex align-items-center gap-1 flex-wrap">
+                        <span class="text-muted text-decoration-line-through">
+                          ₱ {{ money(ev.product_price) }}
+                        </span>
+                        <span>→</span>
+                        <strong>₱ {{ money(discounted(ev)) }}</strong>
+                      </div>
                     </div>
                   </div>
-                  <!-- pointer notch -->
-                  <div class="spin-wheel__pointer" aria-hidden="true"></div>
-                </div>
 
-                <!-- Stats (minimal) -->
-                <div class="spin-stats mb-3">
-                  <div class="spin-stat">
-                    <div class="spin-stat__label">Entry Fee</div>
-                    <div class="spin-stat__value">₱ {{ money(ev.entry_fee) }}</div>
+                  <!-- Participants Avatars -->
+                  <div class="avatar-row mb-3" v-if="(avatarsByEvent[ev.id]?.length || 0) > 0">
+                    <div class="avatars">
+                      <template v-for="p in avatarsByEvent[ev.id]" :key="p.user_id">
+                        <img
+                          v-if="p.avatarUrl"
+                          class="avatar-img"
+                          :src="p.avatarUrl"
+                          :alt="p.name || 'Player'"
+                          :title="p.name || 'Player'"
+                        />
+                        <div
+                          v-else
+                          class="avatar-fallback"
+                          :title="p.name || 'Player'"
+                          aria-label="No profile photo"
+                        >
+                          <i class="bi bi-person"></i>
+                        </div>
+                      </template>
+                    </div>
+                    <div
+                      v-if="joinedCount(ev) > (avatarsByEvent[ev.id]?.length || 0)"
+                      class="avatar-more"
+                      :title="`${joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0)} more`"
+                    >
+                      +{{ joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0) }}
+                    </div>
                   </div>
-                  <div class="spin-stat">
-                    <div class="spin-stat__label">Cap</div>
-                    <div class="spin-stat__value">{{ ev.player_cap }}</div>
-                  </div>
-                  <div class="spin-stat">
-                    <div class="spin-stat__label">Joined</div>
-                    <div class="spin-stat__value">{{ joinedCount(ev) }}</div>
-                  </div>
-                  <div class="spin-stat">
-                    <div class="spin-stat__label">Interest / Player</div>
-                    <div class="spin-stat__value">₱ {{ money(ev.interest_per_player) }}</div>
-                  </div>
-                </div>
+                  <!-- /Participants Avatars -->
 
-                <!-- Participants Avatars -->
-                <div class="avatar-row mb-3" v-if="(avatarsByEvent[ev.id]?.length || 0) > 0">
-                  <div class="avatars">
-                    <template v-for="p in avatarsByEvent[ev.id]" :key="p.user_id">
-                      <img
-                        v-if="p.avatarUrl"
-                        class="avatar-img"
-                        :src="p.avatarUrl"
-                        :alt="p.name || 'Player'"
-                        :title="p.name || 'Player'"
-                      />
-                      <div
-                        v-else
-                        class="avatar-fallback"
-                        :title="p.name || 'Player'"
-                        aria-label="No profile photo"
-                      >
-                        <i class="bi bi-person"></i>
-                      </div>
-                    </template>
-                  </div>
-                  <div
-                    v-if="joinedCount(ev) > (avatarsByEvent[ev.id]?.length || 0)"
-                    class="avatar-more"
-                    :title="`${joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0)} more`"
-                  >
-                    +{{ joinedCount(ev) - (avatarsByEvent[ev.id]?.length || 0) }}
-                  </div>
-                </div>
-                <!-- /Participants Avatars -->
+                  <!-- Bottom row -->
+                  <div class="d-flex justify-content-between align-items-center">
+                    <span class="small text-muted d-inline-flex align-items-center gap-1">
+                      <span class="dot-pulse" aria-hidden="true"></span>
+                      {{ slotsLeft(ev) }} slots left
+                    </span>
 
-                <!-- Bottom row -->
-                <div class="d-flex justify-content-between align-items-center">
-                  <span class="small text-muted d-inline-flex align-items-center gap-1">
-                    <span class="dot-pulse" aria-hidden="true"></span>
-                    {{ slotsLeft(ev) }} slots left
-                  </span>
+                    <button
+                      v-if="!alreadyJoined(ev.id)"
+                      class="btn btn-sm btn-primary join-btn"
+                      :class="{ 'join-btn--disabled': !canJoin(ev) }"
+                      :disabled="!canJoin(ev) || !!joinBusy[ev.id]"
+                      :title="!hasEnoughBalance(ev) ? 'Insufficient balance' : ''"
+                      @click.stop="join(ev)"
+                    >
+                      <span
+                        v-if="joinBusy[ev.id]"
+                        class="spinner-border spinner-border-sm me-2"
+                      ></span>
+                      Join
+                    </button>
 
-                  <button
-                    v-if="!alreadyJoined(ev.id)"
-                    class="btn btn-sm btn-primary join-btn"
-                    :class="{ 'join-btn--disabled': !canJoin(ev) }"
-                    :disabled="!canJoin(ev) || !!joinBusy[ev.id]"
-                    @click="join(ev)"
-                  >
                     <span
-                      v-if="joinBusy[ev.id]"
-                      class="spinner-border spinner-border-sm me-2"
-                    ></span>
-                    Join
-                  </button>
+                      v-else
+                      class="badge text-bg-secondary"
+                      title="You already joined this event"
+                    >
+                      Joined
+                    </span>
+                  </div>
 
-                  <span
-                    v-else
-                    class="badge text-bg-secondary"
-                    title="You already joined this event"
-                  >
-                    Joined
-                  </span>
-                </div>
+                  <!-- Inline hint if funds are insufficient -->
+                  <div v-if="!hasEnoughBalance(ev)" class="text-danger small mt-2">
+                    Insufficient balance (Need ₱ {{ money(Number(ev.entry_fee) - Number(userBalance ?? 0)) }} more)
+                  </div>
 
-                <!-- Messages -->
-                <div v-if="joinErr[ev.id]" class="text-danger small mt-2">
-                  {{ joinErr[ev.id] }}
+                  <!-- Messages -->
+                  <div v-if="joinErr[ev.id]" class="text-danger small mt-2">
+                    {{ joinErr[ev.id] }}
+                  </div>
+                  <div v-if="joinOk[ev.id]" class="text-success small mt-2">Joined! 🎉</div>
                 </div>
-                <div v-if="joinOk[ev.id]" class="text-success small mt-2">Joined! 🎉</div>
               </div>
+              <!-- ORIGINAL CARD CONTENT ENDS -->
             </div>
           </div>
+
+          <!-- Bullets -->
+          <div class="bullets" aria-label="Slides navigation">
+            <button
+              v-for="(ev, i) in openEvents"
+              :key="'b-'+ev.id"
+              class="bullets__item"
+              :class="{ 'is-active': i === activeIndex }"
+              @click="goTo(i)"
+              :aria-label="`Go to slide ${i+1}`"
+            ></button>
+          </div>
+
+          <!-- Optional nav (hidden on small if you want) -->
+          <div class="slider__nav">
+            <button class="slider__btn" @click="prev" aria-label="Previous">‹</button>
+            <button class="slider__btn" @click="next" aria-label="Next">›</button>
+          </div>
         </div>
-        <!-- END GRID -->
+        <!-- END SLIDER -->
       </div>
     </div>
   </div>
@@ -167,6 +206,7 @@ import { onMounted, onUnmounted, reactive, ref, computed, nextTick } from 'vue' 
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
+import type { CSSProperties } from 'vue'
 
 const routers = useRouter()
 const user = computed(() => currentUser.value)
@@ -199,6 +239,8 @@ type EventRow = {
   loser_refund_amount: number | string | null
   /** UI helper */
   imageUrl?: string | null
+  /** NEW: resolved product price (from games.products.price) */
+  product_price?: number | string | null
 }
 
 type EntryRow = {
@@ -225,12 +267,57 @@ const joinBusy: Record<string, boolean> = reactive({})
 const joinErr: Record<string, string> = reactive({})
 const joinOk: Record<string, boolean> = reactive({})
 
+// NEW: current user's wallet balance
+const userBalance = ref<number | null>(null)
+
 // live counts per event
 const entryCounts: Record<string, number> = reactive({})
 // live avatars per event
 const avatarsByEvent: Record<string, AvatarInfo[]> = reactive({})
 
-/* ==================== NEW: lifecycle safety guard ==================== */
+/* ==================== NEW: Slider state ==================== */
+const activeIndex = ref(0)
+
+/** Centered, stacked layout similar to the screenshot */
+function slideStyle(i: number): CSSProperties {
+  const current = activeIndex.value
+  const diff = i - current
+  const step = 28 // how far neighbors sit from center (% shift)
+  const x = diff * step
+  const distance = Math.abs(i - current)
+
+  // Scale decreases as cards move away
+  const scale = Math.max(1 - distance * 0.1, 0.7)
+
+  // Dim amount — further = darker
+  const dim = Math.min(distance * 0.2, 0.6) // 0.15 per step, cap at 0.6 darkness
+  const brightness = 1 - dim // brightness(1) normal, brightness(0.4) dark
+  
+
+  const z = 100 - distance
+
+  return {
+    left: '50%',
+    width: 'min(860px, 92%)',
+    transform: `translateX(calc(-50% + ${x}%)) scale(${scale})`,
+    zIndex: String(z),
+    pointerEvents: 'auto',
+    filter: `brightness(${brightness})`, // dimming effect here
+    transition: 'transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease',
+  }
+}
+
+function goTo(i: number) {
+  if (i < 0 || i >= openEvents.value.length) return
+  activeIndex.value = i
+}
+function prev() {
+  activeIndex.value = (activeIndex.value - 1 + openEvents.value.length) % openEvents.value.length
+}
+function next() {
+  activeIndex.value = (activeIndex.value + 1) % openEvents.value.length
+}
+
 const isAlive = ref(true)
 const sessionId = Math.random().toString(36).slice(2, 9) // unique channel suffix per mount
 
@@ -258,6 +345,62 @@ function slotsLeft(ev: EventRow) {
   return Math.max(0, left)
 }
 
+/* ========= NEW: load current user's balance from public.users ========= */
+async function loadUserBalance() {
+  try {
+    const { data: ures, error: uerr } = await supabase.auth.getUser()
+    if (uerr) throw uerr
+    const uid = ures.user?.id
+    if (!uid) return
+    const { data, error } = await supabase
+      .from('users') // public schema by default
+      .select('balance')
+      .eq('id', uid)
+      .single()
+    if (error) throw error
+    if (!isAlive.value) return
+    userBalance.value = Number(data?.balance ?? 0)
+  } catch (e: any) {
+    console.warn('[BALANCE] loadUserBalance failed:', e?.message || e)
+    if (isAlive.value) userBalance.value = null
+  }
+}
+
+/* ========= NEW: product prices for discount display ========= */
+async function attachProductPrices(list: EventRow[]) {
+  try {
+    const ids = Array.from(new Set(list.map(e => e.product_id).filter(Boolean)))
+    if (ids.length === 0) return
+    const { data, error } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id, price')
+      .in('id', ids)
+    if (error) throw error
+    const priceMap = new Map<string, number | string>()
+    for (const row of (data ?? []) as Array<{ id: string; price: number | string }>) {
+      priceMap.set(row.id, row.price)
+    }
+    for (const ev of list) {
+      ev.product_price = priceMap.get(ev.product_id) ?? null
+    }
+  } catch (e: any) {
+    console.warn('[PRICE] attachProductPrices failed:', e?.message || e)
+    for (const ev of list) ev.product_price = ev.product_price ?? null
+  }
+}
+
+function hasProductPrice(ev: EventRow) {
+  const p = Number(ev.product_price)
+  return Number.isFinite(p) && p > 0
+}
+function discounted(ev: EventRow) {
+  const original = Number(ev.product_price ?? 0)
+  const off = Number(ev.interest_per_player ?? 0)
+  const d = original - off
+  return d > 0 ? d : 0
+}
+
 async function loadOpenEvents() {
   busy.load = true
   clearPerJoinMessages()
@@ -275,6 +418,7 @@ async function loadOpenEvents() {
     console.log('[LOAD] Open events loaded:', events.value.length)
 
     await attachPrizeImages(events.value)
+    await attachProductPrices(events.value) // NEW: load product prices for discount display
     await loadMyEntriesFor(events.value.map((e) => e.id))
 
     // initialize counts & avatars
@@ -286,6 +430,9 @@ async function loadOpenEvents() {
     )
     if (!isAlive.value) return
     console.log('[INIT] counts & avatars ready.')
+
+    // clamp activeIndex if list shorter than before
+    if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
   } catch (e: any) {
     console.error('loadOpenEvents error:', e?.message || e)
   } finally {
@@ -329,8 +476,15 @@ function alreadyJoined(eventId: string) {
   return !!myEntries.value[eventId]
 }
 
+/* ======== UPDATED: join eligibility now checks balance ======== */
+function hasEnoughBalance(ev: EventRow) {
+  const fee = Number(ev.entry_fee ?? 0)
+  const bal = Number(userBalance.value ?? 0)
+  return bal >= fee
+}
+
 function canJoin(ev: EventRow) {
-  return ev.status === 'open' && slotsLeft(ev) > 0 && !alreadyJoined(ev.id)
+  return ev.status === 'open' && slotsLeft(ev) > 0 && !alreadyJoined(ev.id) && hasEnoughBalance(ev)
 }
 
 function humanizeError(e: any): string {
@@ -352,6 +506,11 @@ async function join(ev: EventRow) {
     if (userErr) throw userErr
     const userId = userRes.user?.id
     if (!userId) throw new Error('You must be signed in to join.')
+
+    // Hard guard: block if insufficient balance
+    if (!hasEnoughBalance(ev)) {
+      throw new Error('Insufficient balance to join this event.')
+    }
 
     if (alreadyJoined(ev.id)) {
       console.log('[JOIN] Already joined; navigating to waiting…')
@@ -406,15 +565,10 @@ async function reload() {
   await loadOpenEvents()
 }
 
-/** ===================== UPDATED: Resolve product images from the "prize product" bucket =====================
- * Bucket:  "prize product"
- * Path:    products/<product_id>/<image files...>
- * Rule:    Pick exactly ONE image (first suitable file found) and sign it.
- */
+/** ===================== UPDATED: Resolve product images from the "prize product" bucket ===================== */
 const PRIZE_BUCKET = 'prize_product'
 const PRIZE_ROOT = 'products'
 
-/** quick check for image-y filenames when metadata is unavailable */
 function isImageByName(name: string | undefined | null) {
   if (!name) return false
   return /\.(png|jpe?g|webp|gif|bmp|heic|avif)$/i.test(name)
@@ -423,24 +577,18 @@ function isImageByName(name: string | undefined | null) {
 async function firstImagePathForProduct(productId: string): Promise<string | null> {
   try {
     const dir = `${PRIZE_ROOT}/${productId}`
-
-    // list files inside products/<product_id> ; grab up to 10 and pick the first image-like file
     const { data: files, error: listErr } = await supabase.storage
       .from(PRIZE_BUCKET)
       .list(dir, { limit: 10 })
-
     if (listErr) {
       console.warn('[IMG] list error for', dir, listErr.message)
       return null
     }
     if (!files || files.length === 0) return null
-
-    // Prefer files with image mimeType if present, else use filename extension
     const candidate =
       files.find((f: any) => (f?.metadata?.mimetype || '').startsWith('image/')) ||
       files.find((f: any) => isImageByName(f?.name)) ||
       files[0]
-
     if (!candidate?.name) return null
     return `${dir}/${candidate.name}`
   } catch (e: any) {
@@ -449,7 +597,6 @@ async function firstImagePathForProduct(productId: string): Promise<string | nul
   }
 }
 
-/** Create a signed URL with a cache-busting param so avatar/image updates reflect quickly */
 async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): Promise<string | null> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) {
@@ -460,11 +607,9 @@ async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): 
   return url ? `${url}&cb=${Date.now()}` : null
 }
 
-/** MAIN image resolver for events list */
 async function attachPrizeImages(list: EventRow[]) {
   try {
     if (!list || list.length === 0) return
-
     await Promise.all(
       list.map(async (ev) => {
         if (!ev?.product_id) {
@@ -479,7 +624,6 @@ async function attachPrizeImages(list: EventRow[]) {
         ev.imageUrl = await signedUrlWithCB(PRIZE_BUCKET, path)
       })
     )
-
     console.log('[IMG] Attached signed URLs for', list.length, 'events')
   } catch (e: any) {
     console.error('attachPrizeImages error:', e?.message || e)
@@ -561,8 +705,6 @@ async function refreshParticipantAvatars(eventId: string) {
 }
 
 /* ---------------- Realtime wiring ---------------- */
-
-/* NOTE: keep references; add unique names per mount to avoid cross-unsub issues */
 let eventsChannel: ReturnType<typeof supabase.channel> | null = null
 let entriesChannel: ReturnType<typeof supabase.channel> | null = null
 let productsChannel: ReturnType<typeof supabase.channel> | null = null
@@ -571,7 +713,6 @@ let usersChannel: ReturnType<typeof supabase.channel> | null = null
 function subscribeRealtime() {
   console.log('[RT] Subscribing to games.event, games.entry, games.products, public.users…')
 
-  // Helper to gate callbacks
   const guard = <T extends any[]>(fn: (...args: T) => any) => {
     return (...args: T) => {
       if (!isAlive.value) return
@@ -596,6 +737,7 @@ function subscribeRealtime() {
             if (!idxById.value.has(row.id)) {
               const clone = { ...row }
               await attachPrizeImages([clone])
+              await attachProductPrices([clone])
               if (!isAlive.value) return
               events.value = [clone, ...events.value]
               console.log('[RT:event] INSERT added ->', row.id)
@@ -618,10 +760,10 @@ function subscribeRealtime() {
               delete avatarsByEvent[row.id]
             } else {
               const merged = { ...events.value[i], ...row }
-              // always (re)attach image in case product_id changed
               if (merged.product_id !== events.value[i].product_id) {
                 await attachPrizeImages([merged])
-                console.log('[RT:event] UPDATE product changed -> refreshed image', row.id)
+                await attachProductPrices([merged])
+                console.log('[RT:event] UPDATE product changed -> refreshed image/price', row.id)
               }
               if (!isAlive.value) return
               events.value.splice(i, 1, merged)
@@ -632,6 +774,7 @@ function subscribeRealtime() {
           } else if (isOpen && !wasOpen) {
             const clone = { ...row }
             await attachPrizeImages([clone])
+            await attachProductPrices([clone])
             if (!isAlive.value) return
             events.value = [clone, ...events.value]
             await loadMyEntriesFor([row.id])
@@ -649,6 +792,9 @@ function subscribeRealtime() {
             delete avatarsByEvent[oldId]
           }
         }
+
+        // keep active index in bounds
+        if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
       })
     )
     .subscribe(guard((status) => {
@@ -692,13 +838,15 @@ function subscribeRealtime() {
           }
           await loadMyEntriesFor([affectedEventId])
         }
+
+        if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
       })
     )
     .subscribe(guard((status) => {
       console.log('[RT:entry] subscription status:', status)
     }))
 
-  // PRODUCTS (kept as-is; storage changes aren't covered, but DB updates still handled)
+  // PRODUCTS
   productsChannel = supabase
     .channel(`rt-games-products-${sessionId}`)
     .on(
@@ -711,6 +859,12 @@ function subscribeRealtime() {
         const affected: EventRow[] = events.value.filter((e) => e.product_id === prodId)
         if (affected.length > 0) {
           await attachPrizeImages(affected)
+          const newPrice = payload.new?.price
+          if (typeof newPrice !== 'undefined') {
+            for (const e of affected) e.product_price = newPrice
+          } else {
+            await attachProductPrices(affected)
+          }
           if (!isAlive.value) return
           for (const e of affected) {
             const i = idxById.value.get(e.id)
@@ -718,7 +872,7 @@ function subscribeRealtime() {
               events.value.splice(i, 1, { ...events.value[i] })
             }
           }
-          console.log('[RT:product] refreshed prize images for', affected.length, 'event(s)')
+          console.log('[RT:product] refreshed prize images/prices for', affected.length, 'event(s)')
         }
       })
     )
@@ -726,7 +880,7 @@ function subscribeRealtime() {
       console.log('[RT:product] subscription status:', status)
     }))
 
-  // USERS — update avatars live when a player updates profile_url or name
+  // USERS — update avatars & balance
   usersChannel = supabase
     .channel(`rt-public-users-${sessionId}`)
     .on(
@@ -736,13 +890,21 @@ function subscribeRealtime() {
         const uid = payload.new?.id as string | undefined
         if (!uid) return
 
+        try {
+          const { data: a } = await supabase.auth.getUser()
+          const me = a?.user?.id
+          if (me && uid === me && typeof payload.new?.balance !== 'undefined') {
+            userBalance.value = Number(payload.new.balance ?? 0)
+            console.log('[RT:users] balance updated ->', userBalance.value)
+          }
+        } catch {}
+
         const profileChanged =
           payload.new?.profile_url !== payload.old?.profile_url ||
           payload.new?.full_name !== payload.old?.full_name
 
         if (!profileChanged || !isAlive.value) return
 
-        // find all open events currently showing this user in avatars and refresh those avatar lists
         const impactedEventIds: string[] = []
         for (const [eventId, list] of Object.entries(avatarsByEvent)) {
           if (list?.some((p) => p.user_id === uid)) impactedEventIds.push(eventId)
@@ -768,13 +930,13 @@ async function fetchEventById(id: string): Promise<EventRow | null> {
   const row = data as EventRow
   if (row.product_id) {
     await attachPrizeImages([row])
+    await attachProductPrices([row])
   } else {
     row.imageUrl = null
   }
   return row
 }
 
-/** refresh a single event's live joined count, patch in-memory row too */
 async function refreshEntryCount(eventId: string) {
   try {
     const { count, error } = await supabase
@@ -800,30 +962,20 @@ async function refreshEntryCount(eventId: string) {
 }
 
 /* ---------------- lifecycle ---------------- */
-
-/** log helper kept minimal */
-function safeLogUnmountStatus(ch: ReturnType<typeof supabase.channel> | null, tag: string) {
-  try {
-    console.log(`[RT:${tag}] tearing down`)
-  } catch {}
+function safeLogUnmountStatus(_: any, tag: string) {
+  try { console.log(`[RT:${tag}] tearing down`) } catch {}
 }
-
-/** 🔧 Non-blocking unsubscribe (fire-and-forget) */
 function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) {
   if (!ch) return
-  try {
-    ch.unsubscribe().catch(() => {})
-  } catch (_) {}
-  try {
-    supabase.removeChannel(ch)
-  } catch (_) {}
+  try { ch.unsubscribe().catch(() => {}) } catch {}
+  try { supabase.removeChannel(ch) } catch {}
 }
-
 let teardownStarted = false
 
 onMounted(() => {
   console.log('[LIFECYCLE] Mounted -> loading + subscribing')
   isAlive.value = true
+  loadUserBalance()
   loadOpenEvents()
   subscribeRealtime()
 })
@@ -867,10 +1019,76 @@ onUnmounted(() => {
 
 /* --- Motion safety --- */
 @media (prefers-reduced-motion: reduce) {
-  .spin-card, .spin-wheel__ring, .join-btn, .spin-card__halo { animation: none !important; transition: none !important; }
+  .spin-card, .spin-wheel__ring, .join-btn, .spin-card__halo, .slider__item { animation: none !important; transition: none !important; }
 }
 
-/* --- Spin Card --- */
+/* ===================== SLIDER (inspired by your SCSS snippet) ===================== */
+.slider {
+  position: relative;
+  user-select: none;
+  outline: none;
+}
+.slider__holder{
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+  margin-top: 24px;
+  min-height: 480px; /* space for stacked cards */
+}
+@media (max-width: 1200px){ .slider__holder{ max-width: 980px; } }
+@media (max-width: 992px) { .slider__holder{ max-width: 760px; min-height: 520px; } }
+@media (max-width: 600px) { .slider__holder{ max-width: 96%; min-height: 520px; } }
+
+.slider__item{
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: block;
+  width: min(860px, 92%);
+  cursor: pointer;
+  transition: transform .45s cubic-bezier(.22,.61,.36,1), opacity .35s ease, filter .35s ease;
+  will-change: transform, opacity, filter;
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.08));
+}
+
+/* Bullets */
+.bullets{
+  z-index: 5;
+  display: block;
+  width: auto;
+  height: 10px;
+  margin: 32px auto 0;
+  text-align: center;
+}
+.bullets__item{
+  display: inline-block;
+  width: 10px; height: 10px; margin: 0 4px;
+  border-radius: 6px;
+  background: rgba(0,0,0,.2);
+  border: 0;
+}
+.bullets__item:hover{ background: #fff; }
+.bullets__item.is-active{ background: #4361ee; }
+
+/* Optional nav buttons */
+.slider__nav{
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  pointer-events: none;
+}
+.slider__btn{
+  pointer-events: all;
+  width: 44px; height: 44px; border-radius: 999px; border: 0;
+  background: rgba(0,0,0,.08);
+  display: grid; place-items: center;
+  font-size: 22px; line-height: 1;
+  margin: 0 8px;
+  transition: background .2s ease, transform .15s ease;
+}
+.slider__btn:hover{ background: rgba(0,0,0,.12); transform: translateY(-1px); }
+
+/* ===================== CARD / WHEEL (unchanged) ===================== */
 .spin-card { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffffff, #fbfbfd); transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; border: 1px solid rgba(0,0,0,.06); will-change: transform; }
 .spin-card:focus-within, .spin-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.06); border-color: rgba(0,0,0,.1); }
 .spin-card--locked { opacity: .9; }
@@ -905,7 +1123,7 @@ onUnmounted(() => {
 .spin-wheel__pointer { position: absolute; top: 2%; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 10px solid rgba(0,0,0,.15); z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,.08)); }
 
 /* --- Stats Row --- */
-.spin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: .5rem; }
+.spin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
 .spin-stat { background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: .75rem; padding: .5rem .6rem; text-align: center; }
 .spin-stat__label { font-size: .72rem; color: #6c757d; }
 .spin-stat__value { font-size: .9rem; font-weight: 600; }
@@ -929,5 +1147,6 @@ onUnmounted(() => {
 .join-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); transform: translateX(-120%); transition: transform .6s ease; }
 .join-btn:hover::after { transform: translateX(120%); }
 .join-btn--disabled, .join-btn:disabled { opacity: .7; box-shadow: none; cursor: not-allowed; }
+
+
 </style>
-  
