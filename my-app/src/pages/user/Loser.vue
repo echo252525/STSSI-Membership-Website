@@ -2,73 +2,50 @@
   <div class="loser-page container py-5">
     <div class="card shadow-sm mx-auto max-w">
       <div class="card-body p-4">
+        <!-- Header -->
         <div class="text-center">
           <div class="emoji">😅</div>
-          <h1 class="title mb-2">Maybe Next Time</h1>
+          <h1 class="title mb-2">Better luck next time</h1>
           <p class="lead text-muted mb-3">
-            You didn’t win this round. Your entry was refunded.
+            You didn’t win this round. Your refund has already been credited.
           </p>
         </div>
 
-        <!-- Balances -->
+        <!-- Balance breakdown -->
         <div class="row g-3 my-3">
-          <div class="col-12 col-md-6">
+          <div class="col-12">
             <div class="info-tile">
-              <div class="label">Your Current Balance</div>
-              <div class="value">
-                <span v-if="balance !== null">₱ {{ fmtMoney(balance) }}</span>
-                <span v-else class="text-muted">—</span>
-              </div>
-            </div>
-          </div>
-          <div class="col-12 col-md-6">
-            <div class="info-tile">
-              <div class="label">Amount to Refund</div>
-              <div class="value">
-                <span>₱ {{ fmtMoney(refundAmount) }}</span>
-              </div>
-            </div>
-          </div>
-        </div>
+              <div class="label mb-1">Balance Update</div>
 
-        <!-- Receipts -->
-        <div class="mt-4">
-          <h6 class="fw-bold mb-2">Your Receipt(s) for this Event</h6>
-          <div v-if="receipts.length" class="list-group">
-            <div
-              v-for="r in receipts"
-              :key="r.id"
-              class="list-group-item d-flex flex-wrap justify-content-between align-items-center"
-            >
-              <div>
-                <div class="small text-muted">Receipt ID</div>
-                <code class="fw-bold">{{ shortId(r.id) }}</code>
+              <div v-if="balance !== null" class="balance-grid">
+                <div class="balance-row">
+                  <div class="balance-key text-muted">Previous balance</div>
+                  <div class="balance-val">₱ {{ fmtMoney(previousBalance) }}</div>
+                </div>
+                <div class="balance-row">
+                  <div class="balance-key text-muted">Refunded</div>
+                  <div class="balance-val text-success fw-bold">+ ₱ {{ fmtMoney(refundedAmount) }}</div>
+                </div>
+                <hr class="my-2"/>
+                <div class="balance-row total">
+                  <div class="balance-key fw-semibold">New balance</div>
+                  <div class="balance-val fw-bold">₱ {{ fmtMoney(balance) }}</div>
+                </div>
               </div>
-              <div class="text-end">
-                <div class="small text-muted">Created</div>
-                <div class="fw-semibold">{{ fmtDate(r.created_at) }}</div>
-              </div>
+
+              <div v-else class="text-muted">—</div>
             </div>
           </div>
-          <div v-else class="text-muted small">No receipts found for this event.</div>
         </div>
 
         <!-- Error -->
         <div v-if="err" class="text-danger mt-3">{{ err }}</div>
 
-        <!-- Confirm refund -->
+        <!-- Back -->
         <div class="text-center mt-4">
-          <button
-            class="btn btn-success btn-lg px-4"
-            :disabled="busy || refundAmount <= 0 || balance === null"
-            @click="confirmRefund"
-          >
-            <span v-if="busy" class="spinner-border spinner-border-sm me-2"></span>
-            Confirm Refund
+          <button class="btn btn-primary btn-lg px-4" @click="goBackToMiniGames">
+            Back to Mini Games
           </button>
-          <div class="small text-muted mt-2" v-if="refundAmount <= 0">
-            Refund amount is zero — nothing to credit.
-          </div>
         </div>
       </div>
     </div>
@@ -80,21 +57,13 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
-type ReceiptRow = {
-  id: string
-  event_id: string
-  user_id: string
-  entry_id: string | null
-  created_at: string
-}
-
 type EventRow = {
   id: string
   status?: string
   player_cap?: number
   product_id?: string | null
   user_id_winner?: string | null
-  loser_refund_amount?: number | null
+  loser_refund_amount?: number | null // column name in DB
 }
 
 const route = useRoute()
@@ -105,9 +74,7 @@ const eventId = ref<string | null>((route.query.eventId as string) || null)
 
 const balance = ref<number | null>(null)
 const eventInfo = ref<EventRow | null>(null)
-const receipts = ref<ReceiptRow[]>([])
 const err = ref('')
-const busy = ref(false)
 
 /** Helpers */
 function fmtMoney(n: number | null | undefined) {
@@ -119,10 +86,18 @@ function fmtDate(iso: string) {
 }
 function shortId(id: string) { return id.slice(0, 6) + '…' + id.slice(-6) }
 
-/** Refund amount: ONLY from event.loser_refund_amount */
-const refundAmount = computed<number>(() => {
-  const e = eventInfo.value
-  return Number(e?.loser_refund_amount ?? 0)
+/** Refunded amount from event (DB column: loser_refund_amount) */
+const refundedAmount = computed<number>(() => Number(eventInfo.value?.loser_refund_amount ?? 0))
+
+/** Previous balance = current balance - refunded (not below 0)
+ * DB already has: current balance = previous + refund.
+ * We subtract refund here to *show* the before/after breakdown.
+ */
+const previousBalance = computed<number>(() => {
+  const cur = Number(balance.value ?? 0)
+  const refAmt = refundedAmount.value
+  const prev = cur - refAmt
+  return prev >= 0 ? prev : 0
 })
 
 async function fetchMe() {
@@ -140,8 +115,8 @@ async function ensureEventIdFromLatestReceipt() {
   if (eventId.value || !myUserId.value) return
   try {
     const { data, error } = await supabase
-      .schema('games')
-      .from('receipt')
+      .schema('ewallet')
+      .from('game_receipt')
       .select('event_id')
       .eq('user_id', myUserId.value)
       .order('created_at', { ascending: false })
@@ -156,7 +131,6 @@ async function ensureEventIdFromLatestReceipt() {
 async function fetchUserBalance() {
   if (!myUserId.value) return
   try {
-    // 🔧 If your wallet lives elsewhere, change this query.
     const { data, error } = await supabase
       .from('users')
       .select('balance')
@@ -187,65 +161,17 @@ async function fetchEvent() {
   }
 }
 
-async function fetchReceipts() {
-  if (!eventId.value || !myUserId.value) return
-  try {
-    const { data, error } = await supabase
-      .schema('games')
-      .from('receipt')
-      .select('id, event_id, user_id, entry_id, created_at')
-      .eq('event_id', eventId.value)
-      .eq('user_id', myUserId.value)
-      .order('created_at', { ascending: false })
-    if (error) throw error
-    receipts.value = (data || []) as ReceiptRow[]
-  } catch (e: any) {
-    err.value = err.value || e?.message || 'Failed to load receipts'
-    receipts.value = []
-  }
-}
-
 async function init() {
   await fetchMe()
   await ensureEventIdFromLatestReceipt()
-  await Promise.all([
-    fetchEvent(),
-    fetchUserBalance(),
-  ])
-  await fetchReceipts()
+  await Promise.all([fetchEvent(), fetchUserBalance()])
 }
 
-/** CONFIRM REFUND:
- *  - Adds refundAmount to users.balance
- *  - Navigates back to Mini Games
- */
-async function confirmRefund() {
-  if (!myUserId.value) { err.value = 'No user found.'; return }
-  if (refundAmount.value <= 0) { err.value = 'Nothing to refund.'; return }
-  busy.value = true
+function goBackToMiniGames() {
   try {
-    // Reload to reduce race conditions
-    await fetchUserBalance()
-    const current = Number(balance.value ?? 0)
-    const next = current + Number(refundAmount.value)
-
-    // 🔧 If your wallet is stored elsewhere, change this update target.
-    const { error } = await supabase
-      .from('users')
-      .update({ balance: next })
-      .eq('id', myUserId.value)
-    if (error) throw error
-
-    balance.value = next
-
-    setTimeout(() => {
-      try { router.push({ name: 'user.minigames' }) }
-      catch { router.push('/app/minigames') }
-    }, 50)
-  } catch (e: any) {
-    err.value = e?.message || 'Refund failed.'
-  } finally {
-    busy.value = false
+    router.push({ name: 'user.minigames' })
+  } catch {
+    router.push('/app/minigames')
   }
 }
 
@@ -271,11 +197,22 @@ onMounted(init)
 .info-tile .label {
   font-size: .85rem;
   color: #6c757d;
-  margin-bottom: 2px;
+  margin-bottom: 6px;
 }
-.info-tile .value {
-  font-weight: 800;
-  font-size: 1.15rem;
+
+.balance-grid {
+  display: grid;
+  gap: 6px;
 }
+.balance-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 1rem;
+}
+.balance-row .balance-key { color: #6c757d; }
+.balance-row .balance-val { font-weight: 700; }
+.balance-row.total { font-size: 1.15rem; }
+
 .list-group-item { border-color: rgba(0,0,0,0.08); }
 </style>

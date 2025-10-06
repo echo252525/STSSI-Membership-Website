@@ -50,20 +50,32 @@
         <!-- Wheel -->
         <div class="wheel-stage">
           <div class="stage-glow"></div>
-          <div class="wheel-wrap mx-auto mb-3" :class="{ spinning }">
+
+          <!-- gold frame + bulbs -->
+          <div class="rim">
+            <div v-for="n in 20" :key="n" class="bulb" :style="bulbStyle(n)"></div>
+          </div>
+
+          <div class="wheel-wrap mx-auto mb-3" :class="{ spinning }" :style="wheelVars">
             <div class="pointer"></div>
+
+            <!-- wheel face -->
             <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
+              <!-- hub -->
               <div class="hub"></div>
+              <div class="hub-label">Spin</div>
               <div class="hub-dot"></div>
 
-              <!-- labels -->
+              <!-- slice labels – counter-rotated to stay upright -->
               <template v-for="(p, i) in spinEntries" :key="p.id">
                 <div
                   class="slice-label"
-                  :style="[labelStyle(i), sliceLabelStyle(i)]"
-                  :title="maskUser(p.user_id)"
+                  :style="[labelVars(i), sliceLabelStyle(i, p.user_id)]"
+                  :title="displayName(p.user_id) || maskUser(p.user_id)"
                 >
-                  <span class="label-text">{{ maskUser(p.user_id) }}</span>
+                  <span class="label-text">
+                    {{ displayName(p.user_id) || maskUser(p.user_id) }}
+                  </span>
                 </div>
               </template>
             </div>
@@ -76,60 +88,51 @@
           </div>
 
           <!-- Controls row -->
-          <div class="controls d-flex align-items-center justify-content-center gap-3 mb-2">
+          <div class="controls d-flex align-items-center justify-content-center gap-3 mb-2" v-if="!resolved">
             <button
               class="btn btn-primary btn-arcade"
               :disabled="!canSpinGate || spinning || busy.commit"
               @click="startCountdownAndSpin()"
             >
               <span v-if="spinning" class="spinner-border spinner-border-sm me-2"></span>
-              {{ resolved ? 'Resolved' : 'SPIN' }}
+              SPIN
             </button>
+
             <span v-if="countdown !== null" class="badge bg-warning text-dark fs-6 countdown-badge">
               Spinning in {{ countdown }}…
             </span>
           </div>
-
-          <!-- Sub badges (joined/total/cap) -->
-          <div class="joined-summary d-flex align-items-center justify-content-center gap-2">
-            <span class="badge bg-success"
-              >Joined · <strong>{{ joinedEntries.length }}</strong></span
-            >
-            <span class="badge bg-secondary"
-              >Total · <strong>{{ entries.length }}</strong></span
-            >
-            <span v-if="eventInfo?.player_cap" class="badge bg-info"
-              >Cap · <strong>{{ eventInfo.player_cap }}</strong></span
-            >
-          </div>
         </div>
       </section>
 
-      <!-- RIGHT: Prize / Info -->
+      <!-- RIGHT: Product / Info -->
       <aside class="prize-panel card shadow-sm">
         <div class="card-body">
-          <h3 class="prize-title">{{ prizeTitle }}</h3>
-
-          <div v-if="costToEnter !== null" class="price-card entry">
-            <div class="label">COST TO ENTER</div>
-            <div class="amount">₱ {{ costToEnter }}</div>
+          <!-- fading gallery -->
+          <div class="prod-gallery">
+            <img
+              v-for="(u, idx) in productSignedUrls"
+              :key="u"
+              class="prod-img"
+              :src="u"
+              :alt="productMeta?.name || 'Product'"
+              :class="{ 'is-active': idx === currentProdIdx }"
+            />
           </div>
 
-          <div v-if="costToBuy !== null" class="price-card buy">
-            <div class="label">COST TO BUY</div>
-            <div class="amount">₱ {{ costToBuy }}</div>
+          <!-- name -->
+          <h3 class="prize-title mt-3">{{ productMeta?.name || prizeTitle }}</h3>
+
+          <!-- price w/ discount -->
+          <div class="price-row" v-if="productMeta">
+            <span class="old">₱ {{ fmtMoney(productMeta.price) }}</span>
+            <span class="new">₱ {{ fmtMoney(discountedPrice) }}</span>
           </div>
         </div>
       </aside>
     </div>
 
-    <!-- Bottom call-to-action buttons (kept but hidden as requested) -->
-    <div class="cta-row d-flex align-items-center justify-content-center gap-3" v-if="false">
-      <button type="button" class="btn cta-join">JOIN EVENT</button>
-      <button type="button" class="btn cta-help">HOW TO PLAY</button>
-    </div>
-
-    <!-- (kept) bottom winner alert, hidden when modal is shown -->
+    <!-- bottom winner alert -->
     <div
       v-if="revealWinner && winnerEntry && !showOutcomeModal"
       class="alert alert-success mt-3 text-center"
@@ -139,7 +142,7 @@
 
     <div v-if="err" class="text-danger mt-3">{{ err }}</div>
 
-    <!-- Confetti overlay on reveal -->
+    <!-- Confetti -->
     <div v-if="revealWinner" class="confetti-wrap" aria-hidden="true">
       <span v-for="n in 30" :key="n" class="confetti-piece"></span>
     </div>
@@ -170,7 +173,6 @@
             >
           </p>
 
-          <!-- CHANGED: route to winner/loser destinations -->
           <button
             class="btn btn-lg w-100 mt-1 pop-btn"
             @click="handleOutcomeAction"
@@ -184,11 +186,66 @@
         <button class="pop-close" @click="closeOutcomeModal" aria-label="Close">✕</button>
       </div>
     </div>
-    <!-- ======================================================================== -->
+
+    <!-- ===================== INTRO MODAL (Auto for 10s, no buttons) ===================== -->
+    <div v-if="showIntroModal" class="intro-backdrop">
+      <div class="intro-modal card">
+        <div class="intro-sheen"></div>
+        <div class="card-body p-4">
+          <div class="d-flex flex-column gap-3">
+            <div class="text-center">
+              <div class="intro-title">Get Ready to Spin!</div>
+              <div class="intro-sub">Prize &amp; Players</div>
+            </div>
+
+            <!-- Prize with animated slash & gold discount -->
+            <div class="intro-prize">
+              <div class="intro-prize-media">
+                <img
+                  v-if="productSignedUrls.length"
+                  :src="productSignedUrls[0]"
+                  :alt="productMeta?.name || 'Prize'"
+                />
+                <div v-else class="intro-prize-placeholder">🎁</div>
+              </div>
+              <div class="intro-prize-info">
+                <div class="intro-prize-name">{{ productMeta?.name || prizeTitle }}</div>
+                <div class="intro-prices">
+                  <span class="intro-price-old">
+                    ₱ {{ fmtMoney(productMeta?.price || 0) }}
+                    <i class="intro-slash"></i>
+                  </span>
+                  <span class="intro-price-new">₱ {{ fmtMoney(discountedPrice) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Players grid -->
+            <div class="intro-players">
+              <div class="intro-players-head">
+                Players · <strong>{{ spinEntries.length }}</strong>
+              </div>
+              <div class="intro-players-grid">
+                <div v-for="p in spinEntries" :key="p.id" class="intro-player-pill">
+                  <img :src="avatarUrl(p.user_id)" :alt="displayName(p.user_id)" />
+                  <span>{{ displayName(p.user_id) || maskUser(p.user_id) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- subtle countdown text -->
+            <div class="intro-count text-center">
+              Starting automatically in <b>{{ introSeconds }}</b>…
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
+/* ======== ORIGINAL SCRIPT (kept) + intro auto-start changes ========= */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
@@ -200,9 +257,9 @@ const eventId = route.query.eventId as string
 type EntryRow = { id: string; event_id: string; user_id: string; status: string }
 
 const prizeTitle = ref('USB DRIVE')
-const costToEnter = ref<number | null>(50) // will be overwritten by event.entry_fee
-const interestFlat = ref<number | null>(null) // optional
-const costToBuy = ref<number | null>(48.5) // will be overwritten by event.winner_refund_amount
+const costToEnter = ref<number | null>(50)
+const interestFlat = ref<number | null>(null)
+const costToBuy = ref<number | null>(48.5)
 
 const INTEREST_RATE = 0.02
 const calcInterest = (base: number) => Math.round(base * INTEREST_RATE * 100) / 100
@@ -236,9 +293,14 @@ const myUserId = ref<string | null>(null)
 
 const eventWinnerUpdated = ref(false)
 const receiptInserted = ref(false)
-
-/** NOTE: voucher table removed – keep flag but do nothing */
 const voucherInserted = ref(false)
+
+/* ========= INTRO (auto, no buttons) ========= */
+const showIntroModal = ref(false)
+const hasSeenIntro = ref(false)
+const introSeconds = ref(10)
+let introInterval: number | null = null
+let introTimeout: number | null = null
 
 const eventInfo = ref<{
   id: string
@@ -248,8 +310,8 @@ const eventInfo = ref<{
   product_id?: string | null
   entry_fee?: number | null
   winner_refund_amount?: number | null
-  /** ==== NEW: use this for losers ==== */
   loser_refund_amount?: number | null
+  interest_per_player?: number | null
 } | null>(null)
 
 const spinInfo = ref<{ event_id: string; winner_entry_id: string } | null>(null)
@@ -265,14 +327,21 @@ const rpcWinnerId = ref<string | null>(null)
 let participantsSnapshot: EntryRow[] = []
 const spinStarted = ref(false)
 
-/** ==== NEW: guard to guarantee only one purchase row is created ==== */
 const winnerPurchaseInserted = ref(false)
 let winnerPurchaseInflight = false
-
-/** ==== REFUND GUARD / AMOUNTS (NEW) ==== */
 const refundsCommitted = ref(false)
 let refundsInflight = false
 
+/* ======== product meta / signed images carousel ========= */
+const productMeta = ref<{ id: string; name: string; price: number; product_url: string[] } | null>(
+  null,
+)
+const productSignedUrls = ref<string[]>([])
+const currentProdIdx = ref(0)
+let prodTimer: number | null = null
+const PROD_FADE_MS = 2600
+
+/* ======== Computeds ========= */
 const joinedEntries = computed(() => entries.value.filter((e) => e.status === 'joined'))
 const readyEntries = computed(() => entries.value.filter((e) => e.status === 'ready'))
 const spinEntries = computed(() =>
@@ -300,20 +369,18 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
   return entries.value.find((e) => e.id === wid) || null
 })
 
+/* ======== UI helpers ========= */
 function openOutcomePopupIfMe() {
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
   const winnerUserId = displayWinnerEntry.value.user_id
   const iParticipated = entries.value.some((e) => e.user_id === myUserId.value)
   if (!iParticipated) return
-
   outcomeType.value = myUserId.value === winnerUserId ? 'winner' : 'loser'
   showOutcomeModal.value = true
 }
-
 function closeOutcomeModal() {
   showOutcomeModal.value = false
 }
-
 async function fetchMe() {
   try {
     const { data } = await supabase.auth.getUser()
@@ -322,7 +389,6 @@ async function fetchMe() {
     myUserId.value = null
   }
 }
-
 function shortId(id?: string) {
   return id ? id.slice(0, 4) + '…' + id.slice(-4) : '—'
 }
@@ -337,39 +403,67 @@ function pushJoinFeed(item: JoinFeedItem) {
   if (joinFeed.value.length > FEED_LIMIT) joinFeed.value.length = FEED_LIMIT
 }
 
-function sliceColor(i: number, n: number) {
-  const hue = Math.round((360 * i) / Math.max(1, n))
-  return `hsl(${hue} 78% 55%)`
+/* ======== Wheel coloring & styles ========= */
+function hashColor(str: string) {
+  let h = 0
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360
+  return `hsl(${h} 78% 55%)`
 }
+function sliceColor(i: number, n: number, uid?: string) {
+  return uid ? hashColor(uid) : `hsl(${Math.round((360 * i) / Math.max(1, n))} 78% 55%)`
+}
+
+/* Rotation via CSS var so labels can counter-rotate cleanly */
+const wheelVars = computed(() => ({
+  '--wheel-rot': `${rotateDeg.value}deg`,
+}))
+
 const wheelStyle = computed(() => {
   const n = Math.max(1, spinEntries.value.length)
   const stops: string[] = []
   for (let i = 0; i < n; i++) {
-    const a0 = (360 / n) * i,
-      a1 = (360 / n) * (i + 1)
-    stops.push(`${sliceColor(i, n)} ${a0}deg ${a1}deg`)
+    const a0 = (360 / n) * i
+    const a1 = (360 / n) * (i + 1)
+    const uid = spinEntries.value[i]?.user_id
+    stops.push(`${sliceColor(i, n, uid)} ${a0}deg ${a1}deg`)
   }
   return {
     background: `conic-gradient(${stops.join(',')})`,
-    transform: `rotate(${rotateDeg.value}deg)`,
+    transform: `rotate(var(--wheel-rot))`,
     transition: spinning.value
       ? `transform ${spinDurationMs.value / 1000}s cubic-bezier(.08,.55,.24,1)`
       : 'none',
-  }
+    willChange: 'transform',
+    backfaceVisibility: 'hidden',
+    contain: 'paint',
+  } as any
 })
-function labelStyle(i: number) {
+
+function labelVars(i: number) {
   const n = Math.max(1, spinEntries.value.length)
   const mid = (360 / n) * (i + 0.5)
-  return { transform: `rotate(${mid}deg) translate(0, -46%) rotate(${-mid}deg)` }
+  return { '--slice-angle': `${mid}deg` } as any
 }
-function sliceLabelStyle(i: number) {
+function sliceLabelStyle(i: number, uid?: string) {
   return {
     color: '#fff',
-    textShadow: '0 1px 2px rgba(0,0,0,.6), 0 0 4px rgba(0,0,0,.25)',
-    background: 'transparent',
-  }
+    textShadow: '0 1px 2px rgba(0,0,0,.65), 0 0 4px rgba(0,0,0,.25)',
+    background: 'rgba(0,0,0,.15)',
+    padding: '2px 8px',
+    borderRadius: '10px',
+    boxShadow: `0 0 0 2px rgba(255,255,255,.09), 0 0 10px ${sliceColor(i, 1, uid)}55`,
+    willChange: 'transform',
+    backfaceVisibility: 'hidden',
+  } as any
 }
 
+/* ======== Rim bulbs ========= */
+function bulbStyle(n: number) {
+  const deg = (360 / 20) * (n - 1)
+  return { transform: `rotate(${deg}deg) translate(0, -168px)` }
+}
+
+/* ======== Data fetch ========= */
 async function fetchEntries() {
   if (!eventId) return
   const { data, error } = await supabase
@@ -401,7 +495,9 @@ async function fetchEvent() {
   const { data, error } = await supabase
     .schema('games')
     .from('event')
-    .select('id, player_cap, status, user_id_winner, product_id, entry_fee, winner_refund_amount, loser_refund_amount') // <=== added loser_refund_amount
+    .select(
+      'id, player_cap, status, user_id_winner, product_id, entry_fee, winner_refund_amount, loser_refund_amount, interest_per_player',
+    )
     .eq('id', eventId)
     .single()
   if (error) {
@@ -414,7 +510,52 @@ async function fetchEvent() {
   const wr = eventInfo.value?.winner_refund_amount ?? null
   costToEnter.value = ef !== null ? Number(ef) : costToEnter.value
   costToBuy.value = wr !== null ? Number(wr) : costToBuy.value
+
+  if (eventInfo.value?.product_id) {
+    await fetchProduct(eventInfo.value.product_id)
+  }
 }
+async function fetchProduct(productId: string) {
+  const { data, error } = await supabase
+    .schema('games')
+    .from('products')
+    .select('id, name, price, product_url')
+    .eq('id', productId)
+    .single()
+  if (error) {
+    setErr(error, 'load product')
+    return
+  }
+  productMeta.value = data as any
+  await resolveSignedProductUrls()
+  startProductRotation()
+}
+async function resolveSignedProductUrls() {
+  productSignedUrls.value = []
+  const paths = (productMeta.value?.product_url || []) as string[]
+  const urls: string[] = []
+  for (const raw of paths) {
+    const { path } = splitBucketAndPath(raw)
+    const signed = await signFromBucket(path)
+    if (signed) urls.push(signed)
+  }
+  productSignedUrls.value = urls
+}
+function splitBucketAndPath(s: string) {
+  const parts = s.split('/')
+  const path = parts.join('/')
+  return { path }
+}
+async function signFromBucket(path: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase.storage.from('prize_product').createSignedUrl(path, 3600)
+    if (error || !data?.signedUrl) return null
+    return data.signedUrl
+  } catch {
+    return null
+  }
+}
+
 async function fetchSpin() {
   if (!eventId) return
   const { data, error } = await supabase
@@ -429,14 +570,13 @@ async function fetchSpin() {
   }
 }
 
-/* ===== helper to surface exact PostgREST errors ===== */
 function setErr(e: any, ctx: string) {
   const msg = e?.message || e?.hint || e?.details || e?.error || JSON.stringify(e)
   err.value = `${ctx}: ${msg}`
   console.error(`[${ctx}]`, e)
 }
 
-/* ===== settle entries ===== */
+/* ======== SPIN ========= */
 async function startSpin(forcedIndex: number) {
   const slice = 360 / spinEntries.value.length
   const targetAngle = slice * (forcedIndex + 0.5)
@@ -492,20 +632,14 @@ async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
     setErr(e, 'insert game receipts')
   }
 }
-
-/* ===== voucher (NO-OP: table removed, keep to avoid code removal) ===== */
 async function ensureVoucherForWinner() {
-  // Intentionally empty – voucher table removed.
   voucherInserted.value = true
 }
 
-/* ===== Create the winner purchase (robust) =====
-   Ensure one and only one row is ever inserted for the winner+product+event.
-*/
+/* ===== purchases / balances / refunds ===== */
 function isUuid(v?: string | null) {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 }
-
 async function createWinnerPurchaseIfNeeded() {
   try {
     if (winnerPurchaseInserted.value || winnerPurchaseInflight) return
@@ -520,29 +654,25 @@ async function createWinnerPurchaseIfNeeded() {
 
     winnerPurchaseInflight = true
 
-    // Final duplicate check (user + product + reference_number)
-    {
-      const { data: existing, error: qErr } = await supabase
-        .schema('games')
-        .from('purchases')
-        .select('id')
-        .eq('user_id', winnerUid)
-        .eq('product_id', productId)
-        .eq('reference_number', eventId)
-        .limit(1)
-      if (qErr) {
-        setErr(qErr, 'check existing purchase')
-        winnerPurchaseInflight = false
-        return
-      }
-      if (existing && existing.length) {
-        winnerPurchaseInserted.value = true
-        winnerPurchaseInflight = false
-        return
-      }
+    const { data: existing, error: qErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id')
+      .eq('user_id', winnerUid)
+      .eq('product_id', productId)
+      .eq('reference_number', eventId)
+      .limit(1)
+    if (qErr) {
+      setErr(qErr, 'check existing purchase')
+      winnerPurchaseInflight = false
+      return
+    }
+    if (existing && existing.length) {
+      winnerPurchaseInserted.value = true
+      winnerPurchaseInflight = false
+      return
     }
 
-    // Insert minimal row
     let insertedId: string | null = null
     {
       const { data, error } = await supabase
@@ -551,7 +681,7 @@ async function createWinnerPurchaseIfNeeded() {
         .insert({
           user_id: winnerUid,
           product_id: productId,
-          reference_number: eventId, // one event = one product
+          reference_number: eventId,
         })
         .select('id')
         .single()
@@ -563,8 +693,6 @@ async function createWinnerPurchaseIfNeeded() {
       insertedId = data?.id ?? null
       if (!insertedId) throw new Error('Insert returned no id')
     }
-
-    // Update to required values
     {
       const { error } = await supabase
         .schema('games')
@@ -577,7 +705,6 @@ async function createWinnerPurchaseIfNeeded() {
         return
       }
     }
-
     winnerPurchaseInserted.value = true
     winnerPurchaseInflight = false
   } catch (e: any) {
@@ -585,8 +712,6 @@ async function createWinnerPurchaseIfNeeded() {
     setErr(e, 'create winner purchase')
   }
 }
-
-/* ===== Balances ===== */
 async function adjustUserBalance(userId: string, delta: number) {
   try {
     const { data, error } = await supabase.from('users').select('balance').eq('id', userId).single()
@@ -599,29 +724,17 @@ async function adjustUserBalance(userId: string, delta: number) {
     setErr(e, `update balance for ${shortId(userId)}`)
   }
 }
-
-/** ==== NEW: exact amounts from event for winner/losers ==== */
 function resolveRefundAmounts() {
-  // Winner gets event.winner_refund_amount back to balance
-  // Losers get event.loser_refund_amount back to balance
   const winnerAmt = Number(eventInfo.value?.winner_refund_amount ?? 0)
   const loserAmt = Number(eventInfo.value?.loser_refund_amount ?? 0)
   return { winnerAmt, loserAmt }
 }
-
-/** ==== NEW: acquire a per-event idempotency lock via DB ====
- * Requires: ewallet.refund_lock(event_id uuid primary key, created_at timestamptz default now()) */
 async function acquireRefundLock(): Promise<boolean> {
   if (!eventId || refundsCommitted.value || refundsInflight) return false
   refundsInflight = true
   try {
-    const { error } = await supabase
-      .schema('games')
-      .from('refund_lock')
-      .insert({ event_id: eventId })
-
+    const { error } = await supabase.schema('games').from('refund_lock').insert({ event_id: eventId })
     if (error) {
-      // If unique violation (already processed), treat as not acquired
       const msg = (error.message || '').toLowerCase()
       const details = (error.details || '').toLowerCase()
       const hint = (error.hint || '').toLowerCase()
@@ -636,10 +749,8 @@ async function acquireRefundLock(): Promise<boolean> {
         refundsCommitted.value = true
         return false
       }
-      // other error
       throw error
     }
-    // Lock acquired
     refundsInflight = false
     return true
   } catch (e: any) {
@@ -648,31 +759,19 @@ async function acquireRefundLock(): Promise<boolean> {
     return false
   }
 }
-
 async function processRefundsAndPayments() {
   try {
     if (!displayWinnerEntry.value) return
-
-    // Try to acquire the one-time lock. If we can't, refunds already processed.
     const gotLock = await acquireRefundLock()
     if (!gotLock) {
       refundsCommitted.value = true
       return
     }
-
     const winnerUid = displayWinnerEntry.value.user_id
     const { winnerAmt, loserAmt } = resolveRefundAmounts()
 
-    // Create the winner purchase per requirement (exactly once)
-    await createWinnerPurchaseIfNeeded()
+    if (winnerAmt !== 0) await adjustUserBalance(winnerUid, winnerAmt)
 
-    // ===== Winner refund logic (FIXED) =====
-    // Refund EXACTLY event.winner_refund_amount back to the winner's users.balance
-    if (winnerAmt !== 0) {
-      await adjustUserBalance(winnerUid, winnerAmt)
-    }
-
-    // Losers: refund loser_refund_amount each, BUT only those whose entry is now marked refunded
     const losersNow = (await supabase
       .schema('games')
       .from('entry')
@@ -682,11 +781,10 @@ async function processRefundsAndPayments() {
 
     const loserList = (losersNow || []).filter((e) => e.status === 'refunded')
     if (loserAmt !== 0) {
-      for (const l of loserList) {
-        await adjustUserBalance(l.user_id, loserAmt)
-      }
+      for (const l of loserList) await adjustUserBalance(l.user_id, loserAmt)
     }
 
+    await createWinnerPurchaseIfNeeded()
     refundsCommitted.value = true
   } catch (e: any) {
     setErr(e, 'refund/payment processing')
@@ -704,7 +802,7 @@ async function onSpinEnd() {
 
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
     await insertReceiptsForParticipants(participantsSnapshot)
-    await ensureVoucherForWinner() // NO-OP
+    await ensureVoucherForWinner()
     await processRefundsAndPayments()
 
     resolved.value = true
@@ -722,10 +820,7 @@ async function triggerServerSpinAndAnimate() {
   try {
     busy.value.commit = true
     revealWinner.value = false
-    const { data, error } = await supabase.rpc('rpc_spin_event', {
-      _event_id: eventId,
-      _seed: null,
-    })
+    const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
     if (error) {
       setErr(error, 'rpc_spin_event')
       busy.value.commit = false
@@ -752,7 +847,7 @@ async function triggerServerSpinAndAnimate() {
       await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
       await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
       await insertReceiptsForParticipants(participantsSnapshot)
-      await ensureVoucherForWinner() // NO-OP
+      await ensureVoucherForWinner()
       await processRefundsAndPayments()
       resolved.value = true
       busy.value.commit = false
@@ -790,24 +885,23 @@ function startCountdownAndSpin() {
   Promise.all([fetchEntries()]).then(() => {
     if (!canSpinGate.value) {
       const stop = watch(allReady, (ok) => {
-        if (
-          ok &&
-          !autoSpinStarted.value &&
-          !resolved.value &&
-          !spinning.value &&
-          !spinStarted.value
-        ) {
+        if (ok && !autoSpinStarted.value && !resolved.value && !spinning.value && !spinStarted.value) {
           stop()
-          actuallyStartCountdown()
+          if (!hasSeenIntro.value) openIntro()
+          else actuallyStartCountdown()
         }
       })
       return
     }
-    actuallyStartCountdown()
+    if (!hasSeenIntro.value) {
+      openIntro()
+    } else {
+      actuallyStartCountdown()
+    }
   })
 }
 
-/* Realtime */
+/* ===== Realtime ===== */
 let realtimeChannel: any | null = null,
   realtimeChannelSpin: any | null = null,
   realtimeChannelEvent: any | null = null
@@ -824,9 +918,7 @@ function scheduleRefresh(delayMs = 250) {
 function makeRealtimeChannel() {
   if (!eventId) return
   if (realtimeChannel) {
-    try {
-      supabase.removeChannel(realtimeChannel)
-    } catch {}
+    try { supabase.removeChannel(realtimeChannel) } catch {}
     realtimeChannel = null
   }
   realtimeChannel = supabase
@@ -856,9 +948,7 @@ function makeRealtimeChannel() {
 function makeRealtimeChannelSpin() {
   if (!eventId) return
   if (realtimeChannelSpin) {
-    try {
-      supabase.removeChannel(realtimeChannelSpin)
-    } catch {}
+    try { supabase.removeChannel(realtimeChannelSpin) } catch {}
     realtimeChannelSpin = null
   }
   realtimeChannelSpin = supabase
@@ -887,7 +977,7 @@ function makeRealtimeChannelSpin() {
           await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
           await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
           await insertReceiptsForParticipants(participantsSnapshot)
-          await ensureVoucherForWinner() // NO-OP
+          await ensureVoucherForWinner()
           await processRefundsAndPayments()
           resolved.value = true
           rpcWinnerId.value = null
@@ -906,21 +996,16 @@ function makeRealtimeChannelSpin() {
 function makeRealtimeChannelEvent() {
   if (!eventId) return
   if (realtimeChannelEvent) {
-    try {
-      supabase.removeChannel(realtimeChannelEvent)
-    } catch {}
+    try { supabase.removeChannel(realtimeChannelEvent) } catch {}
     realtimeChannelEvent = null
   }
   realtimeChannelEvent = supabase
     .channel(`ge-event-${eventId}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'games', table: 'event', filter: `id=eq.${eventId}` },
-      () => scheduleRefresh(50),
+    .on('postgres_changes', { event: '*', schema: 'games', table: 'event', filter: `id=eq.${eventId}` }, () =>
+      scheduleRefresh(50),
     )
     .subscribe((s: any) => {
-      if (s === 'CLOSED' || s === 'CHANNEL_ERROR')
-        setTimeout(() => makeRealtimeChannelEvent(), 1000)
+      if (s === 'CLOSED' || s === 'CHANNEL_ERROR') setTimeout(() => makeRealtimeChannelEvent(), 1000)
     })
 }
 function startPoll() {
@@ -937,6 +1022,7 @@ function onVisibilityChange() {
   if (document.visibilityState === 'visible') scheduleRefresh(0)
 }
 
+/* ===== user meta / avatars ===== */
 watch(entries, () => {
   resolved.value = entries.value.some((e) => e.status === 'winner')
 })
@@ -944,16 +1030,19 @@ watch(
   () => [revealWinner.value, displayWinnerEntry.value, myUserId.value] as const,
   async () => {
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-    await ensureVoucherForWinner() // NO-OP
+    await ensureVoucherForWinner()
     openOutcomePopupIfMe()
   },
 )
+/* When everyone is ready: show intro once (10s), then auto-start */
 watch(
   () => [allReady.value, eventInfo.value?.player_cap, resolved.value] as const,
   ([gateOk, , isResolved]) => {
     if (isResolved) return
-    if (gateOk && !autoSpinStarted.value && !spinning.value && !spinStarted.value)
-      startCountdownAndSpin()
+    if (gateOk && !autoSpinStarted.value && !spinning.value && !spinStarted.value) {
+      if (!hasSeenIntro.value) openIntro()
+      else startCountdownAndSpin()
+    }
   },
 )
 
@@ -1045,7 +1134,7 @@ async function onImgError(e: Event, uid: string) {
   el.src = DEFAULT_AVATAR
 }
 const DEFAULT_AVATAR =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y2="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color="%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color="%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
 function startAvatarRefreshTimer() {
   stopAvatarRefreshTimer()
   avatarRefreshTimer = window.setInterval(() => refreshExpiringAvatars(), 300000)
@@ -1057,6 +1146,59 @@ function stopAvatarRefreshTimer() {
   }
 }
 
+/* ======== Price display ======== */
+const discountedPrice = computed(() => {
+  const p = Number(productMeta.value?.price ?? 0)
+  const d = Number(eventInfo.value?.interest_per_player ?? 0)
+  const out = Math.max(0, p - d)
+  return out
+})
+function fmtMoney(n: number) {
+  return (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 0 })
+}
+
+/* ======== Product rotation ======== */
+function startProductRotation() {
+  stopProductRotation()
+  if ((productSignedUrls.value || []).length <= 1) return
+  prodTimer = window.setInterval(() => {
+    currentProdIdx.value =
+      (currentProdIdx.value + 1) % Math.max(1, productSignedUrls.value.length)
+  }, PROD_FADE_MS)
+}
+function stopProductRotation() {
+  if (prodTimer) {
+    clearInterval(prodTimer)
+    prodTimer = null
+  }
+}
+
+/* ======== Intro controls (auto, no buttons) ======== */
+function openIntro() {
+  showIntroModal.value = true
+  hasSeenIntro.value = true
+  introSeconds.value = 10
+  if (introInterval) { clearInterval(introInterval); introInterval = null }
+  if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
+
+  introInterval = window.setInterval(() => {
+    if (introSeconds.value > 1) introSeconds.value--
+  }, 1000)
+
+  introTimeout = window.setTimeout(() => {
+    closeIntro(true)
+    // kick off countdown after intro ends
+    setTimeout(() => { if (!autoSpinStarted.value) actuallyStartCountdown() }, 120)
+  }, 10_000)
+}
+function closeIntro(markSeen = true) {
+  showIntroModal.value = false
+  if (markSeen) hasSeenIntro.value = true
+  if (introInterval) { clearInterval(introInterval); introInterval = null }
+  if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
+}
+
+/* ======== Lifecycle ======== */
 onMounted(async () => {
   await fetchMe()
   await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
@@ -1066,75 +1208,40 @@ onMounted(async () => {
   startPoll()
   startAvatarRefreshTimer()
   document.addEventListener('visibilitychange', onVisibilityChange)
-  if (canSpinGate.value) startCountdownAndSpin()
+  if (canSpinGate.value && !hasSeenIntro.value) openIntro()
 })
 onBeforeUnmount(() => {
-  if (realtimeChannel) {
-    try {
-      supabase.removeChannel(realtimeChannel)
-    } catch {}
-    realtimeChannel = null
-  }
-  if (realtimeChannelSpin) {
-    try {
-      supabase.removeChannel(realtimeChannelSpin)
-    } catch {}
-    realtimeChannelSpin = null
-  }
-  if (realtimeChannelEvent) {
-    try {
-      supabase.removeChannel(realtimeChannelEvent)
-    } catch {}
-    realtimeChannelEvent = null
-  }
-  if (refreshTimer) {
-    window.clearTimeout(refreshTimer)
-    refreshTimer = null
-  }
-  if (countdownHandle) {
-    clearInterval(countdownHandle)
-    countdownHandle = null
-  }
+  if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} ; realtimeChannel = null }
+  if (realtimeChannelSpin) { try { supabase.removeChannel(realtimeChannelSpin) } catch {} ; realtimeChannelSpin = null }
+  if (realtimeChannelEvent) { try { supabase.removeChannel(realtimeChannelEvent) } catch {} ; realtimeChannelEvent = null }
+  if (refreshTimer) { window.clearTimeout(refreshTimer); refreshTimer = null }
+  if (countdownHandle) { clearInterval(countdownHandle); countdownHandle = null }
+  if (introInterval) { clearInterval(introInterval); introInterval = null }
+  if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
   stopPoll()
   stopAvatarRefreshTimer()
+  stopProductRotation()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
-    try {
-      router.push({ name: 'user.winner' })
-      return
-    } catch {}
-    try {
-      router.push('/winner')
-      return
-    } catch {}
+    try { router.push({ name: 'user.winner' }); return } catch {}
+    try { router.push('/winner'); return } catch {}
     router.push({ name: 'user.minigames' })
   } else {
-    try {
-      router.push({ name: 'user.loser' })
-      return
-    } catch {}
-    try {
-      router.push('/loser')
-      return
-    } catch {}
+    try { router.push({ name: 'user.loser' }); return } catch {}
+    try { router.push('/loser'); return } catch {}
     router.push({ name: 'user.minigames' })
   }
 }
-
 function goToMinigames() {
-  try {
-    router.push({ name: 'user.minigames' })
-  } catch {
-    router.push('/app/mini-games')
-  }
+  try { router.push({ name: 'user.minigames' }) } catch { router.push('/app/mini-games') }
 }
 </script>
 
 <style scoped>
-/* ===== Global vibe to match mock ===== */
+/* ===== Global vibe ===== */
 .hero-title {
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -1159,13 +1266,11 @@ function goToMinigames() {
 .event-grid {
   display: grid;
   gap: 18px;
-  grid-template-columns: 280px minmax(340px, 1fr) 280px;
+  grid-template-columns: 280px minmax(340px, 1fr) 320px;
   align-items: start;
 }
 @media (max-width: 992px) {
-  .event-grid {
-    grid-template-columns: 1fr;
-  }
+  .event-grid { grid-template-columns: 1fr; }
 }
 
 /* ===== Left panel ===== */
@@ -1175,530 +1280,260 @@ function goToMinigames() {
   background: #0b2a3a;
   color: #e8fbff;
 }
-.players-panel .card-body {
-  padding: 16px 16px;
-}
+.players-panel .card-body { padding: 16px 16px; }
 .panel-head .icon-ring {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #0fd2a0;
-  color: #083143;
-  font-weight: 900;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: grid; place-items: center; background: #0fd2a0; color: #083143; font-weight: 900;
 }
-.players-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
+.players-list { list-style: none; padding: 0; margin: 0; }
 .player-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 6px;
-  border-radius: 12px;
-  transition: background 0.15s ease;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 6px; border-radius: 12px; transition: background 0.15s ease;
 }
-.player-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-.avatar-wrap {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
-}
-.avatar {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.player-label {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.1;
-}
-.player-label .index {
-  font-size: 0.8rem;
-  color: #9bd2e6;
-}
-.player-label .name {
-  font-weight: 700;
-  font-size: 0.95rem;
-}
+.player-row:hover { background: rgba(255, 255, 255, 0.04); }
+.avatar-wrap { width: 32px; height: 32px; border-radius: 50%; overflow: hidden; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8); }
+.avatar { width: 100%; height: 100%; object-fit: cover; display: block; }
+.player-label { display: flex; flex-direction: column; line-height: 1.1; }
+.player-label .index { font-size: 0.8rem; color: #9bd2e6; }
+.player-label .name { font-weight: 700; font-size: 0.95rem; }
 
 /* ===== Center (wheel) ===== */
-.center-stage {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-.wheel-stage {
-  position: relative;
-  display: grid;
-  place-items: center;
-  margin-bottom: 0.25rem;
-}
+.center-stage { display: flex; flex-direction: column; align-items: center; }
+.wheel-stage { position: relative; display: grid; place-items: center; margin-bottom: 0.25rem; }
 .stage-glow {
-  position: absolute;
-  width: 360px;
-  height: 360px;
-  border-radius: 50%;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(124, 156, 255, 0.25),
-    rgba(82, 227, 182, 0.15) 40%,
-    transparent 70%
-  );
-  filter: blur(14px);
-  z-index: 0;
+  position: absolute; width: 380px; height: 380px; border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 180, 0, 0.22), rgba(255, 105, 180, 0.12) 40%, transparent 70%);
+  filter: blur(14px); z-index: 0;
 }
+
+/* gold rim + bulbs */
+.rim {
+  position: absolute; width: 360px; height: 360px; border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 50%, #ffecb3 0 40%, transparent 41%),
+    conic-gradient(#f59f00, #ffcc00, #f59f00);
+  box-shadow:
+    0 16px 40px rgba(0,0,0,.2),
+    inset 0 4px 10px rgba(0,0,0,.2);
+}
+.bulb {
+  position: absolute; left: 50%; top: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, #ffd43b 60%, #f08c00);
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+  animation: bulbBlink 2.4s infinite ease-in-out;
+}
+.bulb:nth-child(odd){ animation-delay: .6s }
+@keyframes bulbBlink { 0%,100%{opacity:.9} 50%{opacity:.6} }
+
 .wheel-wrap {
   position: relative;
   width: 340px;
   aspect-ratio: 1/1;
-  padding: 10px;
   border-radius: 50%;
-  background:
-    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0) 60%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 255, 255, 0.15),
-      rgba(255, 255, 255, 0) 50%,
-      rgba(255, 255, 255, 0.15)
-    );
-  box-shadow:
-    0 16px 40px rgba(0, 0, 0, 0.18),
-    inset 0 2px 10px rgba(255, 255, 255, 0.2),
-    inset 0 -6px 20px rgba(0, 0, 0, 0.15);
   z-index: 1;
   transition: transform 0.25s ease;
+  will-change: transform;
 }
-.wheel-wrap.spinning {
-  transform: translateY(2px);
-}
+.wheel-wrap.spinning { transform: translateY(2px); }
+
 .pointer {
-  position: absolute;
-  top: -14px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 0;
-  height: 0;
-  border-left: 14px solid transparent;
-  border-right: 14px solid transparent;
-  border-bottom: 22px solid #ffc107;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
-  z-index: 3;
+  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 24px solid #ffbf00;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); z-index: 3;
   animation: pointerIdle 2s ease-in-out infinite;
 }
-.wheel-wrap.spinning .pointer {
-  animation: pointerWiggle 0.25s ease-in-out infinite;
-}
-@keyframes pointerIdle {
-  0%,
-  100% {
-    transform: translateX(-50%) translateY(0);
-  }
-  50% {
-    transform: translateX(-50%) translateY(1px);
-  }
-}
-@keyframes pointerWiggle {
-  0%,
-  100% {
-    transform: translateX(-50%) rotate(0);
-  }
-  50% {
-    transform: translateX(-50%) rotate(-2deg);
-  }
-}
+.wheel-wrap.spinning .pointer { animation: pointerWiggle .25s ease-in-out infinite; }
+@keyframes pointerIdle { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(1px)} }
+@keyframes pointerWiggle { 0%,100%{transform:translateX(-50%) rotate(0)} 50%{transform:translateX(-50%) rotate(-2deg)} }
 
 .wheel {
-  width: 100%;
-  height: 100%;
-  border-radius: 50%;
-  border: 10px solid #222;
-  position: relative;
-  overflow: hidden;
+  width: 100%; height: 100%; border-radius: 50%;
+  border: 16px solid #3b2900;
+  position: relative; overflow: hidden;
   box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.15),
-    0 10px 24px rgba(0, 0, 0, 0.25);
-}
-.wheel-wrap.spinning .wheel {
-  filter: drop-shadow(0 0 18px rgba(124, 156, 255, 0.45)) contrast(1.05);
-}
-.hub {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  width: 70px;
-  height: 70px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 30% 30%, #fff, #e9eefc 40%, #b8c7ff 60%, #8396ff);
-  box-shadow:
-    inset 0 2px 8px rgba(0, 0, 0, 0.15),
-    0 6px 14px rgba(0, 0, 0, 0.25);
-  z-index: 2;
-}
-.hub-dot {
-  position: absolute;
-  inset: 50% auto auto 50%;
-  transform: translate(-50%, -50%);
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #222;
-  z-index: 3;
+    inset 0 0 0 2px rgba(255,255,255,.12),
+    0 10px 24px rgba(0,0,0,.25);
+  background: conic-gradient(#ff7f7f, #7fff7f);
+  transform: rotate(var(--wheel-rot));
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
 }
 
+/* Upright, non-rumbling labels */
 .slice-label {
-  position: absolute;
-  left: 50%;
-  top: 50%;
+  position: absolute; left: 50%; top: 50%;
   transform-origin: 0 0;
-  font-size: 13px;
-  font-weight: 900;
-  letter-spacing: 0.2px;
-  white-space: nowrap;
-  pointer-events: none;
+  font-size: 13px; font-weight: 900; letter-spacing: 0.2px;
+  white-space: nowrap; pointer-events: none;
+  transform: rotate(calc(var(--slice-angle) + var(--wheel-rot))) translate(0, -42%)
+             rotate(calc(-1 * (var(--slice-angle) + var(--wheel-rot))));
 }
-.slice-label .label-text {
-  display: inline-block;
-  max-width: 120px;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  vertical-align: middle;
-}
+.slice-label .label-text { display: inline-block; max-width: 140px; text-overflow: ellipsis; overflow: hidden; vertical-align: middle; }
 @media (max-width: 420px) {
-  .slice-label {
-    font-size: 12px;
-  }
-  .slice-label .label-text {
-    max-width: 96px;
-  }
+  .slice-label { font-size: 12px; }
+  .slice-label .label-text { max-width: 96px; }
 }
 
 .spin-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  font-weight: 700;
-  color: #111;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  pointer-events: none; font-weight: 700; color: #111; text-shadow: 0 1px 0 rgba(255,255,255,.6);
 }
-.pulse-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #198754;
-  animation: pulse 1s infinite ease-in-out;
-}
-@keyframes pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-  50% {
-    transform: scale(1.6);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-}
+.pulse-dot { width: 14px; height: 14px; border-radius: 50%; background: #198754; animation: pulse 1s infinite ease-in-out; }
+@keyframes pulse { 0%{transform:scale(1);opacity:.7} 50%{transform:scale(1.6);opacity:1} 100%{transform:scale(1);opacity:.7} }
 
 .btn-arcade {
-  border-radius: 999px;
-  padding: 0.6rem 1.1rem;
-  box-shadow:
-    0 8px 18px rgba(82, 227, 182, 0.25),
-    inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  transform: translateY(0);
-  transition:
-    transform 0.08s ease,
-    box-shadow 0.2s ease,
-    filter 0.2s ease;
+  border-radius: 999px; padding: 0.6rem 1.1rem;
+  box-shadow: 0 8px 18px rgba(82,227,182,.25), inset 0 1px 0 rgba(255,255,255,.6);
+  transform: translateY(0); transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
 }
-.btn-arcade:hover {
-  box-shadow:
-    0 10px 24px rgba(124, 156, 255, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
-  filter: saturate(1.08);
-}
-.btn-arcade:active {
-  transform: translateY(1px) scale(0.99);
-}
-.countdown-badge {
-  animation:
-    popIn 0.25s ease,
-    breathe 1.6s ease-in-out infinite 0.25s;
-}
-@keyframes popIn {
-  from {
-    transform: scale(0.9);
-    opacity: 0.5;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-@keyframes breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.03);
-  }
-}
+.btn-arcade:hover { box-shadow: 0 10px 24px rgba(124,156,255,.35), inset 0 1px 0 rgba(255,255,255,.7); filter: saturate(1.08); }
+.btn-arcade:active { transform: translateY(1px) scale(.99); }
+.countdown-badge { animation: popIn .25s ease, breathe 1.6s ease-in-out infinite .25s; }
+@keyframes popIn { from{transform:scale(.9);opacity:.5} to{transform:scale(1);opacity:1} }
+@keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
 
-.prize-panel {
-  border: 0;
-  border-radius: 18px;
-  background: #0b2a3a;
-  color: #c9f6ff;
-}
-.prize-panel .card-body {
-  padding: 18px;
-}
-.prize-title {
-  color: #36e3b3;
-  font-weight: 800;
-  letter-spacing: 0.5px;
-  font-size: clamp(18px, 3vw, 32px);
-  text-transform: uppercase;
-  margin-bottom: 16px;
-}
-.price-card {
-  border-radius: 14px;
-  padding: 14px 16px;
-  margin-bottom: 12px;
-  color: #1c0d33;
-  font-weight: 800;
-  box-shadow:
-    0 10px 22px rgba(0, 0, 0, 0.18),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-}
-.price-card .label {
-  font-size: 0.85rem;
-  letter-spacing: 0.3px;
-  opacity: 0.9;
-}
-.price-card .amount {
-  font-size: clamp(18px, 3.2vw, 36px);
-}
-.price-card.entry {
-  background: #ffc5c5;
-}
-.price-card.buy {
-  background: #cdd1ff;
-}
+/* ===== Right panel ===== */
+.prize-panel { border: 0; border-radius: 18px; background: #0b2a3a; color: #c9f6ff; }
+.prize-panel .card-body { padding: 18px; }
+.prize-title { color: #36e3b3; font-weight: 800; letter-spacing: .5px; font-size: clamp(18px, 3vw, 28px); text-transform: uppercase; margin: 10px 0 0; }
 
-.cta-row .btn {
-  min-width: 180px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  padding: 0.7rem 1.2rem;
-  border-radius: 14px;
-  text-transform: uppercase;
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+.prod-gallery { position: relative; width: 100%; aspect-ratio: 1/1; border-radius: 14px; overflow: hidden; background: #06141f; }
+.prod-img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0;
+  transition: opacity .6s ease;
 }
-.cta-join {
-  background: #0fd2a0;
-  color: #083143;
-}
-.cta-help {
-  background: #2cd3ff;
-  color: #083143;
-}
+.prod-img.is-active { opacity: 1; }
 
-.joined-summary .badge {
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
+.price-row { margin-top: 10px; display: flex; align-items: baseline; gap: 10px; }
+.price-row .old { color: #9fb8c9; text-decoration: line-through; font-weight: 700; }
+.price-row .new { color: #36e3b3; font-weight: 900; font-size: clamp(18px, 3.2vw, 32px); }
 
-.confetti-wrap {
-  pointer-events: none;
-  position: fixed;
-  inset: 0;
-  overflow: hidden;
-  z-index: 50;
-}
+/* ===== Confetti + Popups ===== */
+.joined-summary .badge { font-weight: 700; letter-spacing: .2px; }
+
+.confetti-wrap { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
 .confetti-piece {
-  position: absolute;
-  top: -10vh;
-  left: 50%;
-  width: 8px;
-  height: 14px;
-  background: #7c9cff;
-  opacity: 0.9;
+  position: absolute; top: -10vh; left: 50%; width: 8px; height: 14px; background: #7c9cff; opacity: .9;
   transform: translateX(-50%) rotate(0deg);
-  animation:
-    fall 2.8s linear forwards,
-    sway 1s ease-in-out infinite;
+  animation: fall 2.8s linear forwards, sway 1s ease-in-out infinite;
   border-radius: 2px;
 }
-.confetti-piece:nth-child(3n) {
-  background: #52e3b6;
-}
-.confetti-piece:nth-child(5n) {
-  background: #ffc107;
-  width: 6px;
-  height: 10px;
-}
-.confetti-piece:nth-child(7n) {
-  background: #ff7ab6;
-}
-.confetti-piece:nth-child(n) {
-  left: 10%;
-  animation-delay: 0s;
-}
-.confetti-piece:nth-child(2n) {
-  left: 25%;
-  animation-delay: 0.1s;
-}
-.confetti-piece:nth-child(3n) {
-  left: 40%;
-  animation-delay: 0.15s;
-}
-.confetti-piece:nth-child(4n) {
-  left: 55%;
-  animation-delay: 0.2s;
-}
-.confetti-piece:nth-child(5n) {
-  left: 70%;
-  animation-delay: 0.25s;
-}
-.confetti-piece:nth-child(6n) {
-  left: 85%;
-  animation-delay: 0.3s;
-}
-@keyframes fall {
-  to {
-    transform: translateY(110vh) rotate(540deg);
-    opacity: 1;
-  }
-}
-@keyframes sway {
-  0%,
-  100% {
-    margin-left: -6px;
-  }
-  50% {
-    margin-left: 6px;
-  }
-}
+.confetti-piece:nth-child(3n){ background:#52e3b6 }
+.confetti-piece:nth-child(5n){ background:#ffc107;width:6px;height:10px }
+.confetti-piece:nth-child(7n){ background:#ff7ab6 }
+.confetti-piece:nth-child(n){ left:10%; animation-delay:0s }
+.confetti-piece:nth-child(2n){ left:25%; animation-delay:.1s }
+.confetti-piece:nth-child(3n){ left:40%; animation-delay:.15s }
+.confetti-piece:nth-child(4n){ left:55%; animation-delay:.2s }
+.confetti-piece:nth-child(5n){ left:70%; animation-delay:.25s }
+.confetti-piece:nth-child(6n){ left:85%; animation-delay:.3s }
+@keyframes fall { to{ transform: translateY(110vh) rotate(540deg); opacity: 1; } }
+@keyframes sway { 0%,100%{ margin-left:-6px } 50%{ margin-left:6px } }
 
+/* Outcome modal */
 .outcome-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  background: rgba(6, 10, 24, 0.65);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  animation: fadeIn 0.18s ease;
+  position: fixed; inset: 0; z-index: 60; background: rgba(6,10,24,.65); backdrop-filter: blur(4px);
+  display: grid; place-items: center; animation: fadeIn .18s ease;
 }
-@keyframes fadeIn {
-  from {
-    opacity: 0.6;
-  }
-  to {
-    opacity: 1;
-  }
-}
+@keyframes fadeIn { from{opacity:.6} to{opacity:1} }
 
 .outcome-modal {
-  width: min(520px, 92vw);
-  border-radius: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-  position: relative;
+  width: min(520px, 92vw); border-radius: 20px; border: 1px solid rgba(255,255,255,.12); overflow: hidden; position: relative;
   background:
-    radial-gradient(120% 120% at 30% 10%, rgba(124, 156, 255, 0.18), transparent 50%),
-    radial-gradient(120% 120% at 80% 90%, rgba(82, 227, 182, 0.18), transparent 50%), #0e1430;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-  transform: translateY(6px) scale(0.98);
-  animation: popInModal 0.22s ease forwards;
+    radial-gradient(120% 120% at 30% 10%, rgba(124,156,255,.18), transparent 50%),
+    radial-gradient(120% 120% at 80% 90%, rgba(82,227,182,.18), transparent 50%),
+    #0e1430;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
+  transform: translateY(6px) scale(.98); animation: popInModal .22s ease forwards;
 }
-@keyframes popInModal {
-  to {
-    transform: translateY(0) scale(1);
-  }
-}
-.outcome-winner {
-  box-shadow: 0 24px 70px rgba(80, 227, 182, 0.35);
-}
-.outcome-loser {
-  box-shadow: 0 24px 70px rgba(124, 156, 255, 0.28);
-}
+@keyframes popInModal { to{ transform: translateY(0) scale(1) } }
+.outcome-winner { box-shadow: 0 24px 70px rgba(80,227,182,.35); }
+.outcome-loser { box-shadow: 0 24px 70px rgba(124,156,255,.28); }
 
-.pop-title {
-  font-weight: 900;
-  letter-spacing: 0.4px;
-  font-size: clamp(22px, 4vw, 32px);
-  color: #fff;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
-}
+.pop-title { font-weight: 900; letter-spacing: .4px; font-size: clamp(22px, 4vw, 32px); color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.35); }
+.pop-btn { border-radius: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; box-shadow: 0 12px 26px rgba(0,0,0,.25); }
+.btn-winner { background: #0fd2a0; color: #0a2a26; }
+.btn-loser { background: #7c9cff; color: #0b1630; }
+.pop-close { position: absolute; top: 10px; right: 12px; background: transparent; border: 0; color: #cfe3ff; cursor: pointer; font-size: 18px; }
 
-.pop-btn {
-  border-radius: 12px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.25);
+.sparkle-1, .sparkle-2 {
+  position: absolute; inset: auto; width: 160px; height: 160px; filter: blur(28px); opacity: .35; z-index: 0; border-radius: 50%;
 }
-.btn-winner {
-  background: #0fd2a0;
-  color: #0a2a26;
-}
-.btn-loser {
-  background: #7c9cff;
-  color: #0b1630;
-}
+.sparkle-1 { left: -40px; top: -40px; background: #7c9cff; }
+.sparkle-2 { right: -40px; bottom: -40px; background: #52e3b6; }
 
-.pop-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
-  background: transparent;
-  border: 0;
-  color: #cfe3ff;
-  cursor: pointer;
-  font-size: 18px;
+/* ===== INTRO (no buttons, 10s auto) ===== */
+.intro-backdrop {
+  position: fixed; inset: 0; z-index: 70; background: rgba(5,10,22,.7); backdrop-filter: blur(6px);
+  display: grid; place-items: center; animation: fadeIn .18s ease;
 }
+.intro-modal {
+  position: relative;
+  width: min(720px, 94vw);
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,.12);
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 15% 5%, rgba(124,156,255,.18), transparent 50%),
+    radial-gradient(120% 120% at 85% 95%, rgba(82,227,182,.18), transparent 50%),
+    #0e1430;
+  box-shadow: 0 24px 80px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
+  transform: translateY(8px) scale(.98); animation: popInModal .22s ease forwards;
+}
+.intro-sheen {
+  position: absolute; inset: 0; background: linear-gradient(120deg, transparent, rgba(255,255,255,.04), transparent);
+  transform: translateX(-100%); animation: sheen 2.8s ease-in-out infinite;
+}
+@keyframes sheen { 0%{transform:translateX(-100%)} 50%{transform:translateX(100%)} 100%{transform:translateX(100%)} }
 
-.sparkle-1,
-.sparkle-2 {
-  position: absolute;
-  inset: auto;
-  width: 160px;
-  height: 160px;
-  filter: blur(28px);
-  opacity: 0.35;
-  z-index: 0;
-  border-radius: 50%;
+.intro-title { font-weight: 900; font-size: clamp(22px, 3.8vw, 30px); color: #fff; }
+.intro-sub { color: #cfe3ff; opacity: .8; }
+
+.intro-prize {
+  display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px;
 }
-.sparkle-1 {
-  left: -40px;
-  top: -40px;
-  background: #7c9cff;
+.intro-prize-media {
+  width: 120px; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; background: #081226; display: grid; place-items: center;
 }
-.sparkle-2 {
-  right: -40px;
-  bottom: -40px;
-  background: #52e3b6;
+.intro-prize-media img { width: 100%; height: 100%; object-fit: contain; }
+.intro-prize-placeholder { font-size: 42px; }
+
+.intro-prize-info { display: flex; flex-direction: column; gap: 6px; }
+.intro-prize-name { color: #e9f3ff; font-weight: 800; letter-spacing: .2px; }
+.intro-prices { display: flex; align-items: baseline; gap: 12px; }
+
+.intro-price-old {
+  position: relative; color: #a9bfe2; font-weight: 800;
 }
+.intro-slash {
+  position: absolute; left: -6px; right: -6px; top: 50%; height: 2px; background: linear-gradient(90deg, #ff6a6a, #ffa14a);
+  transform-origin: left center; transform: scaleX(0) rotate(-8deg);
+  animation: slashIn .6s .15s ease forwards;
+}
+@keyframes slashIn { to{ transform: scaleX(1) rotate(-8deg); } }
+
+.intro-price-new {
+  color: #ffd43b; font-weight: 900; font-size: clamp(18px, 3vw, 28px);
+  text-shadow: 0 0 18px rgba(255,212,59,.2);
+  animation: pricePop .4s .4s ease both;
+}
+@keyframes pricePop { from{ transform: scale(.96); opacity:.6 } to{ transform: scale(1); opacity:1 } }
+
+.intro-players { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
+.intro-players-head { color: #cfe3ff; margin-bottom: 8px; font-weight: 700; }
+.intro-players-grid {
+  display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
+.intro-player-pill {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
+  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08);
+}
+.intro-player-pill img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+.intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: .95rem; }
+
+.intro-count { color: #e9f3ff; opacity: .9; font-weight: 700; letter-spacing: .3px; }
 </style>
