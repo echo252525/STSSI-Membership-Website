@@ -5,8 +5,8 @@
       :id="mobileId"
       class="sidebar offcanvas offcanvas-start offcanvas-md bg-white border-end d-flex flex-column p-3 shadow-sm"
       tabindex="-1"
-      :class="{ collapsed: isCollapsed }"
-      :style="{ width: isCollapsed ? collapsedWidth : '280px' }"
+      :class="{ collapsed: isRail }"
+      :style="{ width: isRail ? collapsedWidth : '280px' }"
     >
       <!-- Header: badge + desktop collapse + mobile close (X) -->
       <div class="d-flex align-items-center justify-content-between mb-3">
@@ -30,9 +30,9 @@
           type="button"
           class="btn btn-outline-secondary btn-sm rounded-circle d-none d-md-inline-flex"
           @click="toggle()"
-          :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          :aria-label="isRail ? 'Expand sidebar' : 'Collapse sidebar'"
         >
-          <i class="bi" :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"></i>
+          <i class="bi" :class="isRail ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"></i>
         </button>
 
         <!-- Mobile close (lets Bootstrap remove the backdrop) -->
@@ -64,10 +64,10 @@
           <RouterLink
             :to="{ name: 'admin.dashboard' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
             exact-active-class="active"
-            :title="isCollapsed ? 'Dashboard' : ''"
+            :title="isRail ? 'Dashboard' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-speedometer2 fs-5"></i>
@@ -79,9 +79,9 @@
           <RouterLink
             :to="{ name: 'admin.users' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Users' : ''"
+            :title="isRail ? 'Users' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-people fs-5"></i>
@@ -93,9 +93,9 @@
           <RouterLink
             :to="{ name: 'admin.minigames' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Mini Games' : ''"
+            :title="isRail ? 'Mini Games' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-joystick fs-5"></i>
@@ -107,9 +107,9 @@
           <RouterLink
             :to="{ name: 'admin.products' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Products' : ''"
+            :title="isRail ? 'Products' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-bag fs-5"></i>
@@ -121,9 +121,9 @@
           <RouterLink
             :to="{ name: 'admin.orders' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Orders' : ''"
+            :title="isRail ? 'Orders' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-basket fs-5"></i>
@@ -135,9 +135,9 @@
           <RouterLink
             :to="{ name: 'admin.transactions' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Transactions' : ''"
+            :title="isRail ? 'Transactions' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-receipt fs-5"></i>
@@ -149,9 +149,9 @@
           <RouterLink
             :to="{ name: 'admin.settings' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Settings' : ''"
+            :title="isRail ? 'Settings' : ''"
             @click="closeOffcanvasIfMobile"
           >
             <i class="bi bi-gear fs-5"></i>
@@ -165,9 +165,9 @@
         <button
           type="button"
           class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2"
-          :class="{ 'icon-only': isCollapsed }"
+          :class="{ 'icon-only': isRail }"
           @click="logout"
-          :title="isCollapsed ? 'Logout' : ''"
+          :title="isRail ? 'Logout' : ''"
         >
           <i class="bi bi-box-arrow-right"></i>
           <span class="link-text">Logout</span>
@@ -199,6 +199,14 @@ const toggle = () => {
   isCollapsed.value = !isCollapsed.value
   localStorage.setItem('adminSidebarCollapsed', isCollapsed.value ? '1' : '0')
 }
+
+// Allow the icon-only "rail" only on md and up
+const mqMd = window.matchMedia('(min-width: 768px)')
+const isMdUp = ref(mqMd.matches)
+const onMqChange = (e: MediaQueryListEvent) => (isMdUp.value = e.matches)
+onMounted(() => mqMd.addEventListener('change', onMqChange))
+onBeforeUnmount(() => mqMd.removeEventListener('change', onMqChange))
+const isRail = computed(() => isMdUp.value && isCollapsed.value)
 
 /* ---------- route guard helper ---------- */
 const has = (name: string) => router.hasRoute(name)
@@ -245,8 +253,9 @@ const oc = ref<any>(null) // Bootstrap Offcanvas instance
 
 const killBackdrops = () => {
   document.querySelectorAll('.offcanvas-backdrop').forEach((el) => el.remove())
-  document.body.classList.remove('offcanvas-backdrop', 'show')
+  document.body.classList.remove('offcanvas-open')
   document.body.style.removeProperty('overflow')
+  document.body.style.removeProperty('paddingRight')
 }
 
 const closeOffcanvasIfMobile = () => {

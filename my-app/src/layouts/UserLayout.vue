@@ -53,10 +53,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import UserSidebar from '@/components/nav/UserSidebar.vue';
 
 const isDesktop = ref(window.matchMedia('(min-width: 992px)').matches);
 const isMenuOpen = ref(false);
+const router = useRouter();
+let removeHook: null | (() => void) = null;
 
 const mq = window.matchMedia('(min-width: 992px)');
 const onMQChange = (e: MediaQueryListEvent) => { isDesktop.value = e.matches; if (e.matches) isMenuOpen.value = false; };
@@ -65,8 +68,16 @@ const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') isMenuOpen.value =
 const openMenu = () => { isMenuOpen.value = true; };
 const closeMenu = () => { isMenuOpen.value = false; };
 
-onMounted(() => { mq.addEventListener('change', onMQChange); window.addEventListener('keydown', onKey); });
-onBeforeUnmount(() => { mq.removeEventListener('change', onMQChange); window.removeEventListener('keydown', onKey); });
+onMounted(() => {
+  mq.addEventListener('change', onMQChange);
+  window.addEventListener('keydown', onKey);
+  removeHook = router.afterEach(() => { isMenuOpen.value = false; });
+});
+onBeforeUnmount(() => {
+  mq.removeEventListener('change', onMQChange);
+  window.removeEventListener('keydown', onKey);
+  removeHook?.();
+});
 
 watch(isMenuOpen, (open) => { document.body.style.overflow = open ? 'hidden' : ''; });
 </script>
@@ -133,7 +144,7 @@ watch(isMenuOpen, (open) => { document.body.style.overflow = open ? 'hidden' : '
 }
 
 /* 🔧 EXTRA UN-HIDE for Bootstrap utility classes often used on sidebars */
-.drawer-panel :deep(.d-none) { display: block !important; }                /* beats d-none */
+
 .drawer-panel :deep(.d-lg-none) { display: block !important; }             /* safety */
 .drawer-panel :deep(.d-md-none) { display: block !important; }
 .drawer-panel :deep(.d-sm-none) { display: block !important; }
@@ -141,6 +152,11 @@ watch(isMenuOpen, (open) => { document.body.style.overflow = open ? 'hidden' : '
 /* Some sidebars hide via [hidden] or aria flags */
 .drawer-panel :deep([hidden]) { display: block !important; }
 .drawer-panel :deep([aria-hidden="true"]) { display: block !important; visibility: visible !important; }
+
+/* Keep the desktop collapse chevron hidden inside the drawer */
+.drawer-panel :deep(.toggle-btn) {
+  display: none !important;
+}
 
 /* If the root .sidebar itself is hidden on mobile by media queries */
 @media (max-width: 991.98px) {

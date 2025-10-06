@@ -4,10 +4,10 @@
     <div
       id="mobileSidebar"
       ref="sidebarEl"
-      class="sidebar offcanvas-md offcanvas-start bg-white border-end d-flex flex-column h-100 p-3 shadow-sm"
+      class="sidebar bg-white border-end d-flex flex-column h-100 p-3 shadow-sm"
       tabindex="-1"
-      :class="{ collapsed: isCollapsed }"
-      :style="{ width: isCollapsed ? collapsedWidth : '280px' }"
+      :class="{ collapsed: isRail }"
+      :style="{ width: isRail ? collapsedWidth : '280px' }"
     >
       <!-- Top: tier icon + toggle -->
       <div class="d-flex align-items-center justify-content-between mb-3">
@@ -39,19 +39,19 @@
 
         <button
           type="button"
-          class="btn btn-outline-secondary btn-sm rounded-circle toggle-btn d-none d-md-inline-flex"
+          class="btn btn-outline-secondary btn-sm rounded-circle toggle-btn d-none d-lg-inline-flex"
           @click="toggle()"
-          :aria-label="isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'"
+          :aria-label="isRail ? 'Expand sidebar' : 'Collapse sidebar'"
         >
           <i
             class="bi"
-            :class="isCollapsed ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"
+            :class="isRail ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"
           ></i>
         </button>
       </div>
 
       <!-- Profile (hidden when collapsed) -->
-      <div class="text-center mb-4 profile" :title="displayName" v-show="!isCollapsed">
+      <div class="text-center mb-4 profile" :title="displayName" v-show="!isRail">
         <div
           class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
           style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden"
@@ -75,14 +75,14 @@
           <RouterLink
             :to="{ name: 'user.dashboard' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
             exact-active-class="active"
-            :title="isCollapsed ? 'Dashboard' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Dashboard' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-house-door fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Dashboard</span>
+            <span class="link-text" v-show="!isRail">Dashboard</span>
           </RouterLink>
         </li>
 
@@ -90,13 +90,13 @@
           <RouterLink
             :to="{ name: 'user.membership' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Membership' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Membership' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-card-checklist fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Membership</span>
+            <span class="link-text" v-show="!isRail">Membership</span>
           </RouterLink>
         </li>
 
@@ -105,13 +105,13 @@
           <RouterLink
             :to="{ name: 'user.deals' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Deals & Rewards' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Deals & Rewards' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-gift fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Deals & Rewards</span>
+            <span class="link-text" v-show="!isRail">Deals & Rewards</span>
           </RouterLink>
         </li>
 
@@ -120,13 +120,13 @@
           <RouterLink
             :to="{ name: 'user.shop' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Shop' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Shop' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-bag fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Shop</span>
+            <span class="link-text" v-show="!isRail">Shop</span>
           </RouterLink>
         </li>
         <!-- INSERT THIS BLOCK DIRECTLY BELOW THE SHOP NAV ITEM -->
@@ -134,13 +134,13 @@
           <RouterLink
             :to="{ name: 'user.mypurchase' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'My Purchases' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'My Purchases' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-receipt fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">My Purchases</span>
+            <span class="link-text" v-show="!isRail">My Purchases</span>
           </RouterLink>
         </li>
 
@@ -148,13 +148,13 @@
           <RouterLink
             :to="{ name: 'user.minigames' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Mini Games' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Mini Games' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-controller fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Mini Games</span>
+            <span class="link-text" v-show="!isRail">Mini Games</span>
           </RouterLink>
         </li>
 
@@ -163,13 +163,13 @@
           <RouterLink
             :to="{ name: 'user.ewallet' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'E-Wallet' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'E-Wallet' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-wallet2 fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">E-Wallet</span>
+            <span class="link-text" v-show="!isRail">E-Wallet</span>
           </RouterLink>
         </li>
 
@@ -177,13 +177,13 @@
           <RouterLink
             :to="{ name: 'user.settings' }"
             class="nav-link d-flex align-items-center gap-2"
-            :class="{ 'icon-only': isCollapsed }"
+            :class="{ 'icon-only': isRail }"
             active-class="active"
-            :title="isCollapsed ? 'Settings' : ''"
-            @click="closeOffcanvasIfMobile"
+            :title="isRail ? 'Settings' : ''"
+            @click="closeMenu"
           >
             <i class="bi bi-gear fs-5"></i>
-            <span class="link-text" v-show="!isCollapsed">Settings</span>
+            <span class="link-text" v-show="!isRail">Settings</span>
           </RouterLink>
         </li>
       </ul>
@@ -193,12 +193,12 @@
         <button
           type="button"
           class="btn btn-outline-danger w-100 d-flex align-items-center justify-content-center gap-2"
-          :class="{ 'icon-only': isCollapsed }"
+          :class="{ 'icon-only': isRail }"
           @click="logout"
-          :title="isCollapsed ? 'Logout' : ''"
+          :title="isRail ? 'Logout' : ''"
         >
           <i class="bi bi-box-arrow-right"></i>
-          <span class="link-text" v-show="!isCollapsed">Logout</span>
+          <span class="link-text" v-show="!isRail">Logout</span>
         </button>
       </div>
     </div>
@@ -213,6 +213,10 @@ import { currentUser } from '@/lib/authState'
 
 const router = useRouter()
 const collapsedWidth = '75px'
+
+//collapse sidebar when clicked
+const emit = defineEmits<{ (e: 'nav'): void }>()
+const closeMenu = () => emit('nav')
 
 const isCollapsed = ref(localStorage.getItem('sidebarCollapsed') === '1')
 const toggle = () => {
@@ -328,7 +332,7 @@ const initials = computed(() => {
 const displayName = computed(() => fullName.value || 'User')
 
 /** Only show membership tier UI when expanded */
-const showTier = computed(() => !isCollapsed.value && !!membershipType.value)
+const showTier = computed(() => !isRail.value && !!membershipType.value)
 
 /** Dynamic UI metadata for membership tier */
 const membershipMeta = computed(() => {
@@ -392,7 +396,7 @@ const logout = async () => {
   currentUser.value = null
   hardBlockBackToAuthed()
   router.replace({ name: 'login' })
-  closeOffcanvasIfMobile()
+  emit('nav')
 }
 
 /* ===== load user info & avatar ===== */
@@ -441,6 +445,22 @@ onMounted(async () => {
     }
   }
 })
+
+// add after your other refs
+const mqLg = window.matchMedia('(min-width: 992px)')
+const isLgUp = ref(mqLg.matches)
+
+// keep this listener alive
+const onMqChange = (e: MediaQueryListEvent) => {
+  isLgUp.value = e.matches
+}
+onMounted(() => mqLg.addEventListener('change', onMqChange))
+onUnmounted(() => mqLg.removeEventListener('change', onMqChange))
+
+// IMPORTANT: "rail" (icon-only) is allowed ONLY on lg+
+// On md and below, the sidebar is always expanded inside the drawer
+const isRail = computed(() => isLgUp.value && isCollapsed.value)
+
 </script>
 
 <style scoped>
