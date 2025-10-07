@@ -99,12 +99,37 @@ const onSubmit = async () => {
   loading.value = true
   error.value = ''
   try {
-    const { error: signInErr } = await supabase.auth.signInWithPassword({
+    // 1) Auth sign-in
+    const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({
       email: email.value,
       password: password.value,
     })
     if (signInErr) throw signInErr
 
+    // 2) Make sure we got a user id
+    const uid = signInData?.user?.id
+    if (!uid) {
+      // Defensive: sign out if something is odd
+      await supabase.auth.signOut()
+      throw new Error('Login failed: missing user id.')
+    }
+
+    // 3) Check that a corresponding row exists in public.users
+    //    Assumes your public.users primary key (id) equals the auth user id.
+    //    If you use a different column (e.g., auth_user_id), change the .eq('id', uid) accordingly.
+    const { data: profile, error: profileErr } = await supabase
+      .from('users')
+      .select('id')
+      .eq('id', uid)
+      .maybeSingle()
+
+    // If query errored (likely RLS) or no row exists, block login
+    if (profileErr || !profile) {
+      await supabase.auth.signOut()
+      throw new Error('Incorrect email or password.')
+    }
+
+    // 4) Proceed to app
     const redirect = (route.query.redirect as string) || '/app'
     router.push(redirect)
   } catch (e: any) {
