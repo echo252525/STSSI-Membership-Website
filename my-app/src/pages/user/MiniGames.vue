@@ -1,12 +1,12 @@
 <template>
   <!-- (UNCHANGED TEMPLATE, includes the avatar row I added earlier) -->
   <div class="container-fluid">
-    <div class="card border-0 shadow-sm rounded-4">
-      <div class="card-body p-4">
-        <h2 class="h4 mb-3">Mini Games</h2>
-        <p class="text-secondary">Join events, spin the wheel, and win purchase discounts.</p>
+    <div class="card border-0 padding-0 margin-0 shadow-sm rounded-4">
+      <div class="card-body">
+        <h2 class="h4 mb-1">Mini Games</h2>
+        <p class="text-secondary mb-1">Join events, spin the wheel, and win purchase discounts.</p>
 
-        <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="d-flex align-items-center justify-content-between">
           <h3 class="h6 mb-0">Open Events</h3>
         </div>
 
@@ -23,7 +23,13 @@
         </div>
 
         <!-- Slider (replaces grid; keeps card markup intact) -->
-        <div v-else class="slider" @keydown.left.prevent="prev" @keydown.right.prevent="next" tabindex="0">
+        <div
+          v-else
+          class="slider"
+          @keydown.left.prevent="prev"
+          @keydown.right.prevent="next"
+          tabindex="0"
+        >
           <div class="slider__holder">
             <!-- one “slide” per event -->
             <div
@@ -43,7 +49,7 @@
                 <div class="spin-card__halo" aria-hidden="true"></div>
 
                 <div class="spin-card__body p-3">
-                  <div class="d-flex justify-content-between align-items-start mb-2 ">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
                     <h4 class="h6 mb-1 text-truncate spin-card__title" :title="ev.title">
                       {{ ev.title }}
                     </h4>
@@ -163,7 +169,8 @@
 
                   <!-- Inline hint if funds are insufficient -->
                   <div v-if="!hasEnoughBalance(ev)" class="text-danger small mt-2">
-                    Insufficient balance (Need ₱ {{ money(Number(ev.entry_fee) - Number(userBalance ?? 0)) }} more)
+                    Insufficient balance (Need ₱
+                    {{ money(Number(ev.entry_fee) - Number(userBalance ?? 0)) }} more)
                   </div>
 
                   <!-- Messages -->
@@ -181,11 +188,11 @@
           <div class="bullets" aria-label="Slides navigation">
             <button
               v-for="(ev, i) in openEvents"
-              :key="'b-'+ev.id"
+              :key="'b-' + ev.id"
               class="bullets__item"
               :class="{ 'is-active': i === activeIndex }"
               @click="goTo(i)"
-              :aria-label="`Go to slide ${i+1}`"
+              :aria-label="`Go to slide ${i + 1}`"
             ></button>
           </div>
 
@@ -282,30 +289,29 @@ const activeIndex = ref(0)
 function slideStyle(i: number): CSSProperties {
   const current = activeIndex.value
   const diff = i - current
-  const step = 28 // how far neighbors sit from center (% shift)
+  const step = 22                     // was 28 (cards sit closer)
   const x = diff * step
-  const distance = Math.abs(i - current)
+  const distance = Math.abs(diff)
 
-  // Scale decreases as cards move away
-  const scale = Math.max(1 - distance * 0.1, 0.7)
+  const base = 0.84  // ↓ smaller = everything scales down
+  const perStep = 0.08
+  const scale = Math.max(base - distance * perStep, 0.72)
 
-  // Dim amount — further = darker
-  const dim = Math.min(distance * 0.2, 0.6) // 0.15 per step, cap at 0.6 darkness
-  const brightness = 1 - dim // brightness(1) normal, brightness(0.4) dark
-  
-
+  const dim = Math.min(distance * 0.2, 0.6)
+  const brightness = 1 - dim
   const z = 100 - distance
 
   return {
     left: '50%',
-    width: 'min(860px, 92%)',
+    width: 'clamp(320px, 72vw, 620px)',   // was min(860px, 92%)
     transform: `translateX(calc(-50% + ${x}%)) scale(${scale})`,
     zIndex: String(z),
     pointerEvents: 'auto',
-    filter: `brightness(${brightness})`, // dimming effect here
-    transition: 'transform 0.3s ease, filter 0.3s ease, opacity 0.3s ease',
+    filter: `brightness(${brightness})`,
+    transition: 'transform .3s ease, filter .3s ease, opacity .3s ease',
   }
 }
+
 
 function goTo(i: number) {
   if (i < 0 || i >= openEvents.value.length) return
@@ -369,7 +375,7 @@ async function loadUserBalance() {
 /* ========= NEW: product prices for discount display ========= */
 async function attachProductPrices(list: EventRow[]) {
   try {
-    const ids = Array.from(new Set(list.map(e => e.product_id).filter(Boolean)))
+    const ids = Array.from(new Set(list.map((e) => e.product_id).filter(Boolean)))
     if (ids.length === 0) return
     const { data, error } = await supabase
       .schema('games')
@@ -426,7 +432,7 @@ async function loadOpenEvents() {
       events.value.map(async (e) => {
         await refreshEntryCount(e.id)
         await refreshParticipantAvatars(e.id)
-      })
+      }),
     )
     if (!isAlive.value) return
     console.log('[INIT] counts & avatars ready.')
@@ -597,7 +603,11 @@ async function firstImagePathForProduct(productId: string): Promise<string | nul
   }
 }
 
-async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): Promise<string | null> {
+async function signedUrlWithCB(
+  bucket: string,
+  path: string,
+  expiresIn = 3600,
+): Promise<string | null> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) {
     console.warn('[IMG] createSignedUrl error:', error.message)
@@ -622,7 +632,7 @@ async function attachPrizeImages(list: EventRow[]) {
           return
         }
         ev.imageUrl = await signedUrlWithCB(PRIZE_BUCKET, path)
-      })
+      }),
     )
     console.log('[IMG] Attached signed URLs for', list.length, 'events')
   } catch (e: any) {
@@ -679,12 +689,16 @@ async function refreshParticipantAvatars(eventId: string) {
     if (!isAlive.value) return
 
     const map = new Map<string, { full_name: string | null; profile_url: string | null }>()
-    for (const u of (users ?? []) as Array<{ id: string; full_name: string | null; profile_url: string | null }>) {
+    for (const u of (users ?? []) as Array<{
+      id: string
+      full_name: string | null
+      profile_url: string | null
+    }>) {
       map.set(u.id, { full_name: u.full_name ?? null, profile_url: u.profile_url ?? null })
     }
 
     const list: AvatarInfo[] = []
-    for (const e of (entries ?? [])) {
+    for (const e of entries ?? []) {
       const user = map.get(e.user_id)
       if (!user) continue
       const path = normalizeToPath(user.profile_url)
@@ -795,11 +809,13 @@ function subscribeRealtime() {
 
         // keep active index in bounds
         if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
-      })
+      }),
     )
-    .subscribe(guard((status) => {
-      console.log('[RT:event] subscription status:', status)
-    }))
+    .subscribe(
+      guard((status) => {
+        console.log('[RT:event] subscription status:', status)
+      }),
+    )
 
   // ENTRIES
   entriesChannel = supabase
@@ -840,11 +856,13 @@ function subscribeRealtime() {
         }
 
         if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
-      })
+      }),
     )
-    .subscribe(guard((status) => {
-      console.log('[RT:entry] subscription status:', status)
-    }))
+    .subscribe(
+      guard((status) => {
+        console.log('[RT:entry] subscription status:', status)
+      }),
+    )
 
   // PRODUCTS
   productsChannel = supabase
@@ -874,11 +892,13 @@ function subscribeRealtime() {
           }
           console.log('[RT:product] refreshed prize images/prices for', affected.length, 'event(s)')
         }
-      })
+      }),
     )
-    .subscribe(guard((status) => {
-      console.log('[RT:product] subscription status:', status)
-    }))
+    .subscribe(
+      guard((status) => {
+        console.log('[RT:product] subscription status:', status)
+      }),
+    )
 
   // USERS — update avatars & balance
   usersChannel = supabase
@@ -912,17 +932,30 @@ function subscribeRealtime() {
 
         if (impactedEventIds.length === 0) return
 
-        console.log('[RT:users] profile update for', uid, 'impacts', impactedEventIds.length, 'event(s)')
+        console.log(
+          '[RT:users] profile update for',
+          uid,
+          'impacts',
+          impactedEventIds.length,
+          'event(s)',
+        )
         await Promise.all(impactedEventIds.map((eid) => refreshParticipantAvatars(eid)))
-      })
+      }),
     )
-    .subscribe(guard((status) => {
-      console.log('[RT:users] subscription status:', status)
-    }))
+    .subscribe(
+      guard((status) => {
+        console.log('[RT:users] subscription status:', status)
+      }),
+    )
 }
 
 async function fetchEventById(id: string): Promise<EventRow | null> {
-  const { data, error } = await supabase.schema('games').from('event').select('*').eq('id', id).single()
+  const { data, error } = await supabase
+    .schema('games')
+    .from('event')
+    .select('*')
+    .eq('id', id)
+    .single()
   if (error) {
     console.warn('[FETCH] Event not found:', id, error?.message)
     return null
@@ -963,12 +996,18 @@ async function refreshEntryCount(eventId: string) {
 
 /* ---------------- lifecycle ---------------- */
 function safeLogUnmountStatus(_: any, tag: string) {
-  try { console.log(`[RT:${tag}] tearing down`) } catch {}
+  try {
+    console.log(`[RT:${tag}] tearing down`)
+  } catch {}
 }
 function safeUnsubscribe(ch: ReturnType<typeof supabase.channel> | null) {
   if (!ch) return
-  try { ch.unsubscribe().catch(() => {}) } catch {}
-  try { supabase.removeChannel(ch) } catch {}
+  try {
+    ch.unsubscribe().catch(() => {})
+  } catch {}
+  try {
+    supabase.removeChannel(ch)
+  } catch {}
 }
 let teardownStarted = false
 
@@ -989,21 +1028,25 @@ onUnmounted(() => {
 
   nextTick(() => {
     safeLogUnmountStatus(eventsChannel, 'event')
-    safeUnsubscribe(eventsChannel); eventsChannel = null
+    safeUnsubscribe(eventsChannel)
+    eventsChannel = null
 
     safeLogUnmountStatus(entriesChannel, 'entry')
-    safeUnsubscribe(entriesChannel); entriesChannel = null
+    safeUnsubscribe(entriesChannel)
+    entriesChannel = null
 
     safeLogUnmountStatus(productsChannel, 'product')
-    safeUnsubscribe(productsChannel); productsChannel = null
+    safeUnsubscribe(productsChannel)
+    productsChannel = null
 
     safeLogUnmountStatus(usersChannel, 'users')
-    safeUnsubscribe(usersChannel); usersChannel = null
+    safeUnsubscribe(usersChannel)
+    usersChannel = null
 
     try {
       events.value = []
-      Object.keys(entryCounts).forEach(k => delete entryCounts[k])
-      Object.keys(avatarsByEvent).forEach(k => delete avatarsByEvent[k])
+      Object.keys(entryCounts).forEach((k) => delete entryCounts[k])
+      Object.keys(avatarsByEvent).forEach((k) => delete avatarsByEvent[k])
     } catch {}
   })
 })
@@ -1013,13 +1056,26 @@ onUnmounted(() => {
 /* (UNCHANGED STYLES + the avatar styles) */
 
 /* --- Minimal palette helpers (kept) --- */
-.bg-success-subtle { background-color: rgba(25, 135, 84, 0.08) !important; }
-.text-success { color: #198754 !important; }
-.border-success-subtle { border-color: rgba(25, 135, 84, 0.25) !important; }
+.bg-success-subtle {
+  background-color: rgba(25, 135, 84, 0.08) !important;
+}
+.text-success {
+  color: #198754 !important;
+}
+.border-success-subtle {
+  border-color: rgba(25, 135, 84, 0.25) !important;
+}
 
 /* --- Motion safety --- */
 @media (prefers-reduced-motion: reduce) {
-  .spin-card, .spin-wheel__ring, .join-btn, .spin-card__halo, .slider__item { animation: none !important; transition: none !important; }
+  .spin-card,
+  .spin-wheel__ring,
+  .join-btn,
+  .spin-card__halo,
+  .slider__item {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* ===================== SLIDER (inspired by your SCSS snippet) ===================== */
@@ -1028,32 +1084,49 @@ onUnmounted(() => {
   user-select: none;
   outline: none;
 }
-.slider__holder{
+.slider__holder {
   position: relative;
   width: 100%;
   max-width: 1100px;
   margin: 0 auto;
-  margin-top: 24px;
-  min-height: 480px; /* space for stacked cards */
+  min-height: 740px; /* space for stacked cards */
+  overflow: hidden; /* keeps it inside the bg */
 }
-@media (max-width: 1200px){ .slider__holder{ max-width: 980px; } }
-@media (max-width: 992px) { .slider__holder{ max-width: 760px; min-height: 520px; } }
-@media (max-width: 600px) { .slider__holder{ max-width: 96%; min-height: 520px; } }
+@media (max-width: 1200px) {
+  .slider__holder {
+    max-width: 980px;
+  }
+}
+@media (max-width: 992px) {
+  .slider__holder {
+    max-width: 760px;
+    min-height: 520px;
+  }
+}
+@media (max-width: 600px) {
+  .slider__holder {
+    max-width: 96%;
+    min-height: 520px;
+  }
+}
 
-.slider__item{
+.slider__item {
   position: absolute;
   top: 0;
   left: 50%;
   display: block;
   width: min(860px, 92%);
   cursor: pointer;
-  transition: transform .45s cubic-bezier(.22,.61,.36,1), opacity .35s ease, filter .35s ease;
+  transition:
+    transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1),
+    opacity 0.35s ease,
+    filter 0.35s ease;
   will-change: transform, opacity, filter;
-  filter: drop-shadow(0 10px 24px rgba(0,0,0,.08));
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.08));
 }
 
 /* Bullets */
-.bullets{
+.bullets {
   z-index: 5;
   display: block;
   width: auto;
@@ -1061,92 +1134,299 @@ onUnmounted(() => {
   margin: 32px auto 0;
   text-align: center;
 }
-.bullets__item{
+.bullets__item {
   display: inline-block;
-  width: 10px; height: 10px; margin: 0 4px;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px;
   border-radius: 6px;
-  background: rgba(0,0,0,.2);
+  background: rgba(0, 0, 0, 0.2);
   border: 0;
 }
-.bullets__item:hover{ background: #fff; }
-.bullets__item.is-active{ background: #4361ee; }
+.bullets__item:hover {
+  background: #fff;
+}
+.bullets__item.is-active {
+  background: #4361ee;
+}
 
 /* Optional nav buttons */
-.slider__nav{
-  position: absolute; inset: 0;
-  display: flex; align-items: center; justify-content: space-between;
+.slider__nav {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   pointer-events: none;
 }
-.slider__btn{
+.slider__btn {
   pointer-events: all;
-  width: 44px; height: 44px; border-radius: 999px; border: 0;
-  background: rgba(0,0,0,.08);
-  display: grid; place-items: center;
-  font-size: 22px; line-height: 1;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(0, 0, 0, 0.08);
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
   margin: 0 8px;
-  transition: background .2s ease, transform .15s ease;
+  transition:
+    background 0.2s ease,
+    transform 0.15s ease;
 }
-.slider__btn:hover{ background: rgba(0,0,0,.12); transform: translateY(-1px); }
+.slider__btn:hover {
+  background: rgba(0, 0, 0, 0.12);
+  transform: translateY(-1px);
+}
 
 /* ===================== CARD / WHEEL (unchanged) ===================== */
-.spin-card { position: relative; overflow: hidden; background: linear-gradient(180deg, #ffffff, #fbfbfd); transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease; border: 1px solid rgba(0,0,0,.06); will-change: transform; }
-.spin-card:focus-within, .spin-card:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0,0,0,.06); border-color: rgba(0,0,0,.1); }
-.spin-card--locked { opacity: .9; }
+.spin-card {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff, #fbfbfd);
+  transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease,
+    border-color 0.25s ease;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  will-change: transform;
+}
+.spin-card:focus-within,
+.spin-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+.spin-card--locked {
+  opacity: 0.9;
+}
 
 /* Subtle ambient halo */
-.spin-card__halo { position: absolute; inset: -40%; background:
-  radial-gradient(60% 60% at 50% 40%, rgba(25,135,84,.08), transparent 60%),
-  radial-gradient(60% 60% at 70% 80%, rgba(56,102,255,.06), transparent 60%);
-  filter: blur(20px); transform: translateZ(0); pointer-events: none; animation: haloFloat 7s ease-in-out infinite;
+.spin-card__halo {
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(60% 60% at 50% 40%, rgba(25, 135, 84, 0.08), transparent 60%),
+    radial-gradient(60% 60% at 70% 80%, rgba(56, 102, 255, 0.06), transparent 60%);
+  filter: blur(20px);
+  transform: translateZ(0);
+  pointer-events: none;
+  animation: haloFloat 7s ease-in-out infinite;
 }
-@keyframes haloFloat { 0%,100%{ transform: translateY(0) } 50%{ transform: translateY(-4px) } }
+@keyframes haloFloat {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
 
-.spin-card__title { letter-spacing: .2px; }
-.spin-card__status { backdrop-filter: saturate(1.2); }
+.spin-card__title {
+  letter-spacing: 0.2px;
+}
+.spin-card__status {
+  backdrop-filter: saturate(1.2);
+}
 
 /* --- Wheel --- */
-.spin-wheel { position: relative; width: 100%; aspect-ratio: 1 / 1; display: grid; place-items: center; isolation: isolate; }
-.spin-wheel--paused .spin-wheel__ring { animation-play-state: paused; }
-.spin-wheel__ring {
-  position: absolute; width: 92%; height: 92%; border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(25,135,84,.16) 0 25%, rgba(56,102,255,.14) 25% 50%, rgba(255,193,7,.16) 50% 75%, rgba(111,66,193,.14) 75% 100%);
-  box-shadow: inset 0 0 0 10px #fff, 0 2px 10px rgba(0,0,0,.04);
-  animation: ringSpin 18s linear infinite; transition: filter .25s ease;
+.spin-wheel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  display: grid;
+  place-items: center;
+  isolation: isolate;
 }
-.spin-card:hover .spin-wheel__ring { filter: saturate(1.1) brightness(1.02); }
-@keyframes ringSpin { to { transform: rotate(360deg) } }
+.spin-wheel--paused .spin-wheel__ring {
+  animation-play-state: paused;
+}
+.spin-wheel__ring {
+  position: absolute;
+  width: 84%;
+  height: 84%;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(25, 135, 84, 0.16) 0 25%,
+    rgba(56, 102, 255, 0.14) 25% 50%,
+    rgba(255, 193, 7, 0.16) 50% 75%,
+    rgba(111, 66, 193, 0.14) 75% 100%
+  );
+  box-shadow:
+    inset 0 0 0 10px #fff,
+    0 2px 10px rgba(0, 0, 0, 0.04);
+  animation: ringSpin 18s linear infinite;
+  transition: filter 0.25s ease;
+}
+.spin-card:hover .spin-wheel__ring {
+  filter: saturate(1.1) brightness(1.02);
+}
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-.spin-wheel__mask { position: relative; width: 72%; height: 72%; border-radius: 50%; overflow: hidden; background: #f6f7fb; border: 8px solid #fff; box-shadow: 0 4px 14px rgba(0,0,0,.06); z-index: 1; }
-.spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.spin-wheel__placeholder { width: 100%; height: 100%; display: grid; place-items: center; color: #94a3b8; font-size: 2rem; }
+.spin-wheel__mask {
+  position: relative;
+  width: 62%;
+  height: 62%;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #f6f7fb;
+  border: 8px solid #fff;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+  z-index: 1;
+}
+.spin-wheel__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.spin-wheel__placeholder {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 2rem;
+}
 
-.spin-wheel__pointer { position: absolute; top: 2%; left: 50%; width: 0; height: 0; transform: translateX(-50%); border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 10px solid rgba(0,0,0,.15); z-index: 2; filter: drop-shadow(0 1px 2px rgba(0,0,0,.08)); }
+.spin-wheel__pointer {
+  position: absolute;
+  top: 2%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 10px solid rgba(0, 0, 0, 0.15);
+  z-index: 2;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+}
 
 /* --- Stats Row --- */
-.spin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
-.spin-stat { background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: .75rem; padding: .5rem .6rem; text-align: center; }
-.spin-stat__label { font-size: .72rem; color: #6c757d; }
-.spin-stat__value { font-size: .9rem; font-weight: 600; }
+.spin-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+.spin-stat {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  text-align: center;
+}
+.spin-stat__label {
+  font-size: 0.72rem;
+  color: #6c757d;
+}
+.spin-stat__value {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
 
 /* --- Avatars --- */
-.avatar-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-.avatars { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; max-height: 44px; overflow: hidden; }
-.avatar-img, .avatar-fallback { width: 32px; height: 32px; border-radius: 50%; display: inline-grid; place-items: center; border: 1px solid rgba(0,0,0,.08); background: #fff; overflow: hidden; }
-.avatar-img { object-fit: cover; }
-.avatar-fallback { color: #94a3b8; font-size: 1rem; background: #f1f5f9; }
-.avatar-more { font-size: .8rem; color: #6c757d; background: #fff; border: 1px solid rgba(0,0,0,.06); border-radius: 999px; padding: .2rem .5rem; }
+.avatar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.avatars {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  max-height: 44px;
+  overflow: hidden;
+}
+.avatar-img,
+.avatar-fallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  overflow: hidden;
+}
+.avatar-img {
+  object-fit: cover;
+}
+.avatar-fallback {
+  color: #94a3b8;
+  font-size: 1rem;
+  background: #f1f5f9;
+}
+.avatar-more {
+  font-size: 0.8rem;
+  color: #6c757d;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+}
 
 /* --- Slots left indicator --- */
-.dot-pulse { width: 6px; height: 6px; border-radius: 50%; background: #20c997; box-shadow: 0 0 0 0 rgba(32,201,151,.6); animation: pulse 1.8s infinite; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(32,201,151,.6) } 70% { box-shadow: 0 0 0 8px rgba(32,201,151,0) } 100% { box-shadow: 0 0 0 0 rgba(32,201,151,0) } }
+.dot-pulse {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #20c997;
+  box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
+  animation: pulse 1.8s infinite;
+}
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(32, 201, 151, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
+  }
+}
 
 /* --- Join button micro-interactions --- */
-.join-btn { position: relative; overflow: hidden; transition: transform .15s ease, box-shadow .2s ease; }
-.join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13,110,253,.25); }
-.join-btn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13,110,253,.2); }
-.join-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); transform: translateX(-120%); transition: transform .6s ease; }
-.join-btn:hover::after { transform: translateX(120%); }
-.join-btn--disabled, .join-btn:disabled { opacity: .7; box-shadow: none; cursor: not-allowed; }
-
-
+.join-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
+}
+.join-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25);
+}
+.join-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+}
+.join-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
+}
+.join-btn:hover::after {
+  transform: translateX(120%);
+}
+.join-btn--disabled,
+.join-btn:disabled {
+  opacity: 0.7;
+  box-shadow: none;
+  cursor: not-allowed;
+}
 </style>
