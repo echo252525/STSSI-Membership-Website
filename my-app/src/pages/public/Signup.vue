@@ -341,7 +341,6 @@ const onSubmit = async () => {
       full_name: fullName.value,
       address: fullAddress.value || null, // 🔹 store the assembled address
       age: Number.isFinite(Number(age.value)) ? Number(age.value) : null,
-      membership_type: 'regular', // default tier
       phone_number: phone.value || null, // 🔹 NEW: store phone number
     }
 

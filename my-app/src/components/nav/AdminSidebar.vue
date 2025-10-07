@@ -145,6 +145,21 @@
           </RouterLink>
         </li>
 
+        <!-- ⭐️ NEW: Memberships -->
+        <li class="nav-item" v-if="has('admin.memberships')">
+          <RouterLink
+            :to="{ name: 'admin.memberships' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isRail }"
+            active-class="active"
+            :title="isRail ? 'Memberships' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-award fs-5"></i>
+            <span class="link-text">Memberships</span>
+          </RouterLink>
+        </li>
+
         <li class="nav-item" v-if="has('admin.settings')">
           <RouterLink
             :to="{ name: 'admin.settings' }"
