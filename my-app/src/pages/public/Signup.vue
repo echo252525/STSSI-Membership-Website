@@ -209,10 +209,12 @@
 
 <script setup lang="ts">
 import { ref, watch, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
 const router = useRouter()
+const route = useRoute()
+
 const fullName = ref('')
 const email = ref('')
 const password = ref('')
@@ -264,30 +266,28 @@ function isAddressComplete() {
   return !!(addrLine1.value && addrCity.value && addrProvince.value && addrZip.value)
 }
 
-/* ===============================
-   🔹 REFERRAL: capture ?ref=CODE
-   =============================== */
-const urlRefCode = ref<string | null>(null)
-
-function captureRefFromUrl() {
-  try {
-    const url = new URL(window.location.href)
-    const refParam = url.searchParams.get('ref')
-    urlRefCode.value = refParam ? String(refParam).trim() : null
-  } catch {
-    urlRefCode.value = null
-  }
-}
-
+/* 🔹 Capture referral code from URL (?ref=CODE) */
+const referralCode = ref<string | null>(null)
 onMounted(() => {
-  captureRefFromUrl()
+  // try vue-router first
+  const qRef = route.query?.ref
+  let code: string | null = null
+  if (typeof qRef === 'string') code = qRef
+  else if (Array.isArray(qRef) && qRef.length > 0) code = qRef[0]
+  // fallback to window.location just in case
+  if (!code) {
+    const fromSearch = new URLSearchParams(window.location.search).get('ref')
+    code = fromSearch
+  }
+  referralCode.value = code ? code.trim() : null
 })
 
 // NOTE: This relies on DB/RLS we set up earlier:
 //  - public.users with PK/FK id -> auth.users(id)
-//  - referral_code (text, unique) auto-set by trigger or prefilled
-//  - referred_by (uuid) nullable
-//  - RLS policy that allows INSERT by anon (for signup bootstrap)
+//  - RLS enabled
+//  - Policy: allow INSERT for role 'anon' (ins_signup_anon) so signup can insert before session exists
+//  - email is citext + unique(email)
+//  - users has columns: referral_code (text/unique?), referred_by (uuid nullable)
 
 const onSubmit = async () => {
   loading.value = true
@@ -316,26 +316,26 @@ const onSubmit = async () => {
       return router.push({ name: 'login' })
     }
 
-    /* 2) 🔹 Look up the referrer by referral_code from URL
-          If a matching row exists in public.users, we’ll store the referrer’s id
-          into the new user’s "referred_by" column. */
-    let referredBy: string | null = null
-    if (urlRefCode.value && urlRefCode.value.length >= 3) {
+    // 🔹 1.5) If there is a referral code in URL, find the matching user by users.referral_code
+    let referredById: string | null = null
+    if (referralCode.value) {
       const { data: refUser, error: refErr } = await supabase
         .from('users')
         .select('id')
-        .eq('referral_code', urlRefCode.value)
+        .eq('referral_code', referralCode.value)
         .maybeSingle()
 
-      if (!refErr && refUser?.id && refUser.id !== user.id) {
-        referredBy = refUser.id
+      // PGRST116 is "No rows found for single() / maybeSingle()", treat as no match
+      if (refErr && refErr.code !== 'PGRST116') {
+        // For other unexpected errors, throw:
+        throw refErr
       }
-      // If error or not found, we just leave referredBy = null (no-op)
+      referredById = refUser?.id ?? null
     }
 
-    // 3) Insert the profile row immediately after signup.
+    // 2) Insert the profile row immediately after signup.
     //    Works even without a session because of the anon INSERT policy.
-    const insertPayload: any = {
+    const insertPayload: Record<string, any> = {
       id: user.id, // must match auth.users.id
       email: email.value, // citext unique
       full_name: fullName.value,
@@ -345,9 +345,9 @@ const onSubmit = async () => {
       phone_number: phone.value || null, // 🔹 NEW: store phone number
     }
 
-    // 🔹 Only attach referred_by if we actually found a referrer
-    if (referredBy) {
-      insertPayload.referred_by = referredBy
+    // 🔹 Add referred_by only if we found a valid referrer
+    if (referredById) {
+      insertPayload.referred_by = referredById
     }
 
     const { error: insertErr } = await supabase.from('users').insert([insertPayload])
@@ -356,6 +356,28 @@ const onSubmit = async () => {
     if (insertErr) {
       if (!/duplicate key value|unique constraint/i.test(insertErr.message)) {
         throw insertErr
+      }
+    }
+
+    /* 🔹 NEW: Also write to public.referrals if a referrer was resolved
+       Schema:
+       - referrer_id uuid not null (FK -> users.id)
+       - referee_id  uuid not null (FK -> users.id)
+       - PK (referrer_id, referee_id), no_self_referral constraint
+       - trigger trg_reward_on_referral AFTER INSERT executes reward_on_referral()
+       RLS: ensure anon/appropriate role can INSERT or handle via edge func if locked down.
+    */
+    if (referredById) {
+      const { error: refLinkErr } = await supabase
+        .from('referrals')
+        .insert([{ referrer_id: referredById, referee_id: user.id }])
+
+      // Ignore duplicates (in case of replays) but surface unexpected errors
+      if (refLinkErr) {
+        if (!/duplicate key value|unique constraint/i.test(refLinkErr.message)) {
+          // Non-fatal: do not block signup flow; you can optionally log this
+          console.warn('Referral insert failed:', refLinkErr)
+        }
       }
     }
 
