@@ -91,8 +91,8 @@
           <div class="controls d-flex align-items-center justify-content-center gap-3 mb-2" v-if="!resolved">
             <button
               class="btn btn-primary btn-arcade"
-              :disabled="!canSpinGate || spinning || busy.commit"
-              @click="startCountdownAndSpin()"
+              :disabled="!canSpinGate || spinning || busy.commit || syncPlanActive"
+              @click="scheduleSynchronizedSpin(true)"
             >
               <span v-if="spinning" class="spinner-border spinner-border-sm me-2"></span>
               SPIN
@@ -245,7 +245,7 @@
 </template>
 
 <script setup lang="ts">
-/* ======== ORIGINAL SCRIPT (kept) + intro auto-start changes ========= */
+/* ======== ORIGINAL SCRIPT (kept) + intro auto-start + SYNC plan + persistence ========= */
 import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
@@ -312,6 +312,38 @@ const introSeconds = ref(10)
 let introInterval: number | null = null
 let introTimeout: number | null = null
 
+/* ========= SYNC PLAN (broadcast) ========= */
+type SpinPlan = { kind: 'intro_plan'; eventId: string; introUntil: number; spinAt: number; createdBy?: string }
+const syncPlan = ref<SpinPlan | null>(null)
+const syncPlanActive = computed(() => !!syncPlan.value)
+let syncIntroEndTimer: number | null = null
+let syncCountdownStartTimer: number | null = null
+let syncCleanupTimer: number | null = null
+let isLeaderForPlan = false
+let syncChannel: any | null = null
+let rebroadcastTimer: number | null = null
+
+/* ====== PERSISTENCE helpers (localStorage) ====== */
+function storageKey() { return `ge_sync_plan_${eventId}` }
+function savePlanToStorage(plan: SpinPlan | null) {
+  try {
+    if (!plan) { localStorage.removeItem(storageKey()); return }
+    localStorage.setItem(storageKey(), JSON.stringify(plan))
+  } catch {}
+}
+function loadPlanFromStorage(): SpinPlan | null {
+  try {
+    const raw = localStorage.getItem(storageKey())
+    if (!raw) return null
+    const obj = JSON.parse(raw) as SpinPlan
+    if (!obj?.spinAt || !obj?.introUntil) return null
+    // expire if well past spin
+    if (Date.now() > obj.spinAt + 60_000) { localStorage.removeItem(storageKey()); return null }
+    return obj
+  } catch { return null }
+}
+
+/* ===== Event / Spin / Etc ===== */
 const eventInfo = ref<{
   id: string
   player_cap: number
@@ -872,7 +904,9 @@ async function triggerServerSpinAndAnimate() {
     spinStarted.value = false
   }
 }
-function actuallyStartCountdown() {
+
+/* ===== Countdowns ===== */
+function actuallyStartCountdown(asLeader = false) {
   autoSpinStarted.value = true
   countdown.value = 3
   if (countdownHandle) {
@@ -886,28 +920,178 @@ function actuallyStartCountdown() {
       clearInterval(countdownHandle!)
       countdownHandle = null
       countdown.value = null
-      await triggerServerSpinAndAnimate()
+      if (asLeader) {
+        await triggerServerSpinAndAnimate()
+      } else {
+        // Failover: if leader didn't trigger within 1500ms after planned spin time, promote self
+        const plan = syncPlan.value
+        if (plan) {
+          window.setTimeout(async () => {
+            const pastSpin = Date.now() >= plan.spinAt + 1500
+            if (!spinning.value && !spinStarted.value && !resolved.value && pastSpin && !spinInfo.value?.winner_entry_id) {
+              isLeaderForPlan = true
+              await triggerServerSpinAndAnimate()
+            }
+          }, Math.max(0, (plan.spinAt + 1500) - Date.now()))
+        }
+      }
     }
   }, 1000)
 }
+
+/* ===== NEW: Synchronized plan scheduling ===== */
+function nowMs() { return Date.now() }
+function ceilToSecond(ms: number) { return Math.ceil(ms / 1000) * 1000 }
+
+async function scheduleSynchronizedSpin(asLeader: boolean) {
+  if (!eventId || !canSpinGate.value || resolved.value || spinning.value || spinStarted.value) return
+  if (syncPlan.value) return
+
+  // Leader constructs the plan; followers will receive it via broadcast or storage
+  if (asLeader) {
+    isLeaderForPlan = true
+    const t0 = ceilToSecond(nowMs() + 400)
+    const introMs = 10_000
+    const introUntil = t0 + introMs
+    const spinAt = introUntil + 3_000
+    const plan: SpinPlan = { kind: 'intro_plan', eventId, introUntil, spinAt, createdBy: myUserId.value || undefined }
+
+    await ensureSyncChannel()
+    try { await syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: plan }) } catch {}
+    savePlanToStorage(plan)
+    adoptSyncPlan(plan)
+  } else {
+    await ensureSyncChannel()
+    requestSyncPlan()
+  }
+}
+
+function adoptSyncPlan(plan: SpinPlan) {
+  if (!plan || plan.eventId !== eventId) return
+  syncPlan.value = plan
+  savePlanToStorage(plan)
+
+  // Determine leadership from plan
+  isLeaderForPlan = !!(plan.createdBy && myUserId.value && plan.createdBy === myUserId.value)
+
+  // Open intro for remaining time (or skip if already passed)
+  const remIntroMs = Math.max(0, plan.introUntil - nowMs())
+  if (remIntroMs > 100) {
+    openIntro(remIntroMs)
+  } else {
+    // If intro time already passed, ensure intro is closed and jump to countdown phase scheduling
+    closeIntro(true)
+  }
+
+  clearSyncTimers()
+  // When intro ends, schedule countdown so it ends exactly at spinAt
+  const afterIntroDelay = remIntroMs
+  syncIntroEndTimer = window.setTimeout(() => {
+    const untilCountdownStart = Math.max(0, plan.spinAt - nowMs() - 3_000)
+    syncCountdownStartTimer = window.setTimeout(() => {
+      actuallyStartCountdown(isLeaderForPlan)
+    }, untilCountdownStart)
+  }, afterIntroDelay)
+
+  // Periodic re-broadcast while plan is active (helps late joiners and reloads)
+  startRebroadcastingPlan()
+
+  // Safety cleanup after plan window
+  syncCleanupTimer = window.setTimeout(() => {
+    stopRebroadcastingPlan()
+    clearSyncTimers()
+    syncPlan.value = null
+    savePlanToStorage(null)
+    isLeaderForPlan = false
+  }, Math.max(20_000, plan.spinAt - nowMs() + 15_000))
+}
+
+function clearSyncTimers() {
+  if (syncIntroEndTimer) { clearTimeout(syncIntroEndTimer); syncIntroEndTimer = null }
+  if (syncCountdownStartTimer) { clearTimeout(syncCountdownStartTimer); syncCountdownStartTimer = null }
+  if (syncCleanupTimer) { clearTimeout(syncCleanupTimer); syncCleanupTimer = null }
+}
+
+function startRebroadcastingPlan() {
+  stopRebroadcastingPlan()
+  if (!syncPlan.value || !syncChannel) return
+  // Re-broadcast every ~2.5s until spin time
+  rebroadcastTimer = window.setInterval(() => {
+    const plan = syncPlan.value
+    if (!plan) return
+    try { syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: plan }) } catch {}
+    if (Date.now() > plan.spinAt + 1000) stopRebroadcastingPlan()
+  }, 2500)
+}
+function stopRebroadcastingPlan() {
+  if (rebroadcastTimer) { clearInterval(rebroadcastTimer); rebroadcastTimer = null }
+}
+
+/* ===== Sync channel (request/respond plan) ===== */
+async function ensureSyncChannel() {
+  if (syncChannel || !eventId) return
+  syncChannel = supabase.channel(`ge-sync-${eventId}`, { config: { broadcast: { self: false } } })
+    .on('broadcast', { event: 'intro_plan' }, ({ payload }: any) => {
+      try {
+        const plan = payload as SpinPlan
+        if (!plan || plan.eventId !== eventId) return
+        // Prefer earliest spinAt (in case of duplicate plans)
+        if (!syncPlan.value || (plan.spinAt && plan.spinAt < (syncPlan.value?.spinAt || Infinity))) {
+          isLeaderForPlan = !!(plan.createdBy && myUserId.value && plan.createdBy === myUserId.value)
+          adoptSyncPlan(plan)
+        }
+      } catch {}
+    })
+    .on('broadcast', { event: 'plan_request' }, async () => {
+      // Someone asked for the current plan; if we have one, share it
+      if (syncPlan.value) {
+        try { await syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: syncPlan.value }) } catch {}
+      } else {
+        // If we don't, but have it in storage and it's valid, share that
+        const stored = loadPlanFromStorage()
+        if (stored) {
+          try { await syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: stored }) } catch {}
+        }
+      }
+    })
+    .subscribe((s: any) => {
+      if (s === 'CLOSED' || s === 'CHANNEL_ERROR') setTimeout(() => { syncChannel = null; ensureSyncChannel() }, 1000)
+    })
+}
+
+function requestSyncPlan() {
+  if (!syncChannel) return
+  try { syncChannel.send({ type: 'broadcast', event: 'plan_request', payload: { t: Date.now(), eventId } }) } catch {}
+}
+
+/* ===== Original "startCountdownAndSpin" now defers to sync plan ===== */
 function startCountdownAndSpin() {
   if (autoSpinStarted.value || resolved.value || spinning.value || spinStarted.value) return
-  Promise.all([fetchEntries()]).then(() => {
-    if (!canSpinGate.value) {
-      const stop = watch(allReady, (ok) => {
-        if (ok && !autoSpinStarted.value && !resolved.value && !spinning.value && !spinStarted.value) {
-          stop()
-          if (!hasSeenIntro.value) openIntro()
-          else actuallyStartCountdown()
-        }
-      })
+  // always coordinate through synchronized plan
+  Promise.all([fetchEntries()]).then(async () => {
+    // Try to adopt a stored plan first (handles refresh/back)
+    const stored = loadPlanFromStorage()
+    if (stored && (!syncPlan.value || stored.spinAt < (syncPlan.value?.spinAt || Infinity))) {
+      await ensureSyncChannel()
+      adoptSyncPlan(stored)
+      // Also request plan so others can echo the freshest one
+      requestSyncPlan()
       return
     }
-    if (!hasSeenIntro.value) {
-      openIntro()
-    } else {
-      actuallyStartCountdown()
+
+    if (!canSpinGate.value) {
+      const stop = watch(allReady, async (ok) => {
+        if (ok && !autoSpinStarted.value && !resolved.value && !spinning.value && !spinStarted.value && !syncPlanActive.value) {
+          stop()
+          await scheduleSynchronizedSpin(true)
+        }
+      })
+      // meanwhile try to discover any existing plan
+      await ensureSyncChannel()
+      requestSyncPlan()
+      return
     }
+    await scheduleSynchronizedSpin(true)
   })
 }
 
@@ -1044,14 +1228,15 @@ watch(
     openOutcomePopupIfMe()
   },
 )
-/* When everyone is ready: show intro once (10s), then auto-start */
+/* When everyone is ready: show intro once (10s), then auto-start in sync */
 watch(
   () => [allReady.value, eventInfo.value?.player_cap, resolved.value] as const,
-  ([gateOk, , isResolved]) => {
+  async ([gateOk, , isResolved]) => {
     if (isResolved) return
-    if (gateOk && !autoSpinStarted.value && !spinning.value && !spinStarted.value) {
-      if (!hasSeenIntro.value) openIntro()
-      else startCountdownAndSpin()
+    if (gateOk && !autoSpinStarted.value && !spinning.value && !spinStarted.value && !syncPlanActive.value) {
+      // First ready client becomes leader and broadcasts;
+      // on reload, we’ll re-adopt from storage or request peers.
+      await scheduleSynchronizedSpin(true)
     }
   },
 )
@@ -1144,7 +1329,7 @@ async function onImgError(e: Event, uid: string) {
   el.src = DEFAULT_AVATAR
 }
 const DEFAULT_AVATAR =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color="%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color">%2352e3b6</stop></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
 function startAvatarRefreshTimer() {
   stopAvatarRefreshTimer()
   avatarRefreshTimer = window.setInterval(() => refreshExpiringAvatars(), 300000)
@@ -1184,10 +1369,11 @@ function stopProductRotation() {
 }
 
 /* ======== Intro controls (auto, no buttons) ======== */
-function openIntro() {
+function openIntro(durationMs: number = 10_000) {
   showIntroModal.value = true
   hasSeenIntro.value = true
-  introSeconds.value = 10
+  // derive seconds from precise remaining ms
+  introSeconds.value = Math.max(1, Math.ceil(durationMs / 1000))
   if (introInterval) { clearInterval(introInterval); introInterval = null }
   if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
 
@@ -1197,9 +1383,8 @@ function openIntro() {
 
   introTimeout = window.setTimeout(() => {
     closeIntro(true)
-    // kick off countdown after intro ends
-    setTimeout(() => { if (!autoSpinStarted.value) actuallyStartCountdown() }, 120)
-  }, 10_000)
+    // NOTE: countdown is scheduled by sync plan (not here)
+  }, durationMs)
 }
 function closeIntro(markSeen = true) {
   showIntroModal.value = false
@@ -1218,16 +1403,31 @@ onMounted(async () => {
   startPoll()
   startAvatarRefreshTimer()
   document.addEventListener('visibilitychange', onVisibilityChange)
-  if (canSpinGate.value && !hasSeenIntro.value) openIntro()
+
+  // Prepare sync and try to recover plan from storage or peers
+  await ensureSyncChannel()
+
+  const stored = loadPlanFromStorage()
+  if (stored) {
+    adoptSyncPlan(stored)
+    // Also ask peers for freshest plan (handles device time drift / a newer plan)
+    requestSyncPlan()
+  } else {
+    // No stored plan: query peers in case one already exists
+    requestSyncPlan()
+  }
 })
 onBeforeUnmount(() => {
   if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} ; realtimeChannel = null }
   if (realtimeChannelSpin) { try { supabase.removeChannel(realtimeChannelSpin) } catch {} ; realtimeChannelSpin = null }
   if (realtimeChannelEvent) { try { supabase.removeChannel(realtimeChannelEvent) } catch {} ; realtimeChannelEvent = null }
+  if (syncChannel) { try { supabase.removeChannel(syncChannel) } catch {} ; syncChannel = null }
   if (refreshTimer) { window.clearTimeout(refreshTimer); refreshTimer = null }
   if (countdownHandle) { clearInterval(countdownHandle); countdownHandle = null }
   if (introInterval) { clearInterval(introInterval); introInterval = null }
   if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
+  clearSyncTimers()
+  stopRebroadcastingPlan()
   stopPoll()
   stopAvatarRefreshTimer()
   stopProductRotation()

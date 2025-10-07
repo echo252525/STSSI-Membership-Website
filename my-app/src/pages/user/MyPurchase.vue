@@ -116,10 +116,22 @@
                     >
                       {{ productName(it) }}
                     </div>
+
+                    <!-- PRICE (with optional discounted display when ref is in refund_lock) -->
                     <div class="text-end ms-2">
-                      <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">
-                        ₱ {{ number(productPrice(it)) }}
-                      </div>
+                      <template v-if="refHasDiscount(g.ref)">
+                        <div class="text-muted text-decoration-line-through">
+                          ₱ {{ number(productPrice(it)) }}
+                        </div>
+                        <div class="fw-semibold text-success">
+                          ₱ {{ number(discountedUnitPrice(it)) }}
+                        </div>
+                      </template>
+                      <template v-else>
+                        <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">
+                          ₱ {{ number(productPrice(it)) }}
+                        </div>
+                      </template>
                     </div>
                   </div>
 
@@ -154,7 +166,16 @@
             <div class="mt-3 d-flex align-items-center justify-content-end">
               <div class="text-end">
                 <div class="small text-muted">Subtotal</div>
-                <div class="fs-5 fw-bold">₱ {{ number(groupTotal(g)) }}</div>
+
+                <!-- SUBTOTAL (show only discounted when ref is in refund_lock) -->
+                <template v-if="refHasDiscount(g.ref)">
+                  <div class="fs-5 fw-bold text-success">
+                    ₱ {{ number(groupTotalDiscounted(g)) }}
+                  </div>
+                </template>
+                <template v-else>
+                  <div class="fs-5 fw-bold">₱ {{ number(groupTotal(g)) }}</div>
+                </template>
               </div>
             </div>
 
@@ -286,10 +307,22 @@
                       >
                         {{ productName(p) }}
                       </div>
+
+                      <!-- PRICE (with optional discounted display when ref is in refund_lock) -->
                       <div class="text-end ms-2">
-                        <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">
-                          ₱ {{ number(productPrice(p)) }}
-                        </div>
+                        <template v-if="refHasDiscount(p.reference_number || p.id)">
+                          <div class="text-muted text-decoration-line-through">
+                            ₱ {{ number(productPrice(p)) }}
+                          </div>
+                          <div class="fw-semibold text-success">
+                            ₱ {{ number(discountedUnitPrice(p)) }}
+                          </div>
+                        </template>
+                        <template v-else>
+                          <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">
+                            ₱ {{ number(productPrice(p)) }}
+                          </div>
+                        </template>
                       </div>
                     </div>
 
@@ -775,7 +808,38 @@ async function autocloseOverdue(uid: string) {
   }
 }
 
-/** Load all purchases + products + RR rows */
+/** ========= DISCOUNT (refund_lock + event.interest_per_player) ========= */
+/** Map of reference_number (which equals event_id) -> interest_per_player */
+const refDiscount: Record<string, number> = reactive({})
+
+/** Simple UUID check to avoid querying invalid refs */
+function isUuidLike(s: string): boolean {
+  return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)
+}
+
+function refHasDiscount(ref?: string): boolean {
+  if (!ref) return false
+  return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
+}
+
+/** Unit discounted price (per item): original - interest_per_player (clamped at 0) */
+function discountedUnitPrice(purchase: AnyRec): number {
+  const ref = purchase?.reference_number || purchase?.id
+  const off = refDiscount[ref] || 0
+  const base = productPrice(purchase)
+  const out = base - off
+  return out > 0 ? out : 0
+}
+
+/** Group discounted total */
+function groupTotalDiscounted(g: Group): number {
+  return g.items.reduce((sum, it) => {
+    const q = Number(it?.qty ?? 1) || 1
+    return sum + q * discountedUnitPrice(it)
+  }, 0)
+}
+
+/** Load all purchases + products + RR rows + refund_lock + event (for discounts) */
 async function loadPurchases() {
   busy.value.load = true
   try {
@@ -784,6 +848,8 @@ async function loadPurchases() {
     if (!uid) {
       purchases.value = []
       Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
+      // also clear discounts
+      Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
       return
     }
 
@@ -798,12 +864,14 @@ async function loadPurchases() {
     if (error) {
       purchases.value = []
       Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
+      Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
       return
     }
     purchases.value = Array.isArray(data) ? data : []
 
     await autocloseOverdue(uid)
 
+    // ----- Products -----
     const ids = Array.from(new Set(purchases.value.map((r) => r.product_id).filter(Boolean)))
     if (ids.length) {
       const { data: prows, error: perr } = await supabase
@@ -824,6 +892,7 @@ async function loadPurchases() {
       }
     }
 
+    // ----- RR rows -----
     const purchaseIds = purchases.value.map((r) => r.id)
     Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
     if (purchaseIds.length) {
@@ -844,6 +913,46 @@ async function loadPurchases() {
               reason: row.reason ?? null,
               details: row.details ?? null,
               created_at: row.created_at,
+            }
+          }
+        }
+      }
+    }
+
+    // ----- Discounts: refund_lock + event.interest_per_player -----
+    // Build the set of reference numbers (these may equal event_id)
+    const refs = Array.from(
+      new Set(
+        purchases.value
+          .map((r) => r.reference_number || r.id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    const uuidRefs = refs.filter(isUuidLike)
+    // Clear previous map
+    Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
+
+    if (uuidRefs.length) {
+      // Find which refs exist in refund_lock(event_id)
+      const { data: locks, error: lockErr } = await supabase
+        .schema('games')
+        .from('refund_lock')
+        .select('event_id')
+        .in('event_id', uuidRefs)
+
+      if (!lockErr && Array.isArray(locks) && locks.length) {
+        const eventIds = Array.from(new Set(locks.map((l: AnyRec) => l.event_id).filter(Boolean)))
+        if (eventIds.length) {
+          const { data: events, error: evErr } = await supabase
+            .schema('games')
+            .from('event')
+            .select('id,interest_per_player')
+            .in('id', eventIds)
+
+          if (!evErr && Array.isArray(events)) {
+            for (const ev of events as Array<{ id: string; interest_per_player: number }>) {
+              const off = Number(ev.interest_per_player ?? 0)
+              if (!isNaN(off)) refDiscount[ev.id] = off
             }
           }
         }
@@ -1025,11 +1134,7 @@ function capitalize(s: string) {
   if (!s) return s
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
-function prettyStatusWithRR(
-  s?: string,
-  purchaseId?: string,
-  group?: Group,
-): string {
+function prettyStatusWithRR(s?: string, purchaseId?: string, group?: Group): string {
   const base = prettyStatus(s)
   const k = (s || '') as Status
   if (k !== STATUS.RETURN_REFUND) return base
@@ -1065,7 +1170,7 @@ async function goRefundOtherProducts(g: Group) {
 
 function groupTotal(g: Group): number {
   return g.items.reduce((sum, it) => {
-    const q = Number(it.qty ?? 1) || 1
+    const q = Number(it?.qty ?? 1) || 1
     const pr = productPrice(it)
     return sum + q * pr
   }, 0)
