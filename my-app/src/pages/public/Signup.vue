@@ -208,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -264,11 +264,30 @@ function isAddressComplete() {
   return !!(addrLine1.value && addrCity.value && addrProvince.value && addrZip.value)
 }
 
+/* ===============================
+   🔹 REFERRAL: capture ?ref=CODE
+   =============================== */
+const urlRefCode = ref<string | null>(null)
+
+function captureRefFromUrl() {
+  try {
+    const url = new URL(window.location.href)
+    const refParam = url.searchParams.get('ref')
+    urlRefCode.value = refParam ? String(refParam).trim() : null
+  } catch {
+    urlRefCode.value = null
+  }
+}
+
+onMounted(() => {
+  captureRefFromUrl()
+})
+
 // NOTE: This relies on DB/RLS we set up earlier:
 //  - public.users with PK/FK id -> auth.users(id)
-//  - RLS enabled
-//  - Policy: allow INSERT for role 'anon' (ins_signup_anon) so signup can insert before session exists
-//  - email is citext + unique(email)
+//  - referral_code (text, unique) auto-set by trigger or prefilled
+//  - referred_by (uuid) nullable
+//  - RLS policy that allows INSERT by anon (for signup bootstrap)
 
 const onSubmit = async () => {
   loading.value = true
@@ -297,9 +316,26 @@ const onSubmit = async () => {
       return router.push({ name: 'login' })
     }
 
-    // 2) Insert the profile row immediately after signup.
+    /* 2) 🔹 Look up the referrer by referral_code from URL
+          If a matching row exists in public.users, we’ll store the referrer’s id
+          into the new user’s "referred_by" column. */
+    let referredBy: string | null = null
+    if (urlRefCode.value && urlRefCode.value.length >= 3) {
+      const { data: refUser, error: refErr } = await supabase
+        .from('users')
+        .select('id')
+        .eq('referral_code', urlRefCode.value)
+        .maybeSingle()
+
+      if (!refErr && refUser?.id && refUser.id !== user.id) {
+        referredBy = refUser.id
+      }
+      // If error or not found, we just leave referredBy = null (no-op)
+    }
+
+    // 3) Insert the profile row immediately after signup.
     //    Works even without a session because of the anon INSERT policy.
-    const insertPayload = {
+    const insertPayload: any = {
       id: user.id, // must match auth.users.id
       email: email.value, // citext unique
       full_name: fullName.value,
@@ -307,6 +343,11 @@ const onSubmit = async () => {
       age: Number.isFinite(Number(age.value)) ? Number(age.value) : null,
       membership_type: 'regular', // default tier
       phone_number: phone.value || null, // 🔹 NEW: store phone number
+    }
+
+    // 🔹 Only attach referred_by if we actually found a referrer
+    if (referredBy) {
+      insertPayload.referred_by = referredBy
     }
 
     const { error: insertErr } = await supabase.from('users').insert([insertPayload])

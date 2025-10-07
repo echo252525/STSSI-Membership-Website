@@ -200,7 +200,7 @@ type ReferralStatsView = {
 function buildAffiliateUrl(code: string | null | undefined) {
   if (!code) return null
   const origin = window?.location?.origin ?? ''
-  return `${origin}/?ref=${encodeURIComponent(code)}`
+  return `${origin}/signup?ref=${encodeURIComponent(code)}`
 }
 
 async function loadReferralBits(uid: string) {

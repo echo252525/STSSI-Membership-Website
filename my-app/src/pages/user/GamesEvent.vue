@@ -67,7 +67,8 @@
               <div class="hub-dot"></div>
 
               <!-- slice labels – counter-rotated to stay upright -->
-              <template v-for="(p, i) in spinEntries" :key="p.id">
+              <!-- CHANGED: use wheelFaces to freeze labels & colors while spinning -->
+              <template v-for="(p, i) in wheelFaces" :key="p.id">
                 <div
                   class="slice-label"
                   :style="[labelVars(i), sliceLabelStyle(i, p.user_id)]"
@@ -366,7 +367,10 @@ const countdown = ref<number | null>(null)
 let countdownHandle: number | null = null
 const autoSpinStarted = ref(false)
 const rpcWinnerId = ref<string | null>(null)
+
+/* NOTE: this snapshot is used to FREEZE the wheel’s faces during a spin */
 let participantsSnapshot: EntryRow[] = []
+
 const spinStarted = ref(false)
 
 const winnerPurchaseInserted = ref(false)
@@ -389,6 +393,14 @@ const readyEntries = computed(() => entries.value.filter((e) => e.status === 're
 const spinEntries = computed(() =>
   readyEntries.value.length > 0 ? readyEntries.value : joinedEntries.value,
 )
+
+/* NEW: Freeze the wheel’s data while spinning (or once spin starts) */
+const wheelFaces = computed<EntryRow[]>(() => {
+  return (spinning.value || spinStarted.value) && participantsSnapshot.length
+    ? participantsSnapshot
+    : spinEntries.value
+})
+
 const anyWinner = computed(() => entries.value.some((e) => e.status === 'winner'))
 const allReady = computed(
   () => spinEntries.value.length >= 2 && spinEntries.value.every((e) => e.status === 'ready'),
@@ -460,13 +472,14 @@ const wheelVars = computed(() => ({
   '--wheel-rot': `${rotateDeg.value}deg`,
 }))
 
+/* CHANGED: build gradient using wheelFaces so colors stay matched during spin */
 const wheelStyle = computed(() => {
-  const n = Math.max(1, spinEntries.value.length)
+  const n = Math.max(1, wheelFaces.value.length)
   const stops: string[] = []
   for (let i = 0; i < n; i++) {
     const a0 = (360 / n) * i
     const a1 = (360 / n) * (i + 1)
-    const uid = spinEntries.value[i]?.user_id
+    const uid = wheelFaces.value[i]?.user_id
     stops.push(`${sliceColor(i, n, uid)} ${a0}deg ${a1}deg`)
   }
   return {
@@ -481,8 +494,9 @@ const wheelStyle = computed(() => {
   } as any
 })
 
+/* CHANGED: label angle uses wheelFaces length so labels don’t jump */
 function labelVars(i: number) {
-  const n = Math.max(1, spinEntries.value.length)
+  const n = Math.max(1, wheelFaces.value.length)
   const mid = (360 / n) * (i + 0.5)
   return { '--slice-angle': `${mid}deg` } as any
 }
@@ -619,8 +633,10 @@ function setErr(e: any, ctx: string) {
 }
 
 /* ======== SPIN ========= */
+/* CHANGED: slice size computed from participantsSnapshot to keep mapping stable */
 async function startSpin(forcedIndex: number) {
-  const slice = 360 / spinEntries.value.length
+  const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
+  const slice = 360 / n
   const targetAngle = slice * (forcedIndex + 0.5)
   const fullTurns = 12
   rotateDeg.value = 360 * fullTurns + (360 - targetAngle)
