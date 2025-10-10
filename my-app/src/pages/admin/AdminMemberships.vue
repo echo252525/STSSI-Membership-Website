@@ -85,6 +85,7 @@
             </div>
 
             <ul class="pricing-features small mt-3">
+              <li><strong>Members</strong> <span>{{ memberCounts[t.id] ?? 0 }}</span></li>
               <li><strong>Monthly Credits</strong> <span>₱{{ toMoney(t.discount_credits) }}</span></li>
               <li><strong>Disc/Purchase</strong> <span>{{ toPercentOrPeso(t.discount_per_purchase) }}</span></li>
               <li><strong>Purchases</strong> <span>{{ t.purchases_count }}</span></li>
@@ -340,7 +341,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
 // CONFIG
@@ -367,6 +368,9 @@ const selected = ref<any | null>(null)
 const iconFile = ref<File | null>(null)
 const iconPreview = ref<string | null>(null)
 const iconInput = ref<HTMLInputElement | null>(null)
+
+// NEW: member counts per tier.id
+const memberCounts = reactive<Record<string, number>>({})
 
 function resetForm() {
   return {
@@ -452,6 +456,27 @@ async function hydrateSignedIcons(rows: any[]) {
   return out
 }
 
+/**
+ * Fetch member counts for each tier.id from public.users.membership_id.
+ * Uses efficient HEAD counts per tier to work with RLS and avoid fetching row data.
+ */
+async function fetchMemberCounts(tierIds: string[]) {
+  // reset map
+  for (const k of Object.keys(memberCounts)) delete memberCounts[k]
+  if (!tierIds.length) return
+
+  // Per-tier exact HEAD count (no payload fetched)
+  for (const id of tierIds) {
+    const { count, error: cErr } = await supabase
+      .from('users') // public schema
+      .select('id', { count: 'exact', head: true })
+      .eq('membership_id', id)
+
+    // If RLS allows, count is a number; otherwise default to 0
+    memberCounts[id] = cErr ? 0 : Number(count || 0)
+  }
+}
+
 async function load(reset = false) {
   error.value = ''
   if (reset) page.value = 1
@@ -476,6 +501,13 @@ async function load(reset = false) {
 
     tiers.value = await hydrateSignedIcons(data ?? [])
     total.value = count ?? tiers.value.length
+
+    // Fetch member counts for these tiers from public.users
+    const ids = (tiers.value || []).map((t: any) => t.id).filter(Boolean)
+    await fetchMemberCounts(ids)
+
+    // Ensure zeros for any tier id not present in memberCounts map
+    for (const id of ids) if (memberCounts[id] == null) memberCounts[id] = 0
   } catch (e: any) {
     error.value = e?.message || 'Failed to load tiers.'
   } finally {
