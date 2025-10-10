@@ -90,8 +90,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'dashboard', name: 'admin.dashboard', component: AdminDashboard },
       { path: 'mini-games', name: 'admin.minigames', component: AdminMiniGames },
       { path: 'products', name: 'admin.products', component: AdminProducts },
-      { path: 'transactions', name: 'admin.memberships', component: AdminMemberships },
-      { path: 'AdminMemberships', name: 'admin.transactions', component: Transactions },
+      { path: 'AdminMemberships', name: 'admin.memberships', component: AdminMemberships },
+      { path: 'Transactions', name: 'admin.transactions', component: Transactions },
       { path: 'orders', name: 'admin.orders', component: Orders }, // 🆕 Orders page
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
     ],

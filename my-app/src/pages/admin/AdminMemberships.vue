@@ -36,66 +36,9 @@
       </div>
     </div>
 
-    <!-- ===== HERO SECTION (Top tier by order) ===== -->
-    <div v-if="!busy.load && tiers.length" class="hero-tier card border-0 rounded-4 shadow-sm mb-3 overflow-hidden">
-      <div class="hero-bg"></div>
-      <div class="card-body position-relative d-flex flex-wrap align-items-center gap-3">
-        <div class="hero-rank-badge">
-          <i class="bi bi-trophy-fill me-1"></i> #{{ tiers[0].membership_tier_order }}
-        </div>
-        <img
-          v-if="tiers[0]._icon_signed_url"
-          :src="tiers[0]._icon_signed_url"
-          class="rounded-3 border hero-icon"
-          alt="Tier icon"
-        />
-        <div class="flex-grow-1 minw-0">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <h2 class="h4 m-0 hero-name text-truncate">{{ tiers[0].membership_name }}</h2>
-            <span class="badge rounded-pill" :class="tiers[0].is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'">
-              {{ tiers[0].is_free_delivery ? 'Free Delivery' : 'No Free Delivery' }}
-            </span>
-          </div>
-          <div class="text-muted small mt-1">
-            Last updated {{ fmtDate(tiers[0].updated_at) }}
-          </div>
-          <div class="hero-stats d-flex flex-wrap gap-3 mt-3">
-            <div class="stat">
-              <div class="stat-label">Monthly Credits</div>
-              <div class="stat-value">₱{{ toMoney(tiers[0].discount_credits) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Discount / Purchase</div>
-              <div class="stat-value">{{ toPercentOrPeso(tiers[0].discount_per_purchase) }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Purchases (All-time)</div>
-              <div class="stat-value">{{ tiers[0].purchases_count }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Referral Req</div>
-              <div class="stat-value">{{ tiers[0].referral_count_requirements }}</div>
-            </div>
-            <div class="stat">
-              <div class="stat-label">Orders for Free Delivery</div>
-              <div class="stat-value">{{ tiers[0].purchase_requirements_for_free_delivery }}</div>
-            </div>
-          </div>
-        </div>
-        <div class="ms-auto d-flex align-items-center gap-2">
-          <button class="btn btn-outline-secondary btn-sm" @click="openEdit(tiers[0])">
-            <i class="bi bi-pencil"></i>
-          </button>
-          <button class="btn btn-outline-danger btn-sm" @click="openDelete(tiers[0])">
-            <i class="bi bi-trash"></i>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ===== CARD GRID FOR OTHER TIERS ===== -->
-    <div class="row g-3">
-      <!-- Loading state -->
+    <!-- ===== VERTICAL PRICING GRID (all same size; order 5 at index 0) ===== -->
+    <div class="row g-3 align-items-stretch pricing-grid-vertical">
+      <!-- Loading -->
       <div v-if="busy.load" class="col-12">
         <div class="text-center text-muted py-4">
           <div class="spinner-border me-2"></div>
@@ -103,83 +46,62 @@
         </div>
       </div>
 
-      <!-- Empty state -->
-      <div v-else-if="tiers.length === 0" class="col-12">
+      <!-- Empty -->
+      <div v-else-if="displayTiers.length === 0" class="col-12">
         <div class="text-center text-muted py-4">
           <i class="bi bi-stars"></i> No tiers found.
         </div>
       </div>
 
-      <!-- Cards (skip index 0 because it's the hero) -->
+      <!-- Cards (diamond is order 5 => first in displayTiers) -->
       <div
         v-else
-        v-for="(t, i) in tiers.slice(1)"
+        v-for="(t, i) in displayTiers"
         :key="t.id"
-        class="col-12 col-md-6 col-lg-4"
+        class="col-12 col-md-6 col-lg-3"
       >
-        <div class="card h-100 rounded-4 shadow-sm border-0 tier-card">
+        <!-- Keep layout minimal + rectangular + equal height -->
+        <div
+          class="card card-fixed h-100 rounded-4 border-0 pricing-vert"
+          :class="[ pricingAccent(t), isDiamond(t) ? 'diamond-glow' : '' ]"
+        >
           <div class="card-body d-flex flex-column">
-            <div class="d-flex align-items-start gap-3">
-              <div class="rank-badge">#{{ t.membership_tier_order }}</div>
+            <!-- Most Popular ribbon for diamond -->
+            <div v-if="isDiamond(t)" class="ribbon-popular">Most Popular</div>
+
+            <div class="text-center mb-2">
+              <div class="pricing-rank">#{{ t.membership_tier_order }}</div>
               <img
                 v-if="t._icon_signed_url"
                 :src="t._icon_signed_url"
-                class="rounded border"
-                style="width: 56px; height: 56px; object-fit: cover"
+                class="rounded border pricing-icon-vert"
                 alt="Tier icon"
               />
-              <div class="flex-grow-1 minw-0">
-                <div class="d-flex align-items-center gap-2 flex-wrap">
-                  <h3 class="h6 m-0 text-truncate">{{ t.membership_name }}</h3>
-                  <span class="badge rounded-pill" :class="t.is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'">
-                    {{ t.is_free_delivery ? 'Free Delivery' : 'No Free Delivery' }}
-                  </span>
-                </div>
-                <div class="text-muted small mt-1">Updated {{ fmtDate(t.updated_at) }}</div>
-              </div>
+              <h3 class="h5 mt-2 mb-1 text-truncate">{{ t.membership_name }}</h3>
+              <span class="badge rounded-pill" :class="t.is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'">
+                {{ t.is_free_delivery ? 'Free Delivery' : 'No Free Delivery' }}
+              </span>
+              <div class="text-muted small mt-1">Updated {{ fmtDate(t.updated_at) }}</div>
             </div>
 
-            <div class="mt-3 small">
-              <div class="row g-2">
-                <div class="col-6">
-                  <div class="kpi">
-                    <div class="kpi-label">Monthly Credits</div>
-                    <div class="kpi-value">₱{{ toMoney(t.discount_credits) }}</div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="kpi">
-                    <div class="kpi-label">Disc/Purchase</div>
-                    <div class="kpi-value">{{ toPercentOrPeso(t.discount_per_purchase) }}</div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="kpi">
-                    <div class="kpi-label">Purchases</div>
-                    <div class="kpi-value">{{ t.purchases_count }}</div>
-                  </div>
-                </div>
-                <div class="col-6">
-                  <div class="kpi">
-                    <div class="kpi-label">Referral Req</div>
-                    <div class="kpi-value">{{ t.referral_count_requirements }}</div>
-                  </div>
-                </div>
-                <div class="col-12">
-                  <div class="kpi">
-                    <div class="kpi-label">Orders for Free Delivery</div>
-                    <div class="kpi-value">{{ t.purchase_requirements_for_free_delivery }}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <ul class="pricing-features small mt-3">
+              <li><strong>Monthly Credits</strong> <span>₱{{ toMoney(t.discount_credits) }}</span></li>
+              <li><strong>Disc/Purchase</strong> <span>{{ toPercentOrPeso(t.discount_per_purchase) }}</span></li>
+              <li><strong>Purchases</strong> <span>{{ t.purchases_count }}</span></li>
+              <li><strong>Referral Req</strong> <span>{{ t.referral_count_requirements }}</span></li>
+              <li><strong>Orders for Free Delivery</strong> <span>{{ t.purchase_requirements_for_free_delivery }}</span></li>
+            </ul>
 
-            <div class="mt-auto d-flex justify-content-end gap-2">
-              <button class="btn btn-outline-secondary btn-sm" @click="openEdit(t)">
-                <i class="bi bi-pencil"></i>
+            <div class="mt-auto d-flex flex-column gap-2">
+              <button
+                class="btn btn-primary btn-sm fw-semibold"
+                :class="isDiamond(t) ? 'btn-diamond' : 'btn-outline-primary'"
+                @click="openEdit(t)"
+              >
+                Manage
               </button>
               <button class="btn btn-outline-danger btn-sm" @click="openDelete(t)">
-                <i class="bi bi-trash"></i>
+                Delete
               </button>
             </div>
           </div>
@@ -245,7 +167,7 @@
                   type="number"
                   min="0"
                   class="form-control"
-                  placeholder="Lower shows first"
+                  placeholder="Higher is better (5 highest)"
                   required
                 />
               </div>
@@ -418,11 +340,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
 // CONFIG
-const BUCKET = 'tier_icons' // make sure this bucket exists with RLS you set
+const BUCKET = 'tier_icons'
 
 // pagination + search
 const page = ref(1)
@@ -435,7 +357,6 @@ const busy = ref({ load: false, save: false, del: false })
 const error = ref('')
 const notice = ref('')
 
-// bootstrap modals (assumes bootstrap bundle loaded once globally)
 let modalTier: any = null
 let modalDelete: any = null
 
@@ -455,13 +376,13 @@ function resetForm() {
     purchases_count: 0,
     referral_count_requirements: 0,
     purchases_per_referrals: 0,
-    discount_credits: '0.00', // numeric(12,2) → string input
-    discount_per_purchase: '0.00', // stored as peso or percent depending on mode
-    discount_per_purchase_mode: 'peso', // 'peso' | 'percent'
+    discount_credits: '0.00',
+    discount_per_purchase: '0.00',
+    discount_per_purchase_mode: 'peso',
     is_free_delivery: false,
     purchase_requirements_for_free_delivery: 0,
     icon_url: null,
-    _icon_signed_url: null, // transient for preview in modal
+    _icon_signed_url: null,
   }
 }
 
@@ -471,8 +392,6 @@ function toMoney(n: any) {
 }
 
 function toPercentOrPeso(v: any) {
-  // Table/card display helper: show "₱x.xx" OR "x.xx%"
-  // We keep pesos by default since mode isn't stored in DB.
   const num = Number(v ?? 0)
   return `₱${toMoney(num)}`
 }
@@ -481,6 +400,25 @@ function fmtDate(d?: string) {
   if (!d) return ''
   const dt = new Date(d)
   return dt.toLocaleString()
+}
+
+// DISPLAY: sort by order desc (5 highest first)
+const displayTiers = computed(() =>
+  [...(tiers.value || [])].sort(
+    (a, b) => Number(b?.membership_tier_order ?? 0) - Number(a?.membership_tier_order ?? 0)
+  )
+)
+
+function isDiamond(t: any) {
+  return Number(t?.membership_tier_order ?? 0) >= 5
+}
+
+function pricingAccent(t: any) {
+  const order = Number(t?.membership_tier_order ?? 0)
+  if (order >= 5) return 'accent-diamond'
+  if (order === 4) return 'accent-strong'
+  if (order === 3) return 'accent-mid'
+  return 'accent-soft'
 }
 
 // debounced search
@@ -522,7 +460,6 @@ async function load(reset = false) {
     const from = (page.value - 1) * pageSize
     const to = from + pageSize - 1
 
-    // Build query
     let query = supabase
       .schema('membership')
       .from('tiers')
@@ -693,7 +630,7 @@ async function save() {
           .from('tiers')
           .update({ icon_url: iconPath })
           .eq('id', form.value.id)
-        if (updIconErr) throw updIconErr
+        if (updIconErr) throw updErr
       }
 
       notice.value = 'Tier updated.'
@@ -727,7 +664,7 @@ async function del() {
     try {
       await deleteAllIconsForTier(tierId)
     } catch (e) {
-      // best-effort; continue
+      // best-effort
     }
 
     const { error: delErr } = await supabase
@@ -753,71 +690,110 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* Keep table alignment if you ever add one */
 .table td,
-.table th {
-  vertical-align: middle;
+.table th { vertical-align: middle; }
+
+/* === Equal-size rectangular vertical cards === */
+.card-fixed {
+  min-height: 520px;              /* same height for all tiers */
+  display: flex;
+}
+.pricing-vert {
+  background: #fff;
+  border: 1px solid #edf0f3;
+  box-shadow: 0 10px 28px rgba(16,24,40,.06);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.pricing-vert:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(16,24,40,.08);
 }
 
-/* ==== HERO SECTION STYLES ==== */
-.hero-tier {
+.pricing-grid-vertical {}
+
+/* Icon + header */
+.pricing-icon-vert { width: 64px; height: 64px; object-fit: cover; }
+.pricing-rank { font-weight: 700; color: #64748b; font-size: .85rem; }
+
+/* Features list (labels left, values right) */
+.pricing-features {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: .4rem;
+}
+.pricing-features li {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: .75rem;
+  padding: .5rem .6rem;
+  background: #fafbfc;
+  border: 1px solid #eef1f4;
+  border-radius: .5rem;
+}
+.pricing-features strong { color: #475569; }
+
+/* Accent variants (subtle) */
+.accent-strong { border-color: #ffe6c7; box-shadow: 0 10px 28px rgba(255,138,0,.08); }
+.accent-mid    { border-color: #e7eefc; box-shadow: 0 10px 28px rgba(59,130,246,.06); }
+.accent-soft   { border-color: #edf0f3; }
+
+/* ===== Diamond emphasis (order 5) ===== */
+.accent-diamond {
   position: relative;
-  overflow: hidden;
+  background: linear-gradient(180deg, #ffffff, #fbfdff);
+  border: 1px solid rgba(0, 210, 255, .45);
 }
-.hero-bg {
+.diamond-glow {
+  box-shadow:
+    0 0 0 1px rgba(0, 210, 255, .35) inset,
+    0 14px 40px rgba(0, 210, 255, .15),
+    0 6px 14px rgba(0,0,0,.06);
+}
+.diamond-glow::before {
+  content: "";
   position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 100% at 0% 0%, rgba(255, 208, 0, 0.18), transparent 60%),
-              radial-gradient(120% 100% at 100% 0%, rgba(76, 175, 80, 0.16), transparent 60%),
-              linear-gradient(180deg, rgba(0,0,0,0.03), transparent 40%);
-  pointer-events: none;
+  inset: -2px;
+  border-radius: 1rem;
+  background: conic-gradient(from 0deg, rgba(0, 210, 255, .35), rgba(99, 102, 241, .35), rgba(0, 210, 255, .35));
+  filter: blur(16px);
+  z-index: 0;
+  animation: spin 6s linear infinite;
+  opacity: .45;
 }
-.hero-icon {
-  width: 72px;
-  height: 72px;
-  object-fit: cover;
-}
-.hero-name {
-  line-height: 1.2;
-}
-.hero-rank-badge {
+.diamond-glow > .card-body { position: relative; z-index: 1; }
+
+.ribbon-popular {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  background: #111827;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #00d2ff, #3b82f6);
   color: #fff;
+  padding: .3rem .9rem;
   border-radius: 999px;
-  padding: 6px 12px;
-  font-size: 12px;
-  box-shadow: 0 4px 12px rgba(0,0,0,.15);
-}
-.hero-stats .stat {
-  min-width: 140px;
-}
-.stat-label {
-  color: #6c757d;
-  font-size: 12px;
-}
-.stat-value {
-  font-weight: 600;
-  font-size: 16px;
+  font-size: .75rem;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(59,130,246,.35);
+  z-index: 2;
 }
 
-/* ==== CARD STYLES ==== */
-.tier-card .rank-badge {
-  background: #f1f3f5;
-  border-radius: 8px;
-  padding: 2px 8px;
-  font-size: 12px;
-  color: #495057;
+.btn-diamond {
+  background: linear-gradient(90deg, #00d2ff, #3b82f6);
+  border: none;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(59,130,246,.35);
 }
-.kpi-label {
-  color: #6c757d;
-  font-size: 12px;
-}
-.kpi-value {
-  font-weight: 600;
+.btn-diamond:hover {
+  filter: brightness(1.02);
+  box-shadow: 0 12px 28px rgba(59,130,246,.45);
 }
 
-/* utilities */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Utilities */
 .minw-0 { min-width: 0; }
 </style>

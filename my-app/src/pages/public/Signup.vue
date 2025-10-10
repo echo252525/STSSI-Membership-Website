@@ -360,22 +360,30 @@ const onSubmit = async () => {
 
     /* 🔹 NEW: Also write to public.referrals if a referrer was resolved
        Schema:
-       - referrer_id uuid not null (FK -> users.id)
-       - referee_id  uuid not null (FK -> users.id)
-       - PK (referrer_id, referee_id), no_self_referral constraint
-       - trigger trg_reward_on_referral AFTER INSERT executes reward_on_referral()
-       RLS: ensure anon/appropriate role can INSERT or handle via edge func if locked down.
+       create table public.referrals (
+         referrer_id uuid not null,
+         referee_id uuid not null,
+         created_at timestamptz not null default now(),
+         primary key (referrer_id, referee_id),
+         foreign key (referee_id) references users(id) on delete cascade,
+         foreign key (referrer_id) references users(id) on delete cascade,
+         check (referrer_id <> referee_id)
+       );
+       create trigger trg_reward_on_referral after insert on referrals for each row execute function reward_on_referral();
     */
     if (referredById) {
-      const { error: refLinkErr } = await supabase
-        .from('referrals')
-        .insert([{ referrer_id: referredById, referee_id: user.id }])
+      // Guard against rare self-referral race (should be enforced by CHECK too)
+      if (referredById !== user.id) {
+        const { error: refLinkErr } = await supabase
+          .from('referrals')
+          .insert([{ referrer_id: referredById, referee_id: user.id }])
 
-      // Ignore duplicates (in case of replays) but surface unexpected errors
-      if (refLinkErr) {
-        if (!/duplicate key value|unique constraint/i.test(refLinkErr.message)) {
-          // Non-fatal: do not block signup flow; you can optionally log this
-          console.warn('Referral insert failed:', refLinkErr)
+        // Ignore duplicates (in case of replays) but surface unexpected errors
+        if (refLinkErr) {
+          if (!/duplicate key value|unique constraint/i.test(refLinkErr.message)) {
+            // Non-fatal: do not block signup flow; optionally log this
+            console.warn('Referral insert failed:', refLinkErr)
+          }
         }
       }
     }

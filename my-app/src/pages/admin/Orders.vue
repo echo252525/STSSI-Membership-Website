@@ -193,7 +193,21 @@
                   {{ it.product?.description }}
                 </div>
 
-                <div class="text-muted small">₱ {{ number(it.price_each) }} × {{ it.qty }}</div>
+                <!-- ORIGINAL (kept) -->
+                <div class="text-muted small" v-if="!hasEventDiscount(g.reference_number)">
+                  ₱ {{ number(it.price_each) }} × {{ it.qty }}
+                </div>
+
+                <!-- NEW: Discounted display when event applies (ALL TABS) -->
+                <div class="small" v-else>
+                  <span class="text-muted text-decoration-line-through me-1">
+                    ₱ {{ number(it.price_each) }}
+                  </span>
+                  <span class="fw-semibold text-danger">
+                    ₱ {{ number(discountedPriceEachForItem(it, g.reference_number)) }}
+                  </span>
+                  <span class="text-muted">× {{ it.qty }}</span>
+                </div>
 
                 <!-- NEW: visible badges per item (status + payment) -->
                 <div class="mt-1 d-flex flex-wrap gap-2">
@@ -209,23 +223,53 @@
                 </div>
               </div>
 
-              <div class="text-end fw-semibold">₱ {{ number(it.line_total) }}</div>
+              <!-- ORIGINAL rightmost line total (kept when no event) -->
+              <div class="text-end fw-semibold" v-if="!hasEventDiscount(g.reference_number)">
+                ₱ {{ number(it.line_total) }}
+              </div>
+
+              <!-- NEW: rightmost discounted line total -->
+              <div class="text-end fw-semibold" v-else>
+                <div class="small text-muted text-decoration-line-through">
+                  ₱ {{ number(it.line_total) }}
+                </div>
+                <div>₱ {{ number(lineTotalAfterDiscount(it, g.reference_number)) }}</div>
+              </div>
             </div>
           </div>
 
           <!-- Row 3: shipping + totals -->
           <div class="mt-3 row g-3">
             <div class="col-12 col-md-7">
-              <div class="small text-muted mb-1">Ship to</div>
+              <!-- UPDATED LABEL -->
+              <div class="small text-muted mb-1">Shipping info</div>
               <div class="border rounded p-2 bg-body small">
-                <div class="fw-semibold">{{ g.phone_number || '—' }}</div>
+                <!-- NEW: Name + Phone + Address -->
+                <div class="fw-semibold">{{ g.shipping_name || '—' }}</div>
+                <div class="text-muted">{{ g.phone_number || '—' }}</div>
                 <div>{{ g.shipping_address || '—' }}</div>
               </div>
             </div>
             <div class="col-12 col-md-5 d-flex align-items-end justify-content-md-end">
               <div class="text-end">
                 <div class="text-muted small">Subtotal</div>
-                <div class="fw-semibold fs-5">₱ {{ number(groupSubtotal(g)) }}</div>
+
+                <!-- ORIGINAL subtotal (kept when no event) -->
+                <div class="fw-semibold fs-5" v-if="!hasEventDiscount(g.reference_number)">
+                  ₱ {{ number(groupSubtotal(g)) }}
+                </div>
+
+                <!-- NEW: subtotal with strike-through original when event applies -->
+                <div v-else>
+                  <div class="small text-muted text-decoration-line-through">
+                    ₱ {{ number(groupSubtotalOriginal(g)) }}
+                  </div>
+                  <div class="fw-semibold fs-5">
+                    ₱ {{ number(groupSubtotalDiscounted(g)) }}
+                  </div>
+                </div>
+
+                <!-- FIXED: Recorded total now matches discounted total when event applies -->
                 <div class="small text-muted">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
@@ -340,7 +384,19 @@
                 </div>
                 <div class="flex-grow-1">
                   <div class="fw-semibold title-ellipsis text-danger" :title="s.product?.name || s.product_id">
-                    {{ s.product?.name || s.product_id }} <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                    {{ s.product?.name || s.product_id }}
+                    <span class="small">
+                      <!-- Per-item price with discount (ALL TABS) -->
+                      <template v-if="!hasEventDiscount(g.reference_number)">
+                        ({{ s.qty }} × ₱ {{ number(s.price_each) }})
+                      </template>
+                      <template v-else>
+                        ({{ s.qty }} ×
+                        <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
+                        <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                        )
+                      </template>
+                    </span>
                   </div>
                   <div class="text-danger small">
                     Return/Refund — {{ prettyRRStatus(s.rrStatus) }}
@@ -366,16 +422,40 @@
                   :src="productThumb(s.product)"
                   :alt="s.product?.name || 'Product'"
                   class="w-100 h-100 object-fit-cover rounded"
-                />
+                  />
                 <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                   <i class="bi bi-image"></i>
                 </div>
               </div>
               <div class="flex-grow-1">
                 <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
-                  {{ s.product?.name || s.product_id }} <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                  {{ s.product?.name || s.product_id }}
+                  <span class="small">
+                    <!-- Per-item price with discount (ALL TABS) -->
+                    <template v-if="!hasEventDiscount(g.reference_number)">
+                      ({{ s.qty }} × ₱ {{ number(s.price_each) }})
+                    </template>
+                    <template v-else>
+                      ({{ s.qty }} ×
+                      <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
+                      <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                      )
+                    </template>
+                  </span>
                 </div>
-                <div class="small text-muted">₱ {{ number(s.line_total) }}</div>
+
+                <!-- Line total with discount (ALL TABS) -->
+                <div class="small" :class="hasEventDiscount(g.reference_number) ? '' : 'text-muted'">
+                  <template v-if="!hasEventDiscount(g.reference_number)">
+                    ₱ {{ number(s.line_total) }}
+                  </template>
+                  <template v-else>
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(s.line_total) }}
+                    </span>
+                    <span class="fw-semibold">₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span>
+                  </template>
+                </div>
               </div>
               <span class="badge text-bg-success-subtle border">Completed</span>
             </div>
@@ -406,7 +486,18 @@
                 <div class="flex-grow-1">
                   <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
                     {{ s.product?.name || s.product_id }}
-                    <span class="small">({{ s.qty }} × ₱ {{ number(s.price_each) }})</span>
+                    <span class="small">
+                      <!-- Per-item price with discount (ALL TABS) -->
+                      <template v-if="!hasEventDiscount(g.reference_number)">
+                        ({{ s.qty }} × ₱ {{ number(s.price_each) }})
+                      </template>
+                      <template v-else>
+                        ({{ s.qty }} ×
+                        <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
+                        <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                        )
+                      </template>
+                    </span>
                   </div>
                   <div class="small text-success">
                     Refund Completed
@@ -534,6 +625,7 @@ type Product = {
 }
 type Buyer = {
   id: string
+  full_name: string | null        // NEW
   phone_number: string | null
   address: string | null
 }
@@ -584,6 +676,7 @@ type ViewGroup = {
   paymentSummaryLabel: string
   paymentSummaryTitle: string
   total_amount: number
+  shipping_name: string | null     // NEW
   shipping_address: string | null
   phone_number: string | null
   items: Array<OrderItem>
@@ -613,10 +706,10 @@ const busy = ref<BusyState>({
 })
 
 /**
- * IMPORTANT: Make groupIndex NON-REACTIVE.
- * We fill/clear it inside the `orderGroups` computed. If this were reactive,
- * those mutations would retrigger the computed and cause an infinite loop.
- */
+* IMPORTANT: Make groupIndex NON-REACTIVE.
+* We fill/clear it inside the `orderGroups` computed. If this were reactive,
+* those mutations would retrigger the computed and cause an infinite loop.
+*/
 let groupIndex: Record<string, string[]> = Object.create(null)
 
 busy.value.anyGroup = (k: string): boolean => {
@@ -646,6 +739,10 @@ const signingBusy: Record<string, boolean> = reactive({})
 
 /* NEW: for sibling fetches keyed by reference_number (includes all purchases for that ref) */
 const siblingsByRef = reactive<Record<string, PurchaseRow[]>>({})
+
+/* NEW: event discount map by reference_number (event.id) */
+type EventRow = { id: string; winner_refund_amount: number | string }
+const eventDiscountByRef = reactive<Record<string, number>>({})
 
 /* ---------- Helpers ---------- */
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
@@ -752,10 +849,43 @@ function productThumb(prod?: Product): string {
   return ''
 }
 
+/* ---------- NEW: Event discount helpers ---------- */
+function winnerRefundForRef(ref?: string | null): number {
+  if (!ref) return 0
+  return Number(eventDiscountByRef[ref] ?? 0) || 0
+}
+function hasEventDiscount(ref?: string | null): boolean {
+  return winnerRefundForRef(ref) > 0
+}
+function discountedPriceEachForItem(it: OrderItem, ref?: string | null): number {
+  const base = Number(it.price_each || 0)
+  const less = winnerRefundForRef(ref)
+  return Math.max(0, base - less)
+}
+function lineTotalAfterDiscount(it: OrderItem, ref?: string | null): number {
+  const each = discountedPriceEachForItem(it, ref)
+  const qty = Number(it.qty || 1)
+  return Number((each * qty).toFixed(2))
+}
+
+/* ---------- Subtotals (original vs discounted) ---------- */
+function groupSubtotal(g: ViewGroup) {
+  // kept legacy behavior (used when no discount)
+  return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
+}
+function groupSubtotalOriginal(g: ViewGroup) {
+  return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
+}
+function groupSubtotalDiscounted(g: ViewGroup) {
+  if (!hasEventDiscount(g.reference_number)) return groupSubtotalOriginal(g)
+  return g.items.reduce((sum, it) => sum + lineTotalAfterDiscount(it, g.reference_number), 0)
+}
+
+/* replaced in group display: list all RRs per group */
 function orderSubtotal(o: ViewOrder) {
   return o.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
 }
-/* replaced in group display: list all RRs per group */
+
 function firstReturn(purchaseId: string): ReturnRefundRow | undefined {
   const list = rrByPurchase[purchaseId] || []
   return list[0]
@@ -814,9 +944,18 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const shipping_address = arr[0]?.shipping_address ?? null
     const phone_number = arr[0]?.phone_number ?? null
+    const shipping_name = (() => {
+      const uid = arr[0]?.user_id
+      if (!uid) return null
+      return buyersMap[uid]?.full_name ?? null
+    })()
 
     const items = arr.flatMap(a => a.items)
-    const total_amount = items.reduce((s, it) => s + Number(it.line_total || 0), 0)
+
+    // FIX: compute recorded total as discounted sum when event discount applies
+    const total_amount = hasEventDiscount(ref)
+      ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
+      : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
 
     const containsRR = arr.some(a => (rrByPurchase[a.id] || []).length > 0)
 
@@ -874,6 +1013,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
       paymentSummaryLabel,
       paymentSummaryTitle,
       total_amount,
+      shipping_name,
       shipping_address,
       phone_number,
       items,
@@ -936,10 +1076,6 @@ const orderGroups = computed<ViewGroup[]>(() => {
   return out
 })
 
-function groupSubtotal(g: ViewGroup) {
-  return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
-}
-
 function groupRRs(g: ViewGroup): ReturnRefundRow[] {
   const out: ReturnRefundRow[] = []
   for (const p of g.purchases) {
@@ -953,7 +1089,7 @@ function groupRRs(g: ViewGroup): ReturnRefundRow[] {
   return out.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
-/* ---------- Fetch from games.purchases + join products & users (+ returns) ---------- */
+/* ---------- Fetch from games.purchases + join products & users (+ returns + events) ---------- */
 async function loadOrders(resetPage = false) {
   if (resetPage) page.value = 1
   busy.value.load = true
@@ -1043,11 +1179,11 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // users
+    // users (UPDATED: include full_name)
     if (userIds.size > 0) {
       const { data: urows } = await supabase
         .from('users')
-        .select('id, phone_number, address')
+        .select('id, full_name, phone_number, address')
         .in('id', Array.from(userIds))
       if (Array.isArray(urows)) {
         for (const u of urows as Buyer[]) buyersMap[u.id] = u
@@ -1082,6 +1218,22 @@ async function loadOrders(resetPage = false) {
           const arr = rrByPurchase[r.purchase_id] || []
           arr.push(r)
           rrByPurchase[r.purchase_id] = arr
+        }
+      }
+    }
+
+    // === NEW: Fetch event discounts by reference_number ===
+    // Assumes table: games.event with columns (id, winner_refund_amount)
+    for (const k of Object.keys(eventDiscountByRef)) delete eventDiscountByRef[k]
+    if (refSet.size > 0) {
+      const { data: evRows } = await supabase
+        .schema('games')
+        .from('event')
+        .select('id,winner_refund_amount')
+        .in('id', Array.from(refSet))
+      if (Array.isArray(evRows)) {
+        for (const e of evRows as EventRow[]) {
+          eventDiscountByRef[e.id] = Number(e.winner_refund_amount || 0) || 0
         }
       }
     }
@@ -1186,8 +1338,8 @@ function isCODPayment(method?: string | null) {
 }
 
 /* UPDATED: supports bulk cancellation without per-item prompts when skipConfirm=true.
-   E-WALLET + TO_SHIP: refund balance + insert into ewallet.cancelled_ewallet_receipt.
-   COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
+  E-WALLET + TO_SHIP: refund balance + insert into ewallet.cancelled_ewallet_receipt.
+  COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
 async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
   const order = orders.value.find(o => o.id === purchaseId)
@@ -1307,11 +1459,11 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 }
 
 /**
- * Approve order:
- * - NO wallet deduction
- * - NO stock reservation
- * - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
- */
+* Approve order:
+* - NO wallet deduction
+* - NO stock reservation
+* - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
+*/
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
   busy.value.action[purchaseId] = true

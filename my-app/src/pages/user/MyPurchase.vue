@@ -920,7 +920,6 @@ async function loadPurchases() {
     }
 
     // ----- Discounts: refund_lock + event.interest_per_player -----
-    // Build the set of reference numbers (these may equal event_id)
     const refs = Array.from(
       new Set(
         purchases.value
@@ -929,11 +928,9 @@ async function loadPurchases() {
       ),
     )
     const uuidRefs = refs.filter(isUuidLike)
-    // Clear previous map
     Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
 
     if (uuidRefs.length) {
-      // Find which refs exist in refund_lock(event_id)
       const { data: locks, error: lockErr } = await supabase
         .schema('games')
         .from('refund_lock')
@@ -1423,6 +1420,55 @@ async function cancelPurchase(purchaseId: string) {
   }
 }
 
+/** 
+ * HELPERS (ADD-ONLY)
+ * - sumAmountForIds: totals qty * unit price for selected purchase IDs in the group.
+ *   If the group shows discounted prices (refHasDiscount), use discountedUnitPrice.
+ * - incrementPurchasesPerMonth: adds amount to public.users.purchases_per_month
+ */
+function sumAmountForIds(g: Group, ids: string[]): number {
+  const idSet = new Set(ids)
+  const useDiscount = refHasDiscount(g.ref)
+  let total = 0
+  for (const it of g.items) {
+    if (!idSet.has(it.id)) continue
+    const q = Number(it?.qty ?? 1) || 1
+    const unit = useDiscount ? discountedUnitPrice(it) : productPrice(it)
+    total += q * unit
+  }
+  return Number(total.toFixed(2))
+}
+
+async function incrementPurchasesPerMonth(uid: string, amount: number) {
+  try {
+    const { data: rows, error: selErr } = await supabase
+      .from('users') // public.users
+      .select('purchases_per_month')
+      .eq('id', uid)
+      .limit(1)
+      .maybeSingle()
+
+    if (selErr) {
+      console.error('Failed to read purchases_per_month:', selErr)
+      return
+    }
+
+    const current = Number(rows?.purchases_per_month ?? 0) || 0
+    const nextVal = Number((current + (Number(amount) || 0)).toFixed(2))
+
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ purchases_per_month: nextVal })
+      .eq('id', uid)
+
+    if (updErr) {
+      console.error('Failed to update purchases_per_month:', updErr)
+    }
+  } catch (e) {
+    console.error(e)
+  }
+}
+
 async function orderReceivedGroup(g: Group) {
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
@@ -1431,6 +1477,10 @@ async function orderReceivedGroup(g: Group) {
   try {
     const ids = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
     if (!ids.length) return
+
+    // compute the amount to add (uses discounted price if displayed as discounted)
+    const addAmount = sumAmountForIds(g, ids)
+
     const { error } = await supabase
       .schema('games')
       .from('purchases')
@@ -1441,7 +1491,14 @@ async function orderReceivedGroup(g: Group) {
       alert(error.message)
       return
     }
+
     for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.COMPLETED
+
+    // increment user's purchases_per_month in public.users
+    if (addAmount > 0) {
+      await incrementPurchasesPerMonth(uid, addAmount)
+    }
+
     await createOrderReceiptForGroup(g)
     alert('Thanks! Your order has been marked as received.')
   } finally {
@@ -1552,5 +1609,5 @@ onMounted(() => {
   overflow: auto;
   border: 0;
   border-radius: 16px;
-}
+}  
 </style>
