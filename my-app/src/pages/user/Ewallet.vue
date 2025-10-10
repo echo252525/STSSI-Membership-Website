@@ -1,140 +1,205 @@
 <template>
   <div class="container py-4">
+    <!-- ===== Tabs (New) ===== -->
+    <ul class="nav nav-pills mb-3">
+      <li class="nav-item">
+        <button
+          class="nav-link"
+          :class="activeTab === 'wallet' ? 'active' : ''"
+          @click="activeTab = 'wallet'"
+        >
+          E-Wallet
+        </button>
+      </li>
+      <li class="nav-item">
+        <button
+          class="nav-link"
+          :class="activeTab === 'discount' ? 'active' : ''"
+          @click="activeTab = 'discount'"
+        >
+          Discount Credits
+        </button>
+      </li>
+    </ul>
+
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h1 class="h4 m-0">E-Wallet</h1>
-      <button class="btn btn-primary" @click="openTopUp">
+      <h1 class="h4 m-0">
+        {{ activeTab === 'wallet' ? 'E-Wallet' : 'Discount Credits' }}
+      </h1>
+      <button
+        v-if="activeTab === 'wallet'"
+        class="btn btn-primary"
+        @click="openTopUp"
+      >
         <i class="bi bi-plus-circle"></i>
         <span class="ms-2">Top Up</span>
       </button>
+      <!-- No top up button for Discount Credits -->
     </div>
 
-    <!-- Balance Card -->
-    <div class="card shadow-sm mb-4">
-      <div class="card-body d-flex align-items-center justify-content-between">
-        <div>
-          <div class="text-muted small">Current Balance</div>
-          <!-- 🔹 uses usersBalance if available; falls back to previous local balance -->
-          <div class="fs-3 fw-semibold">₱ {{ formattedBalance }}</div>
-        </div>
-        <div class="text-end">
-          <div class="text-muted small">Last Updated (Disbursed)</div>
-          <!-- 🔹 now shows the latest updated_at among disbursed rows -->
-          <div class="fw-medium">{{ lastDisbursedText }}</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Transactions -->
-    <div class="card shadow-sm">
-      <div class="card-header bg-white d-flex align-items-center justify-content-between">
-        <strong>Recent Transactions</strong>
-
-        <!-- 🔹 Filter controls -->
-        <div class="btn-group btn-group-sm" role="group" aria-label="Filter by status">
-          <button
-            type="button"
-            class="btn"
-            :class="filter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
-            @click="setFilter('all')"
-            aria-label="Show all transactions"
-          >
-            All
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :class="filter === 'pending' ? 'btn-warning text-dark border-warning' : 'btn-outline-warning'"
-            @click="setFilter('pending')"
-            aria-label="Show pending"
-          >
-            Pending
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :class="filter === 'disbursed' ? 'btn-success' : 'btn-outline-success'"
-            @click="setFilter('disbursed')"
-            aria-label="Show disbursed"
-          >
-            Disbursed
-          </button>
-          <button
-            type="button"
-            class="btn"
-            :class="filter === 'rejected' ? 'btn-danger' : 'btn-outline-danger'"
-            @click="setFilter('rejected')"
-            aria-label="Show rejected"
-          >
-            Rejected
-          </button>
+    <!-- ===== WALLET VIEW ===== -->
+    <template v-if="activeTab === 'wallet'">
+      <!-- Balance Card -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small">Current Balance</div>
+            <!-- 🔹 uses usersBalance if available; falls back to previous local balance -->
+            <div class="fs-3 fw-semibold">₱ {{ formattedBalance }}</div>
+          </div>
+          <div class="text-end">
+            <div class="text-muted small">Last Updated (Disbursed)</div>
+            <!-- 🔹 now shows the latest updated_at among disbursed rows -->
+            <div class="fw-medium">{{ lastDisbursedText }}</div>
+          </div>
         </div>
       </div>
 
-      <div class="card-body p-0">
-        <div v-if="transactions.length === 0" class="p-4 text-center text-muted">
-          No transactions yet.
+      <!-- Transactions -->
+      <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between">
+          <strong>Recent Transactions</strong>
+
+          <!-- 🔹 Filter controls -->
+          <div class="btn-group btn-group-sm" role="group" aria-label="Filter by status">
+            <button
+              type="button"
+              class="btn"
+              :class="filter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
+              @click="setFilter('all')"
+              aria-label="Show all transactions"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              class="btn"
+              :class="filter === 'pending' ? 'btn-warning text-dark border-warning' : 'btn-outline-warning'"
+              @click="setFilter('pending')"
+              aria-label="Show pending"
+            >
+              Pending
+            </button>
+            <button
+              type="button"
+              class="btn"
+              :class="filter === 'disbursed' ? 'btn-success' : 'btn-outline-success'"
+              @click="setFilter('disbursed')"
+              aria-label="Show disbursed"
+            >
+              Disbursed
+            </button>
+            <button
+              type="button"
+              class="btn"
+              :class="filter === 'rejected' ? 'btn-danger' : 'btn-outline-danger'"
+              @click="setFilter('rejected')"
+              aria-label="Show rejected"
+            >
+              Rejected
+            </button>
+          </div>
         </div>
 
-        <ul v-else class="list-group list-group-flush">
-          <li
-            v-for="tx in filteredTransactions"
-            :key="tx.id"
-            class="list-group-item d-flex align-items-center justify-content-between"
-          >
-            <div class="d-flex align-items-center gap-3">
-              <div>
-                <div class="fw-medium d-flex align-items-center gap-2">
-                  <!-- 🔹 status icon to the left of label -->
-                  <i :class="statusIconClass(tx)" aria-hidden="true"></i>
+        <div class="card-body p-0">
+          <div v-if="transactions.length === 0" class="p-4 text-center text-muted">
+            No transactions yet.
+          </div>
 
-                  <span>Top Up – {{ prettyBank(tx.bank_name) }}</span>
-                  <span
-                    class="badge"
-                    :class="tx.status === 'pending'
-                      ? 'text-bg-warning'
-                      : tx.status === 'disbursed'
-                        ? 'text-bg-success'
-                        : 'text-bg-danger'"
-                  >
-                    {{ capitalize(tx.status) }}
-                  </span>
+          <ul v-else class="list-group list-group-flush">
+            <li
+              v-for="tx in filteredTransactions"
+              :key="tx.id"
+              class="list-group-item d-flex align-items-center justify-content-between"
+            >
+              <div class="d-flex align-items-center gap-3">
+                <div>
+                  <div class="fw-medium d-flex align-items-center gap-2">
+                    <!-- 🔹 status icon to the left of label -->
+                    <i :class="statusIconClass(tx)" aria-hidden="true"></i>
 
-                  <!-- 🔹 Icon-only action (edit ref) for rejected -->
-                  <button
-                    v-if="tx.status === 'rejected'"
-                    type="button"
-                    class="icon-btn"
-                    @click="openEditRef(tx)"
-                    :title="`Edit reference number for ${tx.reference_number}`"
-                    aria-label="Edit reference number"
-                  >
-                    <i class="bi bi-pencil-square"></i>
-                  </button>
-                </div>
+                    <span>Top Up – {{ prettyBank(tx.bank_name) }}</span>
+                    <span
+                      class="badge"
+                      :class="tx.status === 'pending'
+                        ? 'text-bg-warning'
+                        : tx.status === 'disbursed'
+                          ? 'text-bg-success'
+                          : 'text-bg-danger'"
+                    >
+                      {{ capitalize(tx.status) }}
+                    </span>
 
-                <!-- 🔹 Ref + created time -->
-                <div class="text-muted small d-flex align-items-center gap-2">
-                  <span>
-                    Ref: <span class="font-monospace">{{ tx.reference_number }}</span> •
-                    {{ formatDate(tx.created_at) }}
-                  </span>
+                    <!-- 🔹 Icon-only action (edit ref) for rejected -->
+                    <button
+                      v-if="tx.status === 'rejected'"
+                      type="button"
+                      class="icon-btn"
+                      @click="openEditRef(tx)"
+                      :title="`Edit reference number for ${tx.reference_number}`"
+                      aria-label="Edit reference number"
+                    >
+                      <i class="bi bi-pencil-square"></i>
+                    </button>
+                  </div>
+
+                  <!-- 🔹 Ref + created time -->
+                  <div class="text-muted small d-flex align-items-center gap-2">
+                    <span>
+                      Ref: <span class="font-monospace">{{ tx.reference_number }}</span> •
+                      {{ formatDate(tx.created_at) }}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <!-- 🔹 Amount display depends on status (NO icon here) -->
-            <div
-              class="fw-semibold d-flex align-items-center gap-2"
-              :class="amountStyle(tx).cls"
-              :title="amountStyle(tx).title"
-            >
-              <span>{{ amountStyle(tx).text }}</span>
-            </div>
-          </li>
-        </ul>
+              <!-- 🔹 Amount display depends on status (NO icon here) -->
+              <div
+                class="fw-semibold d-flex align-items-center gap-2"
+                :class="amountStyle(tx).cls"
+                :title="amountStyle(tx).title"
+              >
+                <span>{{ amountStyle(tx).text }}</span>
+              </div>
+            </li>
+          </ul>
+        </div>
       </div>
-    </div>
+    </template>
+
+    <!-- ===== DISCOUNT CREDITS VIEW ===== -->
+    <template v-else>
+      <!-- Balance Card for Discount Credits -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body d-flex align-items-center justify-content-between">
+          <div>
+            <div class="text-muted small">Current Discount Credits</div>
+            <div class="fs-3 fw-semibold">₱ {{ formattedDiscountCredits }}</div>
+          </div>
+          <div class="text-end">
+            <div class="text-muted small">Last Updated</div>
+            <div class="fw-medium">{{ lastUpdatedText }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Helper card -->
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-info-circle fs-4"></i>
+            <div>
+              <div class="fw-semibold mb-1">How Discount Credits Work</div>
+              <p class="mb-0 text-muted">
+                These credits are part of your membership benefits and can be applied to eligible purchases
+                at checkout. Your available balance updates automatically when you earn or use credits.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </template>
 
     <!-- Top Up Modal -->
     <div
@@ -314,12 +379,18 @@ type Tx = {
   bank_name: BankName
 }
 
+// ===== New: Tab State =====
+const activeTab = ref<'wallet' | 'discount'>('wallet')
+
 // State
 const balance = ref<number>(0)
 const usersBalance = ref<number | null>(null)
 const lastUpdated = ref<Date | null>(null)
 const transactions = ref<Tx[]>([])
 const currentUserId = ref<string | null>(null)
+
+// New: Discount Credits Balance
+const discountCredits = ref<number>(0)
 
 // Track latest disbursed update time
 const lastDisbursedAt = ref<Date | null>(null)
@@ -370,6 +441,7 @@ const formattedBalance = computed(() => {
   const val = usersBalance.value ?? balance.value
   return formatAmount(val)
 })
+const formattedDiscountCredits = computed(() => formatAmount(discountCredits.value))
 const lastUpdatedText = computed(() =>
   lastUpdated.value ? lastUpdated.value.toLocaleString(undefined, dtOpts) : '—',
 )
@@ -663,12 +735,13 @@ const loadMyUsersBalance = async () => {
 
   const { data, error } = await supabase
     .from('users')
-    .select('balance')
+    .select('balance, discount_credits')
     .eq('id', user.id)
     .single()
 
   if (!error && data) {
-    usersBalance.value = Number(data.balance ?? 0)
+    usersBalance.value = Number((data as any).balance ?? 0)
+    discountCredits.value = Number((data as any).discount_credits ?? 0)
   }
 }
 
@@ -707,6 +780,9 @@ const subscribeUsersBalance = async () => {
       (payload) => {
         const newBal = (payload.new as any)?.balance
         if (typeof newBal === 'number') usersBalance.value = newBal
+        const newCredits = (payload.new as any)?.discount_credits
+        if (typeof newCredits === 'number') discountCredits.value = newCredits
+        lastUpdated.value = new Date()
       }
     )
     .subscribe()
