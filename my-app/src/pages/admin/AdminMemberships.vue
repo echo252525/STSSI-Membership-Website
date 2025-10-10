@@ -20,9 +20,11 @@
     </div>
 
     <!-- Filters -->
-    <div class="card border-0 shadow-sm rounded-4 mb-3">
-      <div class="card-body d-flex flex-wrap gap-2 align-items-center">
-        <div class="input-group" style="max-width: 360px">
+    <div
+      class="card-body d-flex flex-column flex-md-row flex-wrap gap-2 align-items-stretch align-items-md-center"
+    >
+      <div class="flex-grow-1" style="max-width: 1230px">
+        <div class="input-group w-100">
           <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
           <input
             v-model.trim="q"
@@ -32,14 +34,16 @@
             @input="debouncedSearch()"
           />
         </div>
-          <div class="ms-auto small text-muted">Total: {{ total }}</div>
       </div>
+      <div class="ms-md-auto small text-muted pt-1 pt-md-0">Total: {{ total }}</div>
     </div>
 
-    <!-- ===== VERTICAL PRICING GRID (all same size; order 5 at index 0) ===== -->
-    <div class="row g-3 align-items-stretch pricing-grid-vertical">
+    <!-- Stair row (5 fixed columns) -->
+    <div
+      class="row g-2 g-md-3 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 align-items-end stairs-row mt-2"
+    >
       <!-- Loading -->
-      <div v-if="busy.load" class="col-12">
+      <div v-if="busy.load" class="col">
         <div class="text-center text-muted py-4">
           <div class="spinner-border me-2"></div>
           Loading tiers…
@@ -47,26 +51,17 @@
       </div>
 
       <!-- Empty -->
-      <div v-else-if="displayTiers.length === 0" class="col-12">
-        <div class="text-center text-muted py-4">
-          <i class="bi bi-stars"></i> No tiers found.
-        </div>
+      <div v-else-if="displayTiers.length === 0" class="col">
+        <div class="text-center text-muted py-4"><i class="bi bi-stars"></i> No tiers found.</div>
       </div>
 
-      <!-- Cards (diamond is order 5 => first in displayTiers) -->
-      <div
-        v-else
-        v-for="(t, i) in displayTiers"
-        :key="t.id"
-        class="col-12 col-md-6 col-lg-3"
-      >
-        <!-- Keep layout minimal + rectangular + equal height -->
+      <!-- Cards -->
+      <div v-else v-for="t in displayTiers" :key="t.id" class="col stair" :class="stairClass(t)">
         <div
-          class="card card-fixed h-100 rounded-4 border-0 pricing-vert"
-          :class="[ pricingAccent(t), isDiamond(t) ? 'diamond-glow' : '' ]"
+          class="card card-fixed h-100 rounded-4 border-0 pricing-vert tier-hero-compact"
+          :class="[skinClass(t), isDiamond(t) ? 'diamond-glow' : '']"
         >
           <div class="card-body d-flex flex-column">
-            <!-- Most Popular ribbon for diamond -->
             <div v-if="isDiamond(t)" class="ribbon-popular">Most Popular</div>
 
             <div class="text-center mb-2">
@@ -74,36 +69,59 @@
               <img
                 v-if="t._icon_signed_url"
                 :src="t._icon_signed_url"
-                class="rounded border pricing-icon-vert"
+                class="pricing-icon-vert"
                 alt="Tier icon"
               />
-              <h3 class="h5 mt-2 mb-1 text-truncate">{{ t.membership_name }}</h3>
-              <span class="badge rounded-pill" :class="t.is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'">
+              <h3 class="h5 mt-2 mb-1 text-truncate fw-bold">{{ t.membership_name }}</h3>
+
+              <span
+                class="badge rounded-pill"
+                :class="t.is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'"
+              >
                 {{ t.is_free_delivery ? 'Free Delivery' : 'No Free Delivery' }}
               </span>
+
               <div class="text-muted small mt-1">Updated {{ fmtDate(t.updated_at) }}</div>
             </div>
 
-            <ul class="pricing-features small mt-3">
-              <li><strong>Members</strong> <span>{{ memberCounts[t.id] ?? 0 }}</span></li>
-              <li><strong>Monthly Credits</strong> <span>₱{{ toMoney(t.discount_credits) }}</span></li>
-              <li><strong>Disc/Purchase</strong> <span>{{ toPercentOrPeso(t.discount_per_purchase) }}</span></li>
-              <li><strong>Purchases</strong> <span>{{ t.purchases_count }}</span></li>
-              <li><strong>Referral Req</strong> <span>{{ t.referral_count_requirements }}</span></li>
-              <li><strong>Orders for Free Delivery</strong> <span>{{ t.purchase_requirements_for_free_delivery }}</span></li>
+            <ul class="pricing-features small mt-3 fs-7">
+              <li>
+                <strong>Members</strong> <span>{{ memberCounts[t.id] ?? 0 }}</span>
+              </li>
+              <li>
+                <strong
+                  >Monthly <br />
+                  Credits</strong
+                >
+                <span>₱{{ toMoney(t.discount_credits) }}</span>
+              </li>
+              <li>
+                <strong>Discount</strong> <span>{{ toPercent(t.discount_per_purchase) }}</span>
+              </li>
+              <li>
+                <strong>Purchases</strong> <span>{{ t.purchases_count }}</span>
+              </li>
+              <li>
+                <strong>Referral Req</strong> <span>{{ t.referral_count_requirements }}</span>
+              </li>
+              <li>
+                <strong
+                  >Orders for <br />
+                  Free Delivery</strong
+                >
+                <span>{{ t.purchase_requirements_for_free_delivery }}</span>
+              </li>
             </ul>
 
-            <div class="mt-auto d-flex flex-column gap-2">
+            <div class="mt-4 d-flex flex-column gap-1">
               <button
-                class="btn btn-primary btn-sm fw-semibold"
-                :class="isDiamond(t) ? 'btn-diamond' : 'btn-outline-primary'"
+                class="btn btn-sm fw-semibold btn-manage"
+                :class="isDiamond(t) ? 'btn-diamond' : ''"
                 @click="openEdit(t)"
               >
                 Manage
               </button>
-              <button class="btn btn-outline-danger btn-sm" @click="openDelete(t)">
-                Delete
-              </button>
+              <button class="btn btn-outline-danger btn-sm" @click="openDelete(t)">Delete</button>
             </div>
           </div>
         </div>
@@ -239,7 +257,11 @@
                     placeholder="e.g., 50 or 5"
                     required
                   />
-                  <select v-model="form.discount_per_purchase_mode" class="form-select" style="max-width: 120px">
+                  <select
+                    v-model="form.discount_per_purchase_mode"
+                    class="form-select"
+                    style="max-width: 120px"
+                  >
                     <option value="peso">₱</option>
                     <option value="percent">%</option>
                   </select>
@@ -344,10 +366,8 @@
 import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 
-// CONFIG
 const BUCKET = 'tier_icons'
 
-// pagination + search
 const page = ref(1)
 const pageSize = 10
 const q = ref('')
@@ -364,12 +384,10 @@ let modalDelete: any = null
 const form = ref<any>(resetForm())
 const selected = ref<any | null>(null)
 
-// icon file handling
 const iconFile = ref<File | null>(null)
 const iconPreview = ref<string | null>(null)
 const iconInput = ref<HTMLInputElement | null>(null)
 
-// NEW: member counts per tier.id
 const memberCounts = reactive<Record<string, number>>({})
 
 function resetForm() {
@@ -395,9 +413,9 @@ function toMoney(n: any) {
   return num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-function toPercentOrPeso(v: any) {
+function toPercent(v: any) {
   const num = Number(v ?? 0)
-  return `₱${toMoney(num)}`
+  return `${toMoney(num)} %`
 }
 
 function fmtDate(d?: string) {
@@ -406,26 +424,37 @@ function fmtDate(d?: string) {
   return dt.toLocaleString()
 }
 
-// DISPLAY: sort by order desc (5 highest first)
+/* Sort: highest order first (diamond expected 5) */
 const displayTiers = computed(() =>
   [...(tiers.value || [])].sort(
-    (a, b) => Number(b?.membership_tier_order ?? 0) - Number(a?.membership_tier_order ?? 0)
-  )
+    (a, b) => Number(b?.membership_tier_order ?? 0) - Number(a?.membership_tier_order ?? 0),
+  ),
 )
 
+/* Diamond detection */
 function isDiamond(t: any) {
-  return Number(t?.membership_tier_order ?? 0) >= 5
+  return (
+    /diamond/i.test(String(t?.membership_name ?? '')) || Number(t?.membership_tier_order ?? 0) >= 5
+  )
 }
 
-function pricingAccent(t: any) {
-  const order = Number(t?.membership_tier_order ?? 0)
-  if (order >= 5) return 'accent-diamond'
-  if (order === 4) return 'accent-strong'
-  if (order === 3) return 'accent-mid'
-  return 'accent-soft'
+/* Tier theme class (controls CSS vars) */
+function skinClass(t: any) {
+  const name = String(t?.membership_name ?? '').toLowerCase()
+  if (name.includes('diamond')) return 'is-diamond'
+  if (name.includes('platinum')) return 'is-platinum'
+  if (name.includes('gold')) return 'is-gold'
+  if (name.includes('silver')) return 'is-silver'
+  return 'is-regular'
 }
 
-// debounced search
+/* --- STAIR LOGIC: map order (1..5) -> vertical offset class --- */
+function stairClass(t: any) {
+  const o = Math.max(1, Math.min(5, Number(t?.membership_tier_order ?? 1)))
+  return `stair-${o}`
+}
+
+/* Debounced search */
 let timer: any = null
 function debouncedSearch() {
   clearTimeout(timer)
@@ -451,28 +480,19 @@ async function hydrateSignedIcons(rows: any[]) {
     rows.map(async (r) => {
       const url = await createSignedUrlOrNull(r.icon_url, 3600)
       return { ...r, _icon_signed_url: url }
-    })
+    }),
   )
   return out
 }
 
-/**
- * Fetch member counts for each tier.id from public.users.membership_id.
- * Uses efficient HEAD counts per tier to work with RLS and avoid fetching row data.
- */
 async function fetchMemberCounts(tierIds: string[]) {
-  // reset map
   for (const k of Object.keys(memberCounts)) delete memberCounts[k]
   if (!tierIds.length) return
-
-  // Per-tier exact HEAD count (no payload fetched)
   for (const id of tierIds) {
     const { count, error: cErr } = await supabase
-      .from('users') // public schema
+      .from('users')
       .select('id', { count: 'exact', head: true })
       .eq('membership_id', id)
-
-    // If RLS allows, count is a number; otherwise default to 0
     memberCounts[id] = cErr ? 0 : Number(count || 0)
   }
 }
@@ -492,9 +512,7 @@ async function load(reset = false) {
       .order('membership_tier_order', { ascending: true })
       .range(from, to)
 
-    if (q.value) {
-      query = query.ilike('membership_name', `%${q.value}%`)
-    }
+    if (q.value) query = query.ilike('membership_name', `%${q.value}%`)
 
     const { data, error: err, count } = await query
     if (err) throw err
@@ -502,11 +520,8 @@ async function load(reset = false) {
     tiers.value = await hydrateSignedIcons(data ?? [])
     total.value = count ?? tiers.value.length
 
-    // Fetch member counts for these tiers from public.users
     const ids = (tiers.value || []).map((t: any) => t.id).filter(Boolean)
     await fetchMemberCounts(ids)
-
-    // Ensure zeros for any tier id not present in memberCounts map
     for (const id of ids) if (memberCounts[id] == null) memberCounts[id] = 0
   } catch (e: any) {
     error.value = e?.message || 'Failed to load tiers.'
@@ -692,13 +707,9 @@ async function del() {
   notice.value = ''
   try {
     const tierId = selected.value.id as string
-
     try {
       await deleteAllIconsForTier(tierId)
-    } catch (e) {
-      // best-effort
-    }
-
+    } catch {}
     const { error: delErr } = await supabase
       .schema('membership')
       .from('tiers')
@@ -722,79 +733,163 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* Keep table alignment if you ever add one */
-.table td,
-.table th { vertical-align: middle; }
-
-/* === Equal-size rectangular vertical cards === */
+/* Base height/alignment */
 .card-fixed {
-  min-height: 520px;              /* same height for all tiers */
+  min-height: 520px;
   display: flex;
 }
+
+/* -------- STAIR OFFSETS -------- */
+.stairs-row {
+  --st1: 56px;
+  --st2: 42px;
+  --st3: 28px;
+  --st4: 14px;
+  --st5: 0px;
+}
+.stair {
+  transition: transform 0.25s ease;
+}
+.stair-1 {
+  transform: translateY(var(--st1));
+}
+.stair-2 {
+  transform: translateY(var(--st2));
+}
+.stair-3 {
+  transform: translateY(var(--st3));
+}
+.stair-4 {
+  transform: translateY(var(--st4));
+}
+.stair-5 {
+  transform: translateY(var(--st5));
+}
+
+/* Mobile/tablet: flatten stairs for readability */
+@media (max-width: 1199.98px) {
+  .stair-1,
+  .stair-2,
+  .stair-3,
+  .stair-4,
+  .stair-5 {
+    transform: none;
+  }
+}
+
+/* ========== THEME BINDINGS ========== */
+.tier-hero-compact {
+  --fx-a: #ffffff;
+  --fx-b: #fafbfc;
+  --fx-line: rgba(0, 0, 0, 0.08);
+}
+
+.tier-hero-compact.is-regular {
+  --fx-a: rgba(0, 128, 0, 0.12);
+  --fx-b: rgba(34, 197, 94, 0.14);
+  --fx-line: rgba(0, 128, 0, 0.08);
+}
+.tier-hero-compact.is-silver {
+  --fx-a: #f3f6fa;
+  --fx-b: #eceff5;
+  --fx-line: rgba(130, 140, 160, 0.16);
+}
+.tier-hero-compact.is-gold {
+  --fx-a: #fff4ce;
+  --fx-b: #ffe7a6;
+  --fx-line: rgba(201, 161, 12, 0.18);
+}
+.tier-hero-compact.is-platinum {
+  --fx-a: #eef3f9;
+  --fx-b: #e7eef7;
+  --fx-line: rgba(120, 140, 160, 0.18);
+}
+.tier-hero-compact.is-diamond {
+  --fx-a: #e6fbff;
+  --fx-b: #dff4ff;
+  --fx-line: rgba(48, 172, 228, 0.22);
+}
+
+/* Card styles */
 .pricing-vert {
-  background: #fff;
-  border: 1px solid #edf0f3;
-  box-shadow: 0 10px 28px rgba(16,24,40,.06);
-  transition: transform .2s ease, box-shadow .2s ease;
+  background: linear-gradient(180deg, var(--fx-a), var(--fx-b));
+  border: 1px solid var(--fx-line);
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.06);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
 }
 .pricing-vert:hover {
   transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(16,24,40,.08);
+  box-shadow: 0 16px 40px rgba(16, 24, 40, 0.1);
 }
 
-.pricing-grid-vertical {}
+/* Header bits */
+.pricing-icon-vert {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+}
+.pricing-rank {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 0.85rem;
+}
 
-/* Icon + header */
-.pricing-icon-vert { width: 64px; height: 64px; object-fit: cover; }
-.pricing-rank { font-weight: 700; color: #64748b; font-size: .85rem; }
-
-/* Features list (labels left, values right) */
+/* Features list */
 .pricing-features {
   list-style: none;
-  padding: 0; margin: 0;
-  display: flex; flex-direction: column;
-  gap: .4rem;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
 }
 .pricing-features li {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: .75rem;
-  padding: .5rem .6rem;
-  background: #fafbfc;
-  border: 1px solid #eef1f4;
-  border-radius: .5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0.6rem;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid var(--fx-line);
+  border-radius: 0.5rem;
 }
-.pricing-features strong { color: #475569; }
-
-/* Accent variants (subtle) */
-.accent-strong { border-color: #ffe6c7; box-shadow: 0 10px 28px rgba(255,138,0,.08); }
-.accent-mid    { border-color: #e7eefc; box-shadow: 0 10px 28px rgba(59,130,246,.06); }
-.accent-soft   { border-color: #edf0f3; }
-
-/* ===== Diamond emphasis (order 5) ===== */
-.accent-diamond {
-  position: relative;
-  background: linear-gradient(180deg, #ffffff, #fbfdff);
-  border: 1px solid rgba(0, 210, 255, .45);
+.pricing-features strong {
+  color: #475569;
 }
+
+/* Diamond emphasis */
 .diamond-glow {
+  position: relative;
   box-shadow:
-    0 0 0 1px rgba(0, 210, 255, .35) inset,
-    0 14px 40px rgba(0, 210, 255, .15),
-    0 6px 14px rgba(0,0,0,.06);
+    0 0 0 1px rgba(0, 210, 255, 0.28) inset,
+    0 16px 44px rgba(0, 210, 255, 0.18),
+    0 8px 18px rgba(0, 0, 0, 0.06);
 }
 .diamond-glow::before {
-  content: "";
+  content: '';
   position: absolute;
   inset: -2px;
   border-radius: 1rem;
-  background: conic-gradient(from 0deg, rgba(0, 210, 255, .35), rgba(99, 102, 241, .35), rgba(0, 210, 255, .35));
+  background: conic-gradient(
+    from 0deg,
+    rgba(0, 210, 255, 0.25),
+    rgba(99, 102, 241, 0.2),
+    rgba(0, 210, 255, 0.25)
+  );
   filter: blur(16px);
   z-index: 0;
   animation: spin 6s linear infinite;
-  opacity: .45;
+  opacity: 0.45;
 }
-.diamond-glow > .card-body { position: relative; z-index: 1; }
+.diamond-glow > .card-body {
+  position: relative;
+  z-index: 1;
+}
 
+/* Ribbon */
 .ribbon-popular {
   position: absolute;
   top: -10px;
@@ -802,30 +897,91 @@ onMounted(() => {
   transform: translateX(-50%);
   background: linear-gradient(90deg, #00d2ff, #3b82f6);
   color: #fff;
-  padding: .3rem .9rem;
+  padding: 0.3rem 0.9rem;
   border-radius: 999px;
-  font-size: .75rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  box-shadow: 0 10px 24px rgba(59,130,246,.35);
+  box-shadow: 0 10px 24px rgba(59, 130, 246, 0.35);
   z-index: 2;
 }
 
+/* Manage button tinted by theme */
+.btn-manage {
+  border: 1px solid var(--fx-line);
+  color: #0b6070;
+  background: rgba(255, 255, 255, 0.6);
+}
+.btn-manage:hover {
+  background: #0b6070;
+  color: #fff;
+  border-color: #0b6070;
+}
+
+/* Stronger CTA for Diamond */
 .btn-diamond {
   background: linear-gradient(90deg, #00d2ff, #3b82f6);
   border: none;
   color: #fff;
-  box-shadow: 0 8px 22px rgba(59,130,246,.35);
+  box-shadow: 0 8px 22px rgba(59, 130, 246, 0.35);
 }
 .btn-diamond:hover {
   filter: brightness(1.02);
-  box-shadow: 0 12px 28px rgba(59,130,246,.45);
+  box-shadow: 0 12px 28px rgba(59, 130, 246, 0.45);
+}
+.btn-group {
+  top: 60px;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
-/* Utilities */
-.minw-0 { min-width: 0; }
+/* Tighten gutters on phones (already g-2 via row) */
+@media (max-width: 575.98px) {
+  .card-fixed {
+    min-height: 440px;
+  } /* shorter cards on phones */
+  .pricing-icon-vert {
+    width: 52px;
+    height: 52px;
+  }
+  .pricing-features {
+    gap: 0.3rem;
+  }
+  .pricing-features li {
+    padding: 0.4rem 0.5rem;
+  }
+  .ribbon-popular {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.7rem;
+    top: -8px;
+  }
+}
+
+/* Tablets */
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .card-fixed {
+    min-height: 480px;
+  } /* moderate height */
+  .pricing-icon-vert {
+    width: 58px;
+    height: 58px;
+  }
+}
+
+/* Flatten stairs on <= lg for readability (you already had this, keep it) */
+@media (max-width: 1199.98px) {
+  .stair-1,
+  .stair-2,
+  .stair-3,
+  .stair-4,
+  .stair-5 {
+    transform: none;
+  }
+}
 </style>
