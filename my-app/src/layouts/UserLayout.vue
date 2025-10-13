@@ -48,13 +48,69 @@
         </div>
       </transition>
     </div>
+
+    <!-- ✅ Floating notification icon (slides out on scroll down, in on scroll up) -->
+    <button
+      class="notify-fab btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center"
+      :class="{ 'notify-hidden': !isNotifVisible || (!isDesktop && isMenuOpen) }"
+      type="button"
+      aria-label="Notifications"
+      @click="openNotifModal"
+    >
+      <i class="bi bi-bell fs-5"></i>
+    </button>
   </div>
+
+  <!-- ✅ Lightweight small modal for Notifications.vue -->
+  <teleport to="body">
+    <div
+      v-if="isNotifModalOpen"
+      class="notif-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Notifications"
+      @click.self="closeNotifModal"
+    >
+      <transition name="notif-zoom">
+        <div class="notif-modal" v-show="isNotifModalOpen">
+          <div class="d-flex align-items-center justify-content-between border-bottom px-3 py-2">
+            <div class="fw-semibold">Notifications</div>
+            <button type="button" class="btn btn-light btn-sm" aria-label="Close notifications" @click="closeNotifModal">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <div class="notif-body">
+            <!-- Lazy-load Notifications.vue to keep this shell light -->
+            <Suspense>
+              <template #default>
+                <Notifications />
+              </template>
+              <template #fallback>
+                <div class="p-3 text-muted small d-flex align-items-center gap-2">
+                  <span class="spinner-border spinner-border-sm"></span>
+                  Loading…
+                </div>
+              </template>
+            </Suspense>
+          </div>
+
+          <div class="border-top px-3 py-2 text-end">
+            <button class="btn btn-primary btn-sm" @click="closeNotifModal">Close</button>
+          </div>
+        </div>
+      </transition>
+    </div>
+  </teleport>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue';
 import { useRouter } from 'vue-router';
 import UserSidebar from '@/components/nav/UserSidebar.vue';
+
+/* 🔹 Notifications component (as requested: access ../user/Notifications.vue) */
+const Notifications = defineAsyncComponent(() => import('../pages/user/Notifications.vue'));
 
 const isDesktop = ref(window.matchMedia('(min-width: 992px)').matches);
 const isMenuOpen = ref(false);
@@ -63,7 +119,12 @@ let removeHook: null | (() => void) = null;
 
 const mq = window.matchMedia('(min-width: 992px)');
 const onMQChange = (e: MediaQueryListEvent) => { isDesktop.value = e.matches; if (e.matches) isMenuOpen.value = false; };
-const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') isMenuOpen.value = false; };
+const onKey = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') {
+    isMenuOpen.value = false;
+    isNotifModalOpen.value = false; /* 🔹 also close notifications modal via ESC */
+  }
+};
 
 const openMenu = () => { isMenuOpen.value = true; };
 const closeMenu = () => { isMenuOpen.value = false; };
@@ -79,7 +140,52 @@ onBeforeUnmount(() => {
   removeHook?.();
 });
 
-watch(isMenuOpen, (open) => { document.body.style.overflow = open ? 'hidden' : ''; });
+/* 👉 Also lock scroll when notifications modal is open */
+const isNotifModalOpen = ref(false);
+
+/* Keep body scroll locked when either drawer or notif modal is open */
+watch([isMenuOpen, isNotifModalOpen], ([menuOpen, modalOpen]) => {
+  const lock = menuOpen || modalOpen;
+  document.body.style.overflow = lock ? 'hidden' : '';
+});
+
+/* ✅ Scroll-direction reveal for the floating notification button */
+const isNotifVisible = ref(true);
+let lastScrollY = window.scrollY;
+let lastToggleTs = 0;
+
+const onScroll = () => {
+  const now = performance.now();
+  // throttle a bit for performance
+  if (now - lastToggleTs < 80) return;
+
+  const current = window.scrollY;
+  const delta = current - lastScrollY;
+
+  // Only react when movement is significant enough
+  if (Math.abs(delta) > 6) {
+    // scrolling down -> hide, up -> show
+    isNotifVisible.value = delta < 0;
+    lastScrollY = current;
+    lastToggleTs = now;
+  }
+};
+
+onMounted(() => {
+  window.addEventListener('scroll', onScroll, { passive: true });
+});
+onBeforeUnmount(() => {
+  window.removeEventListener('scroll', onScroll);
+});
+
+/* 🔔 Open/Close notifications modal */
+const openNotifModal = () => {
+  if (!isDesktop.value) isMenuOpen.value = false; // ensure drawer closed on mobile
+  isNotifModalOpen.value = true;
+};
+const closeNotifModal = () => {
+  isNotifModalOpen.value = false;
+};
 </script>
 
 <style scoped>
@@ -162,4 +268,59 @@ watch(isMenuOpen, (open) => { document.body.style.overflow = open ? 'hidden' : '
 @media (max-width: 991.98px) {
   .drawer-panel :deep(.sidebar) { display: block !important; }
 }
+
+/* ✅ Floating notification button */
+.notify-fab {
+  position: fixed;
+  right: 16px;
+  bottom: 24px;
+  width: 56px;
+  height: 56px;
+  z-index: 1090; /* above drawer (1080) */
+  transition: transform .25s ease, opacity .25s ease;
+  will-change: transform, opacity;
+}
+.notify-hidden {
+  transform: translateX(140%);
+  opacity: .35;
+  pointer-events: none;
+}
+
+/* Slightly lift on hover for desktop */
+@media (hover: hover) {
+  .notify-fab:hover { transform: translateY(-2px); }
+  .notify-hidden:hover { transform: translateX(140%); }
+}
+
+/* 🔔 Notifications modal */
+.notif-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 1100; /* above FAB */
+  display: grid;
+  place-items: center;
+  padding: 12px;
+}
+
+.notif-modal {
+  width: 420px;
+  max-width: 92vw;
+  background: #fff;
+  border-radius: .75rem;
+  box-shadow: 0 1rem 2.5rem rgba(0,0,0,.25);
+  overflow: hidden;
+}
+
+.notif-body {
+  max-height: min(70vh, 540px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Modal animation */
+.notif-zoom-enter-active,
+.notif-zoom-leave-active { transition: transform .18s ease, opacity .18s ease; }
+.notif-zoom-enter-from,
+.notif-zoom-leave-to { transform: scale(.96); opacity: 0; }
 </style>

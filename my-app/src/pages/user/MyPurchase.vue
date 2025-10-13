@@ -117,7 +117,7 @@
                       {{ productName(it) }}
                     </div>
 
-                    <!-- PRICE (with optional discounted display when ref is in refund_lock) -->
+                    <!-- PRICE (with optional discounted display when ref has any discounted item) -->
                     <div class="text-end ms-2">
                       <template v-if="refHasDiscount(g.ref)">
                         <div class="text-muted text-decoration-line-through">
@@ -167,7 +167,7 @@
               <div class="text-end">
                 <div class="small text-muted">Subtotal</div>
 
-                <!-- SUBTOTAL (show only discounted when ref is in refund_lock) -->
+                <!-- SUBTOTAL (show only discounted when ref has any discounted item) -->
                 <template v-if="refHasDiscount(g.ref)">
                   <div class="fs-5 fw-bold text-success">
                     ₱ {{ number(groupTotalDiscounted(g)) }}
@@ -308,7 +308,7 @@
                         {{ productName(p) }}
                       </div>
 
-                      <!-- PRICE (with optional discounted display when ref is in refund_lock) -->
+                      <!-- PRICE (with optional discounted display when ref has any discounted item) -->
                       <div class="text-end ms-2">
                         <template v-if="refHasDiscount(p.reference_number || p.id)">
                           <div class="text-muted text-decoration-line-through">
@@ -805,10 +805,12 @@ async function autocloseOverdue(uid: string) {
   if (Array.isArray(updatedRows) && updatedRows.length) {
     const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
     for (const row of purchases.value) if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
+    // NEW: also create receipts for these auto-closed items
+    await createOrderReceiptForIds(Array.from(updatedIds))
   }
 }
 
-/** ========= DISCOUNT (refund_lock + event.interest_per_player) ========= */
+/** ========= DISCOUNT (refund_lock + event.interest_per_player + discounted_price column) ========= */
 /** Map of reference_number (which equals event_id) -> interest_per_player */
 const refDiscount: Record<string, number> = reactive({})
 
@@ -817,13 +819,29 @@ function isUuidLike(s: string): boolean {
   return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)
 }
 
+/** New: helper to detect if an item has its own discounted_price */
+function hasItemLevelDiscount(purchase: AnyRec): boolean {
+  const dp = Number(purchase?.discounted_price)
+  const base = productPrice(purchase)
+  return Number.isFinite(dp) && dp >= 0 && dp < base
+}
+
+/** New: true if any item in the ref has discounted_price; otherwise fallback to refDiscount map */
 function refHasDiscount(ref?: string): boolean {
   if (!ref) return false
+  // Prefer row-level discounted_price
+  if (purchases.value.some(p => (p.reference_number || p.id) === ref && hasItemLevelDiscount(p))) {
+    return true
+  }
+  // Fallback: previous event-based discount flag
   return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
 }
 
-/** Unit discounted price (per item): original - interest_per_player (clamped at 0) */
+/** Unit price to display when discounted: prefer purchase.discounted_price; else original - interest_per_player */
 function discountedUnitPrice(purchase: AnyRec): number {
+  if (hasItemLevelDiscount(purchase)) {
+    return Number(purchase.discounted_price)
+  }
   const ref = purchase?.reference_number || purchase?.id
   const off = refDiscount[ref] || 0
   const base = productPrice(purchase)
@@ -857,7 +875,8 @@ async function loadPurchases() {
       .schema('games')
       .from('purchases')
       .select(
-        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at',
+        // ✅ include discounted_price
+        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price',
       )
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
@@ -919,7 +938,7 @@ async function loadPurchases() {
       }
     }
 
-    // ----- Discounts: refund_lock + event.interest_per_player -----
+    // ----- Discounts: refund_lock + event.interest_per_player (kept for fallback) -----
     const refs = Array.from(
       new Set(
         purchases.value
@@ -1499,7 +1518,9 @@ async function orderReceivedGroup(g: Group) {
       await incrementPurchasesPerMonth(uid, addAmount)
     }
 
-    await createOrderReceiptForGroup(g)
+    // NEW: create receipts for exactly the items just completed (uses discounted when applicable)
+    await createOrderReceiptForGroupCompleted(g, ids)
+
     alert('Thanks! Your order has been marked as received.')
   } finally {
     groupBusy.received[g.ref] = false
@@ -1529,7 +1550,7 @@ async function cancelGroup(g: Group) {
   }
 }
 
-/** Receipts */
+/** Receipts (existing) */
 async function createOrderReceiptForGroup(g: Group) {
   try {
     const rows = g.items
@@ -1543,6 +1564,68 @@ async function createOrderReceiptForGroup(g: Group) {
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+/** ===================== NEW RECEIPT HELPERS (INSERT-ONLY) ===================== */
+/**
+ * Insert receipts for the specific purchase IDs that were just set to COMPLETED within a group.
+ * Uses discounted unit price if the group is shown as discounted.
+ */
+async function createOrderReceiptForGroupCompleted(g: Group, idsJustCompleted: string[]) {
+  try {
+    const idSet = new Set(idsJustCompleted)
+    const useDiscount = refHasDiscount(g.ref)
+    const rows = g.items
+      .filter((it) => idSet.has(it.id))
+      .map((it) => {
+        const qty = Number(it?.qty ?? 1) || 1
+        const unit = useDiscount ? discountedUnitPrice(it) : productPrice(it)
+        const amount = Number((qty * unit).toFixed(2))
+        return { amount, reference_number: g.ref, purchase_id: it.id }
+      })
+    if (!rows.length) return
+    const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
+    if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+/**
+ * Insert receipts for arbitrary purchase IDs that were just auto-closed to COMPLETED
+ * (used by autocloseOverdue). Computes per-ref discount logic correctly.
+ */
+async function createOrderReceiptForIds(ids: string[]) {
+  try {
+    if (!ids.length) return
+    const idSet = new Set(ids)
+    const rows: Array<{ amount: number; reference_number: string; purchase_id: string }> = []
+
+    // Build rows from local purchase cache, respecting discounts per reference
+    const byRef = new Map<string, AnyRec[]>()
+    for (const p of purchases.value) {
+      if (!idSet.has(p.id)) continue
+      const ref = p.reference_number || p.id
+      if (!byRef.has(ref)) byRef.set(ref, [])
+      byRef.get(ref)!.push(p)
+    }
+
+    for (const [ref, list] of byRef) {
+      const useDiscount = refHasDiscount(ref)
+      for (const it of list) {
+        const qty = Number(it?.qty ?? 1) || 1
+        const unit = useDiscount ? discountedUnitPrice(it) : productPrice(it)
+        const amount = Number((qty * unit).toFixed(2))
+        rows.push({ amount, reference_number: ref, purchase_id: it.id })
+      }
+    }
+
+    if (!rows.length) return
+    const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
+    if (recErr) alert(`Auto-complete succeeded, but creating receipts failed: ${recErr.message}`)
   } catch (e) {
     console.error(e)
   }

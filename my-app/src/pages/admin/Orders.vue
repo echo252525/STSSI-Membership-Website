@@ -198,7 +198,7 @@
                   ₱ {{ number(it.price_each) }} × {{ it.qty }}
                 </div>
 
-                <!-- NEW: Discounted display when event applies (ALL TABS) -->
+                <!-- NEW: Discounted display when event/per-purchase discount applies (ALL TABS) -->
                 <div class="small" v-else>
                   <span class="text-muted text-decoration-line-through me-1">
                     ₱ {{ number(it.price_each) }}
@@ -259,7 +259,7 @@
                   ₱ {{ number(groupSubtotal(g)) }}
                 </div>
 
-                <!-- NEW: subtotal with strike-through original when event applies -->
+                <!-- NEW: subtotal with strike-through original when event/per-purchase discount applies -->
                 <div v-else>
                   <div class="small text-muted text-decoration-line-through">
                     ₱ {{ number(groupSubtotalOriginal(g)) }}
@@ -615,6 +615,7 @@ type PurchaseRow = {
   updated_at: string
   modeofpayment: string | null
   qty: number
+  discounted_price: number | string | null // ★ ADDED
 }
 type Product = {
   id: string
@@ -711,6 +712,9 @@ const busy = ref<BusyState>({
 * those mutations would retrigger the computed and cause an infinite loop.
 */
 let groupIndex: Record<string, string[]> = Object.create(null)
+
+/* ★ ADDED: per-purchase discounted price cache (final price each) */
+const discountedByPurchase: Record<string, number | null> = reactive({})
 
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
@@ -849,15 +853,30 @@ function productThumb(prod?: Product): string {
   return ''
 }
 
-/* ---------- NEW: Event discount helpers ---------- */
+/* ---------- NEW: Event/per-purchase discount helpers ---------- */
 function winnerRefundForRef(ref?: string | null): number {
   if (!ref) return 0
   return Number(eventDiscountByRef[ref] ?? 0) || 0
 }
+
+/* ★ CHANGED: treat group as “discounted” if either event refund > 0 OR any purchase under ref has discounted_price */
 function hasEventDiscount(ref?: string | null): boolean {
-  return winnerRefundForRef(ref) > 0
+  const hasEvent = winnerRefundForRef(ref) > 0
+  if (hasEvent) return true
+  if (!ref) return false
+  const ids = groupIndex[ref] || []
+  return ids.some(id => {
+    const v = discountedByPurchase[id]
+    return v != null && isFinite(Number(v)) && Number(v) >= 0
+  })
 }
+
+/* ★ CHANGED: use per-purchase discounted_price (final each) when present; else fallback to event-based computation */
 function discountedPriceEachForItem(it: OrderItem, ref?: string | null): number {
+  const per = discountedByPurchase[it.order_id]
+  if (per != null && isFinite(Number(per)) && Number(per) >= 0) {
+    return Number(per)
+  }
   const base = Number(it.price_each || 0)
   const less = winnerRefundForRef(ref)
   return Math.max(0, base - less)
@@ -952,7 +971,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const items = arr.flatMap(a => a.items)
 
-    // FIX: compute recorded total as discounted sum when event discount applies
+    // FIX: compute recorded total as discounted sum when event/per-purchase discount applies
     const total_amount = hasEventDiscount(ref)
       ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
@@ -977,7 +996,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
             created_at: a.created_at,
             updated_at: a.updated_at,
             modeofpayment: a.payment_method,
-            qty: a.items[0]?.qty || 1
+            qty: a.items[0]?.qty || 1,
+            discounted_price: null // keep shape
           } as PurchaseRow))
 
       for (const pr of allForRef) {
@@ -1044,7 +1064,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
           created_at: p.created_at,
           updated_at: p.updated_at,
           modeofpayment: p.payment_method,
-          qty: p.items[0]?.qty || 1
+          qty: p.items[0]?.qty || 1,
+          discounted_price: discountedByPurchase[p.id] ?? null // ★ ADDED (safe)
         } as PurchaseRow)))
 
       // For a reference to show in Completed:
@@ -1100,7 +1121,8 @@ async function loadOrders(resetPage = false) {
     let q = supabase
       .schema('games')
       .from('purchases')
-      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty', { count: 'exact' })
+      // ★ ADDED discounted_price in select
+      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price', { count: 'exact' })
 
     if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
 
@@ -1134,11 +1156,13 @@ async function loadOrders(resetPage = false) {
     const purchaseIds = new Set<string>()
     const refSet = new Set<string>()
 
+    // ★ ADDED: seed per-purchase discounted cache
     for (const p of purchaseRows) {
       if (p.product_id) productIds.add(p.product_id)
       if (p.user_id) userIds.add(p.user_id)
       purchaseIds.add(p.id)
       if (p.reference_number) refSet.add(p.reference_number)
+      discountedByPurchase[p.id] = p.discounted_price != null ? Number(p.discounted_price) : null
     }
 
     // === NEW: fetch siblings for To Receive & Completed tabs ===
@@ -1149,7 +1173,8 @@ async function loadOrders(resetPage = false) {
       const { data: sib } = await supabase
         .schema('games')
         .from('purchases')
-        .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty')
+        // ★ ADDED discounted_price in sibling fetch
+        .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price')
         .in('reference_number', refs)
 
       siblingRows = Array.isArray(sib) ? (sib as PurchaseRow[]) : []
@@ -1158,6 +1183,8 @@ async function loadOrders(resetPage = false) {
         if (s.user_id) userIds.add(s.user_id)
         // include siblings in RR fetch set
         purchaseIds.add(s.id)
+        // ★ ADDED: cache sibling discounts too
+        discountedByPurchase[s.id] = s.discounted_price != null ? Number(s.discounted_price) : discountedByPurchase[s.id] ?? null
       }
 
       // store siblings by reference (for display/filtering)

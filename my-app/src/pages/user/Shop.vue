@@ -308,7 +308,21 @@
                   {{ p.description }}
                 </div>
                 <div class="mt-auto d-flex align-items-center justify-content-between">
-                  <div class="price fw-bold">₱ {{ number(p.price) }}</div>
+                  <!-- ==== UPDATED: Price display with membership discount & credits check ==== -->
+                  <div class="price fw-bold">
+                    <template v-if="hasMemberDiscount && canDiscountProduct(p)">
+                      <span class="price-original text-muted text-decoration-line-through me-1">
+                        ₱ {{ number(p.price) }}
+                      </span>
+                      <span class="price-discount">
+                        ₱ {{ number(discountedPrice(p.price)) }}
+                      </span>
+                      <span class="badge ms-1 text-bg-warning small">-{{ discountLabel }}</span>
+                    </template>
+                    <template v-else>
+                      ₱ {{ number(p.price) }}
+                    </template>
+                  </div>
                   <span
                     class="badge"
                     :class="(p.stock ?? 0) > 0 ? 'text-bg-success' : 'text-bg-secondary'"
@@ -421,7 +435,17 @@
                 <div class="fw-semibold text-truncate" :title="it.product.name">
                   {{ it.product.name }}
                 </div>
-                <div class="text-muted small">₱ {{ number(it.product.price) }}</div>
+                <!-- ==== UPDATED: per-item price shows slash + discounted only if this item got credits ==== -->
+                <div class="small">
+                  <template v-if="hasMemberDiscount && isItemDiscounted(it.product.id)">
+                    <span class="text-muted text-decoration-line-through me-1"
+                      >₱ {{ number(it.originalUnit) }}</span
+                    >
+                    <strong>₱ {{ number(it.unit) }}</strong>
+                    <span class="badge ms-1 text-bg-warning small">-{{ discountLabel }}</span>
+                  </template>
+                  <template v-else>₱ {{ number(it.unit) }}</template>
+                </div>
               </div>
 
               <div class="d-flex align-items-center">
@@ -448,12 +472,7 @@
                 </div>
 
                 <div class="fw-semibold me-2">
-                  ₱
-                  {{
-                    number(
-                      (dbCartByProduct[it.product.id] ?? it.qty) * Number(it.product.price || 0),
-                    )
-                  }}
+                  ₱ {{ number((dbCartByProduct[it.product.id] ?? it.qty) * it.unit) }}
                 </div>
                 <button
                   class="btn btn-outline-danger btn-sm"
@@ -597,6 +616,45 @@
               <div v-if="!enoughBalance" class="text-danger small">
                 Insufficient balance for E-Wallet. Choose Cash on Delivery or top up.
               </div>
+            </div>
+          </div>
+
+          <!-- NEW: Discount Credits balance & estimate -->
+          <div class="border rounded-3 p-3">
+            <div class="fw-semibold mb-2">
+              <i class="bi bi-ticket-perforated me-2"></i>Discount Credits
+            </div>
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+              <div>
+                <div class="text-muted small">Current Balance</div>
+                <div class="fs-5 fw-semibold">₱ {{ number(userDiscountCredits) }}</div>
+              </div>
+              <div class="vr d-none d-md-block"></div>
+              <div>
+                <div class="text-muted small">Estimated Deduction This Order</div>
+                <div class="fs-5 fw-semibold">
+                  ₱ {{ number(totalDiscountCreditsUsed) }}
+                </div>
+              </div>
+              <div class="ms-auto">
+                <div class="text-muted small">Projected Balance After Order</div>
+                <div class="fw-semibold">
+                  ₱ {{ number(userDiscountCredits - totalDiscountCreditsUsed) }}
+                </div>
+              </div>
+            </div>
+            <div class="small text-muted mt-2">
+              We deduct your membership discount from your Discount Credits (original price − discounted price per item × quantity).
+            </div>
+
+            <!-- ==== NEW: warning if credits are insufficient to cover all item discounts ==== -->
+            <div
+              v-if="insufficientDiscountCredits"
+              class="alert alert-warning mt-3 mb-0 py-2 small"
+              role="alert"
+            >
+              Some items won’t receive a membership discount because your Discount Credits balance
+              is insufficient. We’ll apply discounts item-by-item until your balance is fully used.
             </div>
           </div>
 
@@ -833,14 +891,33 @@ async function ensureUser() {
   return id
 }
 
-/* -------------------- Cart state -------------------- */
-/** Staged local qty per product (what +/- shows on product cards). */
-const cartByProduct: Record<string, number> = reactive({})
+/* -------------------- DISCOUNT: membership % -------------------- */
+const memberDiscountPct = ref<number>(0) // e.g., 6 for 6%
+const hasMemberDiscount = computed(() => (memberDiscountPct.value || 0) > 0)
+const discountLabel = computed(() => {
+  const v = Number(memberDiscountPct.value || 0)
+  return v % 1 === 0 ? `${v}%` : `${v.toFixed(2)}%`
+})
+function discountedPrice(base: number | string): number {
+  const price = Number(base || 0)
+  const d = Math.min(100, Math.max(0, Number(memberDiscountPct.value || 0)))
+  return Number((price * (1 - d / 100)).toFixed(2))
+}
+/* NEW: discount helpers */
+function unitDiscountAmount(base: number | string): number {
+  const orig = Number(base || 0)
+  return Math.max(0, orig - discountedPrice(orig))
+}
+function canDiscountProduct(p: Product): boolean {
+  if (!hasMemberDiscount.value) return false
+  const need = unitDiscountAmount(p.price)
+  return userDiscountCredits.value >= need && need > 0
+}
 
-/** What’s actually in DB cart per product (used for the View Cart UI and badge). */
+/* -------------------- Cart state -------------------- */
+const cartByProduct: Record<string, number> = reactive({})
 const dbCartByProduct: Record<string, number> = reactive({})
 
-/** Persist staged qty locally (optional) */
 const STAGED_QTY_KEY = 'shop_pending_qty'
 function saveStagedToLocal() {
   try {
@@ -856,10 +933,8 @@ function loadStagedFromLocal() {
   } catch {}
 }
 
-/** Busy flags for Add to cart buttons */
 const addToCartBusy: Record<string, boolean> = reactive({})
 
-/** Server stock check */
 async function getLatestStock(productId: string): Promise<number> {
   const { data } = await supabase
     .schema('games')
@@ -878,7 +953,6 @@ function cartQty(productId: string): number {
 function setCartQty(productId: string, qty: number) {
   cartByProduct[productId] = Math.max(1, qty)
   saveStagedToLocal()
-  // micro “bump” animation on the nearest qty field
   nextTick(() => {
     const cards = document.querySelectorAll('.product-card')
     cards.forEach((card) => {
@@ -896,16 +970,15 @@ async function incQty(p: Product) {
   const current = cartQty(p.id)
   const cap = p.stock != null ? Number(p.stock) : Infinity
   const next = Math.min(current + 1, cap)
-  setCartQty(p.id, next) // LOCAL ONLY
+  setCartQty(p.id, next)
 }
 
 async function decQty(p: Product) {
   const current = cartQty(p.id)
   const next = Math.max(1, current - 1)
-  setCartQty(p.id, next) // LOCAL ONLY
+  setCartQty(p.id, next)
 }
 
-/** Load actual cart from DB into dbCartByProduct (badge/source of truth). */
 async function loadCart() {
   const uid = await ensureUser()
   for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
@@ -927,12 +1000,10 @@ async function loadCart() {
 const cartBtnRef = ref<HTMLElement | null>(null)
 const router = useRouter()
 
-/** BADGE reflects DB total items actually in the server cart. */
 const cartTotalItems = computed(() =>
   Object.values(dbCartByProduct).reduce((a, b) => a + (Number(b) || 0), 0),
 )
 
-/* Cart modal data */
 const showCart = ref(false)
 const showPlace = ref(false)
 const placingOrder = ref(false)
@@ -942,17 +1013,57 @@ const cartItems = ref<
     qty: number
     imageUrl: string | null
     lineTotal: number
+    unit: number
+    originalUnit: number
   }>
 >([])
 
-/* NEW: payment method & balance */
+/* NEW: per-item discount application map for UI */
+const discountedItemMap: Record<string, boolean> = reactive({})
+function isItemDiscounted(productId: string): boolean {
+  return !!discountedItemMap[productId]
+}
+
+/* NEW: payment method & balances */
 const paymentMethod = ref<'cod' | 'ewallet'>('cod')
 const userBalance = ref<number>(0)
 const enoughBalance = computed(() => userBalance.value >= cartGrandTotal.value)
 
-const checkingOut = ref(false) // kept for compatibility; not used for DB in this flow
+/* NEW: discount credits balance */
+const userDiscountCredits = ref<number>(0)
+
+/* NEW: compute “needed” credits if all items were discounted */
+const totalCreditsNeededIfAll = computed(() => {
+  if (!hasMemberDiscount.value) return 0
+  let sum = 0
+  for (const it of cartItems.value) {
+    const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+    const needPerUnit = Math.max(0, Number(it.originalUnit) - discountedPrice(it.originalUnit))
+    sum += needPerUnit * qty
+  }
+  return Number(sum.toFixed(2))
+})
+/* NEW: show warning if we can't cover all items */
+const insufficientDiscountCredits = computed(
+  () => hasMemberDiscount.value && userDiscountCredits.value < totalCreditsNeededIfAll.value,
+)
+
+/* Estimated total credits used with current allocation (from cartItems) */
+const totalDiscountCreditsUsed = computed(() => {
+  if (!hasMemberDiscount.value) return 0
+  let sum = 0
+  for (const it of cartItems.value) {
+    const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+    const diff = Math.max(0, Number(it.originalUnit) - Number(it.unit))
+    sum += diff * qty
+  }
+  return Number(sum.toFixed(2))
+})
+
+const checkingOut = ref(false)
 const clearingCart = ref(false)
 
+/* Total: uses the allocated (possibly undiscounted) unit prices */
 const cartGrandTotal = computed(() => cartItems.value.reduce((sum, it) => sum + it.lineTotal, 0))
 
 async function openCartModal() {
@@ -963,7 +1074,9 @@ function closeCartModal() {
   showCart.value = false
 }
 
-/* Build cartItems with product data + signed image per product in cart */
+/* Build cartItems with product data + signed image per product in cart
+   NEW: allocate discount credits per item (all-or-nothing per item)
+*/
 async function loadCartDetails() {
   const uid = await ensureUser()
   cartItems.value = []
@@ -989,8 +1102,21 @@ async function loadCartDetails() {
   const map = new Map<string, Product>()
   for (const p of prodRows as Product[]) map.set(p.id, p)
 
-  const list: Array<{ product: Product; qty: number; imageUrl: string | null; lineTotal: number }> =
-    []
+  const list: Array<{
+    product: Product
+    qty: number
+    imageUrl: string | null
+    lineTotal: number
+    unit: number
+    originalUnit: number
+  }> = []
+
+  // Start with full available credits
+  let remainingCredits = hasMemberDiscount.value ? Number(userDiscountCredits.value || 0) : 0
+
+  // Reset discounted flags
+  for (const k of Object.keys(discountedItemMap)) delete discountedItemMap[k]
+
   for (const row of rows as Array<{ product_id: string; qty: number }>) {
     const p = map.get(row.product_id)
     if (!p) continue
@@ -1004,11 +1130,31 @@ async function loadCartDetails() {
         img = raw || null
       }
     }
+
     const qty = Number(row.qty || 0)
-    const lineTotal = qty * Number(p.price || 0)
-    list.push({ product: p, qty, imageUrl: img, lineTotal })
-    dbCartByProduct[p.id] = qty // mirror for controls
+    const originalUnit = Number(p.price || 0)
+    const discountedUnit = hasMemberDiscount.value ? discountedPrice(originalUnit) : originalUnit
+    const needPerUnit = Math.max(0, originalUnit - discountedUnit)
+    const needForItem = needPerUnit * qty
+
+    let unitToUse = originalUnit
+    let lineTotal = originalUnit * qty
+
+    if (hasMemberDiscount.value && needPerUnit > 0 && remainingCredits >= needForItem) {
+      // We can cover the entire item discount
+      unitToUse = discountedUnit
+      lineTotal = discountedUnit * qty
+      remainingCredits = Number((remainingCredits - needForItem).toFixed(2))
+      discountedItemMap[p.id] = true
+    } else {
+      // Not enough credits to fully discount this item -> no discount applied for this item
+      discountedItemMap[p.id] = false
+    }
+
+    list.push({ product: p, qty, imageUrl: img, lineTotal, unit: unitToUse, originalUnit })
+    dbCartByProduct[p.id] = qty
   }
+
   cartItems.value = list
 }
 
@@ -1098,7 +1244,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
   const latestStock = await getLatestStock(p.id)
   const stockCap = p.stock != null ? Math.min(Number(p.stock), latestStock) : latestStock
 
-  const addQty = Math.max(1, Math.min(cartQty(p.id), stockCap)) // staged qty
+  const addQty = Math.max(1, Math.min(cartQty(p.id), stockCap))
   if (addQty <= 0) return
 
   addToCartBusy[p.id] = true
@@ -1191,7 +1337,6 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
     }
     delete dbCartByProduct[productId]
   } else {
-    // respect stock if a product is provided
     let capped = qty
     if (product) {
       const latestStock = await getLatestStock(product.id)
@@ -1289,7 +1434,13 @@ const shippingSummary = computed(() => {
 })
 
 /* UPDATED: include balance in user row */
-type UsersRow = { phone_number: string | null; address: string | null; balance: number | null }
+type UsersRow = {
+  phone_number: string | null
+  address: string | null
+  balance: number | null
+  membership_id?: string | null
+  discount_credits?: number | null
+}
 
 function buildAddressString(s: ShippingRow): string {
   return [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean).join(', ')
@@ -1327,7 +1478,7 @@ function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
   return out
 }
 
-/* Load shipping + balance from public.users */
+/* Load shipping + balances + membership discount from public.users + membership.tiers */
 async function loadShipping() {
   const uid = await ensureUser()
   if (!uid) {
@@ -1337,14 +1488,30 @@ async function loadShipping() {
 
   const { data: userRow } = await supabase
     .from('users')
-    .select('phone_number, address, balance') // UPDATED: balance
+    .select('phone_number, address, balance, membership_id, discount_credits') // UPDATED
     .eq('id', uid)
     .maybeSingle()
 
   const u = (userRow ?? null) as UsersRow | null
   shipping.value.user_id = uid
   shipping.value.phone = u?.phone_number || ''
-  userBalance.value = Number(u?.balance ?? 0) // NEW: keep balance in state
+  userBalance.value = Number(u?.balance ?? 0)
+  userDiscountCredits.value = Number(u?.discount_credits ?? 0) // NEW
+
+  // === NEW: fetch discount % from membership.tiers ===
+  memberDiscountPct.value = 0
+  const tierId = u?.membership_id
+  if (tierId) {
+    const { data: tierRow } = await supabase
+      .schema('membership')
+      .from('tiers')
+      .select('discount_per_purchase')
+      .eq('id', tierId)
+      .maybeSingle()
+    if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
+      memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
+    }
+  }
 
   const parsed = parseAddressToParts(u?.address ?? null)
   shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
@@ -1354,6 +1521,9 @@ async function loadShipping() {
   shipping.value.postal_code = parsed.postal_code || shipping.value.postal_code
 
   shippingLoaded.value = true
+
+  // If cart is open/visible, refresh priced totals with the new discount
+  if (showCart.value || showPlace.value) await loadCartDetails()
 }
 function openShippingModal() {
   showShipping.value = true
@@ -1397,7 +1567,6 @@ function genReference(prefix = 'REF'): string {
 }
 
 function openPlaceOrder() {
-  // Close cart modal, open place order
   closeCartModal()
   showPlace.value = true
 }
@@ -1420,33 +1589,54 @@ async function placeOrder() {
     return
   }
 
-  // Payment validation: prevent E-Wallet if balance is insufficient
-  if (paymentMethod.value === 'ewallet' && !enoughBalance.value) {
-    alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
-    return
-  }
-
   placingOrder.value = true
   try {
-    // Persist any shipping edits
+    // Always save shipping updates first (if any edits were made in the modal)
     await saveShipping()
 
-    // (1) Build rows we’ll need
+    // === FRESH READ: make sure balances and membership are up-to-date right before charging ===
+    const { data: freshUser } = await supabase
+      .from('users')
+      .select('balance, discount_credits, membership_id')
+      .eq('id', uid)
+      .maybeSingle()
+
+    const freshBalance = Number(freshUser?.balance ?? 0)
+    let freshDiscountCredits = Number(freshUser?.discount_credits ?? 0)
+
+    // Refresh member discount % (in case membership changed since load)
+    memberDiscountPct.value = 0
+    if (freshUser?.membership_id) {
+      const { data: tierRow } = await supabase
+        .schema('membership')
+        .from('tiers')
+        .select('discount_per_purchase')
+        .eq('id', freshUser.membership_id)
+        .maybeSingle()
+      if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
+        memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
+      }
+    }
+
+    // Keep UI mirrors in sync
+    userBalance.value = freshBalance
+    userDiscountCredits.value = freshDiscountCredits
+
+    // Payment gating using fresh balance
     const isEwallet = paymentMethod.value === 'ewallet'
     const purchaseStatus = isEwallet ? 'to ship' : 'to pay'
     const totalToDeduct = isEwallet ? cartGrandTotal.value : 0
 
-    // === NEW === create ONE reference number for the whole checkout batch
+    if (isEwallet && freshBalance < totalToDeduct) {
+      alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
+      return
+    }
+
     const batchReference = genReference('PUR')
 
-    // (2) If ewallet, deduct user balance first (simple guard update)
+    // === If e-wallet, deduct wallet balance first (based on fresh read) ===
     if (isEwallet && totalToDeduct > 0) {
-      // Optional server-side guard: ensure we still have enough
-      if (userBalance.value < totalToDeduct) {
-        alert('Your balance changed and is now insufficient. Please top up or choose COD.')
-        return
-      }
-      const newBalance = Number((userBalance.value - totalToDeduct).toFixed(2))
+      const newBalance = Number((freshBalance - totalToDeduct).toFixed(2))
       const { error: balErr } = await supabase
         .from('users')
         .update({ balance: newBalance })
@@ -1455,32 +1645,49 @@ async function placeOrder() {
         alert('Failed to deduct balance: ' + balErr.message)
         return
       }
-      // reflect immediately in UI; realtime also updates later
       userBalance.value = newBalance
     }
 
-    // (3) Insert one purchase per cart item with modeofpayment & status
-    //     ALSO save qty per product, and reuse the SAME reference for all rows in this batch
+    // === Allocate discount credits per item using the FRESH credits (all-or-nothing per item) ===
+    let remainingCredits = hasMemberDiscount.value ? Number(freshDiscountCredits || 0) : 0
+    const totalNeededIfAll = totalCreditsNeededIfAll.value
+
+    if (hasMemberDiscount.value && remainingCredits < totalNeededIfAll) {
+      // Notification only; allocation logic below will naturally handle partial coverage
+      // (We don't block the order; we just apply what we can.)
+    }
+
     let firstPurchaseId: string | null = null
+    const receiptRows: Array<{ purchase_id: string; amount_discounted: number }> = []
+    let totalDiscountCreditsToDeduct = 0
 
+    // Re-derive lines from cartItems + dbCartByProduct to avoid stale UI quantities
     for (const it of cartItems.value) {
-      // use current DB-mirrored qty if available, else the item qty
-      const quantity = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1) // === NEW ===
+      const p = it.product
+      const quantity = Math.max(1, Number(dbCartByProduct[p.id] ?? it.qty) || 1)
+      const unitOriginal = Number(it.originalUnit || 0)
+      const unitDiscounted = hasMemberDiscount.value ? discountedPrice(unitOriginal) : unitOriginal
+      const needPerUnit = Math.max(0, unitOriginal - unitDiscounted)
+      const needForItem = needPerUnit * quantity
 
-      // Insert purchase and get its id
+      const willDiscount =
+        hasMemberDiscount.value && needPerUnit > 0 && remainingCredits >= needForItem
+
+      const effectiveUnit = willDiscount ? unitDiscounted : unitOriginal
+
+      // Insert purchase row with the EFFECTIVE unit price we calculated here
       const { data: inserted, error: insErr } = await supabase
         .schema('games')
         .from('purchases')
         .insert([
           {
             user_id: uid,
-            product_id: it.product.id,
-            // === NEW === use shared batch reference number
+            product_id: p.id,
             reference_number: batchReference,
-            // === NEW === store qty per product
             qty: quantity,
-            modeofpayment: paymentMethod.value, // store chosen method
-            status: purchaseStatus, // to_ship for ewallet, to_pay for COD
+            modeofpayment: paymentMethod.value,
+            status: purchaseStatus,
+            discounted_price: effectiveUnit,
           } as any,
         ])
         .select('id')
@@ -1494,19 +1701,28 @@ async function placeOrder() {
 
       const purchaseId = (inserted as InsertedPurchase).id
       if (!firstPurchaseId) firstPurchaseId = purchaseId
-      // NOTE: We no longer insert per-line receipts here, per your new schema.
+
+      if (willDiscount && needForItem > 0) {
+        const applied = Number(needForItem.toFixed(2))
+        remainingCredits = Number((remainingCredits - applied).toFixed(2))
+        totalDiscountCreditsToDeduct += applied
+        receiptRows.push({
+          purchase_id: purchaseId,
+          amount_discounted: applied,
+        })
+      }
     }
 
-    // === Insert ONE transaction row for this e-wallet checkout ===
+    // Record payment transaction row if paid by ewallet
     if (isEwallet) {
       const { error: txnErr } = await supabase
         .schema('ewallet')
         .from('order_transactions')
         .insert([
           {
-            reference_number: batchReference, // NOT NULL
-            purchase_id: firstPurchaseId ?? null, // optional link to any one purchase
-            total_amount: Number(totalToDeduct.toFixed(2)), // NEW total amount
+            reference_number: batchReference,
+            purchase_id: firstPurchaseId ?? null,
+            total_amount: Number(totalToDeduct.toFixed(2)),
           } as any,
         ])
 
@@ -1517,7 +1733,45 @@ async function placeOrder() {
       }
     }
 
-    // (4) Clear cart in DB
+    // === Write discount credits receipts and DEDUCT the exact applied amount (based on fresh read) ===
+    if (receiptRows.length > 0) {
+      const payload = receiptRows.map((r) => ({
+        purchase_id: r.purchase_id,
+        amount_discounted: Number(r.amount_discounted.toFixed(2)),
+        reference_number: batchReference,
+      }))
+      const { error: recErr } = await supabase
+        .schema('ewallet')
+        .from('discount_credits_receipt')
+        .insert(payload as any)
+
+      if (recErr) {
+        console.error('[discount_credits_receipt insert failed]', recErr.message)
+        alert('Failed to create discount credits receipt: ' + recErr.message)
+        return
+      }
+
+      // Refresh credits again right before deducting to minimize race (best effort without DB txn)
+      const { data: recheckUser } = await supabase
+        .from('users')
+        .select('discount_credits')
+        .eq('id', uid)
+        .maybeSingle()
+
+      const currentCredits = Number(recheckUser?.discount_credits ?? 0)
+      // Deduct only what we *applied* but never below zero
+      const newDcBalance = Math.max(0, Number((currentCredits - totalDiscountCreditsToDeduct).toFixed(2)))
+
+      const { error: dcErr } = await supabase.from('users').update({ discount_credits: newDcBalance }).eq('id', uid)
+      if (dcErr) {
+        console.error('[users.discount_credits update failed]', dcErr.message)
+        alert('Failed to deduct discount credits: ' + dcErr.message)
+        return
+      }
+      userDiscountCredits.value = newDcBalance
+    }
+
+    // Clear cart
     await supabase.schema('games').from('cart').delete().eq('user_id', uid)
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
     cartItems.value = []
@@ -1585,7 +1839,6 @@ async function fetchProducts() {
     products.value = data as Product[]
     total.value = count ?? 0
 
-    // Ensure each rendered product has a staged qty default
     for (const p of products.value) {
       if (cartByProduct[p.id] == null) cartByProduct[p.id] = 1
     }
@@ -1671,7 +1924,7 @@ async function bindUsersRealtime() {
         filter: `id=eq.${uid}`,
       },
       async (_payload) => {
-        // Refresh shipping info AND balance when user row changes
+        // Refresh shipping info, balance, discount, and discount credits when user row changes
         await loadShipping()
       },
     )

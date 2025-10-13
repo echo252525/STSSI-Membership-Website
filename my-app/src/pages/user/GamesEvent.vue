@@ -698,6 +698,20 @@ async function ensureVoucherForWinner() {
 function isUuid(v?: string | null) {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 }
+
+/* ---------- helper: compute discounted price for purchase insert ---------- */
+function safeNum(v: any, def = 0) {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : def
+}
+function computeDiscountedPriceFromEvent() {
+  // discounted_price = entry_fee - winner_refund_amount (never negative), rounded to 2 decimals
+  const ef = safeNum(eventInfo.value?.entry_fee, 0)
+  const wr = safeNum(eventInfo.value?.winner_refund_amount, 0)
+  const val = Math.max(0, ef - wr)
+  return Math.round(val * 100) / 100
+}
+
 async function createWinnerPurchaseIfNeeded() {
   try {
     if (winnerPurchaseInserted.value || winnerPurchaseInflight) return
@@ -731,6 +745,9 @@ async function createWinnerPurchaseIfNeeded() {
       return
     }
 
+    // 🔹 NEW: compute discounted_price = entry_fee - winner_refund_amount
+    const discounted_price = computeDiscountedPriceFromEvent()
+
     let insertedId: string | null = null
     {
       const { data, error } = await supabase
@@ -740,6 +757,8 @@ async function createWinnerPurchaseIfNeeded() {
           user_id: winnerUid,
           product_id: productId,
           reference_number: eventId,
+          // 🔹 NEW: persist discounted price at insert time
+          discounted_price,
         })
         .select('id')
         .single()

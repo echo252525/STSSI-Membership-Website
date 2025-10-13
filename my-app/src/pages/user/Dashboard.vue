@@ -132,7 +132,7 @@ onMounted(async () => {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return router.push({ name: 'login' })
   }
-  await Promise.all([fetchTier(), fetchJoinableGames()])
+  await Promise.all([ fetchJoinableGames()])
 })
 
 /* ===== Membership bits (unchanged) ===== */
@@ -167,34 +167,10 @@ const memberTier = ref<TierKey>('regular')
 const currentTier = computed(() => tiers.find((t) => t.key === memberTier.value) ?? tiers[0])
 const badgeIcon = computed(() => iconFor(currentTier.value.key as TierKey))
 
-async function fetchTier() {
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) return
-  const { data, error } = await supabase.from('profile').select('tier').eq('id', uid).maybeSingle()
-  if (!error && data?.tier) memberTier.value = (String(data.tier) as TierKey) || 'regular'
-}
-
 /* ===== NEW: member stats (dummy for now) ===== */
 const memberStats = ref({ lifetimePurchases: 7500, referrals: 6 })
 const peso = (n: number) =>
   `₱${Number(n ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`
-
-// If you already store these in your DB, plug it in here.
-async function fetchMemberStats() {
-  // Example shape if stored in profile table (uncomment & adapt):
-  // const { data: auth } = await supabase.auth.getUser()
-  // const uid = auth?.user?.id
-  // if (!uid) return
-  // const { data } = await supabase
-  //   .from('profile')
-  //   .select('lifetime_purchases, referrals')
-  //   .eq('id', uid).maybeSingle()
-  // if (data) memberStats.value = {
-  //   lifetimePurchases: Number(data.lifetime_purchases ?? 0),
-  //   referrals: Number(data.referrals ?? 0),
-  // }
-}
 
 /* ===== Mini games (dummy) ===== */
 type GameRow = {
