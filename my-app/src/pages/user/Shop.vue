@@ -1654,7 +1654,6 @@ async function placeOrder() {
 
     if (hasMemberDiscount.value && remainingCredits < totalNeededIfAll) {
       // Notification only; allocation logic below will naturally handle partial coverage
-      // (We don't block the order; we just apply what we can.)
     }
 
     let firstPurchaseId: string | null = null
@@ -1711,6 +1710,42 @@ async function placeOrder() {
           amount_discounted: applied,
         })
       }
+
+      /* =========================
+         NEW: Decrement product stock after purchase
+         - Reads current stock then sets new value (non-negative)
+         - Minimal change; no other logic touched
+         ========================= */
+      try {
+        const { data: stockRow, error: stockSelErr } = await supabase
+          .schema('games')
+          .from('products')
+          .select('stock')
+          .eq('id', p.id)
+          .maybeSingle()
+
+        if (!stockSelErr && stockRow) {
+          const currentStock = Number(stockRow.stock ?? 0)
+          const newStock = Math.max(0, currentStock - quantity)
+          if (newStock !== currentStock) {
+            const { error: stockUpdErr } = await supabase
+              .schema('games')
+              .from('products')
+              .update({ stock: newStock })
+              .eq('id', p.id)
+
+            if (stockUpdErr) {
+              console.error('[stock update failed]', stockUpdErr.message)
+              // We won’t fail the whole order for this; admin can reconcile.
+            }
+          }
+        } else if (stockSelErr) {
+          console.error('[stock fetch failed]', stockSelErr.message)
+        }
+      } catch (e) {
+        console.error('[stock update exception]', e)
+      }
+      /* ===== END of stock decrement addition ===== */
     }
 
     // Record payment transaction row if paid by ewallet
@@ -1760,9 +1795,15 @@ async function placeOrder() {
 
       const currentCredits = Number(recheckUser?.discount_credits ?? 0)
       // Deduct only what we *applied* but never below zero
-      const newDcBalance = Math.max(0, Number((currentCredits - totalDiscountCreditsToDeduct).toFixed(2)))
+      const newDcBalance = Math.max(
+        0,
+        Number((currentCredits - totalDiscountCreditsToDeduct).toFixed(2)),
+      )
 
-      const { error: dcErr } = await supabase.from('users').update({ discount_credits: newDcBalance }).eq('id', uid)
+      const { error: dcErr } = await supabase
+        .from('users')
+        .update({ discount_credits: newDcBalance })
+        .eq('id', uid)
       if (dcErr) {
         console.error('[users.discount_credits update failed]', dcErr.message)
         alert('Failed to deduct discount credits: ' + dcErr.message)
@@ -1777,6 +1818,10 @@ async function placeOrder() {
     cartItems.value = []
 
     closePlaceOrder()
+
+    // Optional: nudge UI to reflect new stocks immediately (realtime also handles this)
+    await fetchProducts()
+
     if (isEwallet) {
       alert(
         'Payment successful! Your items are now set **to ship**. You’ll receive a confirmation shortly.',

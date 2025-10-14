@@ -53,7 +53,7 @@
 
           <!-- gold frame + bulbs -->
           <div class="rim">
-            <div v-for="n in 20" :key="n" class="bulb" :style="bulbStyle(n)"></div>
+            <div v-for="n in 100" :key="n" class="bulb" :style="bulbStyle(n)"></div>
           </div>
 
           <div class="wheel-wrap mx-auto mb-3" :class="{ spinning }" :style="wheelVars">
@@ -425,6 +425,8 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
 
 /* ======== UI helpers ========= */
 function openOutcomePopupIfMe() {
+  // NEW GUARD: never open while the wheel is spinning or the spin just started.
+  if (spinning.value || spinStarted.value) return
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
   const winnerUserId = displayWinnerEntry.value.user_id
   const iParticipated = entries.value.some((e) => e.user_id === myUserId.value)
@@ -504,10 +506,10 @@ function sliceLabelStyle(i: number, uid?: string) {
   return {
     color: '#fff',
     textShadow: '0 1px 2px rgba(0,0,0,.65), 0 0 4px rgba(0,0,0,.25)',
-    background: 'rgba(0,0,0,.15)',
+    background: 'rgba(0,0,0,.18)',
     padding: '2px 8px',
     borderRadius: '10px',
-    boxShadow: `0 0 0 2px rgba(255,255,255,.09), 0 0 10px ${sliceColor(i, 1, uid)}55`,
+    boxShadow: `0 0 0 2px rgba(255,255,255,.10), 0 0 10px ${sliceColor(i, 1, uid)}55`,
     willChange: 'transform',
     backfaceVisibility: 'hidden',
   } as any
@@ -888,6 +890,7 @@ async function onSpinEnd() {
   busy.value.commit = false
   spinStarted.value = false
   revealWinner.value = true
+  // Modal may only open after spin completes (guarded inside the function as well)
   openOutcomePopupIfMe()
 }
 async function triggerServerSpinAndAnimate() {
@@ -1215,7 +1218,7 @@ function makeRealtimeChannelSpin() {
           revealWinner.value = true
         }
         await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-        openOutcomePopupIfMe()
+        // IMPORTANT: Don't open the modal here; let onSpinEnd handle it after the wheel fully stops.
       },
     )
     .subscribe((s: any) => {
@@ -1260,6 +1263,7 @@ watch(
   async () => {
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
     await ensureVoucherForWinner()
+    // May trigger after spin end; guarded to avoid early open during spin.
     openOutcomePopupIfMe()
   },
 )
@@ -1607,7 +1611,7 @@ function goToMinigames() {
   backface-visibility: hidden;
 }
 
-/* Upright, non-rumbling labels */
+/* Upright, non-rumbling labels (names on each color) */
 .slice-label {
   position: absolute; left: 50%; top: 50%;
   transform-origin: 0 0;
@@ -1616,7 +1620,9 @@ function goToMinigames() {
   transform: rotate(calc(var(--slice-angle) + var(--wheel-rot))) translate(0, -42%)
              rotate(calc(-1 * (var(--slice-angle) + var(--wheel-rot))));
 }
-.slice-label .label-text { display: inline-block; max-width: 140px; text-overflow: ellipsis; overflow: hidden; vertical-align: middle; }
+.slice-label .label-text {
+  display: inline-block; max-width: 140px; text-overflow: ellipsis; overflow: hidden; vertical-align: middle;
+}
 @media (max-width: 420px) {
   .slice-label { font-size: 12px; }
   .slice-label .label-text { max-width: 96px; }

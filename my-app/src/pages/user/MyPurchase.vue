@@ -132,6 +132,18 @@
                           ₱ {{ number(productPrice(it)) }}
                         </div>
                       </template>
+
+                      <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
+                      <div
+                        class="small text-muted mt-1"
+                        v-if="(Number(it?.qty ?? 1) || 1) > 1"
+                      >
+                        Qty: {{ Number(it?.qty ?? 1) }} •
+                        Subtotal:
+                        <span class="fw-semibold">
+                          ₱ {{ number(subtotalFor(it)) }}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
@@ -323,6 +335,18 @@
                             ₱ {{ number(productPrice(p)) }}
                           </div>
                         </template>
+
+                        <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
+                        <div
+                          class="small text-muted mt-1"
+                          v-if="(Number(p?.qty ?? 1) || 1) > 1"
+                        >
+                          Qty: {{ Number(p?.qty ?? 1) }} •
+                          Subtotal:
+                          <span class="fw-semibold">
+                            ₱ {{ number(subtotalFor(p)) }}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
@@ -634,6 +658,7 @@
 </template>
 
 <script setup lang="ts">
+
 import { onMounted, ref, computed, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
@@ -1432,98 +1457,21 @@ async function cancelPurchase(purchaseId: string) {
       alert(error.message)
       return
     }
+
+    // Local update
     const row = purchases.value.find((r) => r.id === purchaseId)
-    if (row) row.status = STATUS.CANCELLED
+    if (row) {
+      row.status = STATUS.CANCELLED
+
+      // ✅ RESTORE STOCK for this cancelled item
+      const qty = Number(row?.qty ?? 0) || 0
+      const pid = row?.product_id
+      if (pid && qty > 0) {
+        await restoreStock([{ product_id: pid, qty }])
+      }
+    }
   } finally {
     busy.value.cancel[purchaseId] = false
-  }
-}
-
-/** 
- * HELPERS (ADD-ONLY)
- * - sumAmountForIds: totals qty * unit price for selected purchase IDs in the group.
- *   If the group shows discounted prices (refHasDiscount), use discountedUnitPrice.
- * - incrementPurchasesPerMonth: adds amount to public.users.purchases_per_month
- */
-function sumAmountForIds(g: Group, ids: string[]): number {
-  const idSet = new Set(ids)
-  const useDiscount = refHasDiscount(g.ref)
-  let total = 0
-  for (const it of g.items) {
-    if (!idSet.has(it.id)) continue
-    const q = Number(it?.qty ?? 1) || 1
-    const unit = useDiscount ? discountedUnitPrice(it) : productPrice(it)
-    total += q * unit
-  }
-  return Number(total.toFixed(2))
-}
-
-async function incrementPurchasesPerMonth(uid: string, amount: number) {
-  try {
-    const { data: rows, error: selErr } = await supabase
-      .from('users') // public.users
-      .select('purchases_per_month')
-      .eq('id', uid)
-      .limit(1)
-      .maybeSingle()
-
-    if (selErr) {
-      console.error('Failed to read purchases_per_month:', selErr)
-      return
-    }
-
-    const current = Number(rows?.purchases_per_month ?? 0) || 0
-    const nextVal = Number((current + (Number(amount) || 0)).toFixed(2))
-
-    const { error: updErr } = await supabase
-      .from('users')
-      .update({ purchases_per_month: nextVal })
-      .eq('id', uid)
-
-    if (updErr) {
-      console.error('Failed to update purchases_per_month:', updErr)
-    }
-  } catch (e) {
-    console.error(e)
-  }
-}
-
-async function orderReceivedGroup(g: Group) {
-  const { data: auth } = await supabase.auth.getUser()
-  const uid = auth?.user?.id
-  if (!uid) return
-  groupBusy.received[g.ref] = true
-  try {
-    const ids = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
-    if (!ids.length) return
-
-    // compute the amount to add (uses discounted price if displayed as discounted)
-    const addAmount = sumAmountForIds(g, ids)
-
-    const { error } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ status: STATUS.COMPLETED })
-      .in('id', ids)
-      .eq('user_id', uid)
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.COMPLETED
-
-    // increment user's purchases_per_month in public.users
-    if (addAmount > 0) {
-      await incrementPurchasesPerMonth(uid, addAmount)
-    }
-
-    // NEW: create receipts for exactly the items just completed (uses discounted when applicable)
-    await createOrderReceiptForGroupCompleted(g, ids)
-
-    alert('Thanks! Your order has been marked as received.')
-  } finally {
-    groupBusy.received[g.ref] = false
   }
 }
 
@@ -1544,7 +1492,17 @@ async function cancelGroup(g: Group) {
       alert(error.message)
       return
     }
+
+    // Local update
     for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.CANCELLED
+
+    // ✅ RESTORE STOCK for all items in this cancelled group
+    const entries = g.items
+      .map((it) => ({ product_id: it.product_id as string, qty: Number(it?.qty ?? 0) || 0 }))
+      .filter((e) => e.product_id && e.qty > 0)
+    if (entries.length) {
+      await restoreStock(entries)
+    }
   } finally {
     groupBusy.cancel[g.ref] = false
   }
@@ -1570,10 +1528,6 @@ async function createOrderReceiptForGroup(g: Group) {
 }
 
 /** ===================== NEW RECEIPT HELPERS (INSERT-ONLY) ===================== */
-/**
- * Insert receipts for the specific purchase IDs that were just set to COMPLETED within a group.
- * Uses discounted unit price if the group is shown as discounted.
- */
 async function createOrderReceiptForGroupCompleted(g: Group, idsJustCompleted: string[]) {
   try {
     const idSet = new Set(idsJustCompleted)
@@ -1594,10 +1548,6 @@ async function createOrderReceiptForGroupCompleted(g: Group, idsJustCompleted: s
   }
 }
 
-/**
- * Insert receipts for arbitrary purchase IDs that were just auto-closed to COMPLETED
- * (used by autocloseOverdue). Computes per-ref discount logic correctly.
- */
 async function createOrderReceiptForIds(ids: string[]) {
   try {
     if (!ids.length) return
@@ -1629,6 +1579,141 @@ async function createOrderReceiptForIds(ids: string[]) {
   } catch (e) {
     console.error(e)
   }
+}
+
+/* =============================== */
+/* === NEW: STOCK RESTORATION  === */
+/* =============================== */
+
+/**
+ * Aggregate entries by product_id so we only hit the DB once per product.
+ */
+function aggregateByProduct(entries: Array<{ product_id: string; qty: number }>) {
+  const map = new Map<string, number>()
+  for (const e of entries) {
+    if (!e.product_id) continue
+    const cur = map.get(e.product_id) || 0
+    map.set(e.product_id, cur + (Number(e.qty) || 0))
+  }
+  return Array.from(map.entries()).map(([product_id, qty]) => ({ product_id, qty }))
+}
+
+/**
+ * Safely increments games.products.stock by `delta` for a given product.
+ * This is a read-then-update (two queries). If you want full atomicity under race,
+ * consider creating a small SQL RPC like:
+ *   CREATE OR REPLACE FUNCTION games.increment_stock(pid uuid, by_qty int) RETURNS void AS $$
+ *   UPDATE games.products SET stock = stock + by_qty WHERE id = pid;
+ *   $$ LANGUAGE sql;
+ */
+async function adjustProductStock(productId: string, delta: number) {
+  if (!productId || !Number.isFinite(delta) || delta === 0) return
+
+  // Read current stock
+  const { data: row, error: selErr } = await supabase
+    .schema('games')
+    .from('products')
+    .select('stock')
+    .eq('id', productId)
+    .limit(1)
+    .maybeSingle()
+
+  if (selErr) {
+    console.error('Failed to read stock for product', productId, selErr)
+    return
+  }
+
+  const current = Number(row?.stock ?? 0) || 0
+  const next = current + delta
+  if (next < 0) {
+    console.warn(`Stock update would go negative for ${productId}. Skipping.`)
+    return
+  }
+
+  const { error: updErr } = await supabase
+    .schema('games')
+    .from('products')
+    .update({ stock: next })
+    .eq('id', productId)
+
+  if (updErr) {
+    console.error('Failed to update stock for product', productId, updErr)
+  }
+}
+
+/**
+ * Restores stock for a list of entries (product_id + qty). Quantities are aggregated per product.
+ * Example:
+ *   await restoreStock([{ product_id, qty }])
+ */
+async function restoreStock(entries: Array<{ product_id: string; qty: number }>) {
+  if (!Array.isArray(entries) || entries.length === 0) return
+  const reduced = aggregateByProduct(entries)
+  for (const e of reduced) {
+    const inc = Number(e.qty) || 0
+    if (inc > 0) {
+      // increase stock by qty
+      await adjustProductStock(e.product_id, inc)
+    }
+  }
+}
+
+/* =============================== */
+/* === NEW: ORDER RECEIVED BTN === */
+/* =============================== */
+
+/**
+ * Marks all TO_RECEIVE items in the group as COMPLETED and creates order receipts.
+ * Respects discounted prices via refHasDiscount/discountedUnitPrice helpers.
+ */
+async function orderReceivedGroup(g: Group) {
+  const toReceiveIds = g.items.filter(it => it.status === STATUS.TO_RECEIVE).map(it => it.id)
+  if (!toReceiveIds.length) return
+  groupBusy.received[g.ref] = true
+  try {
+    // Update DB
+    const { data, error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ status: STATUS.COMPLETED })
+      .in('id', toReceiveIds)
+      .select('id')
+    if (error) {
+      alert(error.message)
+      return
+    }
+    const updatedIds: string[] = Array.isArray(data) ? data.map((r: AnyRec) => r.id) : toReceiveIds
+
+    // Local state update
+    const idSet = new Set(updatedIds)
+    for (const row of purchases.value) {
+      if (idSet.has(row.id)) {
+        row.status = STATUS.COMPLETED
+        row.updated_at = new Date().toISOString()
+      }
+    }
+
+    // Insert ewallet receipts for just-completed items (discount-aware)
+    await createOrderReceiptForGroupCompleted(g, updatedIds)
+  } finally {
+    groupBusy.received[g.ref] = false
+  }
+}
+
+/* =============================== */
+/* === NEW: QTY/SUBTOTAL HELPERS === */
+/* =============================== */
+
+/** Returns unit price for a purchase respecting ref-level or row-level discount logic */
+function unitPriceFor(purchase: AnyRec): number {
+  const ref = purchase?.reference_number || purchase?.id
+  return refHasDiscount(ref) ? discountedUnitPrice(purchase) : productPrice(purchase)
+}
+
+/** Returns subtotal = qty * unit price */
+function subtotalFor(purchase: AnyRec): number {
+  const qty = Number(purchase?.qty ?? 1) || 1
+  return qty * unitPriceFor(purchase)
 }
 
 onMounted(() => {

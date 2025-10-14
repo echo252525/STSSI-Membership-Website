@@ -733,7 +733,7 @@ const pageSize = ref(10)
 const total = ref(0)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-/* data */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const orders = ref<ViewOrder[]>([])
 const productsMap = reactive<Record<string, Product>>({})
 const buyersMap = reactive<Record<string, Buyer>>({})
@@ -1347,6 +1347,43 @@ async function updateStatus(purchaseId: string, status: string) {
   }
 }
 
+/* ★ STOCK RESTORE: helper to add qty back to games.products.stock */
+async function restoreStock(productId?: string | null, qty?: number | null) {
+  try {
+    const pid = String(productId || '')
+    const addQty = Number(qty ?? 0)
+    if (!pid || !isFinite(addQty) || addQty <= 0) return
+
+    // 1) read current stock
+    const { data: prod, error: getErr } = await supabase
+      .schema('games')
+      .from('products')
+      .select('stock')
+      .eq('id', pid)
+      .single()
+
+    if (getErr || !prod) {
+      console.error('[restoreStock] fetch stock failed', getErr?.message)
+      return
+    }
+
+    const newStock = Number(prod.stock || 0) + addQty
+
+    // 2) update stock (triggers trg_products_touch)
+    const { error: upErr } = await supabase
+      .schema('games')
+      .from('products')
+      .update({ stock: newStock })
+      .eq('id', pid)
+
+    if (upErr) {
+      console.error('[restoreStock] update stock failed', upErr.message)
+    }
+  } catch (e: any) {
+    console.error('[restoreStock] exception', e?.message || e)
+  }
+}
+
 async function markAsShipped(purchaseId: string) {
   await updateStatus(purchaseId, STATUS.TO_RECEIVE)
 }
@@ -1371,7 +1408,17 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
   const order = orders.value.find(o => o.id === purchaseId)
   if (!order) {
+    // Fallback: update status then fetch qty/product to restore stock
     await updateStatus(purchaseId, STATUS.CANCELLED)
+    try {
+      const { data: pr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .select('product_id, qty')
+        .eq('id', purchaseId)
+        .single()
+      await restoreStock(pr?.product_id, pr?.qty)
+    } catch {}
     return
   }
 
@@ -1384,6 +1431,11 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 
   const shouldRefundEwallet = isEwallet && isToShip
   const shouldInsertCODReceipt = isCOD && (isToPay || isToShip)
+
+  // ★ STOCK RESTORE: get product & qty from local order item (single-item purchases design)
+  const item = order.items?.[0]
+  const productIdForStock = item?.product_id || null
+  const qtyForStock = item?.qty ?? 1
 
   busy.value.action[purchaseId] = true
   try {
@@ -1441,6 +1493,9 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         console.error('[cancelled_ewallet_receipt insert exception]', e?.message || e)
       }
 
+      // ★ STOCK RESTORE on cancel
+      await restoreStock(productIdForStock, qtyForStock)
+
       order.status = STATUS.CANCELLED
       return
     }
@@ -1475,11 +1530,18 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         console.error('[cancelled_receipt insert exception - COD]', e?.message || e)
       }
 
+      // ★ STOCK RESTORE on cancel
+      await restoreStock(productIdForStock, qtyForStock)
+
       order.status = STATUS.CANCELLED
       return
     }
 
+    // Generic cancel path
     await updateStatus(purchaseId, STATUS.CANCELLED)
+
+    // ★ STOCK RESTORE on generic cancel
+    await restoreStock(productIdForStock, qtyForStock)
   } finally {
     busy.value.action[purchaseId] = false
   }
@@ -1586,7 +1648,13 @@ async function rejectRefund(rr: ReturnRefundRow) {
 }
 /* ---------- /NEW ---------- */
 
-/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ---------- */
+/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ----------
+   UPDATED: 
+   - Refunds (qty × effectiveEach)
+   - effectiveEach = per-purchase discounted price (if cached) 
+                     else (product.price - eventLess) clamped to ≥ 0
+                     else product.price
+*/
 async function completeRefund(rr: ReturnRefundRow) {
   if (!rr) return
   if (!isRRApproved(rr)) {
@@ -1597,10 +1665,11 @@ async function completeRefund(rr: ReturnRefundRow) {
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
+    // Fetch purchase with qty and reference_number (for event discount lookup)
     const { data: purchase, error: pErr } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id,user_id,product_id')
+      .select('id,user_id,product_id,qty,reference_number')
       .eq('id', rr.purchase_id)
       .single()
 
@@ -1609,12 +1678,12 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    const productId = rr.product_id || purchase.product_id
+    // Product base price (fallback if no discounts apply)
     const { data: product, error: prodErr } = await supabase
       .schema('games')
       .from('products')
       .select('id,price')
-      .eq('id', productId)
+      .eq('id', rr.product_id || purchase.product_id)
       .single()
 
     if (prodErr || !product) {
@@ -1622,12 +1691,34 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    const refundAmount = Number(product.price || 0)
-    if (!isFinite(refundAmount) || refundAmount <= 0) {
+    const qty = Number(purchase.qty ?? 1) || 1
+    const baseEach = Number(product.price || 0)
+
+    // Determine effectiveEach:
+    // 1) Use cached per-purchase discounted price if present
+    let effectiveEach = discountedByPurchase[purchase.id] != null
+      ? Number(discountedByPurchase[purchase.id])
+      : NaN
+
+    // 2) Else apply event-based discount by reference_number (if any)
+    if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+      const eventLess = winnerRefundForRef(purchase.reference_number)
+      effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
+    }
+
+    // 3) Final fallback to base price (should be rare)
+    if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+      effectiveEach = baseEach
+    }
+
+    // Total refund = qty × effectiveEach
+    const totalRefund = Number((effectiveEach * qty).toFixed(2))
+    if (!isFinite(totalRefund) || totalRefund <= 0) {
       alert('Invalid refund amount computed.')
       return
     }
 
+    // Transition RR to completed (only from approved)
     const { error: rrUpdateErr } = await supabase
       .schema('games')
       .from('return_refunds')
@@ -1642,6 +1733,7 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
+    // Credit user's e-wallet with TOTAL amount
     const { data: urow, error: uErr } = await supabase
       .from('users')
       .select('id,balance')
@@ -1654,7 +1746,7 @@ async function completeRefund(rr: ReturnRefundRow) {
     }
 
     const currentBal = Number(urow.balance || 0)
-    const newBal = Number((currentBal + refundAmount).toFixed(2))
+    const newBal = Number((currentBal + totalRefund).toFixed(2))
 
     const { error: balErr } = await supabase
       .from('users')
@@ -1666,13 +1758,14 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
+    // Insert refund receipt with TOTAL amount_refunded
     try {
       const { error: rrRecErr } = await supabase
         .schema('ewallet')
         .from('refund_receipt')
         .insert({
           return_refund_id: rrId,
-          amount_refunded: Number(refundAmount.toFixed(2)),
+          amount_refunded: totalRefund, // ← TOTAL (qty × effectiveEach)
         })
 
       if (rrRecErr) {
@@ -1681,6 +1774,9 @@ async function completeRefund(rr: ReturnRefundRow) {
     } catch (e: any) {
       console.error('[refund_receipt insert exception]', e?.message || e)
     }
+
+    // ★ STOCK RESTORE on refund completion (return the purchased qty)
+    await restoreStock(rr.product_id || purchase.product_id, qty)
 
     rr.status = 'completed'
   } finally {
