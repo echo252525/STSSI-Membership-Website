@@ -34,7 +34,8 @@
             <small class="text-muted ms-2">{{ timeAgo(n.when) }}</small>
           </div>
           <div class="text-muted small mt-1">
-            Ref: {{ n.reference_number }} <span v-if="n.bank_name && n.bank_name !== '—'">| Bank: {{ n.bank_name }}</span>
+            Ref: {{ n.reference_number }}
+            <span v-if="n.bank_name && n.bank_name !== '—'">| Bank: {{ n.bank_name }}</span>
           </div>
         </div>
       </div>
@@ -246,61 +247,61 @@ function toSentence(tx: TxRow): string {
   }
 }
 
-/** NEW: Order transaction sentence */
+/** edited NEW: Order transaction sentence */
 function orderTxSentence(o: OrderTxRow): string {
   const amt = peso(o.total_amount)
   const date = fmtDate(o.updated_at ?? o.created_at)
-  return `Your order payment of ${amt} was recorded on ${date}. Ref: ${o.reference_number}.`
+  return `1. Your order payment of ${amt} was recorded on ${date}.`
 }
 
-/** NEW: Order receipt grouped sentence */
+/** edited NEW: Order receipt grouped sentence */
 function orderReceiptSentence(total: number, reference_number: string, whenIso: string): string {
   const amt = peso(total)
   const date = fmtDate(whenIso)
-  return `Total payment for Order #${reference_number}: ${amt} (as of ${date}).`
+  return `2. Your total payment of ${amt} for order #${reference_number} on ${date} was succesfully processed.`
 }
 
 /** NEW: Refund receipt sentence */
 function refundReceiptSentence(amount: string | number, purchaseRef: string): string {
   const amt = peso(amount)
-  return `${amt} has been refunded to your e-wallet for Order #${purchaseRef}.`
+  return `3. ${amt} has been refunded to your e-wallet for order #${purchaseRef}.`
 }
 
-/** NEW: Discount credits grouped sentence */
+/** edited NEW: Discount credits grouped sentence */
 function discountCreditsSentence(total: number, reference_number: string, whenIso: string): string {
   const amt = peso(total)
   const date = fmtDate(whenIso)
-  return `An amount of ${amt} has been deducted from your discount credit balance for Order #${reference_number} (as of ${date}).`
+  return `4. ${amt} has been deducted from your discount credit balance for order #${reference_number} on ${date}.`
 }
 
-/** NEW: Game receipt sentence */
+/** edited NEW: Game receipt sentence */
 function gameReceiptSentence(e: EventLite, whenIso: string, isWinner: boolean): string {
   const date = fmtDate(whenIso)
   const entry = peso(e.entry_fee)
   const refundBase = isWinner ? e.winner_refund_amount : e.loser_refund_amount
   const refund = peso(typeof refundBase === 'string' ? Number(refundBase) : (refundBase ?? 0))
-  const outcome = isWinner ? 'You won' : 'You lost'
-  return `Mini game "${e.title}" on ${date}: ${outcome}. Entry fee ${entry}. Refunded ${refund} to your e-wallet.`
+  const outcome = isWinner ? 'Congratulations, you won!' : 'You lost'
+  return `5. You joined the mini game "${e.title}" on ${date} with an entry fee of ${entry}. ${outcome}. ${refund} has been refunded to your e-wallet.`
 }
 
 /** NEW: Append prize snippet */
 function gamePrizeSnippet(prize: PrizePurchase): string {
   const amt = peso(typeof prize.discounted_price === 'string' ? Number(prize.discounted_price) : prize.discounted_price)
-  return ` Prize product: Order #${prize.reference_number} (Discounted price ${amt}).`
+  return ` 6. Prize product: order #${prize.reference_number} (Discounted price ${amt}).`
 }
 
-/** NEW: Cancelled receipt sentence (grouped, COD) */
+/** edited NEW: Cancelled receipt sentence (grouped, COD) */
 function cancelledReceiptGroupSentence(total: number, ref: string, whenIso: string): string {
   const date = fmtDate(whenIso)
   const amt = peso(total)
-  return `Order #${ref} was cancelled on ${date}. Payment method: Cash on Delivery (COD). Total amount: ${amt}.`
+  return `7. Your order #${ref} was cancelled on ${date}. The payment method was {payMethod}, with a total amount of ${amt}.`
 }
 
-/** NEW: Cancelled ewallet sentence (grouped) */
+/** edited NEW: Cancelled ewallet sentence (grouped) */
 function cancelledEwalletGroupSentence(total: number, ref: string, whenIso: string): string {
   const date = fmtDate(whenIso)
   const amt = peso(total)
-  return `Order #${ref} was cancelled on ${date}. Payment method: E-wallet. Total amount: ${amt}.`
+  return `8. Your e-wallet payment for order #${ref} was cancelled on ${date}. The total amount of ${amt} will no longer be deducted.`
 }
 
 function txIconClass(s: string) {
@@ -456,7 +457,7 @@ function cancelledReceiptToUiRow(c: CancelledReceiptRow): UiRow {
     bank_name: '—',
     status: 'cancelled_cod',
     when: whenIso,
-    message: `Order #${c.reference_number ?? '—'} was cancelled on ${fmtDate(whenIso)}. Payment method: Cash on Delivery (COD).`,
+    message: `9. Order #${c.reference_number ?? '—'} was cancelled on ${fmtDate(whenIso)}. Payment method: Cash on Delivery (COD).`,
     raw: c,
   }
 }
@@ -1124,5 +1125,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.bg-light-subtle { background: #f8f9fa; }
+.bg-light-subtle {
+  background: #f8f9fa;
+}
 </style>
