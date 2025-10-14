@@ -18,12 +18,16 @@
     "format": "prettier --write src/"
   },
   "dependencies": {
+    "@pixi/filter-glow": "^5.2.1",
     "@popperjs/core": "^2.11.8",
     "@supabase/supabase-js": "^2.57.4",
     "@vitejs/plugin-vue": "^6.0.1",
     "@vitejs/plugin-vue-jsx": "^5.0.1",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "gsap": "^3.13.0",
+    "pixi.js": "^8.14.0",
+    "vanilla-tilt": "^1.8.1",
     "vite": "^7.0.6",
     "vite-plugin-vue-devtools": "^8.0.0",
     "vue": "^3.5.18",

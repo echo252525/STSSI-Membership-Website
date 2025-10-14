@@ -56,18 +56,25 @@
             <div v-for="n in 100" :key="n" class="bulb" :style="bulbStyle(n)"></div>
           </div>
 
-          <div class="wheel-wrap mx-auto mb-3" :class="{ spinning }" :style="wheelVars">
+          <div
+            ref="wheelWrapEl"
+            class="wheel-wrap mx-auto mb-3"
+            :class="{ spinning }"
+            :style="wheelVars"
+          >
             <div class="pointer"></div>
 
             <!-- wheel face -->
             <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
+              <!-- ====== PIXI FX CANVAS HOST (inside wheel for proper clipping) ====== -->
+              <div ref="fxHost" class="fx-host" aria-hidden="true"></div>
+
               <!-- hub -->
               <div class="hub"></div>
               <div class="hub-label">Spin</div>
               <div class="hub-dot"></div>
 
-              <!-- slice labels – counter-rotated to stay upright -->
-              <!-- CHANGED: use wheelFaces to freeze labels & colors while spinning -->
+              <!-- slice labels – now locked to ring radius, colored per-slice, width = arc length -->
               <template v-for="(p, i) in wheelFaces" :key="p.id">
                 <div
                   class="slice-label"
@@ -94,6 +101,7 @@
               class="btn btn-primary btn-arcade"
               :disabled="!canSpinGate || spinning || busy.commit || syncPlanActive"
               @click="scheduleSynchronizedSpin(true)"
+              :title="canSpinGate ? 'Click or press Space to spin' : 'Waiting for players…'"
             >
               <span v-if="spinning" class="spinner-border spinner-border-sm me-2"></span>
               SPIN
@@ -116,7 +124,6 @@
               :key="u"
               class="prod-img"
               :src="u"
-              :alt="productMeta?.name || 'Product'"
               :class="{ 'is-active': idx === currentProdIdx }"
             />
           </div>
@@ -205,7 +212,6 @@
                 <img
                   v-if="productSignedUrls.length"
                   :src="productSignedUrls[0]"
-                  :alt="productMeta?.name || 'Prize'"
                 />
                 <div v-else class="intro-prize-placeholder">🎁</div>
               </div>
@@ -247,10 +253,146 @@
 
 <script setup lang="ts">
 /* ======== ORIGINAL SCRIPT (kept) + intro auto-start + SYNC plan + persistence ========= */
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
+
+// ===== Background Music Setup =====
+const bgMusic = ref<HTMLAudioElement | null>(null)
+const isMusicPlaying = ref(false)
+
+function initBackgroundMusic() {
+  if (bgMusic.value) return
+
+  const audio = new Audio()
+  // 🔊 Replace with your actual background music URL (must be secure HTTPS)
+  audio.src = '../../../public/videoplayback.mp3' // <-- EXAMPLE (short beep). Replace with loopable music!
+  audio.loop = true
+  audio.volume = 0.3 // 30% volume
+  bgMusic.value = audio
+
+  // Attempt to play on load (may be blocked)
+  playBackgroundMusic()
+}
+
+async function playBackgroundMusic() {
+  if (!bgMusic.value) return
+  try {
+    await bgMusic.value.play()
+    isMusicPlaying.value = true
+  } catch (err) {
+    // Autoplay blocked – that's OK. We'll retry on user interaction.
+    console.warn('Autoplay blocked. Music will start on first interaction.')
+  }
+}
+
+function pauseBackgroundMusic() {
+  if (bgMusic.value) {
+    bgMusic.value.pause()
+    isMusicPlaying.value = false
+  }
+}
+
+// Resume music on first user interaction (any click)
+function handleUserGesture() {
+  if (bgMusic.value && !isMusicPlaying.value) {
+    playBackgroundMusic()
+  }
+  // Remove listener after first interaction to avoid repeated calls
+  window.removeEventListener('click', handleUserGesture)
+}
+
+/* =========================
+   ENHANCEMENT IMPORTS (optional)
+   - GSAP is dynamically imported (if installed) for buttery-smooth spins,
+     easing, and perfect targeting accuracy.
+   - If not installed, the original CSS transition path stays in effect.
+   ========================= */
+let gsap: any = null
+let gsapSpinTween: any = null
+
+/* ===== NEW: Optional Gaming Modules (PixiJS, Glow Filter, VanillaTilt) ===== */
+let PIXI: any = null
+let GlowFilter: any = null
+let VanillaTilt: any = null
+
+/* ===== Tiny haptics & richer SFX ===== */
+let audioCtx: AudioContext | null = null
+let tickTimer: number | null = null
+let whooshNode: OscillatorNode | null = null
+let whooshGain: GainNode | null = null
+
+function initAudio() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)()
+  } catch {}
+}
+function vib(ms = 30) {
+  try { navigator.vibrate?.(ms) } catch {}
+}
+function playTick(freq = 2200, len = 0.05, vol = 0.08) {
+  try {
+    if (!audioCtx) return
+    const osc = audioCtx.createOscillator()
+    const gain = audioCtx.createGain()
+    osc.type = 'square'
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime)
+    gain.gain.setValueAtTime(0.0001, audioCtx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(vol, audioCtx.currentTime + 0.005)
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + len)
+    osc.connect(gain).connect(audioCtx.destination)
+    osc.start()
+    osc.stop(audioCtx.currentTime + len)
+  } catch {}
+}
+function startTicks(intervalMs = 110) {
+  stopTicks()
+  // progressively accelerate then decelerate by adjusting interval while spinning (see updateFxSpinVelocity)
+  tickTimer = window.setInterval(() => playTick(1800 + Math.random() * 400, 0.045, 0.06), intervalMs)
+}
+function stopTicks() {
+  if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
+}
+function startWhoosh() {
+  try {
+    if (!audioCtx) return
+    stopWhoosh()
+    whooshNode = audioCtx.createOscillator()
+    whooshGain = audioCtx.createGain()
+    whooshNode.type = 'sawtooth'
+    whooshNode.frequency.setValueAtTime(80, audioCtx.currentTime)
+    whooshGain.gain.setValueAtTime(0.0001, audioCtx.currentTime)
+    whooshGain.gain.exponentialRampToValueAtTime(0.2, audioCtx.currentTime + 0.15)
+    whooshNode.connect(whooshGain).connect(audioCtx.destination)
+    whooshNode.start()
+  } catch {}
+}
+function stopWhoosh() {
+  try {
+    if (whooshGain) whooshGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.1)
+    if (whooshNode) whooshNode.stop(audioCtx!.currentTime + 0.12)
+  } catch {}
+  whooshNode = null; whooshGain = null
+}
+function winStinger() {
+  try {
+    if (!audioCtx) return
+    const chord = [523.25, 659.25, 783.99] // C5 E5 G5
+    chord.forEach((f, i) => {
+      const o = audioCtx!.createOscillator()
+      const g = audioCtx!.createGain()
+      o.type = 'triangle'
+      o.frequency.value = f
+      g.gain.setValueAtTime(0.0001, audioCtx!.currentTime)
+      g.gain.exponentialRampToValueAtTime(0.18, audioCtx!.currentTime + 0.02 + i*0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.35 + i*0.02)
+      o.connect(g).connect(audioCtx!.destination)
+      o.start()
+      o.stop(audioCtx!.currentTime + 0.38 + i*0.02)
+    })
+  } catch {}
+}
 
 const routers = useRouter()
 const user = computed(() => currentUser.value)
@@ -338,7 +480,6 @@ function loadPlanFromStorage(): SpinPlan | null {
     if (!raw) return null
     const obj = JSON.parse(raw) as SpinPlan
     if (!obj?.spinAt || !obj?.introUntil) return null
-    // expire if well past spin
     if (Date.now() > obj.spinAt + 60_000) { localStorage.removeItem(storageKey()); return null }
     return obj
   } catch { return null }
@@ -368,7 +509,7 @@ let countdownHandle: number | null = null
 const autoSpinStarted = ref(false)
 const rpcWinnerId = ref<string | null>(null)
 
-/* NOTE: this snapshot is used to FREEZE the wheel’s faces during a spin */
+/* NOTE: this snapshot is used to FREEZE the wheel’s faces during/after a spin */
 let participantsSnapshot: EntryRow[] = []
 
 const spinStarted = ref(false)
@@ -379,7 +520,7 @@ const refundsCommitted = ref(false)
 let refundsInflight = false
 
 /* ======== product meta / signed images carousel ========= */
-const productMeta = ref<{ id: string; name: string; price: number; product_url: string[] } | null>(
+const productMeta = ref<{ id: string; name: number | string; price: number; product_url: string[] } | null>(
   null,
 )
 const productSignedUrls = ref<string[]>([])
@@ -394,11 +535,10 @@ const spinEntries = computed(() =>
   readyEntries.value.length > 0 ? readyEntries.value : joinedEntries.value,
 )
 
-/* NEW: Freeze the wheel’s data while spinning (or once spin starts) */
+/* --- CHANGE: keep names/colors intact even AFTER spin ends.
+   Once participantsSnapshot is set, prefer it always. --- */
 const wheelFaces = computed<EntryRow[]>(() => {
-  return (spinning.value || spinStarted.value) && participantsSnapshot.length
-    ? participantsSnapshot
-    : spinEntries.value
+  return participantsSnapshot.length ? participantsSnapshot : spinEntries.value
 })
 
 const anyWinner = computed(() => entries.value.some((e) => e.status === 'winner'))
@@ -407,6 +547,7 @@ const allReady = computed(
 )
 const canSpinGate = computed(() => allReady.value && !anyWinner.value)
 
+/* (kept) side lists */
 const leftSideEntries = computed(() => {
   const mid = Math.ceil(entries.value.length / 2)
   return entries.value.slice(0, mid)
@@ -425,7 +566,6 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
 
 /* ======== UI helpers ========= */
 function openOutcomePopupIfMe() {
-  // NEW GUARD: never open while the wheel is spinning or the spin just started.
   if (spinning.value || spinStarted.value) return
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
   const winnerUserId = displayWinnerEntry.value.user_id
@@ -469,12 +609,16 @@ function sliceColor(i: number, n: number, uid?: string) {
   return uid ? hashColor(uid) : `hsl(${Math.round((360 * i) / Math.max(1, n))} 78% 55%)`
 }
 
-/* Rotation via CSS var so labels can counter-rotate cleanly */
+/* Rotation via CSS var so labels can counter-rotate cleanly
+   + NEW: we also pass through wheel size & label ring radius to CSS */
+const WHEEL_SIZE = 340
 const wheelVars = computed(() => ({
   '--wheel-rot': `${rotateDeg.value}deg`,
+  '--wheel-size': `${WHEEL_SIZE}px`,
+  '--label-radius': `${Math.round(WHEEL_SIZE * 0.42)}px`,
 }))
 
-/* CHANGED: build gradient using wheelFaces so colors stay matched during spin */
+/* build gradient using wheelFaces so colors stay matched during/after spin */
 const wheelStyle = computed(() => {
   const n = Math.max(1, wheelFaces.value.length)
   const stops: string[] = []
@@ -496,22 +640,25 @@ const wheelStyle = computed(() => {
   } as any
 })
 
-/* CHANGED: label angle uses wheelFaces length so labels don’t jump */
+/* Label geometry + dynamic width (arc-length clamp) */
 function labelVars(i: number) {
   const n = Math.max(1, wheelFaces.value.length)
   const mid = (360 / n) * (i + 0.5)
   return { '--slice-angle': `${mid}deg` } as any
 }
 function sliceLabelStyle(i: number, uid?: string) {
+  const n = Math.max(1, wheelFaces.value.length)
+  // approximate arc length for a ring near the rim (radius ~= 0.42 * wheel size)
+  const radius = WHEEL_SIZE * 0.42
+  const arc = (2 * Math.PI * radius) / n
+  const max = Math.max(40, Math.min(arc - 10, 160)) // clamp to keep it tidy
+  const bg = sliceColor(i, n, uid)
   return {
     color: '#fff',
-    textShadow: '0 1px 2px rgba(0,0,0,.65), 0 0 4px rgba(0,0,0,.25)',
-    background: 'rgba(0,0,0,.18)',
-    padding: '2px 8px',
-    borderRadius: '10px',
-    boxShadow: `0 0 0 2px rgba(255,255,255,.10), 0 0 10px ${sliceColor(i, 1, uid)}55`,
-    willChange: 'transform',
-    backfaceVisibility: 'hidden',
+    background: `color-mix(in hsl, ${bg} 52%, transparent)`,
+    border: `1px solid color-mix(in hsl, ${bg} 70%, transparent)`,
+    boxShadow: `0 0 10px color-mix(in hsl, ${bg} 35%, transparent), 0 1px 2px rgba(0,0,0,.4)`,
+    maxWidth: `${Math.round(max)}px`,
   } as any
 }
 
@@ -634,16 +781,70 @@ function setErr(e: any, ctx: string) {
   console.error(`[${ctx}]`, e)
 }
 
-/* ======== SPIN ========= */
-/* CHANGED: slice size computed from participantsSnapshot to keep mapping stable */
+/* ======== (ENHANCED) SPIN ========= */
+/* Helper to animate to a degree using GSAP if present. Keeps your rotateDeg + CSS var approach. */
+async function animateToDegWithGsap(targetDeg: number, durationMs: number) {
+  if (!gsap) return false
+  try {
+    if (gsapSpinTween) { try { gsapSpinTween.kill() } catch {} ; gsapSpinTween = null }
+    initAudio()
+    startWhoosh()
+    startTicks(Math.max(60, Math.min(140, durationMs / 50))) // auto-scale tick rate
+    vib(20)
+
+    const seconds = Math.max(0.1, durationMs / 1000)
+    spinning.value = true
+    updateFxIntensity(1)
+
+    gsapSpinTween = gsap.to(rotateDeg, {
+      value: targetDeg,
+      duration: seconds,
+      ease: 'power3.out',
+      onUpdate: () => {
+        updateFxSpinVelocity()
+      },
+      onComplete: async () => {
+        try { stopWhoosh(); stopTicks() } finally {
+          updateFxIntensity(0)
+          await onSpinEnd()
+        }
+      },
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+/* NEW: more natural “non-centered” stop—random offset inside the winning slice */
+function randomOffsetWithinSlice(n: number) {
+  const slice = 360 / Math.max(1, n)
+  const half = slice / 2
+  const margin = Math.min(half * 0.6, 12) // keep pointer clearly inside slice
+  const span = half - margin
+  return (Math.random() * 2 - 1) * span // [-span, +span]
+}
+
 async function startSpin(forcedIndex: number) {
   const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
   const slice = 360 / n
-  const targetAngle = slice * (forcedIndex + 0.5)
+  const baseAngle = slice * (forcedIndex + 0.5)
+  const jitter = randomOffsetWithinSlice(n) // << key change: don’t auto-center
+  const targetAngle = baseAngle + jitter
   const fullTurns = 12
-  rotateDeg.value = 360 * fullTurns + (360 - targetAngle)
+  const targetDeg = 360 * fullTurns + (360 - targetAngle)
+
   spinning.value = true
+  updateFxIntensity(1)
+
+  const usedGsap = await animateToDegWithGsap(targetDeg, spinDurationMs.value)
+  if (!usedGsap) {
+    initAudio(); startWhoosh(); startTicks(Math.max(60, Math.min(140, spinDurationMs.value / 50))); vib(20)
+    rotateDeg.value = targetDeg
+    // CSS transition path will trigger @transitionend -> onSpinEnd
+  }
 }
+
 async function settleEntriesAfterSpin(winnerId: string) {
   try {
     await supabase.schema('games').from('entry').update({ status: 'winner' }).eq('id', winnerId)
@@ -707,7 +908,6 @@ function safeNum(v: any, def = 0) {
   return Number.isFinite(n) ? n : def
 }
 function computeDiscountedPriceFromEvent() {
-  // discounted_price = entry_fee - winner_refund_amount (never negative), rounded to 2 decimals
   const ef = safeNum(eventInfo.value?.entry_fee, 0)
   const wr = safeNum(eventInfo.value?.winner_refund_amount, 0)
   const val = Math.max(0, ef - wr)
@@ -747,7 +947,6 @@ async function createWinnerPurchaseIfNeeded() {
       return
     }
 
-    // 🔹 NEW: compute discounted_price = entry_fee - winner_refund_amount
     const discounted_price = computeDiscountedPriceFromEvent()
 
     let insertedId: string | null = null
@@ -759,7 +958,6 @@ async function createWinnerPurchaseIfNeeded() {
           user_id: winnerUid,
           product_id: productId,
           reference_number: eventId,
-          // 🔹 NEW: persist discounted price at insert time
           discounted_price,
         })
         .select('id')
@@ -873,6 +1071,22 @@ async function processRefundsAndPayments() {
 async function onSpinEnd() {
   if (!spinning.value) return
   spinning.value = false
+  stopWhoosh()
+  stopTicks()
+  updateFxIntensity(0)
+
+  // subtle screen shake & haptic on stop
+  try { vib(35) } catch {}
+  try {
+    if (gsap && wheelWrapEl.value) {
+      await gsap.fromTo(
+        wheelWrapEl.value,
+        { x: -2, rotation: 0.2 },
+        { x: 0, rotation: 0, duration: 0.18, ease: 'power2.out' }
+      )
+    }
+  } catch {}
+
   if (rpcWinnerId.value) {
     const idx = participantsSnapshot.findIndex((e) => e.id === rpcWinnerId.value)
     if (idx >= 0) winnerEntry.value = participantsSnapshot[idx]
@@ -890,7 +1104,7 @@ async function onSpinEnd() {
   busy.value.commit = false
   spinStarted.value = false
   revealWinner.value = true
-  // Modal may only open after spin completes (guarded inside the function as well)
+  winStinger() // celebratory chord
   openOutcomePopupIfMe()
 }
 async function triggerServerSpinAndAnimate() {
@@ -924,7 +1138,7 @@ async function triggerServerSpinAndAnimate() {
     }
     if (forcedIdx < 0) {
       await settleEntriesAfterSpin(winner_id)
-      await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
+      await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
       await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
       await insertReceiptsForParticipants(participantsSnapshot)
       await ensureVoucherForWinner()
@@ -954,6 +1168,12 @@ function actuallyStartCountdown(asLeader = false) {
   countdownHandle = window.setInterval(async () => {
     if ((countdown.value as number) > 1) {
       countdown.value = (countdown.value as number) - 1
+      // dumb tempo ramp for ticks
+      try {
+        const base = Math.max(60, Math.min(140, spinDurationMs.value / 50))
+        if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
+        startTicks(base - (3 - (countdown.value as number)) * 8)
+      } catch {}
     } else {
       clearInterval(countdownHandle!)
       countdownHandle = null
@@ -961,7 +1181,6 @@ function actuallyStartCountdown(asLeader = false) {
       if (asLeader) {
         await triggerServerSpinAndAnimate()
       } else {
-        // Failover: if leader didn't trigger within 1500ms after planned spin time, promote self
         const plan = syncPlan.value
         if (plan) {
           window.setTimeout(async () => {
@@ -985,7 +1204,6 @@ async function scheduleSynchronizedSpin(asLeader: boolean) {
   if (!eventId || !canSpinGate.value || resolved.value || spinning.value || spinStarted.value) return
   if (syncPlan.value) return
 
-  // Leader constructs the plan; followers will receive it via broadcast or storage
   if (asLeader) {
     isLeaderForPlan = true
     const t0 = ceilToSecond(nowMs() + 400)
@@ -1009,20 +1227,16 @@ function adoptSyncPlan(plan: SpinPlan) {
   syncPlan.value = plan
   savePlanToStorage(plan)
 
-  // Determine leadership from plan
   isLeaderForPlan = !!(plan.createdBy && myUserId.value && plan.createdBy === myUserId.value)
 
-  // Open intro for remaining time (or skip if already passed)
   const remIntroMs = Math.max(0, plan.introUntil - nowMs())
   if (remIntroMs > 100) {
     openIntro(remIntroMs)
   } else {
-    // If intro time already passed, ensure intro is closed and jump to countdown phase scheduling
     closeIntro(true)
   }
 
   clearSyncTimers()
-  // When intro ends, schedule countdown so it ends exactly at spinAt
   const afterIntroDelay = remIntroMs
   syncIntroEndTimer = window.setTimeout(() => {
     const untilCountdownStart = Math.max(0, plan.spinAt - nowMs() - 3_000)
@@ -1031,10 +1245,8 @@ function adoptSyncPlan(plan: SpinPlan) {
     }, untilCountdownStart)
   }, afterIntroDelay)
 
-  // Periodic re-broadcast while plan is active (helps late joiners and reloads)
   startRebroadcastingPlan()
 
-  // Safety cleanup after plan window
   syncCleanupTimer = window.setTimeout(() => {
     stopRebroadcastingPlan()
     clearSyncTimers()
@@ -1053,7 +1265,6 @@ function clearSyncTimers() {
 function startRebroadcastingPlan() {
   stopRebroadcastingPlan()
   if (!syncPlan.value || !syncChannel) return
-  // Re-broadcast every ~2.5s until spin time
   rebroadcastTimer = window.setInterval(() => {
     const plan = syncPlan.value
     if (!plan) return
@@ -1073,7 +1284,6 @@ async function ensureSyncChannel() {
       try {
         const plan = payload as SpinPlan
         if (!plan || plan.eventId !== eventId) return
-        // Prefer earliest spinAt (in case of duplicate plans)
         if (!syncPlan.value || (plan.spinAt && plan.spinAt < (syncPlan.value?.spinAt || Infinity))) {
           isLeaderForPlan = !!(plan.createdBy && myUserId.value && plan.createdBy === myUserId.value)
           adoptSyncPlan(plan)
@@ -1081,11 +1291,9 @@ async function ensureSyncChannel() {
       } catch {}
     })
     .on('broadcast', { event: 'plan_request' }, async () => {
-      // Someone asked for the current plan; if we have one, share it
       if (syncPlan.value) {
         try { await syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: syncPlan.value }) } catch {}
       } else {
-        // If we don't, but have it in storage and it's valid, share that
         const stored = loadPlanFromStorage()
         if (stored) {
           try { await syncChannel.send({ type: 'broadcast', event: 'intro_plan', payload: stored }) } catch {}
@@ -1105,14 +1313,11 @@ function requestSyncPlan() {
 /* ===== Original "startCountdownAndSpin" now defers to sync plan ===== */
 function startCountdownAndSpin() {
   if (autoSpinStarted.value || resolved.value || spinning.value || spinStarted.value) return
-  // always coordinate through synchronized plan
   Promise.all([fetchEntries()]).then(async () => {
-    // Try to adopt a stored plan first (handles refresh/back)
     const stored = loadPlanFromStorage()
     if (stored && (!syncPlan.value || stored.spinAt < (syncPlan.value?.spinAt || Infinity))) {
       await ensureSyncChannel()
       adoptSyncPlan(stored)
-      // Also request plan so others can echo the freshest one
       requestSyncPlan()
       return
     }
@@ -1124,7 +1329,6 @@ function startCountdownAndSpin() {
           await scheduleSynchronizedSpin(true)
         }
       })
-      // meanwhile try to discover any existing plan
       await ensureSyncChannel()
       requestSyncPlan()
       return
@@ -1206,7 +1410,7 @@ function makeRealtimeChannelSpin() {
           await startSpin(forcedIdx)
         } else {
           await settleEntriesAfterSpin(winner_id)
-          await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
+          await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
           await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
           await insertReceiptsForParticipants(participantsSnapshot)
           await ensureVoucherForWinner()
@@ -1218,7 +1422,6 @@ function makeRealtimeChannelSpin() {
           revealWinner.value = true
         }
         await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-        // IMPORTANT: Don't open the modal here; let onSpinEnd handle it after the wheel fully stops.
       },
     )
     .subscribe((s: any) => {
@@ -1263,18 +1466,14 @@ watch(
   async () => {
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
     await ensureVoucherForWinner()
-    // May trigger after spin end; guarded to avoid early open during spin.
     openOutcomePopupIfMe()
   },
 )
-/* When everyone is ready: show intro once (10s), then auto-start in sync */
 watch(
   () => [allReady.value, eventInfo.value?.player_cap, resolved.value] as const,
   async ([gateOk, , isResolved]) => {
     if (isResolved) return
     if (gateOk && !autoSpinStarted.value && !spinning.value && !spinStarted.value && !syncPlanActive.value) {
-      // First ready client becomes leader and broadcasts;
-      // on reload, we’ll re-adopt from storage or request peers.
       await scheduleSynchronizedSpin(true)
     }
   },
@@ -1411,7 +1610,6 @@ function stopProductRotation() {
 function openIntro(durationMs: number = 10_000) {
   showIntroModal.value = true
   hasSeenIntro.value = true
-  // derive seconds from precise remaining ms
   introSeconds.value = Math.max(1, Math.ceil(durationMs / 1000))
   if (introInterval) { clearInterval(introInterval); introInterval = null }
   if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
@@ -1422,7 +1620,6 @@ function openIntro(durationMs: number = 10_000) {
 
   introTimeout = window.setTimeout(() => {
     closeIntro(true)
-    // NOTE: countdown is scheduled by sync plan (not here)
   }, durationMs)
 }
 function closeIntro(markSeen = true) {
@@ -1432,8 +1629,207 @@ function closeIntro(markSeen = true) {
   if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
 }
 
+/* ===================== ENHANCEMENT: PIXI FX + VANILLA TILT ===================== */
+const fxHost = ref<HTMLElement | null>(null)
+const wheelWrapEl = ref<HTMLElement | null>(null)
+
+let pixiApp: any = null
+let fxStage: any = null
+let ringContainer: any = null
+let particleContainer: any = null
+let frontHalo: any = null
+let backHalo: any = null
+let fxRaf: number | null = null
+
+// Live params
+const fxIntensity = ref(0)        // 0..1
+let fxSpinVel = 0                 // spin velocity proxy
+let lastDeg = 0
+
+function updateFxIntensity(v: number) {
+  fxIntensity.value = Math.max(0, Math.min(1, v))
+  if (frontHalo) frontHalo.filters && (frontHalo.filters[0].outerStrength = 6 + 24 * fxIntensity.value)
+  if (backHalo) backHalo.filters && (backHalo.filters[0].outerStrength = 4 + 18 * fxIntensity.value)
+}
+function updateFxSpinVelocity() {
+  const deg = rotateDeg.value
+  const delta = Math.abs(deg - lastDeg)
+  lastDeg = deg
+  fxSpinVel = Math.min(1.2, delta / 14) // heuristic
+}
+
+async function initVanillaTilt() {
+  try {
+    // @ts-ignore
+    const mod: any = await import(/* @vite-ignore */ 'vanilla-tilt').catch(() => null)
+    if (!mod) return
+    VanillaTilt = mod.default || mod
+    if (wheelWrapEl.value) {
+      VanillaTilt.init(wheelWrapEl.value, {
+        max: 6,
+        speed: 500,
+        glare: true,
+        'max-glare': 0.25,
+        scale: 1.02,
+        perspective: 800,
+      })
+    }
+  } catch {}
+}
+
+async function initPixiFx() {
+  try {
+    const pixiMod: any = await import(/* @vite-ignore */ 'pixi.js').catch(() => null)
+    if (!pixiMod) return
+    PIXI = pixiMod
+    const glowMod: any = await import(/* @vite-ignore */ '@pixi/filter-glow').catch(() => null)
+    GlowFilter = glowMod?.GlowFilter || glowMod?.default || null
+    if (!fxHost.value) return
+
+    const size = fxHost.value.clientWidth || 340
+    pixiApp = new PIXI.Application({
+      width: size,
+      height: size,
+      backgroundAlpha: 0,
+      antialias: true,
+      powerPreference: 'high-performance',
+    })
+    fxHost.value.appendChild(pixiApp.view as HTMLCanvasElement)
+
+    fxStage = new PIXI.Container()
+    pixiApp.stage.addChild(fxStage)
+
+    // Back halo (soft)
+    backHalo = new PIXI.Graphics()
+    backHalo.beginFill(0xffffff, 0.08).drawCircle(size/2, size/2, size*0.45).endFill()
+    if (GlowFilter) backHalo.filters = [new GlowFilter({ distance: 24, outerStrength: 10, color: 0xffcc66, quality: 0.3 })]
+    fxStage.addChild(backHalo)
+
+    // Rotating spark rings
+    ringContainer = new PIXI.Container()
+    fxStage.addChild(ringContainer)
+
+    function addRing(radius: number, thickness: number, color: number, alpha = 0.6, dash = 18) {
+      const g = new PIXI.Graphics()
+      g.lineStyle(thickness, color, alpha)
+      const cx = size/2, cy = size/2
+      const segs = 64
+      for (let i=0;i<segs;i++){
+        if (i % 2 === 0) continue
+        const a0 = (Math.PI*2)*(i/segs)
+        const a1 = (Math.PI*2)*((i+1)/segs)
+        g.moveTo(cx + Math.cos(a0)*radius, cy + Math.sin(a0)*radius)
+        g.lineTo(cx + Math.cos(a1)*radius, cy + Math.sin(a1)*radius)
+      }
+      if (GlowFilter) g.filters = [new GlowFilter({ distance: 16, outerStrength: 6, color, quality: 0.3 })]
+      ringContainer.addChild(g)
+    }
+
+    addRing(size*0.36, 2, 0xffbf00, 0.8)
+    addRing(size*0.30, 2, 0xff66cc, 0.7)
+    addRing(size*0.22, 2, 0x66ffd9, 0.7)
+
+    // Particles
+    particleContainer = new PIXI.ParticleContainer(128, { scale: true, alpha: true, position: true })
+    fxStage.addChild(particleContainer)
+
+    const dotG = new PIXI.Graphics()
+    dotG.beginFill(0xffffff).drawCircle(0,0,2).endFill()
+    const dotTex = pixiApp.renderer.generateTexture(dotG)
+
+    for (let i=0;i<80;i++){
+      const spr = new PIXI.Sprite(dotTex)
+      resetParticle(spr, size)
+      particleContainer.addChild(spr)
+    }
+
+    // Front halo (bright)
+    frontHalo = new PIXI.Graphics()
+    frontHalo.beginFill(0xffffff, 0.06).drawCircle(size/2, size/2, size*0.47).endFill()
+    if (GlowFilter) frontHalo.filters = [new GlowFilter({ distance: 28, outerStrength: 14, color: 0xffe066, quality: 0.3 })]
+    fxStage.addChild(frontHalo)
+
+    // Animation
+    const animate = () => {
+      fxRaf = requestAnimationFrame(animate)
+
+      const baseSpeed = 0.004 + 0.012 * fxIntensity.value + 0.006 * fxSpinVel
+      ringContainer.rotation += baseSpeed
+
+      for (let i=0;i<particleContainer.children.length;i++){
+        const p:any = particleContainer.children[i]
+        p.alpha += (1 - p.life) * 0.004
+        p.life -= (0.006 + 0.02*fxIntensity.value + 0.01*fxSpinVel)
+        p.x += p.vx
+        p.y += p.vy
+        p.vx *= (0.995)
+        p.vy *= (0.995)
+        if (p.life <= 0 || p.x < 0 || p.x > size || p.y < 0 || p.y > size) {
+          resetParticle(p, size)
+        }
+      }
+    }
+    animate()
+  } catch {}
+}
+
+function resetParticle(p:any, size:number){
+  const cx = size/2, cy = size/2
+  const r = Math.random()* size*0.20 + size*0.05
+  const a = Math.random()*Math.PI*2
+  p.x = cx + Math.cos(a)*r
+  p.y = cy + Math.sin(a)*r
+  p.scale.set(0.6 + Math.random()*0.8)
+  p.alpha = 0.3 + Math.random()*0.6
+  const push = 0.3 + Math.random()*1.2
+  p.vx = (p.x - cx) / (r || 1) * (push* (0.2 + fxIntensity.value))
+  p.vy = (p.y - cy) / (r || 1) * (push* (0.2 + fxIntensity.value))
+  p.life = 1
+}
+
+function destroyPixiFx() {
+  if (fxRaf) cancelAnimationFrame(fxRaf), fxRaf = null
+  try {
+    if (pixiApp) {
+      pixiApp.destroy(true, { children: true, texture: true, baseTexture: true })
+    }
+  } catch {}
+  pixiApp = null
+  fxStage = null
+  ringContainer = null
+  particleContainer = null
+  frontHalo = null
+  backHalo = null
+}
+
+watch(spinning, (v) => {
+  updateFxIntensity(v ? 1 : 0)
+})
+
 /* ======== Lifecycle ======== */
 onMounted(async () => {
+  // Try to dynamically import GSAP (optional).
+  try {
+    const mod: any = await import(/* @vite-ignore */ 'gsap').catch(() => null)
+    if (mod) gsap = mod.gsap || mod.default || mod
+  } catch {}
+
+  // OPTIONAL: init gaming modules
+  await nextTick()
+  initVanillaTilt()
+  initPixiFx()
+
+  // keyboard: press Space to trigger spin
+  const onKeydown = (e: KeyboardEvent) => {
+    if (e.code === 'Space') {
+      e.preventDefault()
+      if (!spinning.value && !busy.value.commit && canSpinGate.value && !syncPlanActive.value) {
+        scheduleSynchronizedSpin(true)
+      }
+    }
+  }
+  window.addEventListener('keydown', onKeydown)
+
   await fetchMe()
   await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
   makeRealtimeChannel()
@@ -1443,18 +1839,18 @@ onMounted(async () => {
   startAvatarRefreshTimer()
   document.addEventListener('visibilitychange', onVisibilityChange)
 
-  // Prepare sync and try to recover plan from storage or peers
   await ensureSyncChannel()
 
   const stored = loadPlanFromStorage()
   if (stored) {
     adoptSyncPlan(stored)
-    // Also ask peers for freshest plan (handles device time drift / a newer plan)
     requestSyncPlan()
   } else {
-    // No stored plan: query peers in case one already exists
     requestSyncPlan()
   }
+
+  // cleanup keyboard on unmount
+  onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 })
 onBeforeUnmount(() => {
   if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} ; realtimeChannel = null }
@@ -1470,12 +1866,15 @@ onBeforeUnmount(() => {
   stopPoll()
   stopAvatarRefreshTimer()
   stopProductRotation()
+  stopTicks()
+  destroyPixiFx()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
     try { router.push({ name: 'user.winner' }); return } catch {}
+    try { router.push({ name: 'user.winner' as any }); return } catch {}
     try { router.push('/winner'); return } catch {}
     router.push({ name: 'user.minigames' })
   } else {
@@ -1564,6 +1963,12 @@ function goToMinigames() {
   box-shadow:
     0 16px 40px rgba(0,0,0,.2),
     inset 0 4px 10px rgba(0,0,0,.2);
+  animation: rimRotate 8s linear infinite;
+}
+@keyframes rimRotate {
+  0% { filter: saturate(1) brightness(1); }
+  50% { filter: saturate(1.08) brightness(1.02); }
+  100% { filter: saturate(1) brightness(1); }
 }
 .bulb {
   position: absolute; left: 50%; top: 50%;
@@ -1571,10 +1976,13 @@ function goToMinigames() {
   background: radial-gradient(circle at 30% 30%, #fff, #ffd43b 60%, #f08c00);
   transform-origin: 50% 50%;
   filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
-  animation: bulbBlink 2.4s infinite ease-in-out;
+  animation: bulbChase 2.4s infinite ease-in-out;
 }
 .bulb:nth-child(odd){ animation-delay: .6s }
-@keyframes bulbBlink { 0%,100%{opacity:.9} 50%{opacity:.6} }
+@keyframes bulbChase {
+  0%,100%{ opacity:.95; box-shadow: 0 0 8px rgba(255,212,59,.55); }
+  50%{ opacity:.65; box-shadow: 0 0 2px rgba(255,212,59,.2); }
+}
 
 .wheel-wrap {
   position: relative;
@@ -1584,6 +1992,9 @@ function goToMinigames() {
   z-index: 1;
   transition: transform 0.25s ease;
   will-change: transform;
+  /* NEW: expose size to labels */
+  --wheel-size: 340px;
+  --label-radius: calc(var(--wheel-size) * 0.42);
 }
 .wheel-wrap.spinning { transform: translateY(2px); }
 
@@ -1611,17 +2022,32 @@ function goToMinigames() {
   backface-visibility: hidden;
 }
 
-/* Upright, non-rumbling labels (names on each color) */
+/* ====== PIXI FX HOST ====== */
+.fx-host {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Upright labels placed on a dedicated ring near the rim, colored per slice */
 .slice-label {
   position: absolute; left: 50%; top: 50%;
   transform-origin: 0 0;
   font-size: 13px; font-weight: 900; letter-spacing: 0.2px;
   white-space: nowrap; pointer-events: none;
-  transform: rotate(calc(var(--slice-angle) + var(--wheel-rot))) translate(0, -42%)
-             rotate(calc(-1 * (var(--slice-angle) + var(--wheel-rot))));
+  /* Use px radius so all labels sit on the same track, no stacking */
+  transform:
+    rotate(calc(var(--slice-angle) + var(--wheel-rot)))
+    translate(0, calc(-1 * var(--label-radius)))
+    rotate(calc(-1 * (var(--slice-angle) + var(--wheel-rot))));
+  z-index: 1;
+  padding: 2px 8px;
+  border-radius: 10px;
 }
 .slice-label .label-text {
-  display: inline-block; max-width: 140px; text-overflow: ellipsis; overflow: hidden; vertical-align: middle;
+  display: inline-block;
+  text-overflow: ellipsis; overflow: hidden; vertical-align: middle;
 }
 @media (max-width: 420px) {
   .slice-label { font-size: 12px; }
