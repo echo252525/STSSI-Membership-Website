@@ -1890,6 +1890,9 @@ onMounted(() => {
 }
 
 /* Tight badges for item metadata */
+.badge {
+  color: #212529;
+}
 .badge-tight {
   font-weight: 500;
   padding: 0.35rem 0.6rem;

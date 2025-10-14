@@ -6,7 +6,7 @@
     <!-- Main panel -->
     <div class="content flex-grow-1 d-flex flex-column">
       <!-- Topbar -->
-      <header class="topbar d-flex align-items-center gap-2 p-2 border-bottom bg-white">
+      <header>
         <!-- Mobile toggler (opens the offcanvas sidebar) -->
         <button
           type="button"

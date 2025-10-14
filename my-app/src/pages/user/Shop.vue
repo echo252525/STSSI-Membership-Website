@@ -193,7 +193,7 @@
 
     <div class="row g-3">
       <!-- Sidebar -->
-      <aside class="col-12 col-lg-3">
+      <aside class="col-12 col-xxl-3">
         <div class="card shadow-sm border-0">
           <div class="card-header bg-white"><strong>Filters</strong></div>
           <div class="card-body">
@@ -231,7 +231,7 @@
       </aside>
 
       <!-- Products -->
-      <section class="col-12 col-lg-9">
+      <section class="col-12 col-xxl-9">
         <div v-if="loading" class="text-center text-muted py-5">
           <span class="spinner-border me-2"></span> Loading products…
         </div>
@@ -245,7 +245,7 @@
           </div>
 
           <!-- 2 / 3 / 4 cards per row -->
-          <div class="col-12 col-md-6 col-lg-4" v-for="p in products" :key="p.id">
+          <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id">
             <div class="card h-100 product-card border-0 shadow-sm">
               <div class="ratio product-thumb bg-light">
                 <div
@@ -1994,6 +1994,31 @@ watch(pageSize, () => goToPage(1))
 </script>
 
 <style scoped>
+/* Base ratio for cards */
+.product-thumb.ratio { 
+  --bs-aspect-ratio: 75%; 
+}
+/* current is square (100%). Make it shorter on smaller screens */
+@media (max-width: 1400px) {
+  .product-thumb.ratio { 
+    --bs-aspect-ratio: 100%; 
+  } /* ~4:3 */
+}
+@media (max-width: 1399.98px) {
+  .products-div { 
+    max-height: 480px;
+    max-width: 325px; 
+  }
+}
+@media (max-width: 431px) {
+  .products-div {
+    
+    max-width: 210px;
+  }
+}
+
+
+
 .shop-page {
   --card-radius: 12px;
 }
@@ -2016,9 +2041,6 @@ watch(pageSize, () => goToPage(1))
   border-top-left-radius: var(--card-radius);
   border-top-right-radius: var(--card-radius);
   position: relative;
-}
-.product-thumb.ratio {
-  --bs-aspect-ratio: 100%;
 }
 .object-fit-cover {
   object-fit: cover;

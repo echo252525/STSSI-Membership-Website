@@ -1736,6 +1736,9 @@ onMounted(() => {
   background: #f8f9fa;
   color: #212529;
 }
+.badge {
+  color: #212529;
+}
 .nav-pills .nav-link .badge.border {
   border-color: #e9ecef !important;
 }
