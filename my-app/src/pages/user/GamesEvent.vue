@@ -65,17 +65,6 @@
             <!-- ===== FIXED POINTER (12 o'clock) ===== -->
             <div class="pointer"></div>
 
-            <!-- 🔵 NEW: live pointer badge showing who is under the pointer -->
-            <div
-              v-if="pointerEntry"
-              class="pointer-badge"
-              :title="'Under pointer · ' + displayNameOrPlaceholder(pointerEntry.user_id)"
-              aria-live="polite"
-            >
-              <span class="pb-dot" :style="{ background: pointerColor }"></span>
-              <span class="pb-name">{{ displayNameOrPlaceholder(pointerEntry.user_id) }}</span>
-            </div>
-
             <!-- wheel face -->
             <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
               <!-- ====== PIXI FX CANVAS HOST (inside wheel for proper clipping) ====== -->
@@ -2311,13 +2300,24 @@ function goToMinigames() {
 .wheel-wrap.win-pulse { animation: winPulse .32s ease-out 1; }
 @keyframes winPulse { 0%{transform:scale(1)} 60%{transform:scale(1.015)} 100%{transform:scale(1)} }
 
-.pointer {
-  position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
-  width: 0; height: 0;
-  border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 24px solid #ffbf00;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,.25)); z-index: 3;
+.pointer{
+  position:absolute;
+  top:-8px;             /* ⬅ stays at 12 o’clock */
+  bottom:auto;
+  left:50%;
+  transform:translateX(-50%);
+  width:0; height:0;
+
+  border-left:14px solid transparent;
+  border-right:14px solid transparent;
+  border-top:24px solid #ffbf00;  /* ⬅ points into the wheel */
+  border-bottom:0;
+
+  filter:drop-shadow(0 2px 4px rgba(0,0,0,.25));
+  z-index:3;
   animation: pointerIdle 2s ease-in-out infinite;
 }
+
 .wheel-wrap.spinning .pointer { animation: pointerWiggle .25s ease-in-out infinite; }
 @keyframes pointerIdle { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(1px)} }
 @keyframes pointerWiggle { 0%,100%{transform:translateX(-50%) rotate(0)} 50%{transform:translateX(-50%) rotate(-2deg)} }
