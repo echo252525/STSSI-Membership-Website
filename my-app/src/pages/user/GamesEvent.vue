@@ -1224,12 +1224,12 @@ async function processRefundsAndPayments() {
 }
 
 /* ======== 🔵 NEW: pointer-based winner detection (pure visual math) ======== */
-/* Rule:
-   final = ((rotateDeg % 360) + 360) % 360
-   local = ((270 - final) + 360) % 360
-   winnerIndex = floor((local + slice/2) / slice)  // 🛠 FIX: center-based, robust against edge jitter
+/* ✅ FIX (robust for 4–10+ players):
+   - Compute LOCAL angle under the fixed pointer (12 o'clock = 270° world).
+   - Choose the slice by INTERIOR MEMBERSHIP: floor(local / slice).
+   - This avoids the off-by-one that happened with center-shift rounding when jitter was negative.
 */
-const INDEX_EPS = 1e-6
+const INDEX_EPS = 1e-8
 const pointerIndex = computed<number | null>(() => {
   const faces = wheelFaces.value
   const n = faces.length
@@ -1237,10 +1237,9 @@ const pointerIndex = computed<number | null>(() => {
   const slice = 360 / n
   const final = ((rotateDeg.value % 360) + 360) % 360
   const local = ((270 - final) % 360 + 360) % 360
-  /* 🛠 FIX: pick the wedge whose CENTER is closest to the pointer to avoid off-by-one near edges */
-  const centered = (local + slice / 2) % 360
-  const idx = Math.floor((centered + INDEX_EPS) / slice)
-  return Math.max(0, Math.min(n - 1, idx))
+  let idx = Math.floor((local + INDEX_EPS) / slice)
+  if (idx >= n) idx = n - 1
+  return idx
 })
 const pointerEntry = computed<EntryRow | null>(() => {
   const idx = pointerIndex.value
