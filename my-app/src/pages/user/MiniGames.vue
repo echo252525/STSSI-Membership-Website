@@ -3,7 +3,7 @@
   <div class="container-fluid">
     <div class="card border-0 padding-0 margin-0 shadow-sm rounded-4">
       <div class="card-body">
-        <h2 class="h4 mb-1">Mini Games</h2>
+        <h2 class="h4 mb-1">Mini Gamess</h2>
         <p class="text-secondary mb-1">Join events, spin the wheel, and win purchase discounts.</p>
 
         <div class="d-flex align-items-center justify-content-between">
