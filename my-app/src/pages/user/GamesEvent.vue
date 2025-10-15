@@ -21,13 +21,13 @@
                 <img
                   class="avatar"
                   :src="avatarUrl(e.user_id)"
-                  :alt="displayName(e.user_id)"
+                  :alt="displayNameOrPlaceholder(e.user_id)"
                   @error="onImgError($event, e.user_id)"
                 />
               </div>
               <div class="player-label">
                 <span class="index">Player {{ i + 1 }}</span>
-                <span class="name">{{ displayName(e.user_id) || maskUser(e.user_id) }}</span>
+                <span class="name">{{ displayNameOrPlaceholder(e.user_id) }}</span>
               </div>
             </li>
             <li v-if="entries.length === 0" class="player-empty text-muted">No players yet</li>
@@ -43,7 +43,7 @@
           class="winner-hero alert alert-success p-3 text-center mb-3"
         >
           <div class="fw-bold">
-            🎉 Winner · <code>{{ maskUser(displayWinnerEntry.user_id) }}</code>
+            🎉 Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code>
           </div>
         </div>
 
@@ -59,10 +59,22 @@
           <div
             ref="wheelWrapEl"
             class="wheel-wrap mx-auto mb-3"
-            :class="{ spinning }"
+            :class="{ spinning, 'win-pulse': revealWinner && !spinning }"
             :style="wheelVars"
           >
+            <!-- ===== FIXED POINTER (12 o'clock) ===== -->
             <div class="pointer"></div>
+
+            <!-- 🔵 NEW: live pointer badge showing who is under the pointer -->
+            <div
+              v-if="pointerEntry"
+              class="pointer-badge"
+              :title="'Under pointer · ' + displayNameOrPlaceholder(pointerEntry.user_id)"
+              aria-live="polite"
+            >
+              <span class="pb-dot" :style="{ background: pointerColor }"></span>
+              <span class="pb-name">{{ displayNameOrPlaceholder(pointerEntry.user_id) }}</span>
+            </div>
 
             <!-- wheel face -->
             <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
@@ -74,18 +86,26 @@
               <div class="hub-label">Spin</div>
               <div class="hub-dot"></div>
 
-              <!-- slice labels – now locked to ring radius, colored per-slice, width = arc length -->
+              <!-- slice labels – CENTERED in each colored wedge (upright) -->
               <template v-for="(p, i) in wheelFaces" :key="p.id">
                 <div
                   class="slice-label"
                   :style="[labelVars(i), sliceLabelStyle(i, p.user_id)]"
-                  :title="displayName(p.user_id) || maskUser(p.user_id)"
+                  :title="displayNameOrPlaceholder(p.user_id)"
                 >
                   <span class="label-text">
-                    {{ displayName(p.user_id) || maskUser(p.user_id) }}
+                    {{ displayNameOrPlaceholder(p.user_id) }}
                   </span>
                 </div>
               </template>
+
+              <!-- winner wedge spotlight (fixed to 12 o'clock; highlights wedge under pointer) -->
+              <div
+                v-if="revealWinner && !spinning"
+                class="win-wedge-highlight"
+                :style="highlightVars"
+                aria-hidden="true"
+              ></div>
             </div>
 
             <!-- spinning overlay -->
@@ -145,7 +165,7 @@
       v-if="revealWinner && winnerEntry && !showOutcomeModal"
       class="alert alert-success mt-3 text-center"
     >
-      Winner: <code>{{ maskUser(winnerEntry.user_id) }}</code>
+      Winner: <code>{{ displayNameOrPlaceholder(winnerEntry?.user_id || '') }}</code>
     </div>
 
     <div v-if="err" class="text-danger mt-3">{{ err }}</div>
@@ -168,16 +188,16 @@
           <div class="pop-title" v-if="outcomeType === 'winner'">🎉 Congratulations!</div>
           <div class="pop-title" v-else>Better luck next time</div>
 
-          <p class="mt-2 mb-3" v-if="outcomeType === 'winner'">
+        <p class="mt-2 mb-3" v-if="outcomeType === 'winner'">
             You won this round! <br />
             <small class="text-muted"
-              >Winner · <code>{{ maskUser(displayWinnerEntry?.user_id || '') }}</code></small
+              >Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code></small
             >
           </p>
           <p class="mt-2 mb-3" v-else>
             This time wasn’t yours—but your entry is safe. <br />
             <small class="text-muted"
-              >Winner · <code>{{ maskUser(displayWinnerEntry?.user_id || '') }}</code></small
+              >Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code></small
             >
           </p>
 
@@ -234,8 +254,8 @@
               </div>
               <div class="intro-players-grid">
                 <div v-for="p in spinEntries" :key="p.id" class="intro-player-pill">
-                  <img :src="avatarUrl(p.user_id)" :alt="displayName(p.user_id)" />
-                  <span>{{ displayName(p.user_id) || maskUser(p.user_id) }}</span>
+                  <img :src="avatarUrl(p.user_id)" :alt="displayNameOrPlaceholder(p.user_id)" />
+                  <span>{{ displayNameOrPlaceholder(p.user_id) }}</span>
                 </div>
               </div>
             </div>
@@ -258,7 +278,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
 
-// ===== Background Music Setup =====
+/* ===== Background Music Setup ===== */
 const bgMusic = ref<HTMLAudioElement | null>(null)
 const isMusicPlaying = ref(false)
 
@@ -348,7 +368,6 @@ function playTick(freq = 2200, len = 0.05, vol = 0.08) {
 }
 function startTicks(intervalMs = 110) {
   stopTicks()
-  // progressively accelerate then decelerate by adjusting interval while spinning (see updateFxSpinVelocity)
   tickTimer = window.setInterval(() => playTick(1800 + Math.random() * 400, 0.045, 0.06), intervalMs)
 }
 function stopTicks() {
@@ -610,12 +629,17 @@ function sliceColor(i: number, n: number, uid?: string) {
 }
 
 /* Rotation via CSS var so labels can counter-rotate cleanly
-   + NEW: we also pass through wheel size & label ring radius to CSS */
+   + NEW: we also pass through wheel size to CSS */
 const WHEEL_SIZE = 340
+const WHEEL_BORDER = 16
+const EFFECTIVE_RADIUS = WHEEL_SIZE / 2 - WHEEL_BORDER
+const CLEAR_INNER = 0.10 // keep 10% radius clear from hub
+const CLEAR_OUTER = 0.94 // keep 6% radius clear from rim
+const SAFETY_MARGIN_DEG = 2 // never rest within 2° of wedge edge
+
 const wheelVars = computed(() => ({
   '--wheel-rot': `${rotateDeg.value}deg`,
   '--wheel-size': `${WHEEL_SIZE}px`,
-  '--label-radius': `${Math.round(WHEEL_SIZE * 0.42)}px`,
 }))
 
 /* build gradient using wheelFaces so colors stay matched during/after spin */
@@ -640,25 +664,57 @@ const wheelStyle = computed(() => {
   } as any
 })
 
-/* Label geometry + dynamic width (arc-length clamp) */
+/* Label geometry vars  */
 function labelVars(i: number) {
   const n = Math.max(1, wheelFaces.value.length)
   const mid = (360 / n) * (i + 0.5)
   return { '--slice-angle': `${mid}deg` } as any
 }
+
+/* === CENTERED, UPRIGHT LABELS (at radiusCenter = 0.58R clamped to clearances) === */
 function sliceLabelStyle(i: number, uid?: string) {
   const n = Math.max(1, wheelFaces.value.length)
-  // approximate arc length for a ring near the rim (radius ~= 0.42 * wheel size)
-  const radius = WHEEL_SIZE * 0.42
-  const arc = (2 * Math.PI * radius) / n
-  const max = Math.max(40, Math.min(arc - 10, 160)) // clamp to keep it tidy
+  const slice = 360 / n
+
+  // centerline in wheel-local coords (0°=right). Pointer is at 12 o'clock (270°).
+  const centerAngleLocal = slice * (i + 0.5)
+
+  // radiusCenter: 0.58R clamped to keep >=10%R from hub and >=6%R from rim
+  const R = EFFECTIVE_RADIUS
+  const rDesired = 0.58 * R
+  const rMin = CLEAR_INNER * R
+  const rMax = CLEAR_OUTER * R
+  const r = Math.max(rMin, Math.min(rDesired, rMax))
+
+  // Available width at radius r is the arc length of the wedge
+  const arc = (2 * Math.PI * r) / n
+  const Lmax = Math.max(48, Math.floor(arc - 8)) // small padding
+
+  // Compose transform so the text is centered at the wedge centroid and upright:
+  // 1) rotate to centerline
+  // 2) translate out to radius r
+  // 3) un-rotate centerline and cancel wheel rotation -> upright in viewport
+  // 4) center the element at that anchor point
+  const t =
+    `rotate(${centerAngleLocal}deg)` +
+    ` translate(0, -${r}px)` +
+    ` rotate(${-centerAngleLocal}deg)` +
+    ` rotate(calc(-1 * var(--wheel-rot)))` +
+    ` translate(-50%, -50%)`
+
   const bg = sliceColor(i, n, uid)
+
   return {
+    transform: t,
+    width: `${Lmax}px`,
+    maxWidth: `${Lmax}px`,
     color: '#fff',
-    background: `color-mix(in hsl, ${bg} 52%, transparent)`,
-    border: `1px solid color-mix(in hsl, ${bg} 70%, transparent)`,
-    boxShadow: `0 0 10px color-mix(in hsl, ${bg} 35%, transparent), 0 1px 2px rgba(0,0,0,.4)`,
-    maxWidth: `${Math.round(max)}px`,
+    background: 'transparent',
+    border: 'none',
+    boxShadow: 'none',
+    textShadow: '0 1px 2px rgba(0,0,0,.55), 0 0 8px rgba(0,0,0,.25)',
+    textAlign: 'center',
+    fontWeight: 900,
   } as any
 }
 
@@ -676,6 +732,8 @@ async function fetchEntries() {
     .from('entry')
     .select('id, event_id, user_id, status')
     .eq('event_id', eventId)
+    /* 🛠 FIX: deterministic, stable ordering so all clients build the wheel identically */
+    .order('id', { ascending: true })
   if (error) {
     setErr(error, 'load entries')
     return
@@ -694,6 +752,9 @@ async function fetchEntries() {
       .forEach((e) => pushJoinFeed({ user_id: e.user_id, at: new Date(), type: 'existing' }))
   }
   if (!spinning.value && resolved.value) revealWinner.value = true
+
+  await nextTick()
+  fitLabels()
 }
 async function fetchEvent() {
   if (!eventId) return
@@ -781,15 +842,102 @@ function setErr(e: any, ctx: string) {
   console.error(`[${ctx}]`, e)
 }
 
+/* =========================================================
+   🔀 RANDOMNESS HELPERS (added; non-breaking)
+   ========================================================= */
+
+/* 🔒 NEW: Seeded RNG so every client shares the same spin path for a given spin */
+let spinRng: (() => number) | null = null
+function xmur3(str: string) {
+  let h = 1779033703 ^ str.length
+  for (let i = 0; i < str.length; i++) {
+    h = Math.imul(h ^ str.charCodeAt(i), 3432918353)
+    h = (h << 13) | (h >>> 19)
+  }
+  return function () {
+    h = Math.imul(h ^ (h >>> 16), 2246822507)
+    h = Math.imul(h ^ (h >>> 13), 3266489909)
+    return (h ^= h >>> 16) >>> 0
+  }
+}
+function mulberry32(a: number) {
+  return function () {
+    let t = (a += 0x6D2B79F5)
+    t = Math.imul(t ^ (t >>> 15), 1 | t)
+    t ^= t + Math.imul(t ^ (t >>> 7), 61 | t)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+function initSpinRngFromWinner(winnerId: string) {
+  try {
+    const base = `${eventId}|${winnerId}|${syncPlan.value?.spinAt || 0}`
+    const seedFn = xmur3(base)
+    const seed = seedFn()
+    spinRng = mulberry32(seed)
+  } catch {
+    spinRng = null
+  }
+}
+function clearSpinRng() { spinRng = null }
+
+/* existing helper, now defers to seeded RNG during a spin */
+function rnd(): number {
+  try {
+    if (spinRng) return spinRng()
+    const a = new Uint32Array(1)
+    crypto.getRandomValues(a)
+    return a[0] / 0xffffffff
+  } catch {
+    return Math.random()
+  }
+}
+function randInt(min: number, max: number) {
+  return Math.floor(rnd() * (max - min + 1)) + min
+}
+function randFloat(min: number, max: number) {
+  return rnd() * (max - min) + min
+}
+function randomEase(): string {
+  const EASES = ['power3.out', 'power2.out', 'circ.out', 'expo.out', 'quart.out', 'quint.out']
+  return EASES[randInt(0, EASES.length - 1)]
+}
+function makeCryptoSeed(): string {
+  try {
+    const u = new Uint32Array(2)
+    crypto.getRandomValues(u)
+    const big = (BigInt(u[0]) << 32n) | BigInt(u[1])
+    return big.toString()
+  } catch {
+    return String(Math.floor(Math.random() * 1e12))
+  }
+}
+/* 🔒 use seeded values for the spin path so everyone gets the same duration/turns/ease/jitter */
+function computeSpinParams(n: number) {
+  // Deterministic across clients for the same spin seed
+  const baseTurns = 4 + Math.floor(rnd() * 7) // 4..10
+  const durationMs = Math.round(4600 + rnd() * (7800 - 4600)) // 4600..7800
+  const ease = randomEase()
+  const jitter = computeMicroJitterDeg(n) * (0.6 + 0.4 * rnd())
+  return { baseTurns, durationMs, ease, jitter }
+}
+async function preSpinWobble() {
+  if (!gsap) return
+  try {
+    const delta = randFloat(-18, 18)
+    const dur = randFloat(0.12, 0.22)
+    await gsap.to(rotateDeg, { value: rotateDeg.value + delta, duration: dur, ease: 'sine.inOut' })
+  } catch {}
+}
+
 /* ======== (ENHANCED) SPIN ========= */
-/* Helper to animate to a degree using GSAP if present. Keeps your rotateDeg + CSS var approach. */
-async function animateToDegWithGsap(targetDeg: number, durationMs: number) {
+/* ⬇️ updated: accept dynamic easing */
+async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeStr?: string) {
   if (!gsap) return false
   try {
     if (gsapSpinTween) { try { gsapSpinTween.kill() } catch {} ; gsapSpinTween = null }
     initAudio()
     startWhoosh()
-    startTicks(Math.max(60, Math.min(140, durationMs / 50))) // auto-scale tick rate
+    startTicks(Math.max(60, Math.min(140, durationMs / 50)))
     vib(20)
 
     const seconds = Math.max(0.1, durationMs / 1000)
@@ -799,9 +947,15 @@ async function animateToDegWithGsap(targetDeg: number, durationMs: number) {
     gsapSpinTween = gsap.to(rotateDeg, {
       value: targetDeg,
       duration: seconds,
-      ease: 'power3.out',
+      ease: easeStr || 'power3.out',
       onUpdate: () => {
         updateFxSpinVelocity()
+        const vel = Math.abs(rotateDeg.value - lastDeg)
+        const remaining = Math.abs(targetDeg - rotateDeg.value)
+        if (remaining < 0.5 && vel < 0.06) {
+          try { gsapSpinTween?.kill() } catch {}
+          rotateDeg.value = targetDeg
+        }
       },
       onComplete: async () => {
         try { stopWhoosh(); stopTicks() } finally {
@@ -816,32 +970,48 @@ async function animateToDegWithGsap(targetDeg: number, durationMs: number) {
   }
 }
 
-/* NEW: more natural “non-centered” stop—random offset inside the winning slice */
+function computeMicroJitterDeg(n: number) {
+  const slice = 360 / Math.max(1, n)
+  const half  = slice / 2
+  const margin = Math.min(half * 0.18, 10)   // keep ~18% safety from edges
+  const span = half - margin
+  return (rnd() * 2 - 1) * span      // anywhere inside the wedge
+}
+
+
 function randomOffsetWithinSlice(n: number) {
   const slice = 360 / Math.max(1, n)
   const half = slice / 2
-  const margin = Math.min(half * 0.6, 12) // keep pointer clearly inside slice
+  const margin = Math.min(half * 0.6, 12)
   const span = half - margin
-  return (Math.random() * 2 - 1) * span // [-span, +span]
+  return (rnd() * 2 - 1) * span
 }
 
 async function startSpin(forcedIndex: number) {
   const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
   const slice = 360 / n
-  const baseAngle = slice * (forcedIndex + 0.5)
-  const jitter = randomOffsetWithinSlice(n) // << key change: don’t auto-center
-  const targetAngle = baseAngle + jitter
-  const fullTurns = 12
-  const targetDeg = 360 * fullTurns + (360 - targetAngle)
+
+  // Per-spin randomized feel (now deterministic for all players)
+  const { baseTurns, durationMs, ease, jitter } = computeSpinParams(n)
+  spinDurationMs.value = durationMs
+
+  // small quick wobble before the main spin (deterministic)
+  await preSpinWobble()
+
+  // precise mapping so the center of the winning wedge lands under the pointer (12 o'clock)
+  const centerAngleLocal = slice * (forcedIndex + 0.5)
+  const targetDeg = 360 * baseTurns + (270 - centerAngleLocal) + jitter
 
   spinning.value = true
   updateFxIntensity(1)
 
-  const usedGsap = await animateToDegWithGsap(targetDeg, spinDurationMs.value)
+  const usedGsap = await animateToDegWithGsap(targetDeg, spinDurationMs.value, ease)
   if (!usedGsap) {
     initAudio(); startWhoosh(); startTicks(Math.max(60, Math.min(140, spinDurationMs.value / 50))); vib(20)
     rotateDeg.value = targetDeg
-    // CSS transition path will trigger @transitionend -> onSpinEnd
+    /* 🛠 FIX: when GSAP isn't available, ensure we still resolve using the pointer */
+    await nextTick()
+    await onSpinEnd()
   }
 }
 
@@ -860,7 +1030,6 @@ async function settleEntriesAfterSpin(winnerId: string) {
   }
 }
 
-/* ===== event winner column ===== */
 async function updateEventWinnerUserId(winnerUserId: string | null | undefined) {
   if (!eventId || !winnerUserId || eventWinnerUpdated.value) return
   try {
@@ -875,7 +1044,6 @@ async function updateEventWinnerUserId(winnerUserId: string | null | undefined) 
   }
 }
 
-/* ===== receipts ===== */
 async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
   if (!eventId || receiptInserted.value || !entriesList?.length) return
   try {
@@ -897,12 +1065,10 @@ async function ensureVoucherForWinner() {
   voucherInserted.value = true
 }
 
-/* ===== purchases / balances / refunds ===== */
 function isUuid(v?: string | null) {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 }
 
-/* ---------- helper: compute discounted price for purchase insert ---------- */
 function safeNum(v: any, def = 0) {
   const n = Number(v)
   return Number.isFinite(n) ? n : def
@@ -1068,6 +1234,51 @@ async function processRefundsAndPayments() {
   }
 }
 
+/* ======== 🔵 NEW: pointer-based winner detection (pure visual math) ======== */
+/* Rule:
+   final = ((rotateDeg % 360) + 360) % 360
+   local = ((270 - final) + 360) % 360
+   winnerIndex = floor((local + slice/2) / slice)  // 🛠 FIX: center-based, robust against edge jitter
+*/
+const INDEX_EPS = 1e-6
+const pointerIndex = computed<number | null>(() => {
+  const faces = wheelFaces.value
+  const n = faces.length
+  if (n <= 0) return null
+  const slice = 360 / n
+  const final = ((rotateDeg.value % 360) + 360) % 360
+  const local = ((270 - final) % 360 + 360) % 360
+  /* 🛠 FIX: pick the wedge whose CENTER is closest to the pointer to avoid off-by-one near edges */
+  const centered = (local + slice / 2) % 360
+  const idx = Math.floor((centered + INDEX_EPS) / slice)
+  return Math.max(0, Math.min(n - 1, idx))
+})
+const pointerEntry = computed<EntryRow | null>(() => {
+  const idx = pointerIndex.value
+  if (idx === null) return null
+  return wheelFaces.value[idx] || null
+})
+const pointerColor = computed<string>(() => {
+  const idx = pointerIndex.value
+  const n = Math.max(1, wheelFaces.value.length)
+  if (idx === null || n === 0) return '#0fd2a0'
+  const uid = wheelFaces.value[idx]?.user_id
+  return sliceColor(idx, n, uid)
+})
+
+/* ✅ FIX helper: push "visual" winner to spin table so backend = what the pointer shows */
+async function forceSpinWinnerTo(id: string) {
+  if (!eventId || !id) return
+  try {
+    await supabase
+      .schema('games')
+      .from('spin')
+      .upsert({ event_id: eventId, winner_entry_id: id }, { onConflict: 'event_id' })
+  } catch (e: any) {
+    setErr(e, 'force spin winner to visual')
+  }
+}
+
 async function onSpinEnd() {
   if (!spinning.value) return
   spinning.value = false
@@ -1075,17 +1286,26 @@ async function onSpinEnd() {
   stopTicks()
   updateFxIntensity(0)
 
-  // subtle screen shake & haptic on stop
-  try { vib(35) } catch {}
   try {
     if (gsap && wheelWrapEl.value) {
       await gsap.fromTo(
         wheelWrapEl.value,
-        { x: -2, rotation: 0.2 },
-        { x: 0, rotation: 0, duration: 0.18, ease: 'power2.out' }
+        { x: -2 },
+        { x: 0, duration: 0.18, ease: 'power2.out' }
       )
     }
   } catch {}
+
+  /* ✅ Visual is truth – pick the entry under the pointer as authoritative winner */
+  const visualIdx = pointerIndex.value
+  const visualEntry = (visualIdx !== null) ? (participantsSnapshot[visualIdx] || wheelFaces.value[visualIdx] || null) : null
+  if (visualEntry?.id) {
+    if (!rpcWinnerId.value || rpcWinnerId.value !== visualEntry.id) {
+      rpcWinnerId.value = visualEntry.id
+      await forceSpinWinnerTo(visualEntry.id)
+    }
+    winnerEntry.value = visualEntry
+  }
 
   if (rpcWinnerId.value) {
     const idx = participantsSnapshot.findIndex((e) => e.id === rpcWinnerId.value)
@@ -1104,8 +1324,23 @@ async function onSpinEnd() {
   busy.value.commit = false
   spinStarted.value = false
   revealWinner.value = true
-  winStinger() // celebratory chord
+  winStinger()
   openOutcomePopupIfMe()
+
+  /* 🔎 Sanity check */
+  try {
+    if (displayWinnerEntry.value && participantsSnapshot.length) {
+      const vIdx = pointerIndex.value
+      const fIdx = participantsSnapshot.findIndex(e => e.id === displayWinnerEntry.value!.id)
+      if (vIdx !== null && fIdx >= 0 && vIdx !== fIdx) {
+        console.warn('[Pointer mismatch] visualIdx=', vIdx, 'forcedIdx=', fIdx, 'rot=', rotateDeg.value)
+      }
+    }
+  } catch {}
+
+  clearSpinRng() // 🔒 reset seeded RNG after spin completes
+  await nextTick()
+  fitLabels()
 }
 async function triggerServerSpinAndAnimate() {
   if (!eventId || !canSpinGate.value || resolved.value || spinStarted.value) return
@@ -1114,14 +1349,27 @@ async function triggerServerSpinAndAnimate() {
   try {
     busy.value.commit = true
     revealWinner.value = false
-    const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
-    if (error) {
-      setErr(error, 'rpc_spin_event')
-      busy.value.commit = false
-      spinStarted.value = false
-      return
+
+    /* ⬇️ NEW: call RPC with a crypto-random seed for true randomness; fallback to legacy if needed */
+    const seed = makeCryptoSeed()
+    let spinRow: any = null
+    {
+      const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: seed })
+      if (error) {
+        console.warn('rpc_spin_event with seed failed, retrying without seed…', error?.message || error)
+        const res2 = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
+        if (res2.error) {
+          setErr(res2.error, 'rpc_spin_event')
+          busy.value.commit = false
+          spinStarted.value = false
+          return
+        }
+        spinRow = Array.isArray(res2.data) ? res2.data[0] : res2.data
+      } else {
+        spinRow = Array.isArray(data) ? data[0] : data
+      }
     }
-    const spinRow = Array.isArray(data) ? data[0] : data
+
     const winner_id: string | undefined = spinRow?.winner_entry_id
     if (!winner_id) {
       err.value = 'RPC did not return winner_entry_id'
@@ -1130,6 +1378,7 @@ async function triggerServerSpinAndAnimate() {
       return
     }
     rpcWinnerId.value = winner_id
+    initSpinRngFromWinner(winner_id) // 🔒 seed spin randomness for all clients
     let forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
     if (forcedIdx < 0) {
       await fetchEntries()
@@ -1147,13 +1396,19 @@ async function triggerServerSpinAndAnimate() {
       busy.value.commit = false
       spinStarted.value = false
       revealWinner.value = true
+      clearSpinRng()
       return
     }
+
+    await nextTick()
+    fitLabels()
+
     await startSpin(forcedIdx)
   } catch (e: any) {
     setErr(e, 'trigger spin/animate')
     busy.value.commit = false
     spinStarted.value = false
+    clearSpinRng()
   }
 }
 
@@ -1168,7 +1423,6 @@ function actuallyStartCountdown(asLeader = false) {
   countdownHandle = window.setInterval(async () => {
     if ((countdown.value as number) > 1) {
       countdown.value = (countdown.value as number) - 1
-      // dumb tempo ramp for ticks
       try {
         const base = Math.max(60, Math.min(140, spinDurationMs.value / 50))
         if (tickTimer) { clearInterval(tickTimer); tickTimer = null }
@@ -1310,7 +1564,6 @@ function requestSyncPlan() {
   try { syncChannel.send({ type: 'broadcast', event: 'plan_request', payload: { t: Date.now(), eventId } }) } catch {}
 }
 
-/* ===== Original "startCountdownAndSpin" now defers to sync plan ===== */
 function startCountdownAndSpin() {
   if (autoSpinStarted.value || resolved.value || spinning.value || spinStarted.value) return
   Promise.all([fetchEntries()]).then(async () => {
@@ -1398,6 +1651,7 @@ function makeRealtimeChannelSpin() {
         if (spinStarted.value || spinning.value) return
         participantsSnapshot = spinEntries.value.slice()
         rpcWinnerId.value = winner_id
+        initSpinRngFromWinner(winner_id) // 🔒 seed path for broadcast-triggered spin
         spinStarted.value = true
         revealWinner.value = false
         let forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
@@ -1407,6 +1661,8 @@ function makeRealtimeChannelSpin() {
           forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
         }
         if (forcedIdx >= 0) {
+          await nextTick()
+          fitLabels()
           await startSpin(forcedIdx)
         } else {
           await settleEntriesAfterSpin(winner_id)
@@ -1420,6 +1676,7 @@ function makeRealtimeChannelSpin() {
           busy.value.commit = false
           spinStarted.value = false
           revealWinner.value = true
+          clearSpinRng()
         }
         await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
       },
@@ -1477,6 +1734,11 @@ watch(
       await scheduleSynchronizedSpin(true)
     }
   },
+)
+
+watch(
+  () => wheelFaces.value.map(w => w.user_id + ':' + w.id).join('|'),
+  async () => { await nextTick(); fitLabels() }
 )
 
 function isHttpUrl(v?: string | null) {
@@ -1544,6 +1806,10 @@ async function refreshExpiringAvatars(userIds?: string[]) {
 }
 function displayName(uid: string) {
   return userMeta.value[uid]?.full_name || ''
+}
+function displayNameOrPlaceholder(uid?: string | null) {
+  const n = uid ? displayName(uid) : ''
+  return n && n.trim().length ? n : 'Your text here'
 }
 function avatarUrl(uid: string) {
   return userMeta.value[uid]?.avatar || DEFAULT_AVATAR
@@ -1641,9 +1907,8 @@ let frontHalo: any = null
 let backHalo: any = null
 let fxRaf: number | null = null
 
-// Live params
-const fxIntensity = ref(0)        // 0..1
-let fxSpinVel = 0                 // spin velocity proxy
+const fxIntensity = ref(0)
+let fxSpinVel = 0
 let lastDeg = 0
 
 function updateFxIntensity(v: number) {
@@ -1655,7 +1920,7 @@ function updateFxSpinVelocity() {
   const deg = rotateDeg.value
   const delta = Math.abs(deg - lastDeg)
   lastDeg = deg
-  fxSpinVel = Math.min(1.2, delta / 14) // heuristic
+  fxSpinVel = Math.min(1.2, delta / 14)
 }
 
 async function initVanillaTilt() {
@@ -1699,13 +1964,11 @@ async function initPixiFx() {
     fxStage = new PIXI.Container()
     pixiApp.stage.addChild(fxStage)
 
-    // Back halo (soft)
     backHalo = new PIXI.Graphics()
     backHalo.beginFill(0xffffff, 0.08).drawCircle(size/2, size/2, size*0.45).endFill()
     if (GlowFilter) backHalo.filters = [new GlowFilter({ distance: 24, outerStrength: 10, color: 0xffcc66, quality: 0.3 })]
     fxStage.addChild(backHalo)
 
-    // Rotating spark rings
     ringContainer = new PIXI.Container()
     fxStage.addChild(ringContainer)
 
@@ -1729,7 +1992,6 @@ async function initPixiFx() {
     addRing(size*0.30, 2, 0xff66cc, 0.7)
     addRing(size*0.22, 2, 0x66ffd9, 0.7)
 
-    // Particles
     particleContainer = new PIXI.ParticleContainer(128, { scale: true, alpha: true, position: true })
     fxStage.addChild(particleContainer)
 
@@ -1743,13 +2005,11 @@ async function initPixiFx() {
       particleContainer.addChild(spr)
     }
 
-    // Front halo (bright)
     frontHalo = new PIXI.Graphics()
     frontHalo.beginFill(0xffffff, 0.06).drawCircle(size/2, size/2, size*0.47).endFill()
     if (GlowFilter) frontHalo.filters = [new GlowFilter({ distance: 28, outerStrength: 14, color: 0xffe066, quality: 0.3 })]
     fxStage.addChild(frontHalo)
 
-    // Animation
     const animate = () => {
       fxRaf = requestAnimationFrame(animate)
 
@@ -1806,20 +2066,71 @@ watch(spinning, (v) => {
   updateFxIntensity(v ? 1 : 0)
 })
 
-/* ======== Lifecycle ======== */
+/* === Auto-fit: shrink to fit wedge width at radiusCenter; tighten tracking; allow 2 lines as last resort === */
+function fitLabels() {
+  try {
+    if (!wheelWrapEl.value) return
+    const labels = wheelWrapEl.value.querySelectorAll<HTMLElement>('.slice-label .label-text')
+    labels.forEach((el) => {
+      const container = el.parentElement as HTMLElement
+      if (!container) return
+
+      // reset
+      el.style.fontSize = ''
+      el.style.letterSpacing = ''
+      el.style.whiteSpace = 'nowrap'
+      el.style.textAlign = 'center'
+
+      const base = 13
+      const cw = (container.clientWidth || 48) - 2
+      const lineHeight = parseFloat(getComputedStyle(el).lineHeight) || base * 1.15
+      const maxTwo = lineHeight * 2
+
+      let fs = base
+      el.style.fontSize = fs + 'px'
+
+      // shrink-to-fit single line
+      let guard = 50
+      while (guard-- > 0 && el.scrollWidth > cw && fs > 9) {
+        fs -= 0.5
+        el.style.fontSize = fs + 'px'
+      }
+
+      // tighten tracking if still overflowing
+      if (el.scrollWidth > cw) el.style.letterSpacing = '-0.3px'
+      if (el.scrollWidth > cw) el.style.letterSpacing = '-0.6px'
+
+      // last resort: allow 2 lines centered
+      if (el.scrollWidth > cw) {
+        el.style.whiteSpace = 'normal'
+        guard = 30
+        while (guard-- > 0 && (el.scrollWidth > cw || el.scrollHeight > maxTwo) && fs > 9) {
+          fs -= 0.5
+          el.style.fontSize = fs + 'px'
+        }
+      }
+    })
+  } catch {}
+}
+
+/* ===== Winner highlight wedge angle (for overlay spotlight) ===== */
+const highlightVars = computed(() => {
+  const n = Math.max(1, wheelFaces.value.length)
+  const slice = 360 / n
+  const visual = Math.max(6, slice - 6)
+  return { '--wedge-angle': `${visual}deg` } as any
+})
+
 onMounted(async () => {
-  // Try to dynamically import GSAP (optional).
   try {
     const mod: any = await import(/* @vite-ignore */ 'gsap').catch(() => null)
     if (mod) gsap = mod.gsap || mod.default || mod
   } catch {}
 
-  // OPTIONAL: init gaming modules
   await nextTick()
   initVanillaTilt()
   initPixiFx()
 
-  // keyboard: press Space to trigger spin
   const onKeydown = (e: KeyboardEvent) => {
     if (e.code === 'Space') {
       e.preventDefault()
@@ -1831,7 +2142,7 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
 
   await fetchMe()
-  await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
+  await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
   makeRealtimeChannel()
   makeRealtimeChannelSpin()
   makeRealtimeChannelEvent()
@@ -1849,7 +2160,9 @@ onMounted(async () => {
     requestSyncPlan()
   }
 
-  // cleanup keyboard on unmount
+  await nextTick()
+  fitLabels()
+
   onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 })
 onBeforeUnmount(() => {
@@ -1992,11 +2305,11 @@ function goToMinigames() {
   z-index: 1;
   transition: transform 0.25s ease;
   will-change: transform;
-  /* NEW: expose size to labels */
   --wheel-size: 340px;
-  --label-radius: calc(var(--wheel-size) * 0.42);
 }
 .wheel-wrap.spinning { transform: translateY(2px); }
+.wheel-wrap.win-pulse { animation: winPulse .32s ease-out 1; }
+@keyframes winPulse { 0%{transform:scale(1)} 60%{transform:scale(1.015)} 100%{transform:scale(1)} }
 
 .pointer {
   position: absolute; top: -8px; left: 50%; transform: translateX(-50%);
@@ -2008,6 +2321,25 @@ function goToMinigames() {
 .wheel-wrap.spinning .pointer { animation: pointerWiggle .25s ease-in-out infinite; }
 @keyframes pointerIdle { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(1px)} }
 @keyframes pointerWiggle { 0%,100%{transform:translateX(-50%) rotate(0)} 50%{transform:translateX(-50%) rotate(-2deg)} }
+
+/* 🔵 NEW: badge that names who is under the pointer */
+.pointer-badge{
+  position:absolute;
+  top:-42px; left:50%; transform: translateX(-50%);
+  display:inline-flex; align-items:center; gap:8px;
+  padding:6px 10px; border-radius:999px;
+  background: rgba(255,255,255,.92);
+  color:#0b1630; font-weight:800; font-size:12px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.25), inset 0 1px 0 rgba(255,255,255,.7);
+  z-index: 4;
+  pointer-events: none;
+}
+.pb-dot{ width:8px; height:8px; border-radius:50%; box-shadow: 0 0 0 2px rgba(0,0,0,.08); }
+.pb-name{ max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 420px){
+  .pointer-badge{ top:-36px; font-size:11px; }
+  .pb-name{ max-width: 120px; }
+}
 
 .wheel {
   width: 100%; height: 100%; border-radius: 50%;
@@ -2030,35 +2362,52 @@ function goToMinigames() {
   pointer-events: none;
 }
 
-/* Upright labels placed on a dedicated ring near the rim, colored per slice */
+/* ===== Slice labels – CENTERED in wedge, upright ===== */
 .slice-label {
   position: absolute; left: 50%; top: 50%;
-  transform-origin: 0 0;
-  font-size: 13px; font-weight: 900; letter-spacing: 0.2px;
-  white-space: nowrap; pointer-events: none;
-  /* Use px radius so all labels sit on the same track, no stacking */
-  transform:
-    rotate(calc(var(--slice-angle) + var(--wheel-rot)))
-    translate(0, calc(-1 * var(--label-radius)))
-    rotate(calc(-1 * (var(--slice-angle) + var(--wheel-rot))));
+  transform-origin: 0 0; /* we manage centering via translate(-50%,-50%) at the end */
+  font-size: 13px; font-weight: 900; letter-spacing: 0.02em;
+  pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
   z-index: 1;
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 2px 4px;
+  border-radius: 8px;
 }
 .slice-label .label-text {
   display: inline-block;
-  text-overflow: ellipsis; overflow: hidden; vertical-align: middle;
+  overflow: hidden;
+  text-overflow: clip;
+  will-change: transform;
+  line-height: 1.1;
+  white-space: nowrap;
 }
 @media (max-width: 420px) {
   .slice-label { font-size: 12px; }
-  .slice-label .label-text { max-width: 96px; }
+}
+
+/* Winner spotlight wedge (fixed to 12 o'clock; highlights the wedge under pointer) */
+.win-wedge-highlight{
+  position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:
+    conic-gradient(from 270deg,
+      rgba(255,255,255,0) calc(-0.5 * var(--wedge-angle)),
+      rgba(255,255,255,0.18) 0deg,
+      rgba(255,255,255,0.18) calc(0.5 * var(--wedge-angle)),
+      rgba(255,255,255,0) calc(0.5 * var(--wedge-angle) + 0.1deg)
+    );
+  mask: radial-gradient(circle at 50% 50%, transparent 0 22%, black 28% 100%);
+  animation: wedgeGlow 1.2s ease-in-out infinite alternate;
+}
+@keyframes wedgeGlow {
+  0% { filter: drop-shadow(0 0 0 rgba(255,255,255,.0)); }
+  100% { filter: drop-shadow(0 0 12px rgba(255,255,255,.25)); }
 }
 
 .spin-overlay {
   position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
   pointer-events: none; font-weight: 700; color: #111; text-shadow: 0 1px 0 rgba(255,255,255,.6);
 }
-.pulse-dot { width: 14px; height: 14px; border-radius: 50%; background: #198754; animation: pulse 1s infinite ease-in-out; }
+.pulse-dot { width: 14px; height: 14px; border-radius: 50%; animation: pulse 1s infinite ease-in-out; background: #198754; }
 @keyframes pulse { 0%{transform:scale(1);opacity:.7} 50%{transform:scale(1.6);opacity:1} 100%{transform:scale(1);opacity:.7} }
 
 .btn-arcade {
@@ -2088,7 +2437,7 @@ function goToMinigames() {
 .price-row .old { color: #9fb8c9; text-decoration: line-through; font-weight: 700; }
 .price-row .new { color: #36e3b3; font-weight: 900; font-size: clamp(18px, 3.2vw, 32px); }
 
-/* ===== Confetti + Popups ===== */
+ /* ===== Confetti + Popups ===== */
 .joined-summary .badge { font-weight: 700; letter-spacing: .2px; }
 
 .confetti-wrap { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
@@ -2101,16 +2450,16 @@ function goToMinigames() {
 .confetti-piece:nth-child(3n){ background:#52e3b6 }
 .confetti-piece:nth-child(5n){ background:#ffc107;width:6px;height:10px }
 .confetti-piece:nth-child(7n){ background:#ff7ab6 }
-.confetti-piece:nth-child(n){ left:10%; animation-delay:0s }
-.confetti-piece:nth-child(2n){ left:25%; animation-delay:.1s }
-.confetti-piece:nth-child(3n){ left:40%; animation-delay:.15s }
-.confetti-piece:nth-child(4n){ left:55%; animation-delay:.2s }
-.confetti-piece:nth-child(5n){ left:70%; animation-delay:.25s }
-.confetti-piece:nth-child(6n){ left:85%; animation-delay:.3s }
+.confetti-piece:nth-child(n){ left:48%; animation-delay:0s }
+.confetti-piece:nth-child(2n){ left:50%; animation-delay:.08s }
+.confetti-piece:nth-child(3n){ left:52%; animation-delay:.12s }
+.confetti-piece:nth-child(4n){ left:46%; animation-delay:.16s }
+.confetti-piece:nth-child(5n){ left:54%; animation-delay:.2s }
+.confetti-piece:nth-child(6n){ left:44%; animation-delay:.24s }
 @keyframes fall { to{ transform: translateY(110vh) rotate(540deg); opacity: 1; } }
 @keyframes sway { 0%,100%{ margin-left:-6px } 50%{ margin-left:6px } }
 
-/* Outcome modal */
+ /* Outcome modal */
 .outcome-backdrop {
   position: fixed; inset: 0; z-index: 60; background: rgba(6,10,24,.65); backdrop-filter: blur(4px);
   display: grid; place-items: center; animation: fadeIn .18s ease;
@@ -2123,10 +2472,9 @@ function goToMinigames() {
     radial-gradient(120% 120% at 30% 10%, rgba(124,156,255,.18), transparent 50%),
     radial-gradient(120% 120% at 80% 90%, rgba(82,227,182,.18), transparent 50%),
     #0e1430;
-  box-shadow: 0 20px 60px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
+  box-shadow: 0 24px 70px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.04);
   transform: translateY(6px) scale(.98); animation: popInModal .22s ease forwards;
 }
-@keyframes popInModal { to{ transform: translateY(0) scale(1) } }
 .outcome-winner { box-shadow: 0 24px 70px rgba(80,227,182,.35); }
 .outcome-loser { box-shadow: 0 24px 70px rgba(124,156,255,.28); }
 
@@ -2142,7 +2490,7 @@ function goToMinigames() {
 .sparkle-1 { left: -40px; top: -40px; background: #7c9cff; }
 .sparkle-2 { right: -40px; bottom: -40px; background: #52e3b6; }
 
-/* ===== INTRO (no buttons, 10s auto) ===== */
+ /* ===== INTRO (no buttons, 10s auto) ===== */
 .intro-backdrop {
   position: fixed; inset: 0; z-index: 70; background: rgba(5,10,22,.7); backdrop-filter: blur(6px);
   display: grid; place-items: center; animation: fadeIn .18s ease;
