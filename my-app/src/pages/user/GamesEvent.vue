@@ -2,7 +2,7 @@
   <div class="game-event container py-4">
     <!-- ===== HERO / TITLE ===== -->
     <header class="hero text-center mb-3">
-      <h1 class="hero-title">SPIN &amp; WIN</h1>
+      <h1 class="hero-title">SPIN &amp; WINs</h1>
       <div class="promo-pill">Join the event to buy the item at a discount</div>
     </header>
 
@@ -64,6 +64,12 @@
           >
             <!-- ===== FIXED POINTER (12 o'clock) ===== -->
             <div class="pointer"></div>
+
+            <!-- 🔵 Pointer badge (shows who is currently under the pointer) -->
+            <div v-if="pointerEntry" class="pointer-badge">
+              <span class="pb-dot" :style="{ background: pointerColor }"></span>
+              <span class="pb-name">{{ displayNameOrPlaceholder(pointerEntry.user_id) }}</span>
+            </div>
 
             <!-- wheel face -->
             <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
