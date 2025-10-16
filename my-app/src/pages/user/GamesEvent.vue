@@ -2,7 +2,7 @@
   <div class="game-event container py-4">
     <!-- ===== HERO / TITLE ===== -->
     <header class="hero text-center mb-3">
-      <h1 class="hero-title">SPIN &amp; WINs</h1>
+      <h1 class="hero-title">SPIN &amp; WINss</h1>
       <div class="promo-pill">Join the event to buy the item at a discount</div>
     </header>
 
@@ -968,7 +968,7 @@ async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeS
 function computeMicroJitterDeg(n: number) {
   const slice = 360 / Math.max(1, n)
   const half  = slice / 2
-  const margin = Math.min(half * 0.18, 10)   // keep ~18% safety from edges
+  const margin = Math.min(half * 0.25, 12)   // keep ~18% safety from edges
   const span = half - margin
   return (rnd() * 2 - 1) * span      // anywhere inside the wedge
 }
@@ -2193,6 +2193,15 @@ function handleOutcomeAction() {
 function goToMinigames() {
   try { router.push({ name: 'user.minigames' }) } catch { router.push('/app/mini-games') }
 }
+
+console.log('[spin end]',
+  { rotateDeg: rotateDeg.value % 360,
+    pointerIdx: pointerIndex.value,
+    pointerUser: pointerEntry.value?.user_id,
+    rpcWinnerId: rpcWinnerId.value,
+    snapshotOrder: participantsSnapshot.map(e => e.user_id)
+  })
+
 </script>
 
 <style scoped>
