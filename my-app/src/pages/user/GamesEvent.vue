@@ -2,7 +2,7 @@
   <div class="game-event container py-4">
     <!-- ===== HERO / TITLE ===== -->
     <header class="hero text-center mb-3">
-      <h1 class="hero-title">SPIN &amp; WINss</h1>
+      <h1 class="hero-title">SPIN &amp; WINsss</h1>
       <div class="promo-pill">Join the event to buy the item at a discount</div>
     </header>
 
