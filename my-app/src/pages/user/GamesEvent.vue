@@ -6,7 +6,7 @@
       <div class="promo-pill">Join the event to buy the item at a discount</div>
     </header>
 
-    <!-- ===== MAIN GRID (Left roster · Wheel/Selector · Prize panel) ===== -->
+    <!-- ===== MAIN GRID (Left roster · Wheel · Prize panel) ===== -->
     <div class="event-grid mb-4">
       <!-- LEFT: Players list -->
       <aside class="players-panel card shadow-sm">
@@ -35,9 +35,9 @@
         </div>
       </aside>
 
-      <!-- CENTER: Selector mode (NEW) + (wheel kept but hidden) -->
+      <!-- CENTER: Wheel + controls -->
       <section class="center-stage">
-        <!-- winner hero (kept) -->
+        <!-- winner hero (kept, but hidden when modal is shown) -->
         <div
           v-if="revealWinner && displayWinnerEntry && !showOutcomeModal"
           class="winner-hero alert alert-success p-3 text-center mb-3"
@@ -47,32 +47,64 @@
           </div>
         </div>
 
-        <!-- Stage wrapper -->
+        <!-- Wheel -->
         <div class="wheel-stage">
           <div class="stage-glow"></div>
 
-          <!-- gold frame + bulbs (kept for code integrity, fully hidden) -->
-          <div class="rim" :style="{ display: 'none' }">
+          <!-- gold frame + bulbs -->
+          <div class="rim">
             <div v-for="n in 100" :key="n" class="bulb" :style="bulbStyle(n)"></div>
           </div>
 
-          <!-- ===== HIDDEN: original wheel (not removed) ===== -->
           <div
             ref="wheelWrapEl"
             class="wheel-wrap mx-auto mb-3"
             :class="{ spinning, 'win-pulse': revealWinner && !spinning }"
-            :style="[wheelVars, { display: 'none' }]"
+            :style="wheelVars"
           >
-            <!-- FIXED POINTER (kept) -->
+            <!-- ===== FIXED POINTER (12 o'clock) — kept in DOM but visually hidden via CSS ===== -->
             <div class="pointer"></div>
 
-            <!-- Original wheel face (kept) -->
-            <div class="wheel" :style="wheelStyle" @transitionend="onSpinEnd">
+            <!-- wheel face -->
+            <div class="wheel" :class="wheelClass" :style="wheelStyle" @transitionend="onSpinEnd">
+              <!-- ====== PIXI FX CANVAS HOST (inside wheel for proper clipping) ====== -->
               <div ref="fxHost" class="fx-host" aria-hidden="true"></div>
+
+              <!-- ====== NEW: Base matte dim layer (keeps wheel shadowy without dimming labels) ====== -->
+              <div class="base-matte" aria-hidden="true"></div> <!-- NEW -->
+
+              <!-- ===== NEW: Post-win heavy dim (surrounding segments near-black) ===== -->
+              <div v-if="revealWinner && !spinning" class="postwin-dim" aria-hidden="true"></div> <!-- NEW -->
+
+              <!-- ===== thin metallic gold edges for each equal segment ===== -->
+              <div class="seg-edges" :style="segEdgesStyle" aria-hidden="true"></div>
+
+              <!-- ====== CHASING EDGE LIGHT (no tails; full-wedge step) ====== -->
+              <div class="chase-layer" :class="{ 'chase-slow': chaseSlowPhase }" aria-hidden="true">
+                <template v-for="(p, i) in wheelFaces" :key="p.id + '-glow'">
+                  <div
+                    class="chase-wedge"
+                    :class="{
+                      'is-active': spinning && activeSliceIndex === i,
+                      'is-trail1': spinning && chaseTrailLen >= 1 && wheelFaces.length > 0 && ((i === ((activeSliceIndex ?? 0) - 1 + wheelFaces.length) % wheelFaces.length)),
+                      'is-trail2': spinning && chaseTrailLen >= 2 && wheelFaces.length > 1 && ((i === ((activeSliceIndex ?? 0) - 2 + wheelFaces.length) % wheelFaces.length)),
+                      'is-trail3': spinning && chaseTrailLen >= 3 && wheelFaces.length > 2 && ((i === ((activeSliceIndex ?? 0) - 3 + wheelFaces.length) % wheelFaces.length)),
+                      'is-winner': !spinning && revealWinner && i === winnerIndex
+                    }"
+                    :style="chaseWedgeStyle(i)"
+                  ></div>
+                </template>
+              </div>
+
+              <!-- subtle sparkles along the winning rim -->
+              <div v-if="revealWinner && !spinning" class="winner-sparkles" aria-hidden="true"></div>
+
+              <!-- hub -->
               <div class="hub"></div>
               <div class="hub-label">Spin</div>
               <div class="hub-dot"></div>
 
+              <!-- slice labels – CENTERED in each colored wedge (upright) -->
               <template v-for="(p, i) in wheelFaces" :key="p.id">
                 <div
                   class="slice-label"
@@ -85,54 +117,19 @@
                 </div>
               </template>
 
+              <!-- winner wedge spotlight (fixed to 12 o'clock; highlights wedge under pointer) -->
               <div
-                v-if="revealWinner && !spinning"
+                v-if="revealWinner && !spinning && !useChaseMode"
                 class="win-wedge-highlight"
                 :style="highlightVars"
                 aria-hidden="true"
               ></div>
             </div>
 
+            <!-- spinning overlay (kept but visually hidden per request) -->
             <div v-if="spinning" class="spin-overlay">
               <div class="pulse-dot"></div>
               <div class="mt-2 fw-semibold">Spinning…</div>
-            </div>
-          </div>
-
-          <!-- ===== NEW: SELECTOR MODE UI (CIRCULAR LAYOUT) ===== -->
-          <div
-            class="selector-wrap mx-auto mb-3"
-            :class="{ selecting: spinning, 'win-pulse': revealWinner && !spinning, revealed: revealWinner && !spinning }"
-          >
-            <div class="selector-grid selector-grid-aesthetic circular" :style="selectorGridStyle">
-              <div
-                v-for="(p,i) in selectorFaces"
-                :key="p.id"
-                class="select-box"
-                :class="{
-                  active: i === activeIdx,
-                  winner: revealWinner && displayWinnerEntry?.id === p.id
-                }"
-                :style="[
-                  { '--box-color': sliceColor(i, selectorFaces.length, p.user_id) },
-                  circularPosStyle(i)
-                ]"
-                :title="displayNameOrPlaceholder(p.user_id)"
-              >
-                <div class="select-avatar">
-                  <img :src="avatarUrl(p.user_id)" :alt="displayNameOrPlaceholder(p.user_id)" />
-                </div>
-                <div class="select-name">
-                  {{ displayNameOrPlaceholder(p.user_id) }}
-                </div>
-                <!-- gentle sheen on active -->
-                <span class="box-sheen" />
-              </div>
-            </div>
-
-            <div v-if="spinning" class="select-overlay">
-              <div class="pulse-dot"></div>
-              <div class="mt-2 fw-semibold">Selecting…</div>
             </div>
           </div>
 
@@ -142,7 +139,7 @@
               class="btn btn-primary btn-arcade"
               :disabled="!canSpinGate || spinning || busy.commit || syncPlanActive"
               @click="scheduleSynchronizedSpin(true)"
-              :title="canSpinGate ? 'Click or press Space to select' : 'Waiting for players…'"
+              :title="canSpinGate ? 'Click or press Space to spin' : 'Waiting for players…'"
             >
               <span v-if="spinning" class="spinner-border spinner-border-sm me-2"></span>
               SPIN
@@ -158,6 +155,7 @@
       <!-- RIGHT: Product / Info -->
       <aside class="prize-panel card shadow-sm">
         <div class="card-body">
+          <!-- fading gallery -->
           <div class="prod-gallery">
             <img
               v-for="(u, idx) in productSignedUrls"
@@ -168,8 +166,10 @@
             />
           </div>
 
+          <!-- name -->
           <h3 class="prize-title mt-3">{{ productMeta?.name || prizeTitle }}</h3>
 
+          <!-- price w/ discount -->
           <div class="price-row" v-if="productMeta">
             <span class="old">₱ {{ fmtMoney(productMeta.price) }}</span>
             <span class="new">₱ {{ fmtMoney(discountedPrice) }}</span>
@@ -290,7 +290,16 @@
 </template>
 
 <script setup lang="ts">
-/* ======== ORIGINAL SCRIPT (kept) + intro auto-start + SYNC plan + persistence ========= */
+/* ======== VISUAL BEHAVIOR OVERVIEW (added docs) ========
+  1) Idle: segments softly lit; metallic edges "breathe" gold.
+  2) Light Chase: active wedge hops clockwise ONE SEGMENT AT A TIME (no tail).
+     The whole wedge becomes slightly brighter so the center isn’t skipped.
+     The border (outer arc + two dividing lines) erupts in molten gold.
+  3) Speed → Decel: 5–10 full cycles then ease to stop.
+  4) Winner: final wedge keeps full golden border; others fall back to dull gold.
+  5) Celebration: winner name shows; confetti; popup appears after 3s.
+========================================================= */
+
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
@@ -302,13 +311,17 @@ const isMusicPlaying = ref(false)
 
 function initBackgroundMusic() {
   if (bgMusic.value) return
+
   const audio = new Audio()
-  audio.src = '../../../public/videoplayback.mp3'
+  // 🔊 Replace with your actual background music URL (must be secure HTTPS)
+  audio.src = '../../../public/videoplayback.mp3' // demo only
   audio.loop = true
   audio.volume = 0.3
   bgMusic.value = audio
+
   playBackgroundMusic()
 }
+
 async function playBackgroundMusic() {
   if (!bgMusic.value) return
   try {
@@ -331,13 +344,9 @@ function handleUserGesture() {
   window.removeEventListener('click', handleUserGesture)
 }
 
-/* =========================
-   ENHANCEMENT IMPORTS (optional)
-   ========================= */
+/* ========================= GSAP / PIXI (optional) ========================= */
 let gsap: any = null
 let gsapSpinTween: any = null
-
-/* ===== Optional Gaming Modules (PixiJS, Glow Filter, VanillaTilt) ===== */
 let PIXI: any = null
 let GlowFilter: any = null
 let VanillaTilt: any = null
@@ -402,7 +411,7 @@ function stopWhoosh() {
 function winStinger() {
   try {
     if (!audioCtx) return
-    const chord = [523.25, 659.25, 783.99] // C5 E5 G5
+    const chord = [523.25, 659.25, 783.99]
     chord.forEach((f, i) => {
       const o = audioCtx!.createOscillator()
       const g = audioCtx!.createGain()
@@ -418,17 +427,16 @@ function winStinger() {
   } catch {}
 }
 
-const routers = useRouter()
+const router = useRouter()
 const user = computed(() => currentUser.value)
 
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
-    if (!data.user) return routers.push({ name: 'login' })
+    if (!data.user) return router.push({ name: 'login' })
   }
 })
 const route = useRoute()
-const router = useRouter()
 const eventId = route.query.eventId as string
 
 type EntryRow = { id: string; event_id: string; user_id: string; status: string }
@@ -455,23 +463,36 @@ let avatarRefreshTimer: number | null = null
 
 const entries = ref<EntryRow[]>([])
 const busy = ref({ load: false, commit: false })
-const spinning = ref(false)        // <-- reused for "selecting"
+const spinning = ref(false)
 const resolved = ref(false)
 const err = ref('')
-
-/* ====== (wheel vars kept) ====== */
 const rotateDeg = ref(0)
 const spinDurationMs = ref(5200)
+const useCssTransition = ref(true) // 🔧 GSAP disables this
 const targetIndex = ref<number | null>(null)
 const winnerEntry = ref<EntryRow | null>(null)
 const revealWinner = ref(false)
 
-/* ====== Outcome popup ====== */
+/* ==== NEW: Chasing-light mode state ==== */
+const useChaseMode = ref(true)
+const activeSliceIndex = ref<number | null>(null)
+/* NEW: trail disabled for precise steps */
+const chaseTrailLen = ref(0)
+const chaseSlowPhase = ref(false)
+let chaseTimer: number | null = null
+const winnerIndex = computed<number | null>(() => {
+  const wid = displayWinnerEntry.value?.id
+  const faces = participantsSnapshot.length ? participantsSnapshot : wheelFaces.value
+  const idx = wid ? faces.findIndex(e => e.id === wid) : -1
+  return idx >= 0 ? idx : null
+})
+function clearChaseTimer(){ if (chaseTimer) { clearTimeout(chaseTimer); chaseTimer = null } }
+
+/* ===== Outcome modal ===== */
 const showOutcomeModal = ref(false)
 const outcomeType = ref<'winner' | 'loser' | null>(null)
 const myUserId = ref<string | null>(null)
 
-/* ====== flags ====== */
 const eventWinnerUpdated = ref(false)
 const receiptInserted = ref(false)
 const voucherInserted = ref(false)
@@ -483,7 +504,7 @@ const introSeconds = ref(10)
 let introInterval: number | null = null
 let introTimeout: number | null = null
 
-/* ========= SYNC PLAN ========= */
+/* ========= SYNC PLAN (broadcast) ========= */
 type SpinPlan = { kind: 'intro_plan'; eventId: string; introUntil: number; spinAt: number; createdBy?: string }
 const syncPlan = ref<SpinPlan | null>(null)
 const syncPlanActive = computed(() => !!syncPlan.value)
@@ -494,7 +515,7 @@ let isLeaderForPlan = false
 let syncChannel: any | null = null
 let rebroadcastTimer: number | null = null
 
-/* ====== PERSISTENCE ====== */
+/* ====== PERSISTENCE helpers ====== */
 function storageKey() { return `ge_sync_plan_${eventId}` }
 function savePlanToStorage(plan: SpinPlan | null) {
   try {
@@ -537,7 +558,7 @@ let countdownHandle: number | null = null
 const autoSpinStarted = ref(false)
 const rpcWinnerId = ref<string | null>(null)
 
-/* snapshot used to FREEZE faces during/after a spin/selection */
+/* NOTE: this snapshot freezes the wheel during/after spin */
 let participantsSnapshot: EntryRow[] = []
 
 const spinStarted = ref(false)
@@ -563,12 +584,10 @@ const spinEntries = computed(() =>
   readyEntries.value.length > 0 ? readyEntries.value : joinedEntries.value,
 )
 
-/* keep names/colors intact even AFTER selection */
+/* Keep faces stable after the spin starts */
 const wheelFaces = computed<EntryRow[]>(() => {
   return participantsSnapshot.length ? participantsSnapshot : spinEntries.value
 })
-/* NEW: selector faces (same as wheelFaces) */
-const selectorFaces = computed<EntryRow[]>(() => wheelFaces.value)
 
 const anyWinner = computed(() => entries.value.some((e) => e.status === 'winner'))
 const allReady = computed(
@@ -576,7 +595,7 @@ const allReady = computed(
 )
 const canSpinGate = computed(() => allReady.value && !anyWinner.value)
 
-/* side lists (kept) */
+/* Side lists (kept) */
 const leftSideEntries = computed(() => {
   const mid = Math.ceil(entries.value.length / 2)
   return entries.value.slice(0, mid)
@@ -593,19 +612,25 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
   return entries.value.find((e) => e.id === wid) || null
 })
 
-/* ======== UI helpers (kept) ========= */
-function openOutcomePopupIfMe() {
+/* ======== UI helpers ========= */
+let outcomeTimerId: number | null = null
+function scheduleOutcomePopupIfMe(delayMs = 3000) {
   if (spinning.value || spinStarted.value) return
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
+  if (outcomeTimerId || showOutcomeModal.value) return
   const winnerUserId = displayWinnerEntry.value.user_id
   const iParticipated = entries.value.some((e) => e.user_id === myUserId.value)
   if (!iParticipated) return
-  outcomeType.value = myUserId.value === winnerUserId ? 'winner' : 'loser'
-  showOutcomeModal.value = true
+  outcomeTimerId = window.setTimeout(() => {
+    outcomeType.value = myUserId.value === winnerUserId ? 'winner' : 'loser'
+    showOutcomeModal.value = true
+    outcomeTimerId && clearTimeout(outcomeTimerId)
+    outcomeTimerId = null
+  }, delayMs)
 }
-function closeOutcomeModal() {
-  showOutcomeModal.value = false
-}
+function openOutcomePopupIfMe() { scheduleOutcomePopupIfMe(3000) } // keep old API
+
+function closeOutcomeModal() { showOutcomeModal.value = false }
 async function fetchMe() {
   try {
     const { data } = await supabase.auth.getUser()
@@ -614,21 +639,15 @@ async function fetchMe() {
     myUserId.value = null
   }
 }
-function shortId(id?: string) {
-  return id ? id.slice(0, 4) + '…' + id.slice(-4) : '—'
-}
-function maskUser(id: string) {
-  return id.slice(0, 4) + '…' + id.slice(-4)
-}
-function fmtTime(d: Date) {
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-}
+function shortId(id?: string) { return id ? id.slice(0, 4) + '…' + id.slice(-4) : '—' }
+function maskUser(id: string) { return id.slice(0, 4) + '…' + id.slice(-4) }
+function fmtTime(d: Date) { return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) }
 function pushJoinFeed(item: JoinFeedItem) {
   joinFeed.value.unshift(item)
   if (joinFeed.value.length > FEED_LIMIT) joinFeed.value.length = FEED_LIMIT
 }
 
-/* ======== Wheel coloring & styles (kept) ========= */
+/* ======== Wheel coloring & styles ========= */
 function hashColor(str: string) {
   let h = 0
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) % 360
@@ -638,20 +657,19 @@ function sliceColor(i: number, n: number, uid?: string) {
   return uid ? hashColor(uid) : `hsl(${Math.round((360 * i) / Math.max(1, n))} 78% 55%)`
 }
 
-/* Rotation via CSS var (kept) */
+/* Rotation via CSS var so labels can counter-rotate cleanly */
 const WHEEL_SIZE = 340
 const WHEEL_BORDER = 16
 const EFFECTIVE_RADIUS = WHEEL_SIZE / 2 - WHEEL_BORDER
 const CLEAR_INNER = 0.10
 const CLEAR_OUTER = 0.94
-const SAFETY_MARGIN_DEG = 2
 
 const wheelVars = computed(() => ({
   '--wheel-rot': `${rotateDeg.value}deg`,
   '--wheel-size': `${WHEEL_SIZE}px`,
 }))
 
-/* build gradient (kept) */
+/* build gradient using wheelFaces so colors stay matched */
 const wheelStyle = computed(() => {
   const n = Math.max(1, wheelFaces.value.length)
   const stops: string[] = []
@@ -664,7 +682,7 @@ const wheelStyle = computed(() => {
   return {
     background: `conic-gradient(${stops.join(',')})`,
     transform: `rotate(var(--wheel-rot))`,
-    transition: spinning.value
+    transition: (useCssTransition.value && spinning.value)
       ? `transform ${spinDurationMs.value / 1000}s cubic-bezier(.08,.55,.24,1)`
       : 'none',
     willChange: 'transform',
@@ -673,29 +691,49 @@ const wheelStyle = computed(() => {
   } as any
 })
 
-/* Label geometry (kept) */
+/* dimming classes for spin / winner states */
+const wheelClass = computed(() => ({
+  'dim-spinning': spinning.value && !revealWinner.value,
+  'dim-win': !spinning.value && revealWinner.value,
+}))
+
+/* equal segment thin-edge overlay */
+const segEdgesStyle = computed(() => {
+  const n = Math.max(1, wheelFaces.value.length)
+  return {
+    '--seg-angle': `${360 / n}deg`,
+  } as any
+})
+
+/* Label geometry vars  */
 function labelVars(i: number) {
   const n = Math.max(1, wheelFaces.value.length)
   const mid = (360 / n) * (i + 0.5)
   return { '--slice-angle': `${mid}deg` } as any
 }
+
+/* === CENTERED, UPRIGHT LABELS (kept bright) === */
 function sliceLabelStyle(i: number, uid?: string) {
   const n = Math.max(1, wheelFaces.value.length)
   const slice = 360 / n
   const centerAngleLocal = slice * (i + 0.5)
+
   const R = EFFECTIVE_RADIUS
   const rDesired = 0.58 * R
   const rMin = CLEAR_INNER * R
   const rMax = CLEAR_OUTER * R
   const r = Math.max(rMin, Math.min(rDesired, rMax))
+
   const arc = (2 * Math.PI * r) / n
   const Lmax = Math.max(48, Math.floor(arc - 8))
+
   const t =
     `rotate(${centerAngleLocal}deg)` +
     ` translate(0, -${r}px)` +
     ` rotate(${-centerAngleLocal}deg)` +
     ` rotate(calc(-1 * var(--wheel-rot)))` +
     ` translate(-50%, -50%)`
+
   return {
     transform: t,
     width: `${Lmax}px`,
@@ -707,16 +745,19 @@ function sliceLabelStyle(i: number, uid?: string) {
    textShadow: '0 1px 2px rgba(0,0,0,.55), 0 0 8px rgba(0,0,0,.25)',
     textAlign: 'center',
     fontWeight: 900,
+    mixBlendMode: 'normal',
+    filter: 'none',
+    zIndex: 6
   } as any
 }
 
-/* ======== Rim bulbs (kept, but fully hidden via template) ========= */
+/* ======== Rim bulbs ========= */
 function bulbStyle(n: number) {
-  const deg = (360 / 20) * (n - 1)
+  const deg = (360 / 100) * (n - 1) /* ✅ distribute 100 bulbs evenly */
   return { transform: `rotate(${deg}deg) translate(0, -168px)` }
 }
 
-/* ======== Data fetch (kept) ========= */
+/* ======== Data fetch ========= */
 async function fetchEntries() {
   if (!eventId) return
   const { data, error } = await supabase
@@ -724,7 +765,7 @@ async function fetchEntries() {
     .from('entry')
     .select('id, event_id, user_id, status')
     .eq('event_id', eventId)
-    .order('id', { ascending: true })
+    .order('id', { ascending: true }) // ✅ deterministic
   if (error) {
     setErr(error, 'load entries')
     return
@@ -834,15 +875,13 @@ function setErr(e: any, ctx: string) {
 }
 
 /* =========================================================
-   🔀 RANDOMNESS HELPERS (kept)
+   🔀 RANDOMNESS HELPERS (seeded from RPC winner)
    ========================================================= */
 let spinRng: (() => number) | null = null
 function xmur3(str: string) {
   let h = 1779033703 ^ str.length
-  for (let i = 0; i < str.length; i++) {
-    h = Math.imul(h ^ str.charCodeAt(i), 3432918353)
-    h = (h << 13) | (h >>> 19)
-  }
+  for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 3432918353)
+  h = (h << 13) | (h >>> 19)
   return function () {
     h = Math.imul(h ^ (h >>> 16), 2246822507)
     h = Math.imul(h ^ (h >>> 13), 3266489909)
@@ -878,12 +917,8 @@ function rnd(): number {
     return Math.random()
   }
 }
-function randInt(min: number, max: number) {
-  return Math.floor(rnd() * (max - min + 1)) + min
-}
-function randFloat(min: number, max: number) {
-  return rnd() * (max - min) + min
-}
+function randInt(min: number, max: number) { return Math.floor(rnd() * (max - min + 1)) + min }
+function randFloat(min: number, max: number) { return rnd() * (max - min) + min }
 function randomEase(): string {
   const EASES = ['power3.out', 'power2.out', 'circ.out', 'expo.out', 'quart.out', 'quint.out']
   return EASES[randInt(0, EASES.length - 1)]
@@ -899,8 +934,8 @@ function makeCryptoSeed(): string {
   }
 }
 function computeSpinParams(n: number) {
-  const baseTurns = 4 + Math.floor(rnd() * 7)
-  const durationMs = Math.round(4600 + rnd() * (7800 - 4600))
+  const baseTurns = 4 + Math.floor(rnd() * 7) // 4..10
+  const durationMs = Math.round(4600 + rnd() * (7800 - 4600)) // 4600..7800
   const ease = randomEase()
   const jitter = computeMicroJitterDeg(n) * (0.6 + 0.4 * rnd())
   return { baseTurns, durationMs, ease, jitter }
@@ -914,7 +949,7 @@ async function preSpinWobble() {
   } catch {}
 }
 
-/* ======= (kept) spin helpers ======= */
+/* ======== SPIN ANIMATION ========= */
 async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeStr?: string) {
   if (!gsap) return false
   try {
@@ -932,15 +967,6 @@ async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeS
       value: targetDeg,
       duration: seconds,
       ease: easeStr || 'power3.out',
-      onUpdate: () => {
-        updateFxSpinVelocity()
-        const vel = Math.abs(rotateDeg.value - lastDeg)
-        const remaining = Math.abs(targetDeg - rotateDeg.value)
-        if (remaining < 0.5 && vel < 0.06) {
-          try { gsapSpinTween?.kill() } catch {}
-          rotateDeg.value = targetDeg
-        }
-      },
       onComplete: async () => {
         try { stopWhoosh(); stopTicks() } finally {
           updateFxIntensity(0)
@@ -960,256 +986,73 @@ function computeMicroJitterDeg(n: number) {
   const span = half - margin
   return (rnd() * 2 - 1) * span
 }
-function randomOffsetWithinSlice(n: number) {
-  const slice = 360 / Math.max(1, n)
-  const half = slice / 2
-  const margin = Math.min(half * 0.6, 12)
-  const span = half - margin
-  return (rnd() * 2 - 1) * span
-}
-async function startSpin(forcedIndex: number) {
-  const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
+
+/* ======== 🔥 NEW: Chasing-light animation (exactly ends on forcedIndex) ======== */
+function chaseWedgeStyle(i: number) {
+  const n = Math.max(1, wheelFaces.value.length)
   const slice = 360 / n
-  const { baseTurns, durationMs, ease, jitter } = computeSpinParams(n)
-  spinDurationMs.value = durationMs
-  await preSpinWobble()
-  const centerAngleLocal = slice * (forcedIndex + 0.5)
-  const targetDeg = 360 * baseTurns + (270 - centerAngleLocal) + jitter
-  spinning.value = true
-  updateFxIntensity(1)
-  const usedGsap = await animateToDegWithGsap(targetDeg, spinDurationMs.value, ease)
-  if (!usedGsap) {
-    initAudio(); startWhoosh(); startTicks(Math.max(60, Math.min(140, spinDurationMs.value / 50))); vib(20)
-    rotateDeg.value = targetDeg
-    await nextTick()
-    await onSpinEnd()
-  }
-}
-
-/* ======= NEW: SELECTOR LOGIC ======= */
-const activeIdx = ref<number>(-1)
-let selectTimer: number | null = null
-
-/* >>> NEW: target selection duration (~10 seconds total) <<< */
-const TARGET_SELECT_MS = 10_000
-
-const selectorGridStyle = computed(() => {
-  // kept for compatibility; circular layout overrides display, but we keep responsive width via container
-  const n = Math.max(1, selectorFaces.value.length)
-  const cols = n <= 4 ? 2 : n <= 9 ? 3 : n <= 16 ? 4 : 5
-  return { gridTemplateColumns: `repeat(${cols}, minmax(160px, 1fr))` }
-})
-
-/* Circular position for each select-box */
-function circularPosStyle(i: number) {
-  const n = Math.max(1, selectorFaces.value.length)
-  const angle = (360 / n) * i
+  const centerAngleLocal = slice * (i + 0.5)
+  const visual = slice /* full wedge width for precise, high-contrast steps */
   return {
-    position: 'absolute',
-    left: '50%',
-    top: '50%',
-    transform:
-      `rotate(${angle}deg) translate(0, calc(-1 * var(--ring-radius))) rotate(${-angle}deg) translate(-50%, -50%)`,
-    transformOrigin: 'center center',
+    '--center-deg': `${centerAngleLocal}deg`,
+    '--wedge-deg': `${visual}deg`,
   } as any
 }
-
-/* Eases from faster hops to slower hops; transition timings are longer to make the 'light' linger */
-function delayForStep(k: number, total: number) {
-  const t = Math.min(1, Math.max(0, (k + 1) / Math.max(1, total))) // 0..1
-  const minMs = 120   // starting hop speed
-  const maxMs = 420   // final linger per hop
-  const curve = t * t * t // ease-out cubic
-  const ms = minMs + (maxMs - minMs) * curve
-  return Math.round(ms)
-}
-
-function stopSelect() {
-  if (selectTimer) { clearTimeout(selectTimer); selectTimer = null }
-}
-
-function clamp(v: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, v))
-}
-
-async function startSelect(forcedIndex: number) {
-  // deterministic "path feel" seeded from winner so everyone sees the same chase pattern
-  const n = Math.max(1, selectorFaces.value.length)
-  initAudio()
-  startWhoosh()
-  startTicks(90)
-  vib(20)
-
+async function startChase(forcedIndex: number) {
   spinning.value = true
   updateFxIntensity(1)
+  initAudio()
+  startWhoosh()
 
-  // Starting position: next box after -1 -> 0
-  activeIdx.value = -1
+  const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
+  let current = activeSliceIndex.value ?? 0
 
-  // Steps from the first highlight (0) to forcedIndex
-  const startPos = 0
-  const stepsToTarget = (forcedIndex - startPos + n) % n
+  /* NEW: 5..10 full loops to match spec */
+  const cycles = 5 + Math.floor(rnd() * 6) // 5..10
+  const stepsToForced = ((forcedIndex - current) % n + n) % n
+  const totalSteps = cycles * n + stepsToForced
 
-  /* Choose baseSteps (multiple of n) so that total time ≈ TARGET_SELECT_MS. */
-  const avgDelayEst = 260
-  let baseLoops = Math.round((TARGET_SELECT_MS - stepsToTarget * avgDelayEst) / (avgDelayEst * n))
-  baseLoops = clamp(baseLoops, 3, 12) // at least 3 full loops so it feels satisfying
-  const baseSteps = baseLoops * n
-  const totalSteps = baseSteps + stepsToTarget
+  const startMs = 120
+  const endMs   = 520
+  let step = 0
 
-  await runSelection(totalSteps, n, forcedIndex)
-}
+  function easeOutCubic(x: number) { return 1 - Math.pow(1 - x, 3) }
 
-async function runSelection(totalSteps: number, n: number, forcedIndex: number) {
-  let k = 0
-  const tick = async () => {
-    activeIdx.value = (activeIdx.value + 1 + n) % n
-    // sfx per hop
-    try { playTick(1800 + Math.random() * 400, 0.045, 0.06) } catch {}
-    if (k >= totalSteps - 1) {
-      // Landed
+  const stepRun = async () => {
+    current = (current + 1) % n
+    activeSliceIndex.value = current
+    playTick(1800 + Math.random() * 400, 0.045, 0.08)
+    step++
+
+    const p = step / totalSteps
+    /* tails explicitly disabled for crisp, one-wedge steps */
+    chaseSlowPhase.value = p > 0.8
+    chaseTrailLen.value = 0
+
+    if (step >= totalSteps) {
+      clearChaseTimer()
+      vib(20)
       stopWhoosh()
       stopTicks()
       updateFxIntensity(0)
-      winnerEntry.value = selectorFaces.value[forcedIndex] || null
-      await onSelectEnd()
+      activeSliceIndex.value = forcedIndex
+      winnerEntry.value = participantsSnapshot[forcedIndex] || wheelFaces.value[forcedIndex] || null
+      finalizeWinnerAfterChase()
       return
     }
-    k++
-    selectTimer = window.setTimeout(tick, delayForStep(k, totalSteps))
+    const delay = startMs + (endMs - startMs) * easeOutCubic(p)
+    chaseTimer = window.setTimeout(stepRun, delay)
   }
-  tick()
+  stepRun()
 }
-
-/* ======= (kept) winner forcing + end flows ======= */
-const INDEX_EPS = 1e-8
-const pointerIndex = computed<number | null>(() => {
-  const faces = wheelFaces.value
-  const n = faces.length
-  if (n <= 0) return null
-  const slice = 360 / n
-  const final = ((rotateDeg.value % 360) + 360) % 360
-  const local = ((270 - final) % 360 + 360) % 360
-  let idx = Math.floor((local + INDEX_EPS) / slice)
-  if (idx >= n) idx = n - 1
-  return idx
-})
-const pointerEntry = computed<EntryRow | null>(() => {
-  const idx = pointerIndex.value
-  if (idx === null) return null
-  return wheelFaces.value[idx] || null
-})
-const pointerColor = computed<string>(() => {
-  const idx = pointerIndex.value
-  const n = Math.max(1, wheelFaces.value.length)
-  if (idx === null || n === 0) return '#0fd2a0'
-  const uid = wheelFaces.value[idx]?.user_id
-  return sliceColor(idx, n, uid)
-})
-async function forceSpinWinnerTo(id: string) {
-  if (!eventId || !id) return
-  try {
-    await supabase
-      .schema('games')
-      .from('spin')
-      .upsert({ event_id: eventId, winner_entry_id: id }, { onConflict: 'event_id' })
-  } catch (e: any) {
-    setErr(e, 'force spin winner to visual')
-  }
-}
-
-/* ======= Selection finish (new) ======= */
-async function onSelectEnd() {
-  if (!spinning.value) return
-  spinning.value = false
-
-  /* 🔒 Ensure no other boxes stay lit: clear the "active" highlight */
-  activeIdx.value = -1
-
-  try {
-    if (gsap) {
-      await gsap.fromTo(
-        '.selector-wrap',
-        { scale: 1.0 },
-        { scale: 1.015, duration: 0.18, ease: 'power2.out', yoyo: true, repeat: 1 }
-      )
-    }
-  } catch {}
-
-  try {
-    // Authoritative: ensure spin table matches visual winner
-    const wid = winnerEntry.value?.id || rpcWinnerId.value
-    if (wid) {
-      rpcWinnerId.value = wid
-      await forceSpinWinnerTo(wid)
-      await settleEntriesAfterSpin(wid)
-    }
-
-    await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
-
-    await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-    await insertReceiptsForParticipants(participantsSnapshot)
-    await ensureVoucherForWinner()
-    await processRefundsAndPayments()
-
-    resolved.value = true
-    rpcWinnerId.value = null
-    busy.value.commit = false
-    spinStarted.value = false
-    revealWinner.value = true
-    winStinger()
-    openOutcomePopupIfMe()
-  } catch (e: any) {
-    setErr(e, 'selection finalize')
-  } finally {
-    clearSpinRng()
-    await nextTick()
-    fitLabels()
-  }
-}
-
-/* ======= (kept) wheel-spin finish ======= */
-async function onSpinEnd() {
-  if (!spinning.value) return
-  spinning.value = false
-  stopWhoosh()
-  stopTicks()
-  updateFxIntensity(0)
-
-  /* safety: also clear active highlight (in case the hidden wheel path ran) */
-  activeIdx.value = -1
-
-  try {
-    if (gsap && wheelWrapEl.value) {
-      await gsap.fromTo(
-        wheelWrapEl.value,
-        { x: -2 },
-        { x: 0, duration: 0.18, ease: 'power2.out' }
-      )
-    }
-  } catch {}
-
-  const visualIdx = pointerIndex.value
-  const visualEntry = (visualIdx !== null) ? (participantsSnapshot[visualIdx] || wheelFaces.value[visualIdx] || null) : null
-  if (visualEntry?.id) {
-    if (!rpcWinnerId.value || rpcWinnerId.value !== visualEntry.id) {
-      rpcWinnerId.value = visualEntry.id
-      await forceSpinWinnerTo(visualEntry.id)
-    }
-    winnerEntry.value = visualEntry
-  }
-
+async function finalizeWinnerAfterChase() {
   if (rpcWinnerId.value) {
-    const idx = participantsSnapshot.findIndex((e) => e.id === rpcWinnerId.value)
-    if (idx >= 0) winnerEntry.value = participantsSnapshot[idx]
     await settleEntriesAfterSpin(rpcWinnerId.value)
-    await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
-
+    await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
     await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
     await insertReceiptsForParticipants(participantsSnapshot)
     await ensureVoucherForWinner()
     await processRefundsAndPayments()
-
     resolved.value = true
     rpcWinnerId.value = null
   }
@@ -1218,22 +1061,42 @@ async function onSpinEnd() {
   revealWinner.value = true
   winStinger()
   openOutcomePopupIfMe()
-
-  try {
-    if (displayWinnerEntry.value && participantsSnapshot.length) {
-      const vIdx = pointerIndex.value
-      const fIdx = participantsSnapshot.findIndex(e => e.id === displayWinnerEntry.value!.id)
-      if (vIdx !== null && fIdx >= 0 && vIdx !== fIdx) {
-        console.warn('[Pointer mismatch] visualIdx=', vIdx, 'forcedIdx=', fIdx, 'rot=', rotateDeg.value)
-      }
-    }
-  } catch {}
   clearSpinRng()
   await nextTick()
   fitLabels()
 }
 
-/* ======= DB updates (kept) ======= */
+/* Keep legacy spin entry point but delegate to chase mode */
+async function startSpin(forcedIndex: number) {
+  if (useChaseMode.value) {
+    if (!participantsSnapshot.length) participantsSnapshot = wheelFaces.value.slice()
+    await startChase(forcedIndex)
+    return
+  }
+
+  const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
+  const slice = 360 / n
+
+  const { baseTurns, durationMs, ease, jitter } = computeSpinParams(n)
+  spinDurationMs.value = durationMs
+
+  await preSpinWobble()
+
+  const centerAngleLocal = slice * (forcedIndex + 0.5)
+  const targetDeg = 360 * baseTurns + (270 - centerAngleLocal) + jitter
+
+  spinning.value = true
+  updateFxIntensity(1)
+
+  const usedGsap = await animateToDegWithGsap(targetDeg, spinDurationMs.value, ease)
+  if (!usedGsap) {
+    useCssTransition.value = true
+    initAudio(); startWhoosh(); startTicks(Math.max(60, Math.min(140, spinDurationMs.value / 50))); vib(20)
+    await nextTick()
+    rotateDeg.value = targetDeg
+  }
+}
+
 async function settleEntriesAfterSpin(winnerId: string) {
   try {
     await supabase.schema('games').from('entry').update({ status: 'winner' }).eq('id', winnerId)
@@ -1248,6 +1111,7 @@ async function settleEntriesAfterSpin(winnerId: string) {
     setErr(e, 'settle entries')
   }
 }
+
 async function updateEventWinnerUserId(winnerUserId: string | null | undefined) {
   if (!eventId || !winnerUserId || eventWinnerUpdated.value) return
   try {
@@ -1261,6 +1125,7 @@ async function updateEventWinnerUserId(winnerUserId: string | null | undefined) 
     setErr(e, 'update event winner')
   }
 }
+
 async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
   if (!eventId || receiptInserted.value || !entriesList?.length) return
   try {
@@ -1281,9 +1146,11 @@ async function insertReceiptsForParticipants(entriesList: EntryRow[]) {
 async function ensureVoucherForWinner() {
   voucherInserted.value = true
 }
+
 function isUuid(v?: string | null) {
   return !!v && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)
 }
+
 function safeNum(v: any, def = 0) {
   const n = Number(v)
   return Number.isFinite(n) ? n : def
@@ -1294,6 +1161,7 @@ function computeDiscountedPriceFromEvent() {
   const val = Math.max(0, ef - wr)
   return Math.round(val * 100) / 100
 }
+
 async function createWinnerPurchaseIfNeeded() {
   try {
     if (winnerPurchaseInserted.value || winnerPurchaseInflight) return
@@ -1448,7 +1316,161 @@ async function processRefundsAndPayments() {
   }
 }
 
-/* ===== Countdowns (kept) ===== */
+/* ======== Pointer-based winner detection (visual) ======== */
+const INDEX_EPS = 1e-8
+const pointerIndex = computed<number | null>(() => {
+  const faces = wheelFaces.value
+  const n = faces.length
+  if (n <= 0) return null
+  const slice = 360 / n
+  const final = ((rotateDeg.value % 360) + 360) % 360
+  const local = ((270 - final) % 360 + 360) % 360
+  let idx = Math.floor((local + INDEX_EPS) / slice)
+  if (idx >= n) idx = n - 1
+  return idx
+})
+const pointerEntry = computed<EntryRow | null>(() => {
+  const idx = pointerIndex.value
+  if (idx === null) return null
+  return wheelFaces.value[idx] || null
+})
+const pointerColor = computed<string>(() => {
+  const idx = pointerIndex.value
+  const n = Math.max(1, wheelFaces.value.length)
+  if (idx === null || n === 0) return '#0fd2a0'
+  const uid = wheelFaces.value[idx]?.user_id
+  return sliceColor(idx, n, uid)
+})
+
+/* ✅ Push visual winner if needed (keeps DB in sync with pointer) */
+async function forceSpinWinnerTo(id: string) {
+  if (!eventId || !id) return
+  try {
+    await supabase
+      .schema('games')
+      .from('spin')
+      .upsert({ event_id: eventId, winner_entry_id: id }, { onConflict: 'event_id' })
+  } catch (e: any) {
+    setErr(e, 'force spin winner to visual')
+  }
+}
+
+async function onSpinEnd() {
+  if (!spinning.value) return
+  if (useChaseMode.value) return // chase mode handles its own finalize
+  spinning.value = false
+  stopWhoosh()
+  stopTicks()
+  updateFxIntensity(0)
+
+  const visualIdx = pointerIndex.value
+  const visualEntry = (visualIdx !== null)
+    ? (participantsSnapshot[visualIdx] || wheelFaces.value[visualIdx] || null)
+    : null
+
+  if (visualEntry?.id) {
+    if (!rpcWinnerId.value || rpcWinnerId.value !== visualEntry.id) {
+      rpcWinnerId.value = visualEntry.id
+      await forceSpinWinnerTo(visualEntry.id)
+    }
+    winnerEntry.value = visualEntry
+  }
+
+  if (rpcWinnerId.value) {
+    const idx = participantsSnapshot.findIndex((e) => e.id === rpcWinnerId.value)
+    if (idx >= 0) winnerEntry.value = participantsSnapshot[idx]
+    await settleEntriesAfterSpin(rpcWinnerId.value)
+    await Promise.all([fetchEntries(), fetchEvent(), fetchSpin()])
+
+    await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
+    await insertReceiptsForParticipants(participantsSnapshot)
+    await ensureVoucherForWinner()
+    await processRefundsAndPayments()
+
+    resolved.value = true
+    rpcWinnerId.value = null
+  }
+  busy.value.commit = false
+  spinStarted.value = false
+  revealWinner.value = true
+  winStinger()
+  openOutcomePopupIfMe()
+
+  clearSpinRng()
+  await nextTick()
+  fitLabels()
+}
+
+async function triggerServerSpinAndAnimate() {
+  if (!eventId || !canSpinGate.value || resolved.value || spinStarted.value) return
+  participantsSnapshot = spinEntries.value.slice()
+  spinStarted.value = true
+  try {
+    busy.value.commit = true
+    revealWinner.value = false
+
+    const seed = makeCryptoSeed()
+    let spinRow: any = null
+    {
+      const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: seed })
+      if (error) {
+        console.warn('rpc_spin_event with seed failed, retrying without seed…', error?.message || error)
+        const res2 = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
+        if (res2.error) {
+          setErr(res2.error, 'rpc_spin_event')
+          busy.value.commit = false
+          spinStarted.value = false
+          return
+        }
+        spinRow = Array.isArray(res2.data) ? res2.data[0] : res2.data
+      } else {
+        spinRow = Array.isArray(data) ? data[0] : data
+      }
+    }
+
+    const winner_id: string | undefined = spinRow?.winner_entry_id
+    if (!winner_id) {
+      err.value = 'RPC did not return winner_entry_id'
+      busy.value.commit = false
+      spinStarted.value = false
+      return
+    }
+    rpcWinnerId.value = winner_id
+    initSpinRngFromWinner(winner_id)
+    let forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
+    if (forcedIdx < 0) {
+      await fetchEntries()
+      participantsSnapshot = spinEntries.value.slice()
+      forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
+    }
+    if (forcedIdx < 0) {
+      await settleEntriesAfterSpin(winner_id)
+      await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
+      await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
+      await insertReceiptsForParticipants(participantsSnapshot)
+      await ensureVoucherForWinner()
+      await processRefundsAndPayments()
+      resolved.value = true
+      busy.value.commit = false
+      spinStarted.value = false
+      revealWinner.value = true
+      clearSpinRng()
+      return
+    }
+
+    await nextTick()
+    fitLabels()
+
+    await startSpin(forcedIdx)
+  } catch (e: any) {
+    setErr(e, 'trigger spin/animate')
+    busy.value.commit = false
+    spinStarted.value = false
+    clearSpinRng()
+  }
+}
+
+/* ===== Countdowns ===== */
 function actuallyStartCountdown(asLeader = false) {
   autoSpinStarted.value = true
   countdown.value = 3
@@ -1486,7 +1508,7 @@ function actuallyStartCountdown(asLeader = false) {
   }, 1000)
 }
 
-/* ===== NEW: Synchronized plan scheduling (kept) ===== */
+/* ===== NEW: Synchronized plan scheduling ===== */
 function nowMs() { return Date.now() }
 function ceilToSecond(ms: number) { return Math.ceil(ms / 1000) * 1000 }
 
@@ -1566,7 +1588,7 @@ function stopRebroadcastingPlan() {
   if (rebroadcastTimer) { clearInterval(rebroadcastTimer); rebroadcastTimer = null }
 }
 
-/* ===== Sync channel (kept) ===== */
+/* ===== Sync channel (request/respond plan) ===== */
 async function ensureSyncChannel() {
   if (syncChannel || !eventId) return
   syncChannel = supabase.channel(`ge-sync-${eventId}`, { config: { broadcast: { self: false } } })
@@ -1599,33 +1621,7 @@ function requestSyncPlan() {
   try { syncChannel.send({ type: 'broadcast', event: 'plan_request', payload: { t: Date.now(), eventId } }) } catch {}
 }
 
-function startCountdownAndSpin() {
-  if (autoSpinStarted.value || resolved.value || spinning.value || spinStarted.value) return
-  Promise.all([fetchEntries()]).then(async () => {
-    const stored = loadPlanFromStorage()
-    if (stored && (!syncPlan.value || stored.spinAt < (syncPlan.value?.spinAt || Infinity))) {
-      await ensureSyncChannel()
-      adoptSyncPlan(stored)
-      requestSyncPlan()
-      return
-    }
-
-    if (!canSpinGate.value) {
-      const stop = watch(allReady, async (ok) => {
-        if (ok && !autoSpinStarted.value && !resolved.value && !spinning.value && !spinStarted.value && !syncPlanActive.value) {
-          stop()
-          await scheduleSynchronizedSpin(true)
-        }
-      })
-      await ensureSyncChannel()
-      requestSyncPlan()
-      return
-    }
-    await scheduleSynchronizedSpin(true)
-  })
-}
-
-/* ===== Realtime (kept with selector start) ===== */
+/* ===== Realtime ===== */
 let realtimeChannel: any | null = null,
   realtimeChannelSpin: any | null = null,
   realtimeChannelEvent: any | null = null
@@ -1698,8 +1694,7 @@ function makeRealtimeChannelSpin() {
         if (forcedIdx >= 0) {
           await nextTick()
           fitLabels()
-          /* ⬇️ switch to selector animation */
-          await startSelect(forcedIdx)
+          await startSpin(forcedIdx)
         } else {
           await settleEntriesAfterSpin(winner_id)
           await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
@@ -1750,7 +1745,7 @@ function onVisibilityChange() {
   if (document.visibilityState === 'visible') scheduleRefresh(0)
 }
 
-/* ===== user meta / avatars (kept) ===== */
+/* ===== user meta / avatars ===== */
 watch(entries, () => {
   resolved.value = entries.value.some((e) => e.status === 'winner')
 })
@@ -1771,15 +1766,11 @@ watch(
     }
   },
 )
+
 watch(
   () => wheelFaces.value.map(w => w.user_id + ':' + w.id).join('|'),
   async () => { await nextTick(); fitLabels() }
 )
-
-/* ✅ Ensure no loser lights remain when the winner is revealed */
-watch([revealWinner, spinning], ([revealed, isSpinning]) => {
-  if (revealed && !isSpinning) activeIdx.value = -1
-})
 
 function isHttpUrl(v?: string | null) {
   return !!v && /^(https?:)?\/\//i.test(v)
@@ -1844,23 +1835,16 @@ async function refreshExpiringAvatars(userIds?: string[]) {
     }
   }
 }
-function displayName(uid: string) {
-  return userMeta.value[uid]?.full_name || ''
-}
+function displayName(uid: string) { return userMeta.value[uid]?.full_name || '' }
 function displayNameOrPlaceholder(uid?: string | null) {
   const n = uid ? displayName(uid) : ''
   return n && n.trim().length ? n : 'Your text here'
 }
-function avatarUrl(uid: string) {
-  return userMeta.value[uid]?.avatar || DEFAULT_AVATAR
-}
+function avatarUrl(uid: string) { return userMeta.value[uid]?.avatar || DEFAULT_AVATAR }
 async function onImgError(e: Event, uid: string) {
   const el = e.target as HTMLImageElement
   const meta = userMeta.value[uid]
-  if (!meta) {
-    el.src = DEFAULT_AVATAR
-    return
-  }
+  if (!meta) { el.src = DEFAULT_AVATAR; return }
   if (meta.profile_url && !isHttpUrl(meta.profile_url)) {
     const signed = await signAvatarPath(meta.profile_url)
     if (signed) {
@@ -1873,7 +1857,7 @@ async function onImgError(e: Event, uid: string) {
   el.src = DEFAULT_AVATAR
 }
 const DEFAULT_AVATAR =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color">%2352e3b6</stop></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color"%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
 function startAvatarRefreshTimer() {
   stopAvatarRefreshTimer()
   avatarRefreshTimer = window.setInterval(() => refreshExpiringAvatars(), 300000)
@@ -1885,7 +1869,7 @@ function stopAvatarRefreshTimer() {
   }
 }
 
-/* ======== Price display (kept) ======== */
+/* ======== Price display ======== */
 const discountedPrice = computed(() => {
   const p = Number(productMeta.value?.price ?? 0)
   const d = Number(eventInfo.value?.interest_per_player ?? 0)
@@ -1896,7 +1880,7 @@ function fmtMoney(n: number) {
   return (Math.round(n * 100) / 100).toLocaleString(undefined, { minimumFractionDigits: 0 })
 }
 
-/* ======== Product rotation (kept) ======== */
+/* ======== Product rotation ======== */
 function startProductRotation() {
   stopProductRotation()
   if ((productSignedUrls.value || []).length <= 1) return
@@ -1912,7 +1896,7 @@ function stopProductRotation() {
   }
 }
 
-/* ======== Intro controls (kept) ======== */
+/* ======== Intro controls ======== */
 function openIntro(durationMs: number = 10_000) {
   showIntroModal.value = true
   hasSeenIntro.value = true
@@ -1935,7 +1919,7 @@ function closeIntro(markSeen = true) {
   if (introTimeout) { clearTimeout(introTimeout); introTimeout = null }
 }
 
-/* ===================== PIXI FX + VANILLA TILT (kept) ===================== */
+/* ===================== PIXI FX + VANILLA TILT (optional) ===================== */
 const fxHost = ref<HTMLElement | null>(null)
 const wheelWrapEl = ref<HTMLElement | null>(null)
 
@@ -1965,23 +1949,22 @@ function updateFxSpinVelocity() {
 
 async function initVanillaTilt() {
   try {
-    // @ts-ignore
     const mod: any = await import(/* @vite-ignore */ 'vanilla-tilt').catch(() => null)
-    if (mod) {
-      VanillaTilt = mod.default || mod
-      if (wheelWrapEl.value) {
-        VanillaTilt.init(wheelWrapEl.value, {
-          max: 6,
-          speed: 500,
-          glare: true,
-          'max-glare': 0.25,
-          scale: 1.02,
-          perspective: 800,
-        })
-      }
+    if (!mod) return
+    VanillaTilt = mod.default || mod
+    if (wheelWrapEl.value) {
+      VanillaTilt.init(wheelWrapEl.value, {
+        max: 6,
+        speed: 500,
+        glare: true,
+        'max-glare': 0.25,
+        scale: 1.02,
+        perspective: 800,
+      })
     }
   } catch {}
 }
+
 async function initPixiFx() {
   try {
     const pixiMod: any = await import(/* @vite-ignore */ 'pixi.js').catch(() => null)
@@ -2011,6 +1994,7 @@ async function initPixiFx() {
 
     ringContainer = new PIXI.Container()
     fxStage.addChild(ringContainer)
+
     function addRing(radius: number, thickness: number, color: number, alpha = 0.6) {
       const g = new PIXI.Graphics()
       g.lineStyle(thickness, color, alpha)
@@ -2026,6 +2010,7 @@ async function initPixiFx() {
       if (GlowFilter) g.filters = [new GlowFilter({ distance: 16, outerStrength: 6, color, quality: 0.3 })]
       ringContainer.addChild(g)
     }
+
     addRing(size*0.36, 2, 0xffbf00, 0.8)
     addRing(size*0.30, 2, 0xff66cc, 0.7)
     addRing(size*0.22, 2, 0x66ffd9, 0.7)
@@ -2095,11 +2080,12 @@ function destroyPixiFx() {
   frontHalo = null
   backHalo = null
 }
+
 watch(spinning, (v) => {
   updateFxIntensity(v ? 1 : 0)
 })
 
-/* === Auto-fit labels (kept) === */
+/* === Auto-fit labels === */
 function fitLabels() {
   try {
     if (!wheelWrapEl.value) return
@@ -2126,8 +2112,10 @@ function fitLabels() {
         fs -= 0.5
         el.style.fontSize = fs + 'px'
       }
+
       if (el.scrollWidth > cw) el.style.letterSpacing = '-0.3px'
       if (el.scrollWidth > cw) el.style.letterSpacing = '-0.6px'
+
       if (el.scrollWidth > cw) {
         el.style.whiteSpace = 'normal'
         guard = 30
@@ -2140,7 +2128,7 @@ function fitLabels() {
   } catch {}
 }
 
-/* ===== Winner wedge vars (kept) ===== */
+/* ===== Winner highlight wedge angle (for overlay spotlight) ===== */
 const highlightVars = computed(() => {
   const n = Math.max(1, wheelFaces.value.length)
   const slice = 360 / n
@@ -2151,7 +2139,10 @@ const highlightVars = computed(() => {
 onMounted(async () => {
   try {
     const mod: any = await import(/* @vite-ignore */ 'gsap').catch(() => null)
-    if (mod) gsap = mod.gsap || mod.default || mod
+    if (mod) {
+      gsap = mod.gsap || mod.default || mod
+      useCssTransition.value = false // ✅ use GSAP when available
+    }
   } catch {}
 
   await nextTick()
@@ -2205,98 +2196,26 @@ onBeforeUnmount(() => {
   stopRebroadcastingPlan()
   stopPoll()
   stopAvatarRefreshTimer()
-  stopProductRotation()
   stopTicks()
-  stopSelect()
+  clearChaseTimer()
   destroyPixiFx()
   document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
-    try { router.push({ name: 'user.winner' }); return } catch {}
-    try { router.push({ name: 'user.winner' as any }); return } catch {}
-    try { router.push('/winner'); return } catch {}
+    try { router.push({ name: 'user.winner' }) ; return } catch {}
+    try { router.push({ name: 'user.winner' as any }) ; return } catch {}
+    try { router.push('/winner') ; return } catch {}
     router.push({ name: 'user.minigames' })
   } else {
-    try { router.push({ name: 'user.loser' }); return } catch {}
-    try { router.push('/loser'); return } catch {}
+    try { router.push({ name: 'user.loser' }) ; return } catch {}
+    try { router.push('/loser') ; return } catch {}
     router.push({ name: 'user.minigames' })
   }
 }
 function goToMinigames() {
   try { router.push({ name: 'user.minigames' }) } catch { router.push('/app/mini-games') }
-}
-
-/* ======= Trigger selection via RPC (modified to call startSelect) ======= */
-async function triggerServerSpinAndAnimate() {
-  if (!eventId || !canSpinGate.value || resolved.value || spinStarted.value) return
-  participantsSnapshot = spinEntries.value.slice()
-  spinStarted.value = true
-  try {
-    busy.value.commit = true
-    revealWinner.value = false
-
-    const seed = makeCryptoSeed()
-    let spinRow: any = null
-    {
-      const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: seed })
-      if (error) {
-        console.warn('rpc_spin_event with seed failed, retrying without seed…', error?.message || error)
-        const res2 = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
-        if (res2.error) {
-          setErr(res2.error, 'rpc_spin_event')
-          busy.value.commit = false
-          spinStarted.value = false
-          return
-        }
-        spinRow = Array.isArray(res2.data) ? res2.data[0] : res2.data
-      } else {
-        spinRow = Array.isArray(data) ? data[0] : data
-      }
-    }
-
-    const winner_id: string | undefined = spinRow?.winner_entry_id
-    if (!winner_id) {
-      err.value = 'RPC did not return winner_entry_id'
-      busy.value.commit = false
-      spinStarted.value = false
-      return
-    }
-    rpcWinnerId.value = winner_id
-    initSpinRngFromWinner(winner_id)
-    let forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
-    if (forcedIdx < 0) {
-      await fetchEntries()
-      participantsSnapshot = spinEntries.value.slice()
-      forcedIdx = participantsSnapshot.findIndex((e) => e.id === winner_id)
-    }
-    if (forcedIdx < 0) {
-      await settleEntriesAfterSpin(winner_id)
-      await Promise.all([fetchEntries(), fetchEvent(), fetchSpin() ])
-      await updateEventWinnerUserId(displayWinnerEntry.value?.user_id)
-      await insertReceiptsForParticipants(participantsSnapshot)
-      await ensureVoucherForWinner()
-      await processRefundsAndPayments()
-      resolved.value = true
-      busy.value.commit = false
-      spinStarted.value = false
-      revealWinner.value = true
-      clearSpinRng()
-      return
-    }
-
-    await nextTick()
-    fitLabels()
-
-    /* 🔁 switch from wheel spin to selector chase */
-    await startSelect(forcedIdx)
-  } catch (e: any) {
-    setErr(e, 'trigger spin/animate')
-    busy.value.commit = false
-    spinStarted.value = false
-    clearSpinRng()
-  }
 }
 </script>
 
@@ -2337,7 +2256,7 @@ async function triggerServerSpinAndAnimate() {
 .players-panel {
   border: 0;
   border-radius: 18px;
-  background: #0b2a3a;
+  background: #0b1a22; /* deep neutral background to make lights pop */
   color: #e8fbff;
 }
 .players-panel .card-body { padding: 16px 16px; }
@@ -2357,7 +2276,7 @@ async function triggerServerSpinAndAnimate() {
 .player-label .index { font-size: 0.8rem; color: #9bd2e6; }
 .player-label .name { font-weight: 700; font-size: 0.95rem; }
 
-/* ===== Center (stage) ===== */
+/* ===== Center (wheel) ===== */
 .center-stage { display: flex; flex-direction: column; align-items: center; }
 .wheel-stage { position: relative; display: grid; place-items: center; margin-bottom: 0.25rem; }
 .stage-glow {
@@ -2366,7 +2285,7 @@ async function triggerServerSpinAndAnimate() {
   filter: blur(14px); z-index: 0;
 }
 
-/* gold rim + bulbs (kept but hidden at runtime) */
+/* gold rim + bulbs */
 .rim {
   position: absolute; width: 360px; height: 360px; border-radius: 50%;
   background:
@@ -2375,16 +2294,26 @@ async function triggerServerSpinAndAnimate() {
   box-shadow:
     0 16px 40px rgba(0,0,0,.2),
     inset 0 4px 10px rgba(0,0,0,.2);
-  animation: rimRotate 8s linear infinite;
+  animation: rimBreath 4.8s ease-in-out infinite; /* gentle breathing glow */
 }
-@keyframes rimRotate {
-  0% { filter: saturate(1) brightness(1); }
-  50% { filter: saturate(1.08) brightness(1.02); }
-  100% { filter: saturate(1) brightness(1); }
+@keyframes rimBreath {
+  0%,100% { filter: saturate(0.95) brightness(0.96); }
+  50% { filter: saturate(1.05) brightness(1.02); }
 }
-.bulb { display: none; } /* safety */
+.bulb {
+  position: absolute; left: 50%; top: 50%;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #fff, #ffd43b 60%, #f08c00);
+  transform-origin: 50% 50%;
+  filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+  animation: bulbChase 2.4s infinite ease-in-out;
+}
+.bulb:nth-child(odd){ animation-delay: .6s }
+@keyframes bulbChase {
+  0%,100%{ opacity:.95; box-shadow: 0 0 8px rgba(255,212,59,.55); }
+  50%{ opacity:.65; box-shadow: 0 0 2px rgba(255,212,59,.2); }
+}
 
-/* (kept) wheel-wrap, pointer, etc. but hidden via inline style in template */
 .wheel-wrap {
   position: relative;
   width: 340px;
@@ -2399,187 +2328,240 @@ async function triggerServerSpinAndAnimate() {
 .wheel-wrap.win-pulse { animation: winPulse .32s ease-out 1; }
 @keyframes winPulse { 0%{transform:scale(1)} 60%{transform:scale(1.015)} 100%{transform:scale(1)} }
 
-.pointer{ display: none; } /* ensure pointer never shows */
+/* remove fixed pointer visually (kept in DOM) */
+.pointer{ display:none !important; }
 
-/* ===== SELECTOR MODE: circular layout + aesthetic ===== */
-.selector-wrap {
-  position: relative;
-  width: min(720px, 92vw);
-  z-index: 1;
-  transition: transform .2s ease;
-}
-.selector-wrap.selecting { transform: translateY(2px); }
-
-.selector-grid {
-  display: grid; /* kept for non-circular fallback */
-  gap: 14px;
-  grid-template-columns: repeat(3, minmax(160px, 1fr)); /* overridden dynamically */
-  align-items: stretch;
-}
-
-/* --- Circular overrides --- */
-.selector-grid.circular {
-  position: relative;
-  display: block;            /* switch off grid for absolute children */
-  aspect-ratio: 1/1;
-  width: min(720px, 92vw);
-  margin-inline: auto;
-  --ring-radius: clamp(140px, 34vw, 260px); /* radius for placing boxes */
-  padding: 4px;
-  border-radius: 999px;
-  background:
-    radial-gradient(80% 80% at 50% 50%, rgba(6,20,31,.28), transparent);
+.wheel {
+  width: 100%; height: 100%; border-radius: 50%;
+  border: 16px solid #1b1621; /* cooler/darker ring for contrast */
+  position: relative; overflow: hidden;
   box-shadow:
-    inset 0 0 0 1px rgba(255,255,255,.04),
-    0 12px 36px rgba(0,0,0,.35);
+    inset 0 0 0 2px rgba(255,255,255,.08),
+    0 10px 24px rgba(0,0,0,.35);
+  background: conic-gradient(#ff7f7f, #7fff7f);
+  transform: rotate(var(--wheel-rot));
+  transform-style: preserve-3d;
+  backface-visibility: hidden;
+  isolation: isolate; /* NEW: manage blending layers cleanly */
 }
 
-/* extra aesthetic: subtle panel background (kept) */
-.selector-grid-aesthetic {
-  padding: 12px;
-  border-radius: 16px;
+/* ====== NEW: Dim strategy uses overlays (not parent filter) so labels stay bright ====== */
+.wheel.dim-spinning { filter: none; }
+.wheel.dim-win { filter: none; }
+
+/* ====== NEW: Base matte layer ====== */
+.base-matte {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background:
-    radial-gradient(120% 120% at 10% 0%, rgba(124,156,255,.06), transparent 55%),
-    radial-gradient(120% 120% at 90% 100%, rgba(82,227,182,.06), transparent 55%);
-  border: 1px solid rgba(255,255,255,.06);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    radial-gradient(circle at 50% 55%,
+      rgba(0,0,0,.40) 0%,
+      rgba(0,0,0,.52) 58%,
+      rgba(0,0,0,.62) 78%,
+      rgba(0,0,0,.70) 100%);
+  /* keep the full disk intact (no inner donut) */
+  mix-blend-mode: multiply;
+  opacity: .55;
+  transition: opacity .2s ease;
 }
+.wheel.dim-spinning .base-matte { opacity: .75; }
+.wheel.dim-win .base-matte { opacity: .85; }
 
-.select-box {
-  position: relative; /* becomes absolute via inline style for circle */
-  display: grid;
-  grid-template-columns: 54px 1fr;
-  gap: 12px;
-  align-items: center;
-  padding: 12px 14px;
-  border-radius: 16px;
+/* ===== metallic thin edges for each segment (dull gold baseline) ===== */
+.seg-edges {
+  position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  --edge-deg: .9deg;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  border: 1px solid rgba(255,255,255,.10);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.05),
-    0 10px 22px rgba(0,0,0,.22);
-  transition:
-    transform .10s ease,
-    box-shadow .35s ease,
-    border-color .35s ease,
-    background .35s ease,
-    filter .35s ease;
-  overflow: hidden;
-  width: clamp(180px, 28vw, 230px);
-  backdrop-filter: blur(4px);
+    repeating-conic-gradient(
+      from 0deg,
+      rgba(255,205,80,0) 0deg calc(var(--seg-angle) - var(--edge-deg)),
+      rgba(255,205,80,.85) 0deg var(--seg-angle)
+    );
+  /* thin outer ring */
+  -webkit-mask:
+    radial-gradient(circle at 50% 50%, transparent 0 83%, #000 88% 100%);
+          mask:
+    radial-gradient(circle at 50% 50%, transparent 0 83%, #000 88% 100%);
+  filter: drop-shadow(0 0 6px rgba(255,205,80,.40));
+  opacity: .28;
+  animation: edgeBreath 5.4s ease-in-out infinite;
 }
-.selector-grid.circular .select-box {
-  /* ensure readable when placed on circle */
+@keyframes edgeBreath {
+  0%,100% { filter: drop-shadow(0 0 6px rgba(255,205,80,.40)); }
+  50%     { filter: drop-shadow(0 0 10px rgba(255,205,80,.55)); }
+}
+.wheel.dim-spinning .seg-edges { opacity: .22; }
+.wheel.dim-win .seg-edges { opacity: .16; filter: drop-shadow(0 0 3px rgba(255,205,80,.22)); }
+
+/* ====== NEW: Post-win heavy dim layer (near-black surroundings) ====== */
+.postwin-dim {
+  position: absolute; inset: 0; pointer-events: none; z-index: .9; /* below edges/chase */
   background:
-    linear-gradient(180deg, rgba(8,18,38,.65), rgba(8,18,38,.35)),
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    radial-gradient(circle at 50% 55%,
+      rgba(0,0,0,.35) 0%,
+      rgba(0,0,0,.65) 62%,
+      rgba(0,0,0,.82) 80%,
+      rgba(0,0,0,.92) 100%);
 }
 
-.select-avatar {
-  width: 54px; height: 54px; border-radius: 12px; overflow: hidden;
-  box-shadow: 0 0 0 2px rgba(255,255,255,.75);
-}
-.select-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.select-name {
-  font-weight: 900; color: #e9f3ff; letter-spacing: .2px; line-height: 1.1;
-  text-shadow: 0 1px 1px rgba(0,0,0,.25);
-}
-
-/* gentle sheen element */
-.select-box .box-sheen {
+/* ====== PIXI FX HOST ====== */
+.fx-host {
   position: absolute;
   inset: 0;
+  z-index: 0;
   pointer-events: none;
-  background: linear-gradient(120deg, transparent 0%, rgba(255,255,255,.10) 22%, transparent 44%);
-  transform: translateX(-120%);
-  opacity: 0;
 }
 
-/* === ACTIVE LIGHT: single green glow === */
-.select-box.active {
-  transform: translateY(-2px) scale(1.012);
-  border-color: #0fd2a0 !important;                 /* fixed green */
-  box-shadow:
-    0 18px 30px rgba(0,0,0,.35),
-    0 0 0 2px rgba(0,0,0,.06),
-    0 0 24px rgba(15,210,160,.48);                  /* green glow */
-  background:
-    linear-gradient(180deg, rgba(15,210,160,.18), rgba(15,210,160,.05)),
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
-  filter: saturate(1.06);
-}
-.select-box.active .box-sheen {
-  animation: sheenSweep 1.4s ease-in-out forwards;
-  opacity: 1;
-}
-@keyframes sheenSweep {
-  0%   { transform: translateX(-120%); opacity: 0; }
-  10%  { opacity: 0.9; }
-  100% { transform: translateX(120%); opacity: 0; }
-}
-
-/* winner state (kept, also green outline) */
-.select-box.winner {
-  outline: 2px solid #0fd2a0;
-  box-shadow:
-    0 18px 34px rgba(0,0,0,.35),
-    0 0 0 2px rgba(15,210,160,.35),
-    0 0 28px rgba(15,210,160,.35);
-}
-
-/* ✅ Winner HERO glow: only when revealed & not spinning */
-.selector-wrap.revealed .select-box.winner {
-  transform: translateY(-3px) scale(1.02);
-  border-color: #0ff0c8 !important;
-  outline-color: #0ff0c8;
-  box-shadow:
-    0 22px 40px rgba(0,0,0,.36),
-    0 0 0 2px rgba(15,210,160,.45),
-    0 0 36px rgba(15,210,160,.66),
-    0 0 90px rgba(15,210,160,.30);
-  animation: heroPulse 1.6s ease-in-out infinite;
-}
-.selector-wrap.revealed .select-box.winner .box-sheen {
-  opacity: 1;
-  animation: sheenSweep 2.2s linear infinite;
-}
-.selector-wrap.revealed .select-box.winner::after {
-  content: "";
+/* ===== 🔥 CHASING EDGE LIGHT (precise, no trail) ===== */
+.chase-layer {
   position: absolute;
-  inset: -8px;
-  border-radius: 18px;
-  background: radial-gradient(70% 70% at 50% 50%, rgba(15,210,160,.35), transparent 70%);
-  filter: blur(14px);
+  inset: 0;
+  z-index: 2;       /* over edges, under labels */
   pointer-events: none;
-  animation: heroAura 2.8s ease-in-out infinite;
 }
-@keyframes heroPulse {
-  0%   { filter: saturate(1); }
-  50%  { filter: saturate(1.08); }
-  100% { filter: saturate(1); }
-}
-@keyframes heroAura {
-  0%   { opacity: .45; }
-  50%  { opacity: .85; }
-  100% { opacity: .45; }
+.chase-wedge {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .18s ease-in-out;
 }
 
-/* 🚫 Ensure losers are NOT lit when revealed (no active class remains) */
-.selector-wrap.revealed .select-box:not(.winner) {
-  /* no extra glow; keep base look */
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.05),
-    0 10px 22px rgba(0,0,0,.22);
-  border-color: rgba(255,255,255,.10);
-  filter: none;
+/* Whole wedge subtle lift so the center isn't skipped */
+.chase-wedge::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    conic-gradient(
+      from calc(var(--center-deg) - 0.5 * var(--wedge-deg)),
+      rgba(255,255,255,.12) 0deg,
+      rgba(255,255,255,.12) var(--wedge-deg),
+      rgba(255,255,255,0)  var(--wedge-deg) 360deg
+    );
+  /* full disk — no inner hole */
+  mix-blend-mode: screen;
+  filter: blur(.2px);
 }
 
-/* ===== sticky bits reused ===== */
-.intro-count { color: #e9f3ff; opacity: .9; font-weight: 700; letter-spacing: .3px; }
+/* Molten-gold BORDER: outer arc + the two dividing lines */
+.chase-wedge::after {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    /* A) OUTER RING ARC (thick, warm gold) */
+    conic-gradient(
+      from calc(var(--center-deg) - 0.5 * var(--wedge-deg)),
+      rgba(255,205,80,1) 0deg,
+      rgba(255,205,80,1) var(--wedge-deg),
+      rgba(255,205,80,0) var(--wedge-deg) 360deg
+    ),
+    /* B) TWO RADIAL DIVIDER LINES (thin, bright) */
+    conic-gradient(
+      from calc(var(--center-deg) - 0.5 * var(--wedge-deg)),
+      transparent 0deg calc(0.9deg),
+      rgba(255,220,120,1) calc(0.9deg) calc(1.6deg),
+      transparent calc(1.6deg) calc(var(--wedge-deg) - 1.6deg),
+      rgba(255,220,120,1) calc(var(--wedge-deg) - 1.6deg) calc(var(--wedge-deg) - 0.9deg),
+      transparent calc(var(--wedge-deg) - 0.9deg) 360deg
+    );
+  /* Mask the OUTER RING ARC to a ring band; keep divider lines full radius */
+  -webkit-mask:
+      radial-gradient(circle at 50% 50%, transparent 0 84%, #000 88% 100%),
+      radial-gradient(circle at 50% 50%, #000 0 100%);
+          mask:
+      radial-gradient(circle at 50% 50%, transparent 0 84%, #000 88% 100%),
+      radial-gradient(circle at 50% 50%, #000 0 100%);
+  filter:
+    drop-shadow(0 0 18px rgba(255,205,80,.95))
+    drop-shadow(0 0 34px rgba(255,170,0,.75));
+  mix-blend-mode: screen;
+}
+.chase-wedge.is-active { opacity: 1; }
+/* disable any trails for crisp stepping */
+.chase-wedge.is-trail1,
+.chase-wedge.is-trail2,
+.chase-wedge.is-trail3 { opacity: 0 !important; }
+
+/* linger slightly more when slowing down */
+.chase-layer.chase-slow .chase-wedge.is-active { transition: opacity .28s ease; }
+
+/* Winner rim sparkles */
+.winner-sparkles {
+  position:absolute; inset:0; pointer-events:none; z-index:3;
+  background:
+    repeating-conic-gradient(from 0deg,
+      rgba(255,238,170,.0) 0deg 3deg,
+      rgba(255,255,255,.85) 3deg 3.6deg),
+    repeating-conic-gradient(from 1.4deg,
+      rgba(255,238,170,.0) 0deg 6deg,
+      rgba(255,214,100,.75) 6deg 6.6deg);
+  -webkit-mask:
+    radial-gradient(circle at 50% 50%, transparent 0 84%, #000 88% 100%);
+          mask:
+    radial-gradient(circle at 50% 50%, transparent 0 84%, #000 88% 100%);
+  animation: sparkOrbit 2.8s linear infinite;
+  mix-blend-mode: screen;
+}
+@keyframes sparkOrbit { to { transform: rotate(360deg) } }
+
+/* Slice labels – CENTERED in wedge, upright (always bright) */
+.slice-label {
+  position: absolute; left: 50%; top: 50%;
+  transform-origin: 0 0;
+  font-size: 13px; font-weight: 900; letter-spacing: 0.02em;
+  pointer-events: none;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 6; /* above glows */
+  padding: 2px 4px;
+  border-radius: 8px;
+}
+.slice-label .label-text {
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: clip;
+  will-change: transform;
+  line-height: 1.1;
+  white-space: nowrap;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.75), 0 0 10px rgba(0,0,0,.35);
+  mix-blend-mode: normal;
+}
+@media (max-width: 420px) {
+  .slice-label { font-size: 12px; }
+}
+
+/* Winner spotlight (legacy; disabled in chase mode via v-if) */
+.win-wedge-highlight{
+  position:absolute; inset:0; pointer-events:none; z-index:2;
+  background:
+    conic-gradient(from 270deg,
+      rgba(255,255,255,0) calc(-0.5 * var(--wedge-angle)),
+      rgba(255,255,255,0.18) 0deg,
+      rgba(255,255,255,0.18) calc(0.5 * var(--wedge-angle)),
+      rgba(255,255,255,0) calc(0.5 * var(--wedge-angle) + 0.1deg)
+    );
+  mask: radial-gradient(circle at 50% 50%, transparent 0 22%, black 28% 100%);
+  animation: wedgeGlow 1.2s ease-in-out infinite alternate;
+}
+@keyframes wedgeGlow {
+  0% { filter: drop-shadow(0 0 0 rgba(255,255,255,.0)); }
+  100% { filter: drop-shadow(0 0 12px rgba(255,255,255,.25)); }
+}
+
+/* Keep the old 'Spinning…' overlay in DOM but hide it per spec */
+.spin-overlay { display:none !important; }
+
+.btn-arcade {
+  border-radius: 999px; padding: 0.6rem 1.1rem;
+  box-shadow: 0 8px 18px rgba(82,227,182,.25), inset 0 1px 0 rgba(255,255,255,.6);
+  transform: translateY(0); transition: transform .08s ease, box-shadow .2s ease, filter .2s ease;
+}
+.btn-arcade:hover { box-shadow: 0 10px 24px rgba(124,156,255,.35), inset 0 1px 0 rgba(255,255,255,.7); filter: saturate(1.08); }
+.btn-arcade:active { transform: translateY(1px) scale(.99); }
+.countdown-badge { animation: popIn .25s ease, breathe 1.6s ease-in-out infinite .25s; }
+@keyframes popIn { from{transform:scale(.9);opacity:.5} to{transform:scale(1);opacity:1} }
+@keyframes breathe { 0%,100%{transform:scale(1)} 50%{transform:scale(1.03)} }
 
 /* ===== Right panel ===== */
-.prize-panel { border: 0; border-radius: 18px; background: #0b2a3a; color: #c9f6ff; }
+.prize-panel { border: 0; border-radius: 18px; background: #0b1a22; color: #c9f6ff; }
 .prize-panel .card-body { padding: 18px; }
 .prize-title { color: #36e3b3; font-weight: 800; letter-spacing: .5px; font-size: clamp(18px, 3vw, 28px); text-transform: uppercase; margin: 10px 0 0; }
 
@@ -2594,9 +2576,7 @@ async function triggerServerSpinAndAnimate() {
 .price-row .old { color: #9fb8c9; text-decoration: line-through; font-weight: 700; }
 .price-row .new { color: #36e3b3; font-weight: 900; font-size: clamp(18px, 3.2vw, 32px); }
 
-/* ===== Confetti + Popups (kept) ===== */
-.joined-summary .badge { font-weight: 700; letter-spacing: .2px; }
-
+/* ===== Confetti + Popups ===== */
 .confetti-wrap { pointer-events: none; position: fixed; inset: 0; overflow: hidden; z-index: 50; }
 .confetti-piece {
   position: absolute; top: -10vh; left: 50%; width: 8px; height: 14px; background: #7c9cff; opacity: .9;
@@ -2616,12 +2596,13 @@ async function triggerServerSpinAndAnimate() {
 @keyframes fall { to{ transform: translateY(110vh) rotate(540deg); opacity: 1; } }
 @keyframes sway { 0%,100%{ margin-left:-6px } 50%{ margin-left:6px } }
 
-/* Outcome modal (kept) */
+/* Outcome modal */
 .outcome-backdrop {
   position: fixed; inset: 0; z-index: 60; background: rgba(6,10,24,.65); backdrop-filter: blur(4px);
   display: grid; place-items: center; animation: fadeIn .18s ease;
 }
 @keyframes fadeIn { from{opacity:.6} to{opacity:1} }
+
 .outcome-modal {
   width: min(520px, 92vw); border-radius: 20px; border: 1px solid rgba(255,255,255,.12); overflow: hidden; position: relative;
   background:
@@ -2633,16 +2614,20 @@ async function triggerServerSpinAndAnimate() {
 }
 .outcome-winner { box-shadow: 0 24px 70px rgba(80,227,182,.35); }
 .outcome-loser { box-shadow: 0 24px 70px rgba(124,156,255,.28); }
+
 .pop-title { font-weight: 900; letter-spacing: .4px; font-size: clamp(22px, 4vw, 32px); color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,.35); }
 .pop-btn { border-radius: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; box-shadow: 0 12px 26px rgba(0,0,0,.25); }
 .btn-winner { background: #0fd2a0; color: #0a2a26; }
 .btn-loser { background: #7c9cff; color: #0b1630; }
 .pop-close { position: absolute; top: 10px; right: 12px; background: transparent; border: 0; color: #cfe3ff; cursor: pointer; font-size: 18px; }
-.sparkle-1, .sparkle-2 { position: absolute; inset: auto; width: 160px; height: 160px; filter: blur(28px); opacity: .35; z-index: 0; border-radius: 50%; }
+
+.sparkle-1, .sparkle-2 {
+  position: absolute; inset: auto; width: 160px; height: 160px; filter: blur(28px); opacity: .35; z-index: 0; border-radius: 50%;
+}
 .sparkle-1 { left: -40px; top: -40px; background: #7c9cff; }
 .sparkle-2 { right: -40px; bottom: -40px; background: #52e3b6; }
 
-/* ===== INTRO (kept) ===== */
+/* ===== INTRO ===== */
 .intro-backdrop {
   position: fixed; inset: 0; z-index: 70; background: rgba(5,10,22,.7); backdrop-filter: blur(6px);
   display: grid; place-items: center; animation: fadeIn .18s ease;
@@ -2660,8 +2645,12 @@ async function triggerServerSpinAndAnimate() {
   box-shadow: 0 24px 80px rgba(0,0,0,.45), inset 0 0 0 1px rgba(255,255,255,.04);
   transform: translateY(8px) scale(.98); animation: popInModal .22s ease forwards;
 }
-.intro-sheen { position: absolute; inset: 0; background: linear-gradient(120deg, transparent, rgba(255,255,255,.04), transparent); transform: translateX(-100%); animation: sheen 2.8s ease-in-out infinite; }
+.intro-sheen {
+  position: absolute; inset: 0; background: linear-gradient(120deg, transparent, rgba(255,255,255,.04), transparent);
+  transform: translateX(-100%); animation: sheen 2.8s ease-in-out infinite;
+}
 @keyframes sheen { 0%{transform:translateX(-100%)} 50%{transform:translateX(100%)} 100%{transform:translateX(100%)} }
+
 .intro-title { font-weight: 900; font-size: clamp(22px, 3.8vw, 30px); color: #fff; }
 .intro-sub { color: #cfe3ff; opacity: .8; }
 
@@ -2669,30 +2658,44 @@ async function triggerServerSpinAndAnimate() {
   display: grid; grid-template-columns: 120px 1fr; gap: 16px; align-items: center;
   background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px;
 }
-.intro-prize-media { width: 120px; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; background: #081226; display: grid; place-items: center; }
+.intro-prize-media {
+  width: 120px; aspect-ratio: 1/1; border-radius: 12px; overflow: hidden; background: #081226; display: grid; place-items: center;
+}
 .intro-prize-media img { width: 100%; height: 100%; object-fit: contain; }
 .intro-prize-placeholder { font-size: 42px; }
 
 .intro-prize-info { display: flex; flex-direction: column; gap: 6px; }
 .intro-prize-name { color: #e9f3ff; font-weight: 800; letter-spacing: .2px; }
 .intro-prices { display: flex; align-items: baseline; gap: 12px; }
-.intro-price-old { position: relative; color: #a9bfe2; font-weight: 800; }
+
+.intro-price-old {
+  position: relative; color: #a9bfe2; font-weight: 800;
+}
 .intro-slash {
   position: absolute; left: -6px; right: -6px; top: 50%; height: 2px; background: linear-gradient(90deg, #ff6a6a, #ffa14a);
   transform-origin: left center; transform: scaleX(0) rotate(-8deg);
   animation: slashIn .6s .15s ease forwards;
 }
 @keyframes slashIn { to{ transform: scaleX(1) rotate(-8deg); } }
-.intro-price-new { color: #ffd43b; font-weight: 900; font-size: clamp(18px, 3vw, 28px); text-shadow: 0 0 18px rgba(255,212,59,.2); animation: pricePop .4s .4s ease both; }
+
+.intro-price-new {
+  color: #ffd43b; font-weight: 900; font-size: clamp(18px, 3vw, 28px);
+  text-shadow: 0 0 18px rgba(255,212,59,.2);
+  animation: pricePop .4s .4s ease both;
+}
 @keyframes pricePop { from{ transform: scale(.96); opacity:.6 } to{ transform: scale(1); opacity:1 } }
 
 .intro-players { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
 .intro-players-head { color: #cfe3ff; margin-bottom: 8px; font-weight: 700; }
-.intro-players-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.intro-players-grid {
+  display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
 .intro-player-pill {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
   background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08);
 }
 .intro-player-pill img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
 .intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: .95rem; }
+
+.intro-count { color: #e9f3ff; opacity: .9; font-weight: 700; letter-spacing: .3px; }
 </style>
