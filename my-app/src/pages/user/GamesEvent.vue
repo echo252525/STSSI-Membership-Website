@@ -75,27 +75,27 @@
             :class="{ spinning, 'win-pulse': revealWinner && !spinning }"
             :style="wheelVars"
           >
-            <!-- ===== FIXED POINTER (kept in DOM but visually hidden) ===== -->
+            <!-- ===== FIXED POINTER (12 o'clock) — kept in DOM but visually hidden via CSS ===== -->
             <div class="pointer"></div>
 
             <!-- wheel face -->
             <div class="wheel" :class="wheelClass" :style="wheelStyle" @transitionend="onSpinEnd">
-              <!-- ====== PIXI FX CANVAS HOST ====== -->
+              <!-- ====== PIXI FX CANVAS HOST (inside wheel for proper clipping) ====== -->
               <div ref="fxHost" class="fx-host" aria-hidden="true"></div>
 
-              <!-- ====== Base matte dim layer (keeps wheel shadowy without dimming labels) ====== -->
-              <div class="base-matte" aria-hidden="true"></div>
+              <!-- ====== NEW: Base matte dim layer (keeps wheel shadowy without dimming labels) ====== -->
+              <div class="base-matte" aria-hidden="true"></div> <!-- NEW -->
 
-              <!-- ✨ glossy sweep sheen -->
-              <div class="wheel-sheen" aria-hidden="true"></div>
+              <!-- ✨ NEW: glossy sweep sheen -->
+              <div class="wheel-sheen" aria-hidden="true"></div> <!-- NEW -->
 
-              <!-- ===== Post-win heavy dim (surrounding segments near-black) ===== -->
-              <div v-if="revealWinner && !spinning" class="postwin-dim" aria-hidden="true"></div>
+              <!-- ===== NEW: Post-win heavy dim (surrounding segments near-black) ===== -->
+              <div v-if="revealWinner && !spinning" class="postwin-dim" aria-hidden="true"></div> <!-- NEW -->
 
               <!-- ===== thin metallic gold edges for each equal segment ===== -->
               <div class="seg-edges" :style="segEdgesStyle" aria-hidden="true"></div>
 
-              <!-- ====== CHASING EDGE LIGHT (full-wedge; micro-tail at mid-blast) ====== -->
+              <!-- ====== CHASING EDGE LIGHT (no tails by default; full-wedge step; now mid-blast micro-tail) ====== -->
               <div class="chase-layer" :class="{ 'chase-slow': chaseSlowPhase, 'chase-midblast': chaseMidBlastPhase }" aria-hidden="true">
                 <template v-for="(p, i) in wheelFaces" :key="p.id + '-glow'">
                   <div
@@ -133,7 +133,7 @@
                 </div>
               </template>
 
-              <!-- winner wedge spotlight (legacy; disabled when chase is used) -->
+              <!-- winner wedge spotlight (fixed to 12 o'clock; highlights wedge under pointer) -->
               <div
                 v-if="revealWinner && !spinning && !useChaseMode"
                 class="win-wedge-highlight"
@@ -142,7 +142,7 @@
               ></div>
             </div>
 
-            <!-- 'Spinning…' overlay kept but hidden per request -->
+            <!-- spinning overlay (kept but visually hidden per request) -->
             <div v-if="spinning" class="spin-overlay">
               <div class="pulse-dot"></div>
               <div class="mt-2 fw-semibold">Spinning…</div>
@@ -307,37 +307,37 @@
 </template>
 
 <script setup lang="ts">
-/* ======== VISUAL BEHAVIOR OVERVIEW ========
+/* ======== VISUAL BEHAVIOR OVERVIEW (added docs) ========
   1) Idle: segments softly lit; metallic edges "breathe" gold.
   2) Light Chase: active wedge hops clockwise ONE SEGMENT AT A TIME (no tail by default; micro-tail in mid-blast).
      The whole wedge becomes slightly brighter so the center isn’t skipped.
      The border (outer arc + two dividing lines) erupts in molten gold.
-  3) Speed → Decel: 10–20 full cycles then ease to stop. (slow → super fast → slow)
+  3) Speed → Decel: now 10–20 full cycles then ease to stop. (slow → super fast → slow)
   4) Winner: final wedge keeps full golden border; others fall back to dull gold.
   5) Celebration: hero winner banner; confetti; popup appears after 3s.
-============================================ */
+========================================================= */
 
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
 
-/* ===== Background Music (autoplay, loop, hidden) ===== */
+/* ===== Background Music Setup (autoplay, loop, hidden) ===== */
 const bgMusic = ref<HTMLAudioElement | null>(null)
 const isMusicPlaying = ref(false)
 
 function initBackgroundMusic() {
   if (bgMusic.value) return
   const audio = new Audio()
-  // ✅ Vite public/ usage: place file in /public and reference with absolute path
-  audio.src = '/videoplayback.mp3' // <-- replace with your real asset
+  // Replace with your valid HTTPS asset path
+  audio.src = '../../../public/videoplayback.mp3' // demo only
   audio.loop = true
   audio.preload = 'auto'
   audio.volume = 0.35
   bgMusic.value = audio
-  // try immediate play
+  // attempt immediate play
   playBackgroundMusic()
-  // fallbacks for autoplay policies
+  // robust fallbacks for gated autoplay
   window.addEventListener('click', handleUserGesture, { once: true })
   window.addEventListener('touchstart', handleUserGesture, { once: true, passive: true as any })
   window.addEventListener('keydown', handleUserGesture, { once: true })
@@ -352,7 +352,7 @@ async function playBackgroundMusic() {
     await bgMusic.value.play()
     isMusicPlaying.value = true
   } catch {
-    /* autoplay blocked: will start on first gesture */
+    // Autoplay blocked; will auto-start on first user gesture
   }
 }
 function pauseBackgroundMusic() {
@@ -373,7 +373,7 @@ let gsapSpinTween: any = null
 let PIXI: any = null
 let GlowFilter: any = null
 let VanillaTilt: any = null
-let mojsCore: any = null /* 🔧 renamed from `mojs` to avoid redeclare */
+let mojs: any = null /* NEW: optional burst */
 
 /* ===== Tiny haptics & richer SFX ===== */
 let audioCtx: AudioContext | null = null
@@ -427,8 +427,8 @@ function startWhoosh() {
 }
 function stopWhoosh() {
   try {
-    if (whooshGain) whooshGain!.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.1)
-    if (whooshNode) whooshNode!.stop(audioCtx!.currentTime + 0.12)
+    if (whooshGain) whooshGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.1)
+    if (whooshNode) whooshNode.stop(audioCtx!.currentTime + 0.12)
   } catch {}
   whooshNode = null; whooshGain = null
 }
@@ -463,19 +463,7 @@ onMounted(async () => {
 const route = useRoute()
 const eventId = route.query.eventId as string
 
-/* ======================= Types ======================= */
-
 type EntryRow = { id: string; event_id: string; user_id: string; status: string }
-
-type UserMeta = {
-  id: string
-  full_name?: string | null
-  profile_url?: string | null
-  avatar?: string
-  signed_exp?: number
-}
-
-/* ======================= State ======================= */
 
 const prizeTitle = ref('USB DRIVE')
 const costToEnter = ref<number | null>(50)
@@ -485,8 +473,16 @@ const costToBuy = ref<number | null>(48.5)
 const INTEREST_RATE = 0.02
 const calcInterest = (base: number) => Math.round(base * INTEREST_RATE * 100) / 100
 
+type UserMeta = {
+  id: string
+  full_name?: string | null
+  profile_url?: string | null
+  avatar?: string
+  signed_exp?: number
+}
 const userMeta = ref<Record<string, UserMeta>>({})
-const AVATAR_TTL_SEC = 3600, REFRESH_AHEAD_SEC = 300
+const AVATAR_TTL_SEC = 3600,
+  REFRESH_AHEAD_SEC = 300
 let avatarRefreshTimer: number | null = null
 
 const entries = ref<EntryRow[]>([])
@@ -501,14 +497,14 @@ const targetIndex = ref<number | null>(null)
 const winnerEntry = ref<EntryRow | null>(null)
 const revealWinner = ref(false)
 
-/* ==== Chasing-light mode ==== */
+/* ==== NEW: Chasing-light mode state ==== */
 const useChaseMode = ref(true)
 const activeSliceIndex = ref<number | null>(null)
+/* Micro-tail during mid-blast to avoid blink */
 const chaseTrailLen = ref(0)
 const chaseSlowPhase = ref(false)
-const chaseMidBlastPhase = ref(false)
+const chaseMidBlastPhase = ref(false) /* NEW: style hint for fastest middle phase */
 let chaseTimer: number | null = null
-
 const winnerIndex = computed<number | null>(() => {
   const wid = displayWinnerEntry.value?.id
   const faces = participantsSnapshot.length ? participantsSnapshot : wheelFaces.value
@@ -522,7 +518,7 @@ const showOutcomeModal = ref(false)
 const outcomeType = ref<'winner' | 'loser' | null>(null)
 const myUserId = ref<string | null>(null)
 
-/* ✅ Hard 3s guarantee for outcome modal */
+/* ✅ NEW: Hard 3s guarantee for outcome modal */
 let outcomeTimerId: number | null = null
 let outcomeHardTimerId: number | null = null
 const winnerDeclaredAt = ref<number | null>(null)
@@ -533,6 +529,7 @@ function recomputeOutcomeType() {
   const me = myUserId.value || null
   outcomeType.value = winnerUid && me && winnerUid === me ? 'winner' : 'loser'
 }
+
 function forceOutcomeModalIn(ms = HARD_MODAL_DELAY_MS) {
   if (outcomeHardTimerId) { clearTimeout(outcomeHardTimerId); outcomeHardTimerId = null }
   outcomeHardTimerId = window.setTimeout(() => {
@@ -541,6 +538,7 @@ function forceOutcomeModalIn(ms = HARD_MODAL_DELAY_MS) {
     outcomeHardTimerId = null
   }, Math.max(0, ms))
 }
+/* ===== END Hard 3s guarantee block ===== */
 
 const eventWinnerUpdated = ref(false)
 const receiptInserted = ref(false)
@@ -553,8 +551,7 @@ const introSeconds = ref(10)
 let introInterval: number | null = null
 let introTimeout: number | null = null
 
-/* ========= SYNC PLAN ========= */
-
+/* ========= SYNC PLAN (broadcast) ========= */
 type SpinPlan = { kind: 'intro_plan'; eventId: string; introUntil: number; spinAt: number; createdBy?: string }
 const syncPlan = ref<SpinPlan | null>(null)
 const syncPlanActive = computed(() => !!syncPlan.value)
@@ -598,8 +595,6 @@ const eventInfo = ref<{
 } | null>(null)
 
 const spinInfo = ref<{ event_id: string; winner_entry_id: string } | null>(null)
-
-/* ===== Joined feeds ===== */
 
 type JoinFeedItem = { user_id: string; at: Date; type: 'joined' | 'rejoined' | 'existing' }
 const joinFeed = ref<JoinFeedItem[]>([])
@@ -647,7 +642,7 @@ const allReady = computed(
 )
 const canSpinGate = computed(() => allReady.value && !anyWinner.value)
 
-/* Side lists (if needed later) */
+/* Side lists (kept) */
 const leftSideEntries = computed(() => {
   const mid = Math.ceil(entries.value.length / 2)
   return entries.value.slice(0, mid)
@@ -817,7 +812,7 @@ async function fetchEntries() {
     .from('entry')
     .select('id, event_id, user_id, status')
     .eq('event_id', eventId)
-    .order('id', { ascending: true })
+    .order('id', { ascending: true }) // deterministic
   if (error) {
     setErr(error, 'load entries')
     return
@@ -926,7 +921,9 @@ function setErr(e: any, ctx: string) {
   console.error(`[${ctx}]`, e)
 }
 
-/* ================= RANDOMNESS HELPERS ================= */
+/* =========================================================
+   🔀 RANDOMNESS HELPERS (seeded from RPC winner)
+   ========================================================= */
 let spinRng: (() => number) | null = null
 function xmur3(str: string) {
   let h = 1779033703 ^ str.length
@@ -984,8 +981,8 @@ function makeCryptoSeed(): string {
   }
 }
 function computeSpinParams(n: number) {
-  const baseTurns = 4 + Math.floor(rnd() * 7)
-  const durationMs = Math.round(4600 + rnd() * (7800 - 4600))
+  const baseTurns = 4 + Math.floor(rnd() * 7) // legacy for CSS mode
+  const durationMs = Math.round(4600 + rnd() * (7800 - 4600)) // 4600..7800
   const ease = randomEase()
   const jitter = computeMicroJitterDeg(n) * (0.6 + 0.4 * rnd())
   return { baseTurns, durationMs, ease, jitter }
@@ -999,7 +996,7 @@ async function preSpinWobble() {
   } catch {}
 }
 
-/* ======== SPIN ANIMATION ======== */
+/* ======== SPIN ANIMATION ========= */
 async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeStr?: string) {
   if (!gsap) return false
   try {
@@ -1037,12 +1034,12 @@ function computeMicroJitterDeg(n: number) {
   return (rnd() * 2 - 1) * span
 }
 
-/* ======== 🔥 Chasing-light animation (ends on forcedIndex) ======== */
+/* ======== 🔥 NEW: Chasing-light animation (ends on forcedIndex; 10–20 cycles; micro-tail mid-blast) ======== */
 function chaseWedgeStyle(i: number) {
   const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
   const slice = 360 / n
   const centerAngleLocal = slice * (i + 0.5)
-  const visual = slice
+  const visual = slice /* full wedge width for precise, high-contrast steps */
   return {
     '--center-deg': `${centerAngleLocal}deg`,
     '--wedge-deg': `${visual}deg`,
@@ -1051,15 +1048,15 @@ function chaseWedgeStyle(i: number) {
 
 async function playWinnerBurst() {
   try {
-    if (!mojsCore) {
+    if (!mojs) {
       const mod: any = await import(/* @vite-ignore */ '@mojs/core').catch(() => null)
-      mojsCore = mod?.default || mod
+      mojs = mod?.default || mod
     }
-    if (!mojsCore || !wheelWrapEl.value) return
+    if (!mojs || !wheelWrapEl.value) return
     const rect = wheelWrapEl.value.getBoundingClientRect()
     const x = rect.left + rect.width / 2
     const y = rect.top + rect.height / 2
-    new mojsCore.Burst({
+    new mojs.Burst({
       left: x, top: y, radius: { 30: 110 }, count: 14, children: {
         shape: 'polygon', points: 5, fill: { '#FFE066': '#7C9CFF' }, degreeShift: 'rand(0,360)',
         duration: 900, easing: 'cubic.out'
@@ -1099,11 +1096,11 @@ async function startChase(forcedIndex: number) {
     step++
 
     const p = step / totalSteps
-    // phase flags
+    // visual phase flags
     chaseMidBlastPhase.value = p > 0.35 && p < 0.75     // fastest region
     chaseSlowPhase.value = p >= 0.80                    // end slow-down
 
-    // tiny tail during mid-blast to prevent "blink"
+    // keep a tiny tail during mid-blast to prevent "blink"
     chaseTrailLen.value = chaseMidBlastPhase.value ? 1 : 0
 
     if (step >= totalSteps) {
@@ -1153,7 +1150,7 @@ async function finalizeWinnerAfterChase() {
   fitLabels()
 }
 
-/* CSS rotation fallback (when useChaseMode=false) */
+/* CSS rotation fallback path */
 async function startSpin(forcedIndex: number) {
   if (useChaseMode.value) {
     if (!participantsSnapshot.length) participantsSnapshot = wheelFaces.value.slice()
@@ -1862,7 +1859,7 @@ watch(
   async () => { await nextTick(); fitLabels() }
 )
 
-/* ✅ Hard guarantee watchers */
+/* ✅ NEW: Hard guarantee watchers */
 watch(() => revealWinner.value, (rv) => {
   if (rv) {
     winnerDeclaredAt.value = Date.now()
@@ -1877,6 +1874,7 @@ watch(
     }
   }
 )
+/* ===== END hard guarantee watchers ===== */
 
 function isHttpUrl(v?: string | null) {
   return !!v && /^(https?:)?\/\//i.test(v)
@@ -1963,7 +1961,7 @@ async function onImgError(e: Event, uid: string) {
   el.src = DEFAULT_AVATAR
 }
 const DEFAULT_AVATAR =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y2="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color"%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color"%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
 function startAvatarRefreshTimer() {
   stopAvatarRefreshTimer()
   avatarRefreshTimer = window.setInterval(() => refreshExpiringAvatars(), 300000)
@@ -2291,7 +2289,6 @@ onMounted(async () => {
 
   onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 })
-
 onBeforeUnmount(() => {
   if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} ; realtimeChannel = null }
   if (realtimeChannelSpin) { try { supabase.removeChannel(realtimeChannelSpin) } catch {} ; realtimeChannelSpin = null }
@@ -2387,7 +2384,7 @@ function goToMinigames() {
 .player-label .index { font-size: 0.8rem; color: #9bd2e6; }
 .player-label .name { font-weight: 700; font-size: 0.95rem; }
 
-/* ===== Winner Hero (aesthetic) ===== */
+/* ===== Winner Hero (new aesthetic) ===== */
 .winner-hero-card {
   border: 0;
   border-radius: 20px;
@@ -2504,6 +2501,7 @@ function goToMinigames() {
 }
 .wheel-wrap.spinning { transform: translateY(2px); }
 .wheel-wrap.win-pulse { animation: winPulse .32s ease-out 1; }
+/* small interactive lift on hover (desktop) */
 @media (hover:hover) {
   .wheel-wrap:not(.spinning):hover { transform: translateY(-2px) scale(1.01); }
 }
@@ -2871,16 +2869,22 @@ function goToMinigames() {
 
 .intro-players { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
 .intro-players-head { color: #cfe3ff; margin-bottom: 8px; font-weight: 700; }
-.intro-players-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+.intro-players-grid {
+  display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+}
 .intro-player-pill {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
-  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08);
 }
-.intro-player-pill img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
-.intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: 0.92rem; }
+.intro-player-pill img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
+.intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: .95rem; }
 
-.intro-count { color: #cfe3ff; opacity: .85; }
+.intro-count { color: #e9f3ff; opacity: .9; font-weight: 700; letter-spacing: .3px; }
 
-/* pop-in for modals */
-@keyframes popInModal { from{opacity:.7; transform: translateY(12px) scale(.97)} to{opacity:1; transform: translateY(0) scale(1)} }
+@keyframes popInModal { from{opacity:.6; transform: translateY(8px) scale(.98)} to{opacity:1; transform: translateY(0) scale(1)} }
+
+/* Optional reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .wheel-sheen, .winner-sparkles, .rim, .bulb, .confetti-piece { animation: none !important; }
+}
 </style>
