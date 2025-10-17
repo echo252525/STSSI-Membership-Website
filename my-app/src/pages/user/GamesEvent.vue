@@ -37,13 +37,26 @@
 
       <!-- CENTER: Wheel + controls -->
       <section class="center-stage">
-        <!-- winner hero (kept, but hidden when modal is shown) -->
+        <!-- ===== Winner Hero (aesthetic) ===== -->
         <div
           v-if="revealWinner && displayWinnerEntry && !showOutcomeModal"
-          class="winner-hero alert alert-success p-3 text-center mb-3"
+          class="winner-hero-card card gradient-card mb-3"
         >
-          <div class="fw-bold">
-            🎉 Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code>
+          <div class="winner-hero-glow"></div>
+          <div class="card-body p-4 p-md-5 text-center">
+            <div class="trophy">🏆</div>
+            <div class="winner-tag">Winner</div>
+            <div class="winner-name">
+              {{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}
+            </div>
+            <div class="winner-sub">Champion of the Spin</div>
+            <div class="winner-hero-row">
+              <div class="winner-hero-ava">
+                <img :src="avatarUrl(displayWinnerEntry?.user_id || '')"
+                     :alt="displayNameOrPlaceholder(displayWinnerEntry?.user_id || '')" />
+              </div>
+              <div class="winner-hero-badge">🎉 Congratulations!</div>
+            </div>
           </div>
         </div>
 
@@ -62,25 +75,28 @@
             :class="{ spinning, 'win-pulse': revealWinner && !spinning }"
             :style="wheelVars"
           >
-            <!-- ===== FIXED POINTER (12 o'clock) — kept in DOM but visually hidden via CSS ===== -->
+            <!-- ===== FIXED POINTER (kept in DOM but visually hidden) ===== -->
             <div class="pointer"></div>
 
             <!-- wheel face -->
             <div class="wheel" :class="wheelClass" :style="wheelStyle" @transitionend="onSpinEnd">
-              <!-- ====== PIXI FX CANVAS HOST (inside wheel for proper clipping) ====== -->
+              <!-- ====== PIXI FX CANVAS HOST ====== -->
               <div ref="fxHost" class="fx-host" aria-hidden="true"></div>
 
-              <!-- ====== NEW: Base matte dim layer (keeps wheel shadowy without dimming labels) ====== -->
-              <div class="base-matte" aria-hidden="true"></div> <!-- NEW -->
+              <!-- ====== Base matte dim layer (keeps wheel shadowy without dimming labels) ====== -->
+              <div class="base-matte" aria-hidden="true"></div>
 
-              <!-- ===== NEW: Post-win heavy dim (surrounding segments near-black) ===== -->
-              <div v-if="revealWinner && !spinning" class="postwin-dim" aria-hidden="true"></div> <!-- NEW -->
+              <!-- ✨ glossy sweep sheen -->
+              <div class="wheel-sheen" aria-hidden="true"></div>
+
+              <!-- ===== Post-win heavy dim (surrounding segments near-black) ===== -->
+              <div v-if="revealWinner && !spinning" class="postwin-dim" aria-hidden="true"></div>
 
               <!-- ===== thin metallic gold edges for each equal segment ===== -->
               <div class="seg-edges" :style="segEdgesStyle" aria-hidden="true"></div>
 
-              <!-- ====== CHASING EDGE LIGHT (no tails; full-wedge step) ====== -->
-              <div class="chase-layer" :class="{ 'chase-slow': chaseSlowPhase }" aria-hidden="true">
+              <!-- ====== CHASING EDGE LIGHT (full-wedge; micro-tail at mid-blast) ====== -->
+              <div class="chase-layer" :class="{ 'chase-slow': chaseSlowPhase, 'chase-midblast': chaseMidBlastPhase }" aria-hidden="true">
                 <template v-for="(p, i) in wheelFaces" :key="p.id + '-glow'">
                   <div
                     class="chase-wedge"
@@ -117,7 +133,7 @@
                 </div>
               </template>
 
-              <!-- winner wedge spotlight (fixed to 12 o'clock; highlights wedge under pointer) -->
+              <!-- winner wedge spotlight (legacy; disabled when chase is used) -->
               <div
                 v-if="revealWinner && !spinning && !useChaseMode"
                 class="win-wedge-highlight"
@@ -126,7 +142,7 @@
               ></div>
             </div>
 
-            <!-- spinning overlay (kept but visually hidden per request) -->
+            <!-- 'Spinning…' overlay kept but hidden per request -->
             <div v-if="spinning" class="spin-overlay">
               <div class="pulse-dot"></div>
               <div class="mt-2 fw-semibold">Spinning…</div>
@@ -178,9 +194,9 @@
       </aside>
     </div>
 
-    <!-- bottom winner alert -->
+    <!-- bottom winner alert (kept in code but disabled; hero section replaces this) -->
     <div
-      v-if="revealWinner && winnerEntry && !showOutcomeModal"
+      v-if="false && revealWinner && winnerEntry && !showOutcomeModal"
       class="alert alert-success mt-3 text-center"
     >
       Winner: <code>{{ displayNameOrPlaceholder(winnerEntry?.user_id || '') }}</code>
@@ -219,13 +235,14 @@
             >
           </p>
 
+          <!-- Buttons kept; winner -> Purchases, loser -> Back to Games -->
           <button
-            class="btn btn-lg w-100 mt-1 pop-btn"
+            class="btn btn-lg w-100 mt-1 pop-btn legacy-modal-btn"
             @click="handleOutcomeAction"
             :class="outcomeType === 'winner' ? 'btn-winner' : 'btn-loser'"
           >
-            <span v-if="outcomeType === 'winner'">Get Discount</span>
-            <span v-else>Refund</span>
+            <span v-if="outcomeType === 'winner'">Go to Purchases</span>
+            <span v-else>Back to Games</span>
           </button>
         </div>
 
@@ -290,36 +307,43 @@
 </template>
 
 <script setup lang="ts">
-/* ======== VISUAL BEHAVIOR OVERVIEW (added docs) ========
+/* ======== VISUAL BEHAVIOR OVERVIEW ========
   1) Idle: segments softly lit; metallic edges "breathe" gold.
-  2) Light Chase: active wedge hops clockwise ONE SEGMENT AT A TIME (no tail).
+  2) Light Chase: active wedge hops clockwise ONE SEGMENT AT A TIME (no tail by default; micro-tail in mid-blast).
      The whole wedge becomes slightly brighter so the center isn’t skipped.
      The border (outer arc + two dividing lines) erupts in molten gold.
-  3) Speed → Decel: 5–10 full cycles then ease to stop.
+  3) Speed → Decel: 10–20 full cycles then ease to stop. (slow → super fast → slow)
   4) Winner: final wedge keeps full golden border; others fall back to dull gold.
-  5) Celebration: winner name shows; confetti; popup appears after 3s.
-========================================================= */
+  5) Celebration: hero winner banner; confetti; popup appears after 3s.
+============================================ */
 
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
 
-/* ===== Background Music Setup ===== */
+/* ===== Background Music (autoplay, loop, hidden) ===== */
 const bgMusic = ref<HTMLAudioElement | null>(null)
 const isMusicPlaying = ref(false)
 
 function initBackgroundMusic() {
   if (bgMusic.value) return
-
   const audio = new Audio()
-  // 🔊 Replace with your actual background music URL (must be secure HTTPS)
-  audio.src = '../../../public/videoplayback.mp3' // demo only
+  // ✅ Vite public/ usage: place file in /public and reference with absolute path
+  audio.src = '/videoplayback.mp3' // <-- replace with your real asset
   audio.loop = true
-  audio.volume = 0.3
+  audio.preload = 'auto'
+  audio.volume = 0.35
   bgMusic.value = audio
-
+  // try immediate play
   playBackgroundMusic()
+  // fallbacks for autoplay policies
+  window.addEventListener('click', handleUserGesture, { once: true })
+  window.addEventListener('touchstart', handleUserGesture, { once: true, passive: true as any })
+  window.addEventListener('keydown', handleUserGesture, { once: true })
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') handleUserGesture()
+  })
 }
 
 async function playBackgroundMusic() {
@@ -328,7 +352,7 @@ async function playBackgroundMusic() {
     await bgMusic.value.play()
     isMusicPlaying.value = true
   } catch {
-    console.warn('Autoplay blocked. Music will start on first interaction.')
+    /* autoplay blocked: will start on first gesture */
   }
 }
 function pauseBackgroundMusic() {
@@ -341,7 +365,6 @@ function handleUserGesture() {
   if (bgMusic.value && !isMusicPlaying.value) {
     playBackgroundMusic()
   }
-  window.removeEventListener('click', handleUserGesture)
 }
 
 /* ========================= GSAP / PIXI (optional) ========================= */
@@ -350,6 +373,7 @@ let gsapSpinTween: any = null
 let PIXI: any = null
 let GlowFilter: any = null
 let VanillaTilt: any = null
+let mojsCore: any = null /* 🔧 renamed from `mojs` to avoid redeclare */
 
 /* ===== Tiny haptics & richer SFX ===== */
 let audioCtx: AudioContext | null = null
@@ -403,8 +427,8 @@ function startWhoosh() {
 }
 function stopWhoosh() {
   try {
-    if (whooshGain) whooshGain.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.1)
-    if (whooshNode) whooshNode.stop(audioCtx!.currentTime + 0.12)
+    if (whooshGain) whooshGain!.gain.exponentialRampToValueAtTime(0.0001, audioCtx!.currentTime + 0.1)
+    if (whooshNode) whooshNode!.stop(audioCtx!.currentTime + 0.12)
   } catch {}
   whooshNode = null; whooshGain = null
 }
@@ -439,7 +463,19 @@ onMounted(async () => {
 const route = useRoute()
 const eventId = route.query.eventId as string
 
+/* ======================= Types ======================= */
+
 type EntryRow = { id: string; event_id: string; user_id: string; status: string }
+
+type UserMeta = {
+  id: string
+  full_name?: string | null
+  profile_url?: string | null
+  avatar?: string
+  signed_exp?: number
+}
+
+/* ======================= State ======================= */
 
 const prizeTitle = ref('USB DRIVE')
 const costToEnter = ref<number | null>(50)
@@ -449,16 +485,8 @@ const costToBuy = ref<number | null>(48.5)
 const INTEREST_RATE = 0.02
 const calcInterest = (base: number) => Math.round(base * INTEREST_RATE * 100) / 100
 
-type UserMeta = {
-  id: string
-  full_name?: string | null
-  profile_url?: string | null
-  avatar?: string
-  signed_exp?: number
-}
 const userMeta = ref<Record<string, UserMeta>>({})
-const AVATAR_TTL_SEC = 3600,
-  REFRESH_AHEAD_SEC = 300
+const AVATAR_TTL_SEC = 3600, REFRESH_AHEAD_SEC = 300
 let avatarRefreshTimer: number | null = null
 
 const entries = ref<EntryRow[]>([])
@@ -473,13 +501,14 @@ const targetIndex = ref<number | null>(null)
 const winnerEntry = ref<EntryRow | null>(null)
 const revealWinner = ref(false)
 
-/* ==== NEW: Chasing-light mode state ==== */
+/* ==== Chasing-light mode ==== */
 const useChaseMode = ref(true)
 const activeSliceIndex = ref<number | null>(null)
-/* NEW: trail disabled for precise steps */
 const chaseTrailLen = ref(0)
 const chaseSlowPhase = ref(false)
+const chaseMidBlastPhase = ref(false)
 let chaseTimer: number | null = null
+
 const winnerIndex = computed<number | null>(() => {
   const wid = displayWinnerEntry.value?.id
   const faces = participantsSnapshot.length ? participantsSnapshot : wheelFaces.value
@@ -493,6 +522,26 @@ const showOutcomeModal = ref(false)
 const outcomeType = ref<'winner' | 'loser' | null>(null)
 const myUserId = ref<string | null>(null)
 
+/* ✅ Hard 3s guarantee for outcome modal */
+let outcomeTimerId: number | null = null
+let outcomeHardTimerId: number | null = null
+const winnerDeclaredAt = ref<number | null>(null)
+const HARD_MODAL_DELAY_MS = 3000
+
+function recomputeOutcomeType() {
+  const winnerUid = displayWinnerEntry.value?.user_id || null
+  const me = myUserId.value || null
+  outcomeType.value = winnerUid && me && winnerUid === me ? 'winner' : 'loser'
+}
+function forceOutcomeModalIn(ms = HARD_MODAL_DELAY_MS) {
+  if (outcomeHardTimerId) { clearTimeout(outcomeHardTimerId); outcomeHardTimerId = null }
+  outcomeHardTimerId = window.setTimeout(() => {
+    recomputeOutcomeType()
+    showOutcomeModal.value = true
+    outcomeHardTimerId = null
+  }, Math.max(0, ms))
+}
+
 const eventWinnerUpdated = ref(false)
 const receiptInserted = ref(false)
 const voucherInserted = ref(false)
@@ -504,7 +553,8 @@ const introSeconds = ref(10)
 let introInterval: number | null = null
 let introTimeout: number | null = null
 
-/* ========= SYNC PLAN (broadcast) ========= */
+/* ========= SYNC PLAN ========= */
+
 type SpinPlan = { kind: 'intro_plan'; eventId: string; introUntil: number; spinAt: number; createdBy?: string }
 const syncPlan = ref<SpinPlan | null>(null)
 const syncPlanActive = computed(() => !!syncPlan.value)
@@ -548,6 +598,8 @@ const eventInfo = ref<{
 } | null>(null)
 
 const spinInfo = ref<{ event_id: string; winner_entry_id: string } | null>(null)
+
+/* ===== Joined feeds ===== */
 
 type JoinFeedItem = { user_id: string; at: Date; type: 'joined' | 'rejoined' | 'existing' }
 const joinFeed = ref<JoinFeedItem[]>([])
@@ -595,7 +647,7 @@ const allReady = computed(
 )
 const canSpinGate = computed(() => allReady.value && !anyWinner.value)
 
-/* Side lists (kept) */
+/* Side lists (if needed later) */
 const leftSideEntries = computed(() => {
   const mid = Math.ceil(entries.value.length / 2)
   return entries.value.slice(0, mid)
@@ -613,7 +665,7 @@ const displayWinnerEntry = computed<EntryRow | null>(() => {
 })
 
 /* ======== UI helpers ========= */
-let outcomeTimerId: number | null = null
+let outcomeTimerIdLegacy: number | null = null
 function scheduleOutcomePopupIfMe(delayMs = 3000) {
   if (spinning.value || spinStarted.value) return
   if (!revealWinner.value || !displayWinnerEntry.value || !myUserId.value) return
@@ -628,7 +680,7 @@ function scheduleOutcomePopupIfMe(delayMs = 3000) {
     outcomeTimerId = null
   }, delayMs)
 }
-function openOutcomePopupIfMe() { scheduleOutcomePopupIfMe(3000) } // keep old API
+function openOutcomePopupIfMe() { scheduleOutcomePopupIfMe(3000) }
 
 function closeOutcomeModal() { showOutcomeModal.value = false }
 async function fetchMe() {
@@ -742,7 +794,7 @@ function sliceLabelStyle(i: number, uid?: string) {
     background: 'transparent',
     border: 'none',
     boxShadow: 'none',
-   textShadow: '0 1px 2px rgba(0,0,0,.55), 0 0 8px rgba(0,0,0,.25)',
+    textShadow: '0 1px 2px rgba(0,0,0,.55), 0 0 8px rgba(0,0,0,.25)',
     textAlign: 'center',
     fontWeight: 900,
     mixBlendMode: 'normal',
@@ -753,7 +805,7 @@ function sliceLabelStyle(i: number, uid?: string) {
 
 /* ======== Rim bulbs ========= */
 function bulbStyle(n: number) {
-  const deg = (360 / 100) * (n - 1) /* ✅ distribute 100 bulbs evenly */
+  const deg = (360 / 100) * (n - 1)
   return { transform: `rotate(${deg}deg) translate(0, -168px)` }
 }
 
@@ -765,7 +817,7 @@ async function fetchEntries() {
     .from('entry')
     .select('id, event_id, user_id, status')
     .eq('event_id', eventId)
-    .order('id', { ascending: true }) // ✅ deterministic
+    .order('id', { ascending: true })
   if (error) {
     setErr(error, 'load entries')
     return
@@ -874,9 +926,7 @@ function setErr(e: any, ctx: string) {
   console.error(`[${ctx}]`, e)
 }
 
-/* =========================================================
-   🔀 RANDOMNESS HELPERS (seeded from RPC winner)
-   ========================================================= */
+/* ================= RANDOMNESS HELPERS ================= */
 let spinRng: (() => number) | null = null
 function xmur3(str: string) {
   let h = 1779033703 ^ str.length
@@ -934,8 +984,8 @@ function makeCryptoSeed(): string {
   }
 }
 function computeSpinParams(n: number) {
-  const baseTurns = 4 + Math.floor(rnd() * 7) // 4..10
-  const durationMs = Math.round(4600 + rnd() * (7800 - 4600)) // 4600..7800
+  const baseTurns = 4 + Math.floor(rnd() * 7)
+  const durationMs = Math.round(4600 + rnd() * (7800 - 4600))
   const ease = randomEase()
   const jitter = computeMicroJitterDeg(n) * (0.6 + 0.4 * rnd())
   return { baseTurns, durationMs, ease, jitter }
@@ -949,7 +999,7 @@ async function preSpinWobble() {
   } catch {}
 }
 
-/* ======== SPIN ANIMATION ========= */
+/* ======== SPIN ANIMATION ======== */
 async function animateToDegWithGsap(targetDeg: number, durationMs: number, easeStr?: string) {
   if (!gsap) return false
   try {
@@ -987,19 +1037,47 @@ function computeMicroJitterDeg(n: number) {
   return (rnd() * 2 - 1) * span
 }
 
-/* ======== 🔥 NEW: Chasing-light animation (exactly ends on forcedIndex) ======== */
+/* ======== 🔥 Chasing-light animation (ends on forcedIndex) ======== */
 function chaseWedgeStyle(i: number) {
-  const n = Math.max(1, wheelFaces.value.length)
+  const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
   const slice = 360 / n
   const centerAngleLocal = slice * (i + 0.5)
-  const visual = slice /* full wedge width for precise, high-contrast steps */
+  const visual = slice
   return {
     '--center-deg': `${centerAngleLocal}deg`,
     '--wedge-deg': `${visual}deg`,
   } as any
 }
+
+async function playWinnerBurst() {
+  try {
+    if (!mojsCore) {
+      const mod: any = await import(/* @vite-ignore */ '@mojs/core').catch(() => null)
+      mojsCore = mod?.default || mod
+    }
+    if (!mojsCore || !wheelWrapEl.value) return
+    const rect = wheelWrapEl.value.getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    new mojsCore.Burst({
+      left: x, top: y, radius: { 30: 110 }, count: 14, children: {
+        shape: 'polygon', points: 5, fill: { '#FFE066': '#7C9CFF' }, degreeShift: 'rand(0,360)',
+        duration: 900, easing: 'cubic.out'
+      }
+    }).play()
+  } catch {}
+}
+
+function bellDelay(progress01: number, minDelay = 40, maxDelay = 520) {
+  const p = Math.max(0, Math.min(1, progress01))
+  const w = 4 * Math.pow(p - 0.5, 2) // 1 at ends, 0 at middle
+  return Math.round(minDelay + (maxDelay - minDelay) * w)
+}
+
 async function startChase(forcedIndex: number) {
   spinning.value = true
+  chaseSlowPhase.value = false
+  chaseMidBlastPhase.value = false
   updateFxIntensity(1)
   initAudio()
   startWhoosh()
@@ -1007,16 +1085,12 @@ async function startChase(forcedIndex: number) {
   const n = Math.max(1, participantsSnapshot.length || wheelFaces.value.length)
   let current = activeSliceIndex.value ?? 0
 
-  /* NEW: 5..10 full loops to match spec */
-  const cycles = 5 + Math.floor(rnd() * 6) // 5..10
+  /* 10..20 complete cycles for longer game feel */
+  const cycles = 10 + Math.floor(rnd() * 11) // 10..20
   const stepsToForced = ((forcedIndex - current) % n + n) % n
   const totalSteps = cycles * n + stepsToForced
 
-  const startMs = 120
-  const endMs   = 520
   let step = 0
-
-  function easeOutCubic(x: number) { return 1 - Math.pow(1 - x, 3) }
 
   const stepRun = async () => {
     current = (current + 1) % n
@@ -1025,9 +1099,12 @@ async function startChase(forcedIndex: number) {
     step++
 
     const p = step / totalSteps
-    /* tails explicitly disabled for crisp, one-wedge steps */
-    chaseSlowPhase.value = p > 0.8
-    chaseTrailLen.value = 0
+    // phase flags
+    chaseMidBlastPhase.value = p > 0.35 && p < 0.75     // fastest region
+    chaseSlowPhase.value = p >= 0.80                    // end slow-down
+
+    // tiny tail during mid-blast to prevent "blink"
+    chaseTrailLen.value = chaseMidBlastPhase.value ? 1 : 0
 
     if (step >= totalSteps) {
       clearChaseTimer()
@@ -1037,14 +1114,18 @@ async function startChase(forcedIndex: number) {
       updateFxIntensity(0)
       activeSliceIndex.value = forcedIndex
       winnerEntry.value = participantsSnapshot[forcedIndex] || wheelFaces.value[forcedIndex] || null
+
+      // finalize after chase
       finalizeWinnerAfterChase()
       return
     }
-    const delay = startMs + (endMs - startMs) * easeOutCubic(p)
+
+    const delay = bellDelay(p, 44, 560) // slow→fast→slow profile
     chaseTimer = window.setTimeout(stepRun, delay)
   }
   stepRun()
 }
+
 async function finalizeWinnerAfterChase() {
   if (rpcWinnerId.value) {
     await settleEntriesAfterSpin(rpcWinnerId.value)
@@ -1060,13 +1141,19 @@ async function finalizeWinnerAfterChase() {
   spinStarted.value = false
   revealWinner.value = true
   winStinger()
+  playWinnerBurst()
+
+  // arm modal after 3s
   openOutcomePopupIfMe()
+  winnerDeclaredAt.value = Date.now()
+  forceOutcomeModalIn(HARD_MODAL_DELAY_MS)
+
   clearSpinRng()
   await nextTick()
   fitLabels()
 }
 
-/* Keep legacy spin entry point but delegate to chase mode */
+/* CSS rotation fallback (when useChaseMode=false) */
 async function startSpin(forcedIndex: number) {
   if (useChaseMode.value) {
     if (!participantsSnapshot.length) participantsSnapshot = wheelFaces.value.slice()
@@ -1342,7 +1429,6 @@ const pointerColor = computed<string>(() => {
   return sliceColor(idx, n, uid)
 })
 
-/* ✅ Push visual winner if needed (keeps DB in sync with pointer) */
 async function forceSpinWinnerTo(id: string) {
   if (!eventId || !id) return
   try {
@@ -1394,7 +1480,11 @@ async function onSpinEnd() {
   spinStarted.value = false
   revealWinner.value = true
   winStinger()
+  playWinnerBurst()
   openOutcomePopupIfMe()
+
+  winnerDeclaredAt.value = Date.now()
+  forceOutcomeModalIn(HARD_MODAL_DELAY_MS)
 
   clearSpinRng()
   await nextTick()
@@ -1414,7 +1504,6 @@ async function triggerServerSpinAndAnimate() {
     {
       const { data, error } = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: seed })
       if (error) {
-        console.warn('rpc_spin_event with seed failed, retrying without seed…', error?.message || error)
         const res2 = await supabase.rpc('rpc_spin_event', { _event_id: eventId, _seed: null })
         if (res2.error) {
           setErr(res2.error, 'rpc_spin_event')
@@ -1757,6 +1846,7 @@ watch(
     openOutcomePopupIfMe()
   },
 )
+
 watch(
   () => [allReady.value, eventInfo.value?.player_cap, resolved.value] as const,
   async ([gateOk, , isResolved]) => {
@@ -1770,6 +1860,22 @@ watch(
 watch(
   () => wheelFaces.value.map(w => w.user_id + ':' + w.id).join('|'),
   async () => { await nextTick(); fitLabels() }
+)
+
+/* ✅ Hard guarantee watchers */
+watch(() => revealWinner.value, (rv) => {
+  if (rv) {
+    winnerDeclaredAt.value = Date.now()
+    forceOutcomeModalIn(HARD_MODAL_DELAY_MS)
+  }
+})
+watch(
+  () => [displayWinnerEntry.value, myUserId.value, showOutcomeModal.value, revealWinner.value] as const,
+  ([, , isOpen, rv]) => {
+    if (rv && isOpen) {
+      recomputeOutcomeType()
+    }
+  }
 )
 
 function isHttpUrl(v?: string | null) {
@@ -1857,7 +1963,7 @@ async function onImgError(e: Event, uid: string) {
   el.src = DEFAULT_AVATAR
 }
 const DEFAULT_AVATAR =
-  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color"%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
+  'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><defs><linearGradient id="g" x1="0" y="0" x2="1" y2="1"><stop offset="0" stop-color="%2320647c"/><stop offset="1" stop-color"%2352e3b6"/></linearGradient></defs><rect width="100%" height="100%" fill="url(%23g)"/><circle cx="32" cy="26" r="12" fill="%23fff" fill-opacity="0.9"/><rect x="14" y="42" width="36" height="12" rx="6" fill="%23fff" fill-opacity="0.85"/></svg>'
 function startAvatarRefreshTimer() {
   stopAvatarRefreshTimer()
   avatarRefreshTimer = window.setInterval(() => refreshExpiringAvatars(), 300000)
@@ -1968,7 +2074,6 @@ async function initVanillaTilt() {
 async function initPixiFx() {
   try {
     const pixiMod: any = await import(/* @vite-ignore */ 'pixi.js').catch(() => null)
-    if (!pixiMod) return
     PIXI = pixiMod
     const glowMod: any = await import(/* @vite-ignore */ '@pixi/filter-glow').catch(() => null)
     GlowFilter = glowMod?.GlowFilter || glowMod?.default || null
@@ -2137,11 +2242,14 @@ const highlightVars = computed(() => {
 })
 
 onMounted(async () => {
+  // Ensure background music initializes immediately
+  initBackgroundMusic()
+
   try {
     const mod: any = await import(/* @vite-ignore */ 'gsap').catch(() => null)
     if (mod) {
       gsap = mod.gsap || mod.default || mod
-      useCssTransition.value = false // ✅ use GSAP when available
+      useCssTransition.value = false // use GSAP when available
     }
   } catch {}
 
@@ -2183,6 +2291,7 @@ onMounted(async () => {
 
   onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 })
+
 onBeforeUnmount(() => {
   if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} ; realtimeChannel = null }
   if (realtimeChannelSpin) { try { supabase.removeChannel(realtimeChannelSpin) } catch {} ; realtimeChannelSpin = null }
@@ -2200,18 +2309,20 @@ onBeforeUnmount(() => {
   clearChaseTimer()
   destroyPixiFx()
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  if (outcomeHardTimerId) { clearTimeout(outcomeHardTimerId); outcomeHardTimerId = null }
 })
 
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
-    try { router.push({ name: 'user.winner' }) ; return } catch {}
-    try { router.push({ name: 'user.winner' as any }) ; return } catch {}
-    try { router.push('/winner') ; return } catch {}
-    router.push({ name: 'user.minigames' })
+    // Go to purchases
+    try { router.push({ name: 'user.purchases' }); return } catch {}
+    try { router.push('/app/purchases'); return } catch {}
+    router.push('/purchases')
   } else {
-    try { router.push({ name: 'user.loser' }) ; return } catch {}
-    try { router.push('/loser') ; return } catch {}
-    router.push({ name: 'user.minigames' })
+    // Back to games
+    try { router.push({ name: 'user.minigames' }); return } catch {}
+    try { router.push('/app/mini-games'); return } catch {}
+    router.push('/games')
   }
 }
 function goToMinigames() {
@@ -2256,7 +2367,7 @@ function goToMinigames() {
 .players-panel {
   border: 0;
   border-radius: 18px;
-  background: #0b1a22; /* deep neutral background to make lights pop */
+  background: #0b1a22;
   color: #e8fbff;
 }
 .players-panel .card-body { padding: 16px 16px; }
@@ -2276,6 +2387,73 @@ function goToMinigames() {
 .player-label .index { font-size: 0.8rem; color: #9bd2e6; }
 .player-label .name { font-weight: 700; font-size: 0.95rem; }
 
+/* ===== Winner Hero (aesthetic) ===== */
+.winner-hero-card {
+  border: 0;
+  border-radius: 20px;
+  position: relative;
+  overflow: hidden;
+  color: #eaf9ff;
+  box-shadow: 0 20px 60px rgba(10, 20, 40, 0.45), inset 0 0 0 1px rgba(255,255,255,.05);
+}
+.gradient-card {
+  background:
+    radial-gradient(120% 120% at 12% 0%, rgba(124,156,255,.22), transparent 50%),
+    radial-gradient(120% 120% at 88% 100%, rgba(82,227,182,.24), transparent 50%),
+    linear-gradient(180deg, #0b1532 0%, #0b1024 100%);
+}
+.winner-hero-glow {
+  position: absolute; inset: -20% -10% -10% -10%;
+  background: radial-gradient(60% 60% at 50% 30%, rgba(255,212,59,.16), transparent 60%);
+  filter: blur(20px); pointer-events: none;
+}
+.trophy {
+  font-size: clamp(24px, 5vw, 42px);
+  text-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.winner-tag {
+  display: inline-block;
+  margin-top: .35rem;
+  padding: .25rem .7rem;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid rgba(255,255,255,.12);
+}
+.winner-name {
+  margin-top: .5rem;
+  font-weight: 900;
+  font-size: clamp(22px, 5.5vw, 44px);
+  line-height: 1.05;
+  background: linear-gradient(90deg, #fff, #ffd43b 30%, #7c9cff 70%, #52e3b6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 2px 20px rgba(255,212,59,.16);
+}
+.winner-sub {
+  color: #cfe3ff; opacity: .85; font-weight: 700; letter-spacing: .3px; margin-top: .25rem;
+}
+.winner-hero-row {
+  margin-top: 14px;
+  display: flex; align-items: center; gap: 12px; justify-content: center;
+}
+.winner-hero-ava {
+  width: 56px; height: 56px; border-radius: 50%; overflow: hidden;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.6);
+}
+.winner-hero-ava img { width: 100%; height: 100%; object-fit: cover; display:block; }
+.winner-hero-badge {
+  background: rgba(15,210,160,.16);
+  color: #7cf0d0;
+  border: 1px solid rgba(124,240,208,.35);
+  padding: .4rem .7rem;
+  border-radius: 10px;
+  font-weight: 800;
+  letter-spacing: .3px;
+}
+
 /* ===== Center (wheel) ===== */
 .center-stage { display: flex; flex-direction: column; align-items: center; }
 .wheel-stage { position: relative; display: grid; place-items: center; margin-bottom: 0.25rem; }
@@ -2294,7 +2472,7 @@ function goToMinigames() {
   box-shadow:
     0 16px 40px rgba(0,0,0,.2),
     inset 0 4px 10px rgba(0,0,0,.2);
-  animation: rimBreath 4.8s ease-in-out infinite; /* gentle breathing glow */
+  animation: rimBreath 4.8s ease-in-out infinite;
 }
 @keyframes rimBreath {
   0%,100% { filter: saturate(0.95) brightness(0.96); }
@@ -2326,6 +2504,9 @@ function goToMinigames() {
 }
 .wheel-wrap.spinning { transform: translateY(2px); }
 .wheel-wrap.win-pulse { animation: winPulse .32s ease-out 1; }
+@media (hover:hover) {
+  .wheel-wrap:not(.spinning):hover { transform: translateY(-2px) scale(1.01); }
+}
 @keyframes winPulse { 0%{transform:scale(1)} 60%{transform:scale(1.015)} 100%{transform:scale(1)} }
 
 /* remove fixed pointer visually (kept in DOM) */
@@ -2333,7 +2514,7 @@ function goToMinigames() {
 
 .wheel {
   width: 100%; height: 100%; border-radius: 50%;
-  border: 16px solid #1b1621; /* cooler/darker ring for contrast */
+  border: 16px solid #1b1621;
   position: relative; overflow: hidden;
   box-shadow:
     inset 0 0 0 2px rgba(255,255,255,.08),
@@ -2342,14 +2523,14 @@ function goToMinigames() {
   transform: rotate(var(--wheel-rot));
   transform-style: preserve-3d;
   backface-visibility: hidden;
-  isolation: isolate; /* NEW: manage blending layers cleanly */
+  isolation: isolate;
 }
 
-/* ====== NEW: Dim strategy uses overlays (not parent filter) so labels stay bright ====== */
+/* Dim strategy uses overlays so labels stay bright */
 .wheel.dim-spinning { filter: none; }
 .wheel.dim-win { filter: none; }
 
-/* ====== NEW: Base matte layer ====== */
+/* Base matte layer */
 .base-matte {
   position: absolute; inset: 0; pointer-events: none; z-index: 0;
   background:
@@ -2358,7 +2539,6 @@ function goToMinigames() {
       rgba(0,0,0,.52) 58%,
       rgba(0,0,0,.62) 78%,
       rgba(0,0,0,.70) 100%);
-  /* keep the full disk intact (no inner donut) */
   mix-blend-mode: multiply;
   opacity: .55;
   transition: opacity .2s ease;
@@ -2366,7 +2546,18 @@ function goToMinigames() {
 .wheel.dim-spinning .base-matte { opacity: .75; }
 .wheel.dim-win .base-matte { opacity: .85; }
 
-/* ===== metallic thin edges for each segment (dull gold baseline) ===== */
+/* glossy sweep sheen */
+.wheel-sheen{
+  position:absolute; inset:-20% -20%;
+  background: conic-gradient(from 0deg, transparent 0 78%, rgba(255,255,255,.12) 82%, transparent 86% 100%);
+  animation: sheenSpin 6s linear infinite;
+  mix-blend-mode: screen;
+  opacity:.35;
+  z-index:.5;
+}
+@keyframes sheenSpin { to { transform: rotate(360deg) } }
+
+/* metallic thin edges for each segment */
 .seg-edges {
   position: absolute; inset: 0; pointer-events: none; z-index: 1;
   --edge-deg: .9deg;
@@ -2376,7 +2567,6 @@ function goToMinigames() {
       rgba(255,205,80,0) 0deg calc(var(--seg-angle) - var(--edge-deg)),
       rgba(255,205,80,.85) 0deg var(--seg-angle)
     );
-  /* thin outer ring */
   -webkit-mask:
     radial-gradient(circle at 50% 50%, transparent 0 83%, #000 88% 100%);
           mask:
@@ -2392,9 +2582,9 @@ function goToMinigames() {
 .wheel.dim-spinning .seg-edges { opacity: .22; }
 .wheel.dim-win .seg-edges { opacity: .16; filter: drop-shadow(0 0 3px rgba(255,205,80,.22)); }
 
-/* ====== NEW: Post-win heavy dim layer (near-black surroundings) ====== */
+/* Post-win heavy dim */
 .postwin-dim {
-  position: absolute; inset: 0; pointer-events: none; z-index: .9; /* below edges/chase */
+  position: absolute; inset: 0; pointer-events: none; z-index: .9;
   background:
     radial-gradient(circle at 50% 55%,
       rgba(0,0,0,.35) 0%,
@@ -2403,7 +2593,7 @@ function goToMinigames() {
       rgba(0,0,0,.92) 100%);
 }
 
-/* ====== PIXI FX HOST ====== */
+/* PIXI FX HOST */
 .fx-host {
   position: absolute;
   inset: 0;
@@ -2411,11 +2601,11 @@ function goToMinigames() {
   pointer-events: none;
 }
 
-/* ===== 🔥 CHASING EDGE LIGHT (precise, no trail) ===== */
+/* 🔥 CHASING EDGE LIGHT */
 .chase-layer {
   position: absolute;
   inset: 0;
-  z-index: 2;       /* over edges, under labels */
+  z-index: 2;
   pointer-events: none;
 }
 .chase-wedge {
@@ -2424,8 +2614,9 @@ function goToMinigames() {
   opacity: 0;
   transition: opacity .18s ease-in-out;
 }
+.chase-layer.chase-midblast .chase-wedge.is-active { transition: opacity .06s ease-out; }
 
-/* Whole wedge subtle lift so the center isn't skipped */
+/* Whole wedge subtle lift */
 .chase-wedge::before {
   content: "";
   position: absolute; inset: 0;
@@ -2436,24 +2627,21 @@ function goToMinigames() {
       rgba(255,255,255,.12) var(--wedge-deg),
       rgba(255,255,255,0)  var(--wedge-deg) 360deg
     );
-  /* full disk — no inner hole */
   mix-blend-mode: screen;
   filter: blur(.2px);
 }
 
-/* Molten-gold BORDER: outer arc + the two dividing lines */
+/* Molten-gold BORDER */
 .chase-wedge::after {
   content: "";
   position: absolute; inset: 0;
   background:
-    /* A) OUTER RING ARC (thick, warm gold) */
     conic-gradient(
       from calc(var(--center-deg) - 0.5 * var(--wedge-deg)),
       rgba(255,205,80,1) 0deg,
       rgba(255,205,80,1) var(--wedge-deg),
       rgba(255,205,80,0) var(--wedge-deg) 360deg
     ),
-    /* B) TWO RADIAL DIVIDER LINES (thin, bright) */
     conic-gradient(
       from calc(var(--center-deg) - 0.5 * var(--wedge-deg)),
       transparent 0deg calc(0.9deg),
@@ -2462,7 +2650,6 @@ function goToMinigames() {
       rgba(255,220,120,1) calc(var(--wedge-deg) - 1.6deg) calc(var(--wedge-deg) - 0.9deg),
       transparent calc(var(--wedge-deg) - 0.9deg) 360deg
     );
-  /* Mask the OUTER RING ARC to a ring band; keep divider lines full radius */
   -webkit-mask:
       radial-gradient(circle at 50% 50%, transparent 0 84%, #000 88% 100%),
       radial-gradient(circle at 50% 50%, #000 0 100%);
@@ -2475,13 +2662,10 @@ function goToMinigames() {
   mix-blend-mode: screen;
 }
 .chase-wedge.is-active { opacity: 1; }
-/* disable any trails for crisp stepping */
-.chase-wedge.is-trail1,
-.chase-wedge.is-trail2,
-.chase-wedge.is-trail3 { opacity: 0 !important; }
-
-/* linger slightly more when slowing down */
-.chase-layer.chase-slow .chase-wedge.is-active { transition: opacity .28s ease; }
+/* Trails visible (micro-tail to avoid blink) */
+.chase-wedge.is-trail1 { opacity: 0.45; }
+.chase-wedge.is-trail2 { opacity: 0.28; }
+.chase-wedge.is-trail3 { opacity: 0.16; }
 
 /* Winner rim sparkles */
 .winner-sparkles {
@@ -2509,7 +2693,7 @@ function goToMinigames() {
   font-size: 13px; font-weight: 900; letter-spacing: 0.02em;
   pointer-events: none;
   display: flex; align-items: center; justify-content: center;
-  z-index: 6; /* above glows */
+  z-index: 6;
   padding: 2px 4px;
   border-radius: 8px;
 }
@@ -2546,7 +2730,7 @@ function goToMinigames() {
   100% { filter: drop-shadow(0 0 12px rgba(255,255,255,.25)); }
 }
 
-/* Keep the old 'Spinning…' overlay in DOM but hide it per spec */
+/* Keep the old 'Spinning…' overlay in DOM but hide it */
 .spin-overlay { display:none !important; }
 
 .btn-arcade {
@@ -2687,15 +2871,16 @@ function goToMinigames() {
 
 .intro-players { background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 12px; }
 .intro-players-head { color: #cfe3ff; margin-bottom: 8px; font-weight: 700; }
-.intro-players-grid {
-  display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-}
+.intro-players-grid { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
 .intro-player-pill {
   display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px;
-  background: rgba(0,0,0,.25); border: 1px solid rgba(255,255,255,.08);
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08);
 }
-.intro-player-pill img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.7); }
-.intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: .95rem; }
+.intro-player-pill img { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 2px rgba(255,255,255,.5); }
+.intro-player-pill span { color: #e9f3ff; font-weight: 700; font-size: 0.92rem; }
 
-.intro-count { color: #e9f3ff; opacity: .9; font-weight: 700; letter-spacing: .3px; }
+.intro-count { color: #cfe3ff; opacity: .85; }
+
+/* pop-in for modals */
+@keyframes popInModal { from{opacity:.7; transform: translateY(12px) scale(.97)} to{opacity:1; transform: translateY(0) scale(1)} }
 </style>
