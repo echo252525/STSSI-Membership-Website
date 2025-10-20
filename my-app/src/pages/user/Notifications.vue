@@ -43,8 +43,8 @@
         @click="onClick(n)"
         @keydown.enter.prevent="onClick(n)"
         @keydown.space.prevent="onClick(n)"
-        @focus="markViewed(n)"              
-        v-seen-on-view="() => markViewed(n)" 
+        @focus="markViewed(n)"
+        v-seen-on-view="() => markViewed(n)"
       >
         <div class="pt-1">
           <i :class="txIconClass(n.status)"></i>
@@ -999,19 +999,43 @@ function buildTargetUrl(n: UiRow) {
   if (n.source === 'ewallet.discount_credits_group' || n.status === 'discount_credits') {
     const qs = new URLSearchParams(); qs.set('ref', n.reference_number); return `/app/ewallet?${qs.toString()}`
   }
-  const qs = new URLSearchParams(); qs.set('ref', n.reference_number); if (n.purchase_id) qs.set('pid', n.purchase_id); return `/app/purchases?${qs.toString()}`
+  // ✅ Purchases should ALWAYS use /app/purchases?ref=<reference_number>
+  // (even if purchase_id is present)
+  const qs = new URLSearchParams(); qs.set('ref', n.reference_number)
+  return `/app/purchases?${qs.toString()}`
 }
 
-/* 🆕 add a tiny nav-stamp to force route update & avoid keep-alive/data-race issues */
+/* 🆕 add a tiny nav-stamp to force route update & avoid keep-alive/data-race issues
+      ⚠️ purchases links: do NOT add _nav and strip any existing one */
 function addNavStamp(url: string): string {
-  try {
-    const u = new URL(url, window.location.origin)
-    u.searchParams.set('_nav', String(Date.now()))
-    return u.pathname + (u.search ? u.search : '')
-  } catch {
-    const sep = url.includes('?') ? '&' : '?'
-    return `${url}${sep}_nav=${Date.now()}`
+  if (/^\/app\/purchases(\?|$)/.test(url)) {
+    let out = url.replace(/([?&])_nav=\d+(&|$)/, (m, p1, p2) => {
+      if (p1 === '?' && p2 === '&') return '?'
+      if (p1 === '?' && p2 === '') return ''
+      if (p1 === '&' && p2 === '&') return '&'
+      return ''
+    })
+    out = out.replace(/\?$/, '')
+    return out
   }
+  const stamp = `_nav=${Date.now()}`
+  if (/[?&]_nav=\d+/.test(url)) {
+    return url.replace(/([?&]_nav=)\d+/, `$1${Date.now()}`)
+    }
+  return url + (url.includes('?') ? '&' : '?') + stamp
+}
+
+/* 🆕 client-side navigate everywhere (no hard reload for purchases) */
+async function smartNavigate(url: string) {
+  try {
+    const resolved = router.resolve(url)
+    if (resolved && Array.isArray(resolved.matched) && resolved.matched.length > 0) {
+      await router.push(resolved)
+      return
+    }
+  } catch {}
+  // fallback only if route is unknown to the router
+  window.location.assign(url)
 }
 
 function closePanel() {
@@ -1028,20 +1052,21 @@ function closePanel() {
     }
     hideWith('Offcanvas', '.offcanvas.show')
     hideWith('Modal', '.modal.show')
+
+    /* 🆕 also close any open Bootstrap dropdowns hosting this notif list */
+    try {
+      document.querySelectorAll<HTMLElement>('[data-bs-toggle="dropdown"][aria-expanded="true"]').forEach((btn) => {
+        const inst = bs?.Dropdown?.getInstance?.(btn) ?? new bs.Dropdown(btn)
+        inst?.hide?.()
+      })
+      document.querySelectorAll<HTMLElement>('.dropdown-menu.show').forEach((menu) => {
+        const toggle = document.querySelector<HTMLElement>(`[aria-controls="${menu.id}"], [data-bs-toggle="dropdown"][aria-expanded="true"]`)
+        const inst = toggle ? (bs?.Dropdown?.getInstance?.(toggle) ?? new bs.Dropdown(toggle)) : null
+        inst?.hide?.()
+      })
+    } catch {}
   } catch {}
   ;(document.activeElement as HTMLElement | null)?.blur?.()
-}
-
-/* 🆕 await router.push for reliable hydration; fallback to hard navigate */
-async function smartNavigate(url: string) {
-  try {
-    const resolved = router.resolve(url)
-    if (resolved && Array.isArray(resolved.matched) && resolved.matched.length > 0) {
-      await router.push(resolved)
-      return
-    }
-  } catch {}
-  window.location.assign(url)
 }
 
 async function onClick(n: UiRow) {
@@ -1052,17 +1077,16 @@ async function onClick(n: UiRow) {
   const baseUrl = buildTargetUrl(n)
   const stampedUrl = addNavStamp(baseUrl)
 
-  // 🆕 optional: leave a hint the destination can read immediately if it wants
+  // optional: hint the destination can read immediately if it wants
   try {
     sessionStorage.setItem('purchases:jump', JSON.stringify({ ref: n.reference_number, pid: n.purchase_id ?? null }))
   } catch {}
 
+  // CLOSE the notif UI immediately (offcanvas/modal/dropdown/etc.)
   closePanel()
 
-  // 🆕 small delay lets offcanvas/modal finish closing before navigation,
-  // reducing races with mounted hooks on the next view.
+  // small delay lets transitions finish before route hydration
   setTimeout(() => {
-    // fire-and-forget; smartNavigate is async
     // eslint-disable-next-line @typescript-eslint/no-floating-promises
     smartNavigate(stampedUrl)
   }, 120)
@@ -1085,7 +1109,7 @@ const seenObserver = new IntersectionObserver((entries) => {
       viewTimers.set(entry.target, t)
     } else {
       const t = viewTimers.get(entry.target)
-      if (t) { clearTimeout(t); viewTimers.delete(entry.target) }
+      if (t) { clearTimeout(t); viewTimers.delete(t as any) }
     }
   }
 }, { threshold: 0.6 })

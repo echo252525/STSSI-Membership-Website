@@ -123,7 +123,7 @@
 
           <div class="wa-product-info mt-3">
             <div class="wa-product-title text-truncate" :title="productTitle || '—'">
-              {{ productTitle || 'Product Title Here' }}
+              {{ event?.title || 'the event' || 'Product Title Here' }}
             </div>
             <div class="wa-price-row">
               <span class="wa-price-old" v-if="productOriginalPriceStr">{{

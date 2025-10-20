@@ -29,8 +29,16 @@
           @keydown.left.prevent="prev"
           @keydown.right.prevent="next"
           tabindex="0"
+          aria-roledescription="carousel"
         >
-          <div class="slider__holder">
+          <div
+            class="slider__holder"
+            ref="holderRef"
+            @pointerdown.passive="onPointerDown"
+            @pointermove.passive="onPointerMove"
+            @pointerup.passive="onPointerUp"
+            @pointercancel.passive="onPointerCancel"
+          >
             <!-- one “slide” per event -->
             <div
               v-for="(ev, i) in openEvents"
@@ -70,14 +78,16 @@
                     <!-- CLICKABLE MASK (replaces join button action) -->
                     <div
                       class="spin-wheel__mask"
-                      :class="{ 'is-clickable': canJoin(ev) || alreadyJoined(ev.id) }"
-                      :title="maskTitle(ev)"
-                      :aria-label="maskTitle(ev)"
-                      :aria-disabled="!(canJoin(ev) || alreadyJoined(ev.id))"
-                      :tabindex="canJoin(ev) || alreadyJoined(ev.id) ? 0 : -1"
-                      @click.stop="onWheelClick(ev)"
-                      @keydown.enter.prevent.stop="onWheelClick(ev)"
-                      @keydown.space.prevent.stop="onWheelClick(ev)"
+                      :class="{
+                        'is-clickable': i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id))
+                      }"
+                      :title="maskTitle(ev, i)"
+                      :aria-label="maskTitle(ev, i)"
+                      :aria-disabled="!(i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)))"
+                      :tabindex="i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)) ? 0 : -1"
+                      @click.stop="onWheelClick(ev, i)"
+                      @keydown.enter.prevent.stop="onWheelClick(ev, i)"
+                      @keydown.space.prevent.stop="onWheelClick(ev, i)"
                     >
                       <img
                         v-if="ev.imageUrl"
@@ -284,35 +294,115 @@ const avatarsByEvent: Record<string, AvatarInfo[]> = reactive({})
 /* ==================== NEW: Slider state ==================== */
 const activeIndex = ref(0)
 
+/* ==================== NEW: Viewport-aware sizing for better mobile layout ==================== */
+const viewportW = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
+function handleResize() {
+  viewportW.value = typeof window !== 'undefined' ? window.innerWidth : viewportW.value
+}
+
+/* ==================== NEW: Mobile swipe state (adds swipable on phones) ==================== */
+const holderRef = ref<HTMLElement | null>(null)
+const swipe = reactive({
+  dragging: false,
+  startX: 0,
+  dx: 0,
+  pointerId: -1,
+  preventClick: false,
+})
+
+function onPointerDown(e: PointerEvent) {
+  if (viewportW.value > 600) return // mobile-only
+  swipe.dragging = true
+  swipe.startX = e.clientX
+  swipe.dx = 0
+  swipe.pointerId = e.pointerId
+  try {
+    holderRef.value?.setPointerCapture?.(e.pointerId)
+  } catch {}
+}
+
+function onPointerMove(e: PointerEvent) {
+  if (!swipe.dragging || viewportW.value > 600) return
+  swipe.dx = e.clientX - swipe.startX
+  if (Math.abs(swipe.dx) > 6) swipe.preventClick = true
+}
+
+function finishSwipe() {
+  swipe.dragging = false
+  swipe.startX = 0
+  swipe.dx = 0
+  swipe.pointerId = -1
+  // allow clicks again shortly after swipe ends
+  setTimeout(() => {
+    swipe.preventClick = false
+  }, 120)
+}
+
+function onPointerUp(e: PointerEvent) {
+  if (!swipe.dragging || viewportW.value > 600) return
+  const w = holderRef.value?.clientWidth ?? window.innerWidth ?? 360
+  const threshold = Math.max(40, w * 0.12) // ~12% of width feels natural
+  const dx = swipe.dx
+  if (Math.abs(dx) > threshold) {
+    if (dx < 0) next()
+    else prev()
+  }
+  finishSwipe()
+}
+
+function onPointerCancel(_: PointerEvent) {
+  if (!swipe.dragging) return
+  finishSwipe()
+}
+
 /** Centered, stacked layout similar to the screenshot */
 function slideStyle(i: number): CSSProperties {
   const current = activeIndex.value
   const diff = i - current
-  const step = 22                     // was 28 (cards sit closer)
-  const x = diff * step
   const distance = Math.abs(diff)
 
-  const base = 0.84  // ↓ smaller = everything scales down
-  const perStep = 0.08
-  const scale = Math.max(base - distance * perStep, 0.72)
+  // responsive tuning
+  const isPhone = viewportW.value <= 480
+  const isTablet = viewportW.value > 480 && viewportW.value <= 768
 
-  const dim = Math.min(distance * 0.2, 0.6)
+  // ⭐ Tweaked for mobile readability: keep the active card full-size
+  const step = isPhone ? 18 : isTablet ? 20 : 22
+  const x = diff * step
+
+  const base = isPhone ? 1.0 : 0.84
+  const perStep = isPhone ? 0.05 : 0.08
+  const minScale = isPhone ? 0.94 : 0.72
+  const scale = Math.max(base - distance * perStep, minScale)
+
+  // Wider on phones but still constrained
+  const width = isPhone ? 'min(94vw, 520px)' : isTablet ? '88vw' : 'clamp(320px, 72vw, 620px)'
+
+  // Softer dimming on small screens to avoid “washed out” side cards
+  const dimFactor = isPhone ? 0.12 : 0.2
+  const dimMax = isPhone ? 0.45 : 0.6
+  const dim = Math.min(distance * dimFactor, dimMax)
   const brightness = 1 - dim
   const z = 100 - distance
 
+  // ⭐ Mobile swipe drag offset (adds pixel translation while user drags)
+  const dragPx = viewportW.value <= 600 && swipe.dragging ? swipe.dx : 0
+
   return {
     left: '50%',
-    width: 'clamp(320px, 72vw, 620px)',   // was min(860px, 92%)
-    transform: `translateX(calc(-50% + ${x}%)) scale(${scale})`,
+    width,
+    transform: `translateX(calc(-50% + ${x}% + ${dragPx}px)) scale(${scale})`,
     zIndex: String(z),
     pointerEvents: 'auto',
     filter: `brightness(${brightness})`,
-    transition: 'transform .3s ease, filter .3s ease, opacity .3s ease',
+    transition: swipe.dragging
+      ? 'transform .03s linear, filter .2s ease, opacity .2s ease'
+      : 'transform .3s ease, filter .3s ease, opacity .3s ease',
   }
 }
 
-
 function goTo(i: number) {
+  // prevent accidental click after swipe
+  if (swipe.preventClick) return
   if (i < 0 || i >= openEvents.value.length) return
   activeIndex.value = i
 }
@@ -560,15 +650,19 @@ async function join(ev: EventRow) {
   }
 }
 
-/* ======== NEW: Click handler for the wheel mask ======== */
-function maskTitle(ev: EventRow): string {
+/* ======== NEW: Click handler for the wheel mask (now guards active slide) ======== */
+function maskTitle(ev: EventRow, i?: number): string {
+  if (typeof i === 'number' && i !== activeIndex.value) return 'Bring this card to front to join'
   if (alreadyJoined(ev.id)) return 'Enter waiting area'
   if (ev.status !== 'open') return 'Event is not open'
   if (slotsLeft(ev) <= 0) return 'Event is full'
   if (!hasEnoughBalance(ev)) return 'Insufficient balance'
   return 'Click to join'
 }
-function onWheelClick(ev: EventRow) {
+function onWheelClick(ev: EventRow, i?: number) {
+  // Only allow if this is the active/front card
+  if (typeof i === 'number' && i !== activeIndex.value) return
+
   // If user already joined, go to waiting area
   if (alreadyJoined(ev.id)) {
     router.push({ name: 'user.waiting', query: { eventId: ev.id } })
@@ -1044,6 +1138,10 @@ let teardownStarted = false
 onMounted(() => {
   console.log('[LIFECYCLE] Mounted -> loading + subscribing')
   isAlive.value = true
+  // viewport listener for mobile-friendly layout
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', handleResize, { passive: true })
+  }
   loadUserBalance()
   loadOpenEvents()
   subscribeRealtime()
@@ -1055,6 +1153,11 @@ onUnmounted(() => {
 
   console.log('[LIFECYCLE] Unmounting -> removing channels')
   isAlive.value = false
+
+  // remove viewport listener
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('resize', handleResize)
+  }
 
   nextTick(() => {
     safeLogUnmountStatus(eventsChannel, 'event')
@@ -1121,6 +1224,8 @@ onUnmounted(() => {
   margin: 0 auto;
   min-height: 740px; /* space for stacked cards */
   overflow: hidden; /* keeps it inside the bg */
+  /* ⭐ Enable vertical scroll on page while tracking horizontal drags on mobile */
+  touch-action: pan-y;
 }
 @media (max-width: 1200px) {
   .slider__holder {
@@ -1136,7 +1241,8 @@ onUnmounted(() => {
 @media (max-width: 600px) {
   .slider__holder {
     max-width: 96%;
-    min-height: 520px;
+    /* ⭐ Give more vertical room on phones so nothing feels cramped */
+    min-height: 640px; /* was 480px */
   }
 }
 
@@ -1154,6 +1260,15 @@ onUnmounted(() => {
   will-change: transform, opacity, filter;
   filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.08));
 }
+/* ⭐ Slight grab affordance on phones */
+@media (max-width: 600px) {
+  .slider__item {
+    cursor: grab;
+  }
+  .slider__item:active {
+    cursor: grabbing;
+  }
+}
 
 /* Bullets */
 .bullets {
@@ -1161,7 +1276,7 @@ onUnmounted(() => {
   display: block;
   width: auto;
   height: 10px;
-  margin: 32px auto 0;
+  margin: 24px auto 0;
   text-align: center;
 }
 .bullets__item {
@@ -1209,6 +1324,12 @@ onUnmounted(() => {
   background: rgba(0, 0, 0, 0.12);
   transform: translateY(-1px);
 }
+/* ⭐ Hide arrows on phones (bullets + swipe/keys are enough) */
+@media (max-width: 600px) {
+  .slider__nav {
+    display: none;
+  }
+}
 
 /* ===================== CARD / WHEEL (unchanged except clickable mask micro-interactions) ===================== */
 .spin-card {
@@ -1227,6 +1348,13 @@ onUnmounted(() => {
   transform: translateY(-2px);
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   border-color: rgba(0, 0, 0, 0.1);
+}
+/* ⭐ On touch devices avoid hover lift to keep layout steady */
+@media (hover: none) {
+  .spin-card:hover {
+    transform: none;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.05);
+  }
 }
 .spin-card--locked {
   opacity: 0.9;
@@ -1259,6 +1387,13 @@ onUnmounted(() => {
 }
 .spin-card__status {
   backdrop-filter: saturate(1.2);
+}
+
+/* ⭐ Slightly tighter padding on small screens for more breathing room overall */
+@media (max-width: 600px) {
+  .spin-card__body {
+    padding: 0.85rem !important; /* keep your p-3 on larger screens */
+  }
 }
 
 /* --- Wheel --- */
@@ -1365,6 +1500,19 @@ onUnmounted(() => {
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
 }
+@media (max-width: 480px) {
+  .spin-stats {
+    grid-template-columns: repeat(2, 1fr); /* better fit on small phones */
+    gap: 0.5rem;
+  }
+}
+/* ⭐ Ultra-small phones: stack stats for zero squeeze */
+@media (max-width: 420px) {
+  .spin-stats {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+}
 .spin-stat {
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -1422,6 +1570,14 @@ onUnmounted(() => {
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 999px;
   padding: 0.2rem 0.5rem;
+}
+/* ⭐ Slightly smaller avatars on phones for tidier rows */
+@media (max-width: 600px) {
+  .avatar-img,
+  .avatar-fallback {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 /* --- Slots left indicator --- */

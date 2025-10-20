@@ -1980,12 +1980,11 @@ function openGroupDetails(g: Group, pid?: string) {
   highlightPid.value = pid || ''
   showGroupDetails.value = true
 
-  // Update URL query (?ref=...&pid=...)
+  // ✅ Update URL query with ONLY ?ref=... (no &pid=...)
   const nextQuery: Record<string, any> = { ...route.query, ref: g.ref }
-  if (pid) nextQuery.pid = pid
-  else if ('pid' in nextQuery) delete nextQuery.pid
   router.replace({ query: nextQuery })
-  // If a pid is provided, try to scroll it into view after render
+
+  // Still scroll to the clicked item (without putting pid in the URL)
   nextTick(() => {
     if (pid) {
       const el = document.getElementById('pid-' + pid)
