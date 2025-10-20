@@ -10,20 +10,30 @@
         <div class="wa-title-wrap">
           <h2 class="h4 mb-2 fw-semibold wa-title">Waiting Area</h2>
           <p class="text-secondary mb-0 wa-subtext">
-            You’ve joined <strong>{{ event?.title || 'the event' }}</strong>. Settle in—your game starts soon.
+            You’ve joined <strong>{{ event?.title || 'the event' }}</strong
+            >. Settle in—your game starts soon.
           </p>
         </div>
 
         <!-- Players pill + progress -->
-        <div v-if="event" class="wa-lobby-top mt-3">
+        <div v-if="event" class="wa-lobby-top mt-2 px-0 py-0">
           <div class="wa-lobby-row">
-            <span class="badge rounded-pill px-3 py-2 wa-pill">
-              Players&nbsp;·&nbsp;<strong>{{ event.player_count }}</strong>/<span class="text-muted">{{ event.player_cap }}</span>
+            <span class="badge rounded-pill wa-pill text-light">
+              Players&nbsp;·&nbsp;<strong>{{ event.player_count }}</strong
+              >/<span class="text-light">{{ event.player_cap }}</span>
             </span>
-            <span class="badge rounded-pill px-3 py-2 wa-pill-soft text-capitalize">{{ event.status }}</span>
+            <span class="badge rounded-pill wa-pill-soft text-capitalize">{{
+              event.status
+            }}</span>
           </div>
 
-          <div class="wa-progress-wrap mt-3" role="progressbar" :aria-valuenow="progressPct" aria-valuemin="0" aria-valuemax="100">
+          <div
+            class="wa-progress-wrap mt-1"
+            role="progressbar"
+            :aria-valuenow="progressPct"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
             <div class="wa-progress-bar" :style="{ width: progressPct + '%' }"></div>
             <div class="wa-progress-label">{{ progressPct }}%</div>
           </div>
@@ -31,22 +41,17 @@
 
         <!-- Players grid (ML-style ready room vibes) -->
         <div v-if="event" class="mt-4">
-          <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+          <div class="d-flex align-items-center justify-content-between mb-2 px-0">
             <div class="text-start">
-              <div class="fw-semibold">Players in lobby</div>
-              <div class="small text-secondary">
-                Showing users with status <code class="text-light">joined</code>
-              </div>
+              <div class="fw-semibold text-light">Players in lobby</div>
             </div>
-            <div class="small text-secondary">
-              {{ joinedUsers.length }} joined
-            </div>
+            <div class="small text-secondary text-light">{{ joinedUsers.length }} joined</div>
           </div>
 
           <div class="wa-users-grid ml-flavor">
             <!-- loading skeletons -->
             <template v-if="loadingJoined">
-              <div v-for="n in 6" :key="'s'+n" class="wa-user-card">
+              <div v-for="n in 6" :key="'s' + n" class="wa-user-card">
                 <div class="wa-avatar-skeleton"></div>
                 <div class="wa-username-skeleton"></div>
               </div>
@@ -66,7 +71,7 @@
                   :src="u.avatar_url"
                   class="wa-avatar"
                   alt="avatar"
-                  @error="e => (e.target as HTMLImageElement).style.display = 'none'"
+                  @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
                 />
                 <div class="wa-avatar wa-avatar-fallback" v-else>
                   {{ initials(u.full_name) }}
@@ -85,7 +90,7 @@
         <!-- /Players grid -->
 
         <!-- Product spotlight (center) with fade slideshow -->
-        <div class="wa-product-spot mt-4">
+        <div class="wa-product-spot mt-1">
           <div class="wa-image-frame">
             <div class="wa-img-skeleton-circle" v-if="imageLoading"></div>
 
@@ -118,38 +123,74 @@
 
           <div class="wa-product-info mt-3">
             <div class="wa-product-title text-truncate" :title="productTitle || '—'">
-              {{ productTitle || '—' }}
+              {{ productTitle || 'Product Title Here' }}
             </div>
             <div class="wa-price-row">
-              <span class="wa-price-old" v-if="productOriginalPriceStr">{{ productOriginalPriceStr }}</span>
-              <span class="wa-price-new" v-if="productDiscountedPriceStr">{{ productDiscountedPriceStr }}</span>
-            </div>
-            <div class="wa-price-note small text-secondary" v-if="event?.interest_per_player != null">
-              Discounted by lobby interest per player.
+              <span class="wa-price-old" v-if="productOriginalPriceStr">{{
+                productOriginalPriceStr
+              }}</span>
+              <span class="wa-price-new" v-if="productDiscountedPriceStr">{{
+                productDiscountedPriceStr
+              }}</span>
             </div>
           </div>
         </div>
 
         <!-- Minimal spinner + dots -->
-        <div class="mb-4 mt-3">
-          <div class="wa-spinner-wrap" aria-hidden="true"></div>
-          <div class="wa-dots mt-3" aria-hidden="true">
-            <span></span><span></span><span></span>
-          </div>
-          <div v-if="isLoading" class="small text-muted mt-2">Loading event…</div>
+        <div class="mb-0 mt-0">
+          <div class="wa-dots mt-3" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div v-if="isLoading" class="small text-muted mt-3">Loading event…</div>
         </div>
 
         <!-- Tip marquee -->
         <div class="wa-tips mt-4" aria-live="polite">
           <div class="wa-tips-track">
-            <span class="wa-tip">Tip: Don’t close the tab—your slot is reserved while you wait.</span>
+            <span class="wa-tip">Keep this tab open—your slot stays reserved until the round starts.</span>
+
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Your chance improves when the lobby fills. Invite a friend to speed it up.</span>
+            <span class="wa-tip">Rounds start as the lobby fills. Invite a friend to kick it off sooner.</span>
+
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Prizes are revealed at start. Good luck!</span>
+            <span class="wa-tip">Prizes reveal when the round begins—watch the top banner.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Names stay bright on darker slices so you can spot yours fast.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">No pointer here—watch the glowing edge; it locks onto the winner.</span>
+            
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">When the countdown hits 0, entries lock for this round.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip"> No need to tap—everyone sees the same synced spin.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Stay on this tab; backgrounding can delay visuals on some devices.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">If the layout looks off, refresh before the countdown ends.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Weak connection? Your entry is still counted—result is server-verified.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Make sure your display name and avatar are correct—they’ll show if you win.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">The wheel may fake out, then snap to the winning slice—don’t be fooled.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">One account per player. Suspicious activity can be disqualified.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Winners go to Purchases to claim. Didn’t win? Back to Games for the next round.</span>
+
+            <span class="wa-dot">•</span>
+            <span class="wa-tip">Screenshots are welcome—your winning slice and name will be highlighted.</span>
           </div>
         </div>
-
+        
         <!-- Back / confirm -->
         <div class="d-flex flex-column align-items-center gap-2 mt-4">
           <button
@@ -160,9 +201,7 @@
             <span v-if="deleting" class="spinner-border spinner-border-sm me-2"></span>
             ← Back
           </button>
-          <div class="text-muted small">
-            Going back will <strong>free your slot</strong>.
-          </div>
+          <div class="text-muted small">Going back will <strong>free your slot</strong>.</div>
         </div>
 
         <div v-if="err" class="text-danger small mt-3">{{ err }}</div>
@@ -256,7 +295,7 @@ const loadingJoined = ref<boolean>(true)
 const productTitle = ref<string | null>(null)
 const productOriginalPrice = ref<number | null>(null)
 const productOriginalPriceStr = computed(() =>
-  productOriginalPrice.value == null ? '' : formatMoney(productOriginalPrice.value)
+  productOriginalPrice.value == null ? '' : formatMoney(productOriginalPrice.value),
 )
 const productDiscountedPrice = computed<number | null>(() => {
   if (productOriginalPrice.value == null) return null
@@ -264,7 +303,7 @@ const productDiscountedPrice = computed<number | null>(() => {
   return Math.max(0, Number(productOriginalPrice.value) - interest)
 })
 const productDiscountedPriceStr = computed(() =>
-  productDiscountedPrice.value == null ? '' : formatMoney(productDiscountedPrice.value)
+  productDiscountedPrice.value == null ? '' : formatMoney(productDiscountedPrice.value),
 )
 
 // Progress
@@ -279,7 +318,7 @@ const progressPct = computed<number>(() => {
 // ===== CONFIG =====
 // Keep bucket as requested
 const PRODUCT_BUCKETS = ['prize_product']
-const AVATAR_BUCKET  = 'user_profile'
+const AVATAR_BUCKET = 'user_profile'
 const READY_STATUS = 'ready'
 
 // Slideshow config/state
@@ -296,13 +335,15 @@ function isSpunStatus(s?: string | null) {
   return String(s || '').toLowerCase() === 'spun'
 }
 
-async function toSignedUrl(path: string | null | undefined, expiresIn = 3600): Promise<string | null> {
+async function toSignedUrl(
+  path: string | null | undefined,
+  expiresIn = 3600,
+): Promise<string | null> {
   if (!path) return null
   if (isHttpUrl(path)) return path
   for (const bucket of PRODUCT_BUCKETS) {
     try {
-      const { data, error } = await supabase
-        .storage
+      const { data, error } = await supabase.storage
         .from(bucket)
         .createSignedUrl(path, expiresIn, { download: false })
       if (!error && data?.signedUrl) return data.signedUrl
@@ -312,11 +353,13 @@ async function toSignedUrl(path: string | null | undefined, expiresIn = 3600): P
   return null
 }
 
-async function toSignedAvatar(path: string | null | undefined, expiresIn = 3600): Promise<string | null> {
+async function toSignedAvatar(
+  path: string | null | undefined,
+  expiresIn = 3600,
+): Promise<string | null> {
   if (!path) return null
   if (isHttpUrl(path)) return path
-  const { data, error } = await supabase
-    .storage
+  const { data, error } = await supabase.storage
     .from(AVATAR_BUCKET)
     .createSignedUrl(path, expiresIn, { download: false })
   if (error) return null
@@ -346,11 +389,10 @@ async function listProductImages(productId: string): Promise<string[]> {
       if (error) throw error
       if (!page || !page.length) continue
 
-      const imgs = page.filter(f => f?.name && exts.test(f.name))
+      const imgs = page.filter((f) => f?.name && exts.test(f.name))
       for (const f of imgs) {
         const fullPath = `${folder}/${f.name}`
-        const { data: signed, error: signErr } = await supabase
-          .storage
+        const { data: signed, error: signErr } = await supabase.storage
           .from(bucket)
           .createSignedUrl(fullPath, 3600, { download: false })
         if (!signErr && signed?.signedUrl) out.push(signed.signedUrl)
@@ -393,9 +435,15 @@ function onSlideError(i: number) {
 
 // ===== Confirm modal =====
 const showConfirm = ref(false)
-function openConfirm() { showConfirm.value = true }
-function closeConfirm() { if (!deleting.value) showConfirm.value = false }
-async function confirmLeave() { await goBack() }
+function openConfirm() {
+  showConfirm.value = true
+}
+function closeConfirm() {
+  if (!deleting.value) showConfirm.value = false
+}
+async function confirmLeave() {
+  await goBack()
+}
 
 // ===== Redirect when lobby locks or full =====
 const redirected = ref(false)
@@ -403,8 +451,10 @@ const EVENT_ROUTE_NAMES = ['user.minigames.event', 'user.games.event', 'games.ev
 function isGamesEventRoute(to: any) {
   if (!to) return false
   const nameOk = to.name && EVENT_ROUTE_NAMES.includes(String(to.name))
-  const pathOk = to.path && ['/app/mini-games/event', '/app/minigames/event', '/games/event'].includes(String(to.path))
-  const qid = (to.query && to.query.eventId) ? String(to.query.eventId) : undefined
+  const pathOk =
+    to.path &&
+    ['/app/mini-games/event', '/app/minigames/event', '/games/event'].includes(String(to.path))
+  const qid = to.query && to.query.eventId ? String(to.query.eventId) : undefined
   const sameEvent = qid && eventId && qid === eventId
   return (nameOk || pathOk) && !!sameEvent
 }
@@ -420,12 +470,28 @@ async function chargeUserForEntry(userId: string): Promise<boolean> {
     if (isSpunStatus(event.value?.status)) return true
     const fee = normalizedFee()
     if (fee <= 0) return true
-    const { data: urow, error: uerr } = await supabase.from('users').select('balance').eq('id', userId).single()
-    if (uerr) { err.value = 'Could not read your balance.'; return false }
+    const { data: urow, error: uerr } = await supabase
+      .from('users')
+      .select('balance')
+      .eq('id', userId)
+      .single()
+    if (uerr) {
+      err.value = 'Could not read your balance.'
+      return false
+    }
     const cur = Number(urow?.balance ?? 0)
-    if (cur < fee) { err.value = 'Insufficient balance to join. Please top up.'; return false }
-    const { error: updErr } = await supabase.from('users').update({ balance: cur - fee }).eq('id', userId)
-    if (updErr) { err.value = 'Could not deduct entry fee.'; return false }
+    if (cur < fee) {
+      err.value = 'Insufficient balance to join. Please top up.'
+      return false
+    }
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ balance: cur - fee })
+      .eq('id', userId)
+    if (updErr) {
+      err.value = 'Could not deduct entry fee.'
+      return false
+    }
     return true
   } catch {
     err.value = 'Payment failed unexpectedly.'
@@ -446,12 +512,18 @@ async function markEntryReady() {
     }
 
     const { data: entryRow } = await supabase
-      .schema('games').from('entry')
+      .schema('games')
+      .from('entry')
       .select('id, status')
-      .eq('event_id', eventId).eq('user_id', userId).maybeSingle()
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
+      .maybeSingle()
 
     const alreadyReady = (entryRow?.status || '').toLowerCase() === READY_STATUS
-    if (alreadyReady) { chargedReady.value = true; return }
+    if (alreadyReady) {
+      chargedReady.value = true
+      return
+    }
 
     if (!chargedReady.value) {
       const ok = await chargeUserForEntry(userId)
@@ -459,9 +531,12 @@ async function markEntryReady() {
       chargedReady.value = true
     }
 
-    await supabase.schema('games').from('entry')
+    await supabase
+      .schema('games')
+      .from('entry')
       .update({ status: READY_STATUS })
-      .eq('event_id', eventId).eq('user_id', userId)
+      .eq('event_id', eventId)
+      .eq('user_id', userId)
   } catch {}
 }
 async function ensureChargeOnRealtimeReady(payload: any) {
@@ -483,26 +558,43 @@ async function navigateToGamesEvent() {
   if (!eventId) return
   suppressDelete.value = true
   await markEntryReady()
-  if (err.value) { suppressDelete.value = false; return }
+  if (err.value) {
+    suppressDelete.value = false
+    return
+  }
 
   const candidates = [
     { name: 'user.minigames.event', query: { eventId } },
     { name: 'user.games.event', query: { eventId } },
     { name: 'games.event', query: { eventId } },
   ] as const
-  for (const r of candidates) { try { await router.push(r as any); return } catch {} }
+  for (const r of candidates) {
+    try {
+      await router.push(r as any)
+      return
+    } catch {}
+  }
 
   const pathCandidates = [
     { path: '/app/mini-games/event', query: { eventId } },
     { path: '/app/minigames/event', query: { eventId } },
     { path: '/games/event', query: { eventId } },
   ]
-  for (const r of pathCandidates) { try { await router.push(r as any); return } catch {} }
+  for (const r of pathCandidates) {
+    try {
+      await router.push(r as any)
+      return
+    } catch {}
+  }
 
-  try { window.location.href = `/app/mini-games/event?eventId=${encodeURIComponent(eventId)}` } catch {}
+  try {
+    window.location.href = `/app/mini-games/event?eventId=${encodeURIComponent(eventId)}`
+  } catch {}
 }
 
-function isLockedStatus(s?: string | null) { return String(s || '').toLowerCase() === 'locked' }
+function isLockedStatus(s?: string | null) {
+  return String(s || '').toLowerCase() === 'locked'
+}
 function maybeRedirect() {
   if (redirected.value) return
   const locked = isLockedStatus(event.value?.status)
@@ -520,21 +612,29 @@ async function fetchEventAndImage() {
   isLoading.value = true
   imageLoading.value = true
   try {
-    if (!eventId) { err.value = 'No event specified.'; return }
+    if (!eventId) {
+      err.value = 'No event specified.'
+      return
+    }
 
     // 1) Get event (schema: games)
     const { data: ev, error: evErr } = await supabase
       .schema('games')
       .from('event')
-      .select(`
+      .select(
+        `
         id, title, item_supplier_cost, entry_fee, player_count, interest_pool,
         status, created_by, created_at, updated_at, product_id, player_cap,
         user_id_winner, interest_per_player, winner_refund_amount, loser_refund_amount
-      `)
+      `,
+      )
       .eq('id', eventId)
       .single()
 
-    if (evErr) { err.value = 'Failed to load event details.'; return }
+    if (evErr) {
+      err.value = 'Failed to load event details.'
+      return
+    }
     event.value = ev as EventRow
     maybeRedirect()
 
@@ -552,7 +652,7 @@ async function fetchEventAndImage() {
       let prod: any = null
 
       const { data: prodPrimary, error: prodPrimaryErr } = await supabase
-        .schema('prize_product')               // <<< points PostgREST to /rest/v1/prize_product (profile)
+        .schema('prize_product') // <<< points PostgREST to /rest/v1/prize_product (profile)
         .from('products')
         .select('product_url, title, name, price')
         .eq('id', ev.product_id)
@@ -563,7 +663,7 @@ async function fetchEventAndImage() {
       } else {
         // Fallback to your previous schema just in case you still keep data there
         const { data: prodFallback } = await supabase
-          .schema('games')                     // fallback (old path)
+          .schema('games') // fallback (old path)
           .from('products')
           .select('product_url, title, name, price')
           .eq('id', ev.product_id)
@@ -621,23 +721,32 @@ async function fetchJoinedUsers() {
       .eq('event_id', eventId)
       .eq('status', 'joined')
 
-    if (entErr) { joinedUsers.value = []; return }
+    if (entErr) {
+      joinedUsers.value = []
+      return
+    }
 
     const userIds = [...new Set((entries || []).map((e: any) => e.user_id))] as string[]
-    if (userIds.length === 0) { joinedUsers.value = []; return }
+    if (userIds.length === 0) {
+      joinedUsers.value = []
+      return
+    }
 
     const { data: users, error: usrErr } = await supabase
       .from('users')
       .select('id, full_name, profile_url')
       .in('id', userIds)
 
-    if (usrErr) { joinedUsers.value = []; return }
+    if (usrErr) {
+      joinedUsers.value = []
+      return
+    }
 
     const normalized: UserProfile[] = await Promise.all(
       (users || []).map(async (u: any) => {
         const signed = await toSignedAvatar(u.profile_url ?? null)
         return { id: u.id, full_name: u.full_name ?? null, avatar_url: signed }
-      })
+      }),
     )
 
     normalized.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
@@ -712,7 +821,11 @@ function beforeUnload(e: BeforeUnloadEvent) {
 function formatMoney(v: number | null | undefined) {
   if (v === null || v === undefined || Number.isNaN(Number(v))) return '—'
   try {
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency: 'PHP', minimumFractionDigits: 2 }).format(Number(v))
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency: 'PHP',
+      minimumFractionDigits: 2,
+    }).format(Number(v))
   } catch {
     return Number(v).toFixed(2)
   }
@@ -721,8 +834,11 @@ function formatDate(v: string | null | undefined) {
   if (!v) return '—'
   try {
     return new Intl.DateTimeFormat(undefined, {
-      year: 'numeric', month: 'short', day: '2-digit',
-      hour: '2-digit', minute: '2-digit'
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
     }).format(new Date(v))
   } catch {
     return v
@@ -731,7 +847,7 @@ function formatDate(v: string | null | undefined) {
 function initials(name?: string | null) {
   if (!name) return 'U'
   const parts = name.trim().split(/\s+/).slice(0, 2)
-  return parts.map(p => p[0]?.toUpperCase() || '').join('') || 'U'
+  return parts.map((p) => p[0]?.toUpperCase() || '').join('') || 'U'
 }
 
 /* Realtime + polling (kept) */
@@ -745,16 +861,23 @@ function scheduleRefresh(delayMs = 250) {
   if (refreshTimer) window.clearTimeout(refreshTimer)
   refreshTimer = window.setTimeout(async () => {
     refreshTimer = null
-    await Promise.all([ fetchEventAndImage(), fetchJoinedUsers() ])
+    await Promise.all([fetchEventAndImage(), fetchJoinedUsers()])
   }, delayMs)
 }
 
 function makeRealtimeChannel() {
   if (!eventId) return
-  if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} realtimeChannel = null }
+  if (realtimeChannel) {
+    try {
+      supabase.removeChannel(realtimeChannel)
+    } catch {}
+    realtimeChannel = null
+  }
 
   realtimeChannel = supabase
-    .channel(`wa-event-${eventId}`, { config: { broadcast: { self: false }, presence: { key: 'waiting-area' } }})
+    .channel(`wa-event-${eventId}`, {
+      config: { broadcast: { self: false }, presence: { key: 'waiting-area' } },
+    })
     .on(
       'postgres_changes',
       { event: '*', schema: 'games', table: 'event', filter: `id=eq.${eventId}` },
@@ -764,7 +887,7 @@ function makeRealtimeChannel() {
             err.value = 'This event was removed.'
           } else if (payload.new) {
             const next = payload.new as Partial<EventRow>
-            event.value = { ...(event.value || {} as any), ...next } as EventRow
+            event.value = { ...(event.value || ({} as any)), ...next } as EventRow
 
             const cap = Number(next.player_cap ?? event.value.player_cap ?? 0)
             const cnt = Number(next.player_count ?? event.value.player_count ?? 0)
@@ -778,7 +901,7 @@ function makeRealtimeChannel() {
           }
         } catch {}
         scheduleRefresh(250)
-      }
+      },
     )
     .subscribe((status: any) => {
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
@@ -789,18 +912,25 @@ function makeRealtimeChannel() {
 
 function makeRealtimeEntryChannel() {
   if (!eventId) return
-  if (realtimeEntryChannel) { try { supabase.removeChannel(realtimeEntryChannel) } catch {} realtimeEntryChannel = null }
+  if (realtimeEntryChannel) {
+    try {
+      supabase.removeChannel(realtimeEntryChannel)
+    } catch {}
+    realtimeEntryChannel = null
+  }
 
   realtimeEntryChannel = supabase
-    .channel(`wa-entry-${eventId}`, { config: { broadcast: { self: false }, presence: { key: 'waiting-area' } }})
+    .channel(`wa-entry-${eventId}`, {
+      config: { broadcast: { self: false }, presence: { key: 'waiting-area' } },
+    })
     .on(
       'postgres_changes',
       { event: '*', schema: 'games', table: 'entry', filter: `event_id=eq.${eventId}` },
       async (payload: any) => {
         await ensureChargeOnRealtimeReady(payload)
-        await Promise.all([ fetchEventAndImage(), fetchJoinedUsers() ])
+        await Promise.all([fetchEventAndImage(), fetchJoinedUsers()])
         maybeRedirect()
-      }
+      },
     )
     .subscribe((status: any) => {
       if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
@@ -817,18 +947,27 @@ function startPoll() {
   }, POLL_MS)
 }
 function stopPoll() {
-  if (pollHandle) { window.clearInterval(pollHandle); pollHandle = null }
+  if (pollHandle) {
+    window.clearInterval(pollHandle)
+    pollHandle = null
+  }
 }
 function onVisibilityChange() {
   if (document.visibilityState === 'visible') scheduleRefresh(0)
 }
 
-watch(() => event.value?.player_count, (nv, ov) => {
-  if (ov !== undefined && nv !== ov) maybeRedirect()
-})
-watch(() => event.value?.status, (nv, ov) => {
-  if (ov !== undefined && nv !== nv) maybeRedirect()
-})
+watch(
+  () => event.value?.player_count,
+  (nv, ov) => {
+    if (ov !== undefined && nv !== ov) maybeRedirect()
+  },
+)
+watch(
+  () => event.value?.status,
+  (nv, ov) => {
+    if (ov !== undefined && nv !== nv) maybeRedirect()
+  },
+)
 
 onMounted(() => {
   fetchEventAndImage()
@@ -843,9 +982,22 @@ onMounted(() => {
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
 
-  if (realtimeChannel) { try { supabase.removeChannel(realtimeChannel) } catch {} realtimeChannel = null }
-  if (realtimeEntryChannel) { try { supabase.removeChannel(realtimeEntryChannel) } catch {} realtimeEntryChannel = null }
-  if (refreshTimer) { window.clearTimeout(refreshTimer); refreshTimer = null }
+  if (realtimeChannel) {
+    try {
+      supabase.removeChannel(realtimeChannel)
+    } catch {}
+    realtimeChannel = null
+  }
+  if (realtimeEntryChannel) {
+    try {
+      supabase.removeChannel(realtimeEntryChannel)
+    } catch {}
+    realtimeEntryChannel = null
+  }
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
   stopPoll()
   stopSlideshow()
   document.removeEventListener('visibilitychange', onVisibilityChange)
@@ -879,17 +1031,18 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: -20% -10%;
   background:
-    radial-gradient(45% 55% at 20% 10%, rgba(124,156,255,0.25), transparent 60%),
-    radial-gradient(60% 55% at 80% 30%, rgba(82,227,182,0.18), transparent 60%),
-    radial-gradient(50% 60% at 50% 90%, rgba(143,119,255,0.18), transparent 60%);
+    radial-gradient(45% 55% at 20% 10%, rgba(124, 156, 255, 0.25), transparent 60%),
+    radial-gradient(60% 55% at 80% 30%, rgba(82, 227, 182, 0.18), transparent 60%),
+    radial-gradient(50% 60% at 50% 90%, rgba(143, 119, 255, 0.18), transparent 60%);
   filter: blur(30px);
   z-index: 0;
 }
 .wa-grid {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
-                    linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: radial-gradient(80% 60% at 50% 40%, #000 60%, transparent 100%);
   z-index: 0;
@@ -897,18 +1050,36 @@ onBeforeUnmount(() => {
 
 .wa-card {
   position: relative;
-  background: linear-gradient(180deg, rgba(18,26,49,0.9), rgba(15,21,40,0.95));
+  background: linear-gradient(180deg, rgba(18, 26, 49, 0.9), rgba(15, 21, 40, 0.95));
   border: 1px solid var(--wa-border);
-  box-shadow: 0 10px 30px rgba(0,0,0,0.25), inset 0 0 0 1px rgba(255,255,255,0.02);
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.25),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   z-index: 1;
 }
-.wa-title { color: #f3f6ff; }
-.wa-subtext { color: #f3f6ff; opacity:.8; }
-.wa-title-wrap { display: grid; gap: 2px; }
+.wa-title {
+  color: #f3f6ff;
+}
+.wa-subtext {
+  color: #f3f6ff;
+  opacity: 0.8;
+}
+.wa-title-wrap {
+  display: grid;
+  gap: 2px;
+}
 
 /* Lobby top row */
-.wa-lobby-top { display: grid; gap: 10px; }
-.wa-lobby-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.wa-lobby-top {
+  display: grid;
+  gap: 10px;
+}
+.wa-lobby-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 
 .wa-pill {
   background: var(--wa-chip);
@@ -933,7 +1104,7 @@ onBeforeUnmount(() => {
 .wa-progress-bar {
   height: 100%;
   background: linear-gradient(90deg, #6e8dff, #52e3b6);
-  box-shadow: 0 0 12px rgba(124,156,255,0.5);
+  box-shadow: 0 0 12px rgba(124, 156, 255, 0.5);
   transition: width 420ms ease;
 }
 .wa-progress-label {
@@ -943,7 +1114,7 @@ onBeforeUnmount(() => {
   place-items: center;
   font-size: 11px;
   color: #c7d3ff;
-  text-shadow: 0 1px 0 rgba(0,0,0,0.4);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
 /* Users grid – ML style */
@@ -953,10 +1124,26 @@ onBeforeUnmount(() => {
   gap: 10px;
   text-align: left;
 }
-@media (max-width: 1200px) { .wa-users-grid { grid-template-columns: repeat(5, 1fr); } }
-@media (max-width: 992px)  { .wa-users-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 768px)  { .wa-users-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 576px)  { .wa-users-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1200px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+@media (max-width: 992px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 576px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
 .wa-user-card {
   position: relative;
@@ -972,16 +1159,17 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 .wa-user-glow {
-  content: "";
+  content: '';
   position: absolute;
   inset: -60%;
-  background: radial-gradient(120px 80px at 10% 10%, rgba(124,156,255,0.08), transparent 60%);
+  background: radial-gradient(120px 80px at 10% 10%, rgba(124, 156, 255, 0.08), transparent 60%);
   pointer-events: none;
 }
 .wa-avatar {
   grid-row: 1 / 2;
   grid-column: 1 / 2;
-  width: 40px; height: 40px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid var(--wa-border);
@@ -991,7 +1179,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   font-weight: 700;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   color: #dbe5ff;
 }
 .wa-username {
@@ -1001,14 +1189,17 @@ onBeforeUnmount(() => {
   color: #eaf1ff;
 }
 .wa-avatar-skeleton {
-  width: 40px; height: 40px; border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
   border: 1px solid var(--wa-border);
   background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
   background-size: 400% 100%;
   animation: wa-shimmer 1.4s ease-in-out infinite;
 }
 .wa-username-skeleton {
-  height: 10px; width: 70%;
+  height: 10px;
+  width: 70%;
   border-radius: 6px;
   background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
   background-size: 400% 100%;
@@ -1016,8 +1207,14 @@ onBeforeUnmount(() => {
 }
 
 /* Product spotlight */
-.wa-product-spot { display: grid; place-items: center; }
-.wa-product-info { display: grid; gap: 4px; }
+.wa-product-spot {
+  display: grid;
+  place-items: center;
+}
+.wa-product-info {
+  display: grid;
+  gap: 4px;
+}
 .wa-product-title {
   font-weight: 700;
   font-size: 16px;
@@ -1026,19 +1223,22 @@ onBeforeUnmount(() => {
   margin: 0 auto;
 }
 .wa-price-row {
-  display: flex; gap: 10px; align-items: baseline; justify-content: center;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  justify-content: center;
 }
 .wa-price-old {
   color: #9fb0d9;
   text-decoration: line-through;
-  opacity: .75;
+  opacity: 0.75;
   font-size: 14px;
 }
 .wa-price-new {
   font-size: 20px;
   font-weight: 800;
   color: #52e3b6;
-  text-shadow: 0 0 16px rgba(82,227,182,0.25);
+  text-shadow: 0 0 16px rgba(82, 227, 182, 0.25);
 }
 
 /* Circular prize image + slideshow */
@@ -1081,60 +1281,127 @@ onBeforeUnmount(() => {
 }
 .wa-ring {
   position: absolute;
-  width: 200px; height: 200px;
+  width: 200px;
+  height: 200px;
   border-radius: 50%;
-  border: 1px dashed rgba(124,156,255,0.35);
+  border: 1px dashed rgba(124, 156, 255, 0.35);
   animation: wa-spin 10s linear infinite;
   pointer-events: none;
   z-index: 0;
 }
-@keyframes wa-spin { to { transform: rotate(360deg); } }
-@keyframes wa-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
-
-/* Spinner */
-.wa-spinner-wrap { width: 54px; height: 54px; margin: 0 auto; display: grid; place-items: center; }
-.wa-spinner-wrap .spinner-border {
-  width: 2.2rem; height: 2.2rem; border-width: 0.22rem;
-  color: var(--wa-accent);
-  animation: wa-pulse 1.8s ease-in-out infinite;
+@keyframes wa-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
-@keyframes wa-pulse { 0%, 100% { opacity: .9; } 50% { opacity: .6; } }
+@keyframes wa-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
 
 /* Dots */
-.wa-dots { display: inline-flex; gap: 6px; }
+.wa-dots {
+  display: inline-flex;
+  gap: 6px;
+}
 .wa-dots span {
-  width: 6px; height: 6px; background: #7e8cc2; border-radius: 999px; display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #7e8cc2;
+  border-radius: 999px;
+  display: inline-block;
   animation: wa-bounce 1.4s infinite;
 }
-.wa-dots span:nth-child(2) { animation-delay: .12s; }
-.wa-dots span:nth-child(3) { animation-delay: .24s; }
+.wa-dots span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.wa-dots span:nth-child(3) {
+  animation-delay: 0.24s;
+}
 @keyframes wa-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: .85; }
-  40% { transform: translateY(-5px); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.85;
+  }
+  40% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
 }
 
 /* Tip marquee, buttons, modal (kept) */
 .wa-tips {
-  position: relative; height: 28px; overflow: hidden; border-radius: 999px;
-  border: 1px solid #1f2a49; background: #0b1124;
+  position: relative;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid #1f2a49;
+  background: #0b1124;
 }
 .wa-tips-track {
-  display: inline-flex; align-items: center; gap: 18px; white-space: nowrap;
-  padding: 4px 12px; animation: wa-marquee 18s linear infinite; color: #b6c5ff; font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+  padding: 4px 12px;
+  animation: wa-marquee 18s linear infinite;
+  color: #b6c5ff;
+  font-size: 12px;
+  animation: wa-marquee 60s linear infinite; /* slower */
 }
-.wa-dot { opacity: .5; padding: 0 8px; }
-@keyframes wa-marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+.wa-dot {
+  opacity: 0.5;
+  padding: 0 8px;
+}
+@keyframes wa-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
 .wa-leave-btn {
-  border-width: 2px; color: #dbe5ff; border-color: #263459; background: #0d1530;
+  border-width: 2px;
+  color: #dbe5ff;
+  border-color: #263459;
+  background: #0d1530;
 }
-.wa-leave-btn:hover { border-color: #3b4e86; box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15); }
+.wa-leave-btn:hover {
+  border-color: #3b4e86;
+  box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15);
+}
 
 .wa-modal-backdrop {
-  position: fixed; inset: 0; background: rgba(11,16,32,0.65);
-  backdrop-filter: blur(4px); display: grid; place-items: center; z-index: 1040;
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1040;
 }
-.wa-modal { position: relative; width: min(520px, 92vw); border: 1px solid var(--wa-border);
-  background: linear-gradient(180deg, #0f172e, #0b1225); color: #eaf1ff; }
-.wa-modal-close { position: absolute; top: 8px; right: 10px; border: 0; background: transparent; color: #9aa6b2; cursor: pointer; }
+.wa-modal {
+  position: relative;
+  width: min(520px, 92vw);
+  border: 1px solid var(--wa-border);
+  background: linear-gradient(180deg, #0f172e, #0b1225);
+  color: #eaf1ff;
+}
+.wa-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: #9aa6b2;
+  cursor: pointer;
+}
 </style>
