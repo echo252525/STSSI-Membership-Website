@@ -66,7 +66,11 @@
     <!-- ====== Grouped Purchases list ====== -->
     <div v-else-if="showGrouped" class="row g-3">
       <div v-for="g in groupedFiltered" :key="g.ref" class="col-12">
-        <div class="card shadow-sm rounded-4" :class="{ 'border-warning': g.ref === highlightRef }">
+        <div
+          class="card shadow-sm rounded-4 clickable-card"
+          :class="{ 'border-warning': g.ref === highlightRef }"
+          @click="openGroupDetails(g)"
+        >
           <div class="card-body">
             <!-- Group header -->
             <div class="d-flex flex-wrap align-items-center justify-content-between">
@@ -91,6 +95,7 @@
                 v-for="it in g.items"
                 :key="it.id"
                 class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle"
+                @click.stop="openGroupDetails(g, it.id)"
               >
                 <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
                   <img
@@ -134,15 +139,9 @@
                       </template>
 
                       <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
-                      <div
-                        class="small text-muted mt-1"
-                        v-if="(Number(it?.qty ?? 1) || 1) > 1"
-                      >
-                        Qty: {{ Number(it?.qty ?? 1) }} •
-                        Subtotal:
-                        <span class="fw-semibold">
-                          ₱ {{ number(subtotalFor(it)) }}
-                        </span>
+                      <div class="small text-muted mt-1" v-if="(Number(it?.qty ?? 1) || 1) > 1">
+                        Qty: {{ Number(it?.qty ?? 1) }} • Subtotal:
+                        <span class="fw-semibold"> ₱ {{ number(subtotalFor(it)) }} </span>
                       </div>
                     </div>
                   </div>
@@ -163,7 +162,7 @@
                   <div class="mt-2" v-if="rrStatus(it.id) && activeTab !== STATUS.RETURN_REFUND">
                     <button
                       class="btn btn-outline-danger btn-sm"
-                      @click="goToReturnTab(g.ref)"
+                      @click.stop="goToReturnTab(g.ref)"
                       title="View return details for this reference"
                     >
                       View return details
@@ -179,8 +178,11 @@
               <div class="text-end">
                 <div class="small text-muted">Subtotal</div>
 
-                <!-- SUBTOTAL (show only discounted when ref has any discounted item) -->
+                <!-- SUBTOTAL (now shows slash + discounted when applicable) -->
                 <template v-if="refHasDiscount(g.ref)">
+                  <div class="text-muted text-decoration-line-through">
+                    ₱ {{ number(groupTotal(g)) }}
+                  </div>
                   <div class="fs-5 fw-bold text-success">
                     ₱ {{ number(groupTotalDiscounted(g)) }}
                   </div>
@@ -199,7 +201,7 @@
                   v-if="g.status === STATUS.TO_PAY"
                   class="btn btn-outline-danger btn-sm"
                   :disabled="groupBusy.cancel[g.ref]"
-                  @click="cancelGroup(g)"
+                  @click.stop="cancelGroup(g)"
                 >
                   <span
                     v-if="groupBusy.cancel[g.ref]"
@@ -222,7 +224,7 @@
                 >
                   <button
                     class="btn btn-outline-warning btn-sm"
-                    @click="goRefundOtherProducts(g)"
+                    @click.stop="goRefundOtherProducts(g)"
                     title="Go to To Receive tab to refund remaining product(s)"
                   >
                     Refund Other Product
@@ -232,13 +234,16 @@
 
                 <!-- to receive (on any tab EXCEPT RR tab): RR + Order Received group/N -->
                 <template v-else-if="g.items.some((it) => it.status === STATUS.TO_RECEIVE)">
-                  <button class="btn btn-outline-warning btn-sm" @click="openReturnRefundGroup(g)">
+                  <button
+                    class="btn btn-outline-warning btn-sm"
+                    @click.stop="openReturnRefundGroup(g)"
+                  >
                     Return/Refund
                   </button>
                   <button
                     class="btn btn-success btn-sm"
                     :disabled="groupBusy.received[g.ref] || groupToReceiveCount(g) === 0"
-                    @click="orderReceivedGroup(g)"
+                    @click.stop="orderReceivedGroup(g)"
                     :title="
                       groupAllToReceive(g)
                         ? 'Mark all as received'
@@ -337,15 +342,9 @@
                         </template>
 
                         <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
-                        <div
-                          class="small text-muted mt-1"
-                          v-if="(Number(p?.qty ?? 1) || 1) > 1"
-                        >
-                          Qty: {{ Number(p?.qty ?? 1) }} •
-                          Subtotal:
-                          <span class="fw-semibold">
-                            ₱ {{ number(subtotalFor(p)) }}
-                          </span>
+                        <div class="small text-muted mt-1" v-if="(Number(p?.qty ?? 1) || 1) > 1">
+                          Qty: {{ Number(p?.qty ?? 1) }} • Subtotal:
+                          <span class="fw-semibold"> ₱ {{ number(subtotalFor(p)) }} </span>
                         </div>
                       </div>
                     </div>
@@ -654,13 +653,224 @@
       </div>
     </div>
     <!-- /Return/Refund Modal -->
+
+    <!-- ===== NEW: Group Details Modal (deep-linkable via ?ref=...&pid=...) ===== -->
+    <div
+      v-if="showGroupDetails && selectedGroupComputed"
+      class="modal-backdrop-custom2"
+      @click.self="closeGroupDetails"
+    >
+      <div class="modal-card2 card shadow-lg" @click.stop>
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Order Details — Ref# {{ selectedGroupComputed!.ref }}</strong>
+          <button class="btn btn-sm btn-outline-secondary" @click="closeGroupDetails">✕</button>
+        </div>
+
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="small text-muted">
+              Updated: {{ formatDate(selectedGroupComputed!.updated_at) }}
+            </div>
+            <span class="badge" :class="statusClass(selectedGroupComputed!.status)">
+              {{
+                prettyStatusWithRR(selectedGroupComputed!.status, undefined, selectedGroupComputed!)
+              }}
+            </span>
+          </div>
+
+          <!-- Items -->
+          <div class="mt-3 vstack gap-2">
+            <div
+              v-for="it in selectedGroupComputed!.items"
+              :key="it.id"
+              class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle"
+              :class="{ 'border-primary': highlightPid === it.id }"
+              :id="'pid-' + it.id"
+            >
+              <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+                <img
+                  v-if="productThumb(it)"
+                  :src="productThumb(it)"
+                  :alt="productName(it)"
+                  class="w-100 h-100 object-fit-cover rounded"
+                />
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                >
+                  <i class="bi bi-image"></i>
+                </div>
+              </div>
+
+              <div class="flex-grow-1">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                  <div class="fw-semibold title-ellipsis" :title="productName(it)">
+                    {{ productName(it) }}
+                  </div>
+
+                  <!-- Unit + subtotal (discount-aware with slash if discounted) -->
+                  <div class="text-end ms-2">
+                    <template v-if="refHasDiscount(selectedGroupComputed!.ref)">
+                      <div class="text-muted text-decoration-line-through">
+                        ₱ {{ number(productPrice(it)) }}
+                      </div>
+                      <div class="fw-semibold text-success">
+                        ₱ {{ number(discountedUnitPrice(it)) }}
+                      </div>
+                      <!-- show subtotal ONLY when qty > 1 -->
+                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
+                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
+                      </div>
+                    </template>
+                    <template v-else>
+                      <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
+                      <!-- show subtotal ONLY when qty > 1 -->
+                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
+                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
+                  <span class="badge" :class="statusClass(it.status)">
+                    {{ prettyStatusWithRR(it.status, it.id, selectedGroupComputed!) }}
+                  </span>
+                  <span class="badge text-bg-secondary-subtle border">
+                    {{ prettyModeOfPayment(it.modeofpayment) }}
+                  </span>
+                  <span v-if="(Number(it?.qty ?? 1) || 1) > 1" class="badge text-bg-light border">
+                    Qty: {{ Number(it?.qty ?? 1) }}
+                  </span>
+                </div>
+
+                <!-- ===== NEW: Product meta (description • warranty • specs) ===== -->
+                <div class="item-meta mt-2">
+                  <div v-if="productDescription(it)" class="meta-item">
+                    <span class="meta-label">Description:</span>
+                    <span class="meta-text">{{ truncatedDescription(it) }}</span>
+                  </div>
+                  <div v-if="productWarranty(it)" class="meta-item">
+                    <span class="meta-label">Warranty:</span>
+                    <span class="meta-text">{{ productWarranty(it) }}</span>
+                  </div>
+                  <div v-if="productSpecsSummary(it)" class="meta-item">
+                    <span class="meta-label">Specifications:</span>
+                    <span class="meta-text">{{ productSpecsSummary(it) }}</span>
+                  </div>
+                </div>
+                <!-- /Product meta -->
+              </div>
+
+              <div class="text-end">
+                <div v-if="rrStatus(it.id)" class="small text-muted">
+                  RR • {{ capitalize(rrStatus(it.id)!) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Totals (now shows slash when discounted) -->
+          <div class="mt-3 d-flex align-items-center justify-content-end">
+            <div class="text-end">
+              <div class="small text-muted">Subtotal</div>
+              <template v-if="refHasDiscount(selectedGroupComputed!.ref)">
+                <div class="text-muted text-decoration-line-through">
+                  ₱ {{ number(groupTotal(selectedGroupComputed!)) }}
+                </div>
+                <div class="fs-5 fw-bold text-success">
+                  ₱ {{ number(groupTotalDiscounted(selectedGroupComputed!)) }}
+                </div>
+              </template>
+              <template v-else>
+                <div class="fs-5 fw-bold">₱ {{ number(groupTotal(selectedGroupComputed!)) }}</div>
+              </template>
+            </div>
+          </div>
+
+          <!-- ==== NEW: Show the same action buttons inside the modal ==== -->
+          <div class="mt-3 d-flex align-items-center justify-content-end">
+            <div class="d-flex gap-2 flex-wrap">
+              <button
+                v-if="selectedGroupComputed!.status === STATUS.TO_PAY"
+                class="btn btn-outline-danger btn-sm"
+                :disabled="groupBusy.cancel[selectedGroupComputed!.ref]"
+                @click.stop="cancelGroup(selectedGroupComputed!)"
+              >
+                <span
+                  v-if="groupBusy.cancel[selectedGroupComputed!.ref]"
+                  class="spinner-border spinner-border-sm me-1"
+                ></span>
+                Cancel
+              </button>
+
+              <template v-else-if="selectedGroupComputed!.status === STATUS.TO_SHIP">
+                <!-- intentionally empty -->
+              </template>
+
+              <template
+                v-else-if="
+                  activeTab === STATUS.RETURN_REFUND &&
+                  selectedGroupComputed!.items.some((it) => it.status === STATUS.TO_RECEIVE)
+                "
+              >
+                <button
+                  class="btn btn-outline-warning btn-sm"
+                  @click.stop="goRefundOtherProducts(selectedGroupComputed!)"
+                  title="Go to To Receive tab to refund remaining product(s)"
+                >
+                  Refund Other Product
+                </button>
+              </template>
+
+              <template
+                v-else-if="
+                  selectedGroupComputed!.items.some((it) => it.status === STATUS.TO_RECEIVE)
+                "
+              >
+                <button
+                  class="btn btn-outline-warning btn-sm"
+                  @click.stop="openReturnRefundGroup(selectedGroupComputed!)"
+                >
+                  Return/Refund
+                </button>
+                <button
+                  class="btn btn-success btn-sm"
+                  :disabled="
+                    groupBusy.received[selectedGroupComputed!.ref] ||
+                    groupToReceiveCount(selectedGroupComputed!) === 0
+                  "
+                  @click.stop="orderReceivedGroup(selectedGroupComputed!)"
+                  :title="
+                    groupAllToReceive(selectedGroupComputed!)
+                      ? 'Mark all as received'
+                      : 'Mark remaining To Receive as received'
+                  "
+                >
+                  <span
+                    v-if="groupBusy.received[selectedGroupComputed!.ref]"
+                    class="spinner-border spinner-border-sm me-1"
+                  ></span>
+                  {{
+                    groupAllToReceive(selectedGroupComputed!)
+                      ? 'Order Received (All)'
+                      : 'Order Received (' + groupToReceiveCount(selectedGroupComputed!) + ')'
+                  }}
+                </button>
+              </template>
+            </div>
+          </div>
+          <!-- /modal actions -->
+        </div>
+      </div>
+    </div>
+    <!-- /Group Details Modal -->
   </div>
 </template>
 
 <script setup lang="ts">
-
-import { onMounted, ref, computed, reactive, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref, computed, reactive, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
 
@@ -677,6 +887,7 @@ onMounted(async () => {
 type AnyRec = Record<string, any>
 
 const router = useRouter()
+const route = useRoute()
 
 /** Enum constants */
 const STATUS = {
@@ -746,6 +957,8 @@ type Product = {
   description: string | null
   price: number | string
   product_url: string[] | null
+  warranty?: string | null
+  specifications?: Record<string, any> | null
 }
 const productsMap = reactive<Record<string, Product>>({})
 const signedUrlMap: Record<string, string> = reactive({})
@@ -792,6 +1005,33 @@ function productThumb(purchase: AnyRec): string {
       .finally(() => (signingBusy[prod.id] = false))
   }
   return ''
+}
+
+/* ---- NEW: Product meta helpers for modal (desc • warranty • specs) ---- */
+function truncateText(s: string, max = 140) {
+  if (!s) return ''
+  const str = String(s)
+  return str.length > max ? str.slice(0, max - 1) + '…' : str
+}
+function productDescription(purchase: AnyRec): string {
+  return (productOf(purchase)?.description || '') as string
+}
+function truncatedDescription(purchase: AnyRec): string {
+  return truncateText(productDescription(purchase), 160)
+}
+function productWarranty(purchase: AnyRec): string {
+  return (productOf(purchase)?.warranty || '') as string
+}
+function productSpecsSummary(purchase: AnyRec): string {
+  const specs = productOf(purchase)?.specifications || null
+  if (!specs || typeof specs !== 'object') return ''
+  const entries = Object.entries(specs).filter(([k, v]) => String(v ?? '').trim().length > 0)
+  if (!entries.length) return ''
+  const MAX_PAIRS = 4
+  const shown = entries.slice(0, MAX_PAIRS).map(([k, v]) => `${k}: ${v}`)
+  let out = shown.join(' • ')
+  if (entries.length > MAX_PAIRS) out += ' …'
+  return truncateText(out, 180)
 }
 
 /* ---------------- Return/Refund store (per purchase) ---------------- */
@@ -855,7 +1095,9 @@ function hasItemLevelDiscount(purchase: AnyRec): boolean {
 function refHasDiscount(ref?: string): boolean {
   if (!ref) return false
   // Prefer row-level discounted_price
-  if (purchases.value.some(p => (p.reference_number || p.id) === ref && hasItemLevelDiscount(p))) {
+  if (
+    purchases.value.some((p) => (p.reference_number || p.id) === ref && hasItemLevelDiscount(p))
+  ) {
     return true
   }
   // Fallback: previous event-based discount flag
@@ -921,7 +1163,8 @@ async function loadPurchases() {
       const { data: prows, error: perr } = await supabase
         .schema('games')
         .from('products')
-        .select('id,name,description,price,product_url')
+        // ✅ include description (already), warranty, specifications
+        .select('id,name,description,price,product_url,warranty,specifications')
         .in('id', ids)
       if (!perr && Array.isArray(prows)) {
         for (const pr of prows as Product[]) {
@@ -931,6 +1174,8 @@ async function loadPurchases() {
             description: pr.description ?? null,
             price: pr.price,
             product_url: Array.isArray(pr.product_url) ? pr.product_url : null,
+            warranty: (pr as any)?.warranty ?? null,
+            specifications: (pr as any)?.specifications ?? null,
           }
         }
       }
@@ -1528,9 +1773,9 @@ async function createOrderReceiptForGroup(g: Group) {
 }
 
 /** ===================== NEW RECEIPT HELPERS (INSERT-ONLY) ===================== */
-async function createOrderReceiptForGroupCompleted(g: Group, idsJustCompleted: string[]) {
+async function createOrderReceiptForGroupCompleted(g: Group, ids: string[]) {
   try {
-    const idSet = new Set(idsJustCompleted)
+    const idSet = new Set(ids)
     const useDiscount = refHasDiscount(g.ref)
     const rows = g.items
       .filter((it) => idSet.has(it.id))
@@ -1667,7 +1912,7 @@ async function restoreStock(entries: Array<{ product_id: string; qty: number }>)
  * Respects discounted prices via refHasDiscount/discountedUnitPrice helpers.
  */
 async function orderReceivedGroup(g: Group) {
-  const toReceiveIds = g.items.filter(it => it.status === STATUS.TO_RECEIVE).map(it => it.id)
+  const toReceiveIds = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
   if (!toReceiveIds.length) return
   groupBusy.received[g.ref] = true
   try {
@@ -1715,6 +1960,77 @@ function subtotalFor(purchase: AnyRec): number {
   const qty = Number(purchase?.qty ?? 1) || 1
   return qty * unitPriceFor(purchase)
 }
+
+/* =============================== */
+/* === NEW: GROUP DETAILS MODAL === */
+/* =============================== */
+
+const showGroupDetails = ref(false)
+const selectedRef = ref<string>('')
+const highlightPid = ref<string>('')
+
+const selectedGroupComputed = computed<Group | null>(() => {
+  if (!selectedRef.value) return null
+  const g = buildGroups(purchases.value).find((x) => x.ref === selectedRef.value) || null
+  return g
+})
+
+function openGroupDetails(g: Group, pid?: string) {
+  selectedRef.value = g.ref
+  highlightPid.value = pid || ''
+  showGroupDetails.value = true
+
+  // Update URL query (?ref=...&pid=...)
+  const nextQuery: Record<string, any> = { ...route.query, ref: g.ref }
+  if (pid) nextQuery.pid = pid
+  else if ('pid' in nextQuery) delete nextQuery.pid
+  router.replace({ query: nextQuery })
+  // If a pid is provided, try to scroll it into view after render
+  nextTick(() => {
+    if (pid) {
+      const el = document.getElementById('pid-' + pid)
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
+function closeGroupDetails() {
+  showGroupDetails.value = false
+  selectedRef.value = ''
+  highlightPid.value = ''
+  // Remove query params
+  const nextQuery: Record<string, any> = { ...route.query }
+  delete nextQuery.ref
+  delete nextQuery.pid
+  router.replace({ query: nextQuery })
+}
+
+/** Deep-link handling: open modal if ?ref=... (and optional ?pid=...) is present */
+watch(
+  () => route.query.ref,
+  (newRef) => {
+    const refStr = typeof newRef === 'string' ? newRef : ''
+    if (!refStr) {
+      // If URL no longer has ref, close the modal
+      if (showGroupDetails.value) closeGroupDetails()
+      return
+    }
+    const g = buildGroups(purchases.value).find((x) => x.ref === refStr)
+    if (g) {
+      const pid = typeof route.query.pid === 'string' ? route.query.pid : ''
+      selectedRef.value = g.ref
+      highlightPid.value = pid
+      showGroupDetails.value = true
+      nextTick(() => {
+        if (pid) {
+          const el = document.getElementById('pid-' + pid)
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        }
+      })
+    }
+  },
+  { immediate: true },
+)
 
 onMounted(() => {
   loadPurchases()
@@ -1780,5 +2096,39 @@ onMounted(() => {
   overflow: auto;
   border: 0;
   border-radius: 16px;
-}  
+}
+
+/* NEW: make group cards feel clickable */
+.clickable-card {
+  cursor: pointer;
+}
+.clickable-card:hover {
+  border-color: #d7dbe0;
+  box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.06);
+}
+
+/* ===== NEW: Meta grid inside modal items ===== */
+.item-meta {
+  display: grid;
+  gap: 0.25rem 0.75rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .item-meta {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.meta-item {
+  min-width: 0;
+}
+.meta-label {
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-right: 0.25rem;
+}
+.meta-text {
+  font-size: 0.85rem;
+  color: #6c757d;
+  word-break: break-word;
+}
 </style>

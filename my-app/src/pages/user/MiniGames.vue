@@ -39,7 +39,7 @@
               :style="slideStyle(i)"
               @click="goTo(i)"
             >
-              <!-- ORIGINAL CARD CONTENT STARTS (unchanged) -->
+              <!-- ORIGINAL CARD CONTENT STARTS (unchanged except join btn removed & mask clickable) -->
               <div
                 class="spin-card h-100 border rounded-4"
                 :class="{ 'spin-card--locked': ev.status !== 'open' }"
@@ -66,7 +66,19 @@
                     :class="{ 'spin-wheel--paused': ev.status !== 'open' }"
                   >
                     <div class="spin-wheel__ring"></div>
-                    <div class="spin-wheel__mask">
+
+                    <!-- CLICKABLE MASK (replaces join button action) -->
+                    <div
+                      class="spin-wheel__mask"
+                      :class="{ 'is-clickable': canJoin(ev) || alreadyJoined(ev.id) }"
+                      :title="maskTitle(ev)"
+                      :aria-label="maskTitle(ev)"
+                      :aria-disabled="!(canJoin(ev) || alreadyJoined(ev.id))"
+                      :tabindex="canJoin(ev) || alreadyJoined(ev.id) ? 0 : -1"
+                      @click.stop="onWheelClick(ev)"
+                      @keydown.enter.prevent.stop="onWheelClick(ev)"
+                      @keydown.space.prevent.stop="onWheelClick(ev)"
+                    >
                       <img
                         v-if="ev.imageUrl"
                         :src="ev.imageUrl"
@@ -77,6 +89,7 @@
                         <i class="bi bi-gift"></i>
                       </div>
                     </div>
+
                     <!-- pointer notch -->
                     <div class="spin-wheel__pointer" aria-hidden="true"></div>
                   </div>
@@ -143,23 +156,9 @@
                       {{ slotsLeft(ev) }} slots left
                     </span>
 
-                    <button
-                      v-if="!alreadyJoined(ev.id)"
-                      class="btn btn-sm btn-primary join-btn"
-                      :class="{ 'join-btn--disabled': !canJoin(ev) }"
-                      :disabled="!canJoin(ev) || !!joinBusy[ev.id]"
-                      :title="!hasEnoughBalance(ev) ? 'Insufficient balance' : ''"
-                      @click.stop="join(ev)"
-                    >
-                      <span
-                        v-if="joinBusy[ev.id]"
-                        class="spinner-border spinner-border-sm me-2"
-                      ></span>
-                      Join
-                    </button>
-
+                    <!-- Join button removed; keep 'Joined' badge if applicable -->
                     <span
-                      v-else
+                      v-if="alreadyJoined(ev.id)"
                       class="badge text-bg-secondary"
                       title="You already joined this event"
                     >
@@ -559,6 +558,37 @@ async function join(ev: EventRow) {
   } finally {
     joinBusy[ev.id] = false
   }
+}
+
+/* ======== NEW: Click handler for the wheel mask ======== */
+function maskTitle(ev: EventRow): string {
+  if (alreadyJoined(ev.id)) return 'Enter waiting area'
+  if (ev.status !== 'open') return 'Event is not open'
+  if (slotsLeft(ev) <= 0) return 'Event is full'
+  if (!hasEnoughBalance(ev)) return 'Insufficient balance'
+  return 'Click to join'
+}
+function onWheelClick(ev: EventRow) {
+  // If user already joined, go to waiting area
+  if (alreadyJoined(ev.id)) {
+    router.push({ name: 'user.waiting', query: { eventId: ev.id } })
+    return
+  }
+  // If not eligible, surface a friendly error (keeps messages section working)
+  if (ev.status !== 'open') {
+    joinErr[ev.id] = 'Event is not open.'
+    return
+  }
+  if (slotsLeft(ev) <= 0) {
+    joinErr[ev.id] = 'Event is full.'
+    return
+  }
+  if (!hasEnoughBalance(ev)) {
+    joinErr[ev.id] = 'Insufficient balance to join this event.'
+    return
+  }
+  // Eligible → proceed to join
+  join(ev)
 }
 
 function clearPerJoinMessages() {
@@ -1180,7 +1210,7 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
-/* ===================== CARD / WHEEL (unchanged) ===================== */
+/* ===================== CARD / WHEEL (unchanged except clickable mask micro-interactions) ===================== */
 .spin-card {
   position: relative;
   overflow: hidden;
@@ -1270,6 +1300,7 @@ onUnmounted(() => {
   }
 }
 
+/* CLICKABLE MASK micro-interactions */
 .spin-wheel__mask {
   position: relative;
   width: 62%;
@@ -1281,6 +1312,24 @@ onUnmounted(() => {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
   z-index: 1;
 }
+.spin-wheel__mask.is-clickable {
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.2s ease;
+}
+.spin-wheel__mask.is-clickable:hover {
+  transform: scale(1.025);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
+}
+.spin-wheel__mask.is-clickable:active {
+  transform: scale(0.995);
+}
+.spin-wheel__mask.is-clickable:focus {
+  outline: 0;
+  box-shadow:
+    0 0 0 3px rgba(67, 97, 238, 0.2),
+    0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
 .spin-wheel__img {
   width: 100%;
   height: 100%;
@@ -1396,7 +1445,7 @@ onUnmounted(() => {
   }
 }
 
-/* --- Join button micro-interactions --- */
+/* --- Join button micro-interactions (kept for compatibility; button removed) --- */
 .join-btn {
   position: relative;
   overflow: hidden;

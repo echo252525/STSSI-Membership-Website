@@ -54,10 +54,17 @@
       class="notify-fab btn btn-primary rounded-circle shadow-lg d-flex align-items-center justify-content-center"
       :class="{ 'notify-hidden': !isNotifVisible || (!isDesktop && isMenuOpen) }"
       type="button"
-      aria-label="Notifications"
+      :aria-label="notifCount ? `Notifications: ${displayNotifCount} new` : 'Notifications'"
       @click="openNotifModal"
     >
       <i class="bi bi-bell fs-5"></i>
+      <!-- 🔴 Count badge -->
+      <span
+        v-if="notifCount > 0"
+        class="notif-badge"
+        aria-live="polite"
+        :title="`${displayNotifCount} new notifications`"
+      >{{ displayNotifCount }}</span>
     </button>
   </div>
 
@@ -84,7 +91,8 @@
             <!-- Lazy-load Notifications.vue to keep this shell light -->
             <Suspense>
               <template #default>
-                <Notifications />
+                <!-- child will emit update:count -->
+                <Notifications @update:count="onNotifCount" />
               </template>
               <template #fallback>
                 <div class="p-3 text-muted small d-flex align-items-center gap-2">
@@ -105,9 +113,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, defineAsyncComponent } from 'vue';
+import { ref, onMounted, onBeforeUnmount, watch, defineAsyncComponent, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import UserSidebar from '@/components/nav/UserSidebar.vue';
+/* 🆕 Supabase for realtime */
+import { supabase } from '@/lib/supabaseClient';
 
 /* 🔹 Notifications component (as requested: access ../user/Notifications.vue) */
 const Notifications = defineAsyncComponent(() => import('../pages/user/Notifications.vue'));
@@ -173,9 +183,20 @@ const onScroll = () => {
 
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true });
+  // 🔔 Optional: allow global updates via event bus
+  window.addEventListener('notif:count', onNotifCountEvent as EventListener);
+  /* 🆕 Load last known count so FAB isn't 0 before Notifications mounts */
+  try {
+    const raw = localStorage.getItem(NOTIF_COUNT_KEY);
+    if (raw) {
+      const n = Number(raw);
+      if (!Number.isNaN(n) && n >= 0) notifCount.value = n;
+    }
+  } catch {}
 });
 onBeforeUnmount(() => {
   window.removeEventListener('scroll', onScroll);
+  window.removeEventListener('notif:count', onNotifCountEvent as EventListener);
 });
 
 /* 🔔 Open/Close notifications modal */
@@ -186,6 +207,105 @@ const openNotifModal = () => {
 const closeNotifModal = () => {
   isNotifModalOpen.value = false;
 };
+
+/* 🔴 Notif count state + helpers */
+const NOTIF_COUNT_KEY = 'notif:lastCount';
+const notifCount = ref<number>(0);
+const displayNotifCount = computed(() => (notifCount.value > 99 ? '99+' : String(notifCount.value)));
+
+/* 🆕 persist count on change (nice-to-have for reloads) */
+watch(notifCount, (n) => {
+  try { localStorage.setItem(NOTIF_COUNT_KEY, String(n)); } catch {}
+});
+
+// child emit handler (from Notifications.vue -> emit('update:count', n))
+const onNotifCount = (n: number) => {
+  if (typeof n === 'number' && n >= 0) notifCount.value = n;
+};
+
+// global event handler (from Notifications.vue -> window.dispatchEvent('notif:count', {detail:n}))
+const onNotifCountEvent = (e: CustomEvent<number> | Event) => {
+  const evt = e as CustomEvent<number>;
+  const n = Number(evt.detail);
+  if (!Number.isNaN(n) && n >= 0) notifCount.value = n;
+};
+
+/* ──────────────────────────────────────────────────────────────
+   🆕 Realtime FAB count (Supabase → ewallet.transactions)
+   - Increments on INSERT for current user
+   - Ignores IDs already marked "seen" (same storage key as child)
+   - Primes an initial count from latest TXs (approx) until child overrides
+   ────────────────────────────────────────────────────────────── */
+const userId = ref<string | null>(null);
+let rtNotifChannel: ReturnType<typeof supabase.channel> | null = null;
+
+/* Same seen storage key format as Notifications.vue */
+const seenIds = ref<Set<string>>(new Set());
+const storageKey = () => (userId.value ? `notif:seen:${userId.value}` : 'notif:seen');
+function loadSeen() {
+  try {
+    const raw = localStorage.getItem(storageKey());
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) seenIds.value = new Set(arr as string[]);
+    }
+  } catch {}
+}
+const isSeenId = (id: string) => seenIds.value.has(id);
+
+/* Prime approximate count from recent transactions (child will override with full, grouped logic) */
+async function primeCountFromTransactions() {
+  if (!userId.value) return;
+  try {
+    const { data, error } = await supabase
+      .schema('ewallet')
+      .from('transactions')
+      .select('id')
+      .eq('user_id', userId.value)
+      .order('updated_at', { ascending: false })
+      .limit(50);
+    if (!error && Array.isArray(data)) {
+      const unseen = (data as { id: string }[]).filter(r => !isSeenId(r.id)).length;
+      if (unseen > notifCount.value) notifCount.value = unseen; // don't undercut persisted higher count
+    }
+  } catch {}
+}
+
+/* Bind realtime inserts on ewallet.transactions for current user */
+function bindNotifRealtime() {
+  if (rtNotifChannel || !userId.value) return;
+  rtNotifChannel = supabase
+    .channel('rt-ewallet-transactions-fab-' + userId.value)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'ewallet', table: 'transactions', filter: `user_id=eq.${userId.value}` },
+      payload => {
+        const tx = payload.new as { id: string; user_id: string };
+        // If not already marked seen, bump the FAB
+        if (!isSeenId(tx.id)) {
+          notifCount.value = Math.max(0, (notifCount.value || 0) + 1);
+          // Optionally broadcast to keep other listeners (if any) in sync
+          try { window.dispatchEvent(new CustomEvent('notif:count', { detail: notifCount.value })); } catch {}
+        }
+      }
+    )
+    .subscribe();
+}
+
+/* Auth → load seen → prime count → bind realtime */
+onMounted(async () => {
+  try {
+    const { data: auth } = await supabase.auth.getUser();
+    userId.value = auth?.user?.id ?? null;
+  } catch {}
+  loadSeen();
+  await primeCountFromTransactions();
+  bindNotifRealtime();
+});
+
+onBeforeUnmount(() => {
+  if (rtNotifChannel) supabase.removeChannel(rtNotifChannel);
+});
 </script>
 
 <style scoped>
@@ -292,7 +412,33 @@ const closeNotifModal = () => {
   .notify-hidden:hover { transform: translateX(140%); }
 }
 
-/* 🔔 Notifications modal */
+/* 🔴 Count badge */
+.notif-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #dc3545;
+  color: #fff;
+  font-size: 12px;
+  line-height: 20px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 2px #fff;
+  animation: badge-pop .2s ease-out;
+}
+@keyframes badge-pop {
+  0% { transform: scale(.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.notify-hidden .notif-badge { opacity: 0; }
+
+/* 🔔 Notifications modal backdrop */
 .notif-backdrop {
   position: fixed;
   inset: 0;
@@ -303,13 +449,32 @@ const closeNotifModal = () => {
   padding: 12px;
 }
 
+/* 🔔 Notifications modal — anchored above the FAB, bottom-right */
 .notif-modal {
+  position: fixed;
+  right: 16px;
+  /* 24px (FAB bottom offset) + 56px (FAB height) + 12px (gap) = 92px */
+  bottom: calc(24px + 56px + 12px);
   width: 420px;
-  max-width: 92vw;
+  max-width: min(92vw, 420px);
   background: #fff;
   border-radius: .75rem;
   box-shadow: 0 1rem 2.5rem rgba(0,0,0,.25);
   overflow: hidden;
+  z-index: 1101;                 /* ensure above backdrop */
+  transform-origin: bottom right; /* zoom from the FAB corner */
+}
+
+/* Optional little pointer "caret" from panel toward FAB */
+.notif-modal::after {
+  content: "";
+  position: absolute;
+  right: 24px;
+  bottom: -8px;
+  border-width: 8px;
+  border-style: solid;
+  border-color: #fff transparent transparent transparent;
+  filter: drop-shadow(0 -1px 2px rgba(0,0,0,.15));
 }
 
 .notif-body {
@@ -323,4 +488,95 @@ const closeNotifModal = () => {
 .notif-zoom-leave-active { transition: transform .18s ease, opacity .18s ease; }
 .notif-zoom-enter-from,
 .notif-zoom-leave-to { transform: scale(.96); opacity: 0; }
+
+/* ——————————————————————————————— */
+/* ✅ Make collapsed-mode icons same height as expanded */
+/* Adjust --sb-icon-h if your expanded icon size differs */
+.sidebar-shell :deep(.sidebar.collapsed .nav-link .bi),
+.drawer-panel :deep(.sidebar.collapsed .nav-link .bi) {
+  height: var(--sb-icon-h);
+  width: var(--sb-icon-h);
+  font-size: var(--sb-icon-h);
+  line-height: var(--sb-icon-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* If you use custom wrappers for icons (optional, harmless if absent) */
+.sidebar-shell :deep(.sidebar.collapsed .tier-icon),
+.drawer-panel :deep(.sidebar.collapsed .tier-icon),
+.sidebar-shell :deep(.sidebar.collapsed .icon-ring),
+.drawer-panel :deep(.sidebar.collapsed .icon-ring) {
+  height: calc(var(--sb-icon-h) * 1.6);
+  width: calc(var(--sb-icon-h) * 1.6);
+  min-height: calc(var(--sb-icon-h) * 1.6);
+  min-width: calc(var(--sb-icon-h) * 1.6);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+</style>
+
+<!-- 🌿 Global minimalist scrollbar (no layout changes) -->
+<style>
+/* Reserve scrollbar space to avoid layout shift when locking body scroll */
+html { scrollbar-gutter: stable; }
+
+:root {
+  /* 🔧 Set your expanded icon height once; collapsed will match this */
+  --sb-icon-h: 1.5rem;
+
+  --sb-track: transparent;
+  --sb-thumb: rgba(0, 0, 0, 0.28);
+  --sb-thumb-hover: rgba(0, 0, 0, 0.45);
+  --sb-thumb-active: rgba(0, 0, 0, 0.55);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --sb-track: transparent;
+    --sb-thumb: rgba(255, 255, 255, 0.25);
+    --sb-thumb-hover: rgba(255, 255, 255, 0.4);
+    --sb-thumb-active: rgba(255, 255, 255, 0.55);
+  }
+}
+
+/* Firefox */
+* {
+  scrollbar-width: auto;                /* keep default width to avoid size changes */
+  scrollbar-color: var(--sb-thumb) var(--sb-track);
+}
+
+/* WebKit (Chrome/Edge/Safari/Opera) */
+*::-webkit-scrollbar {
+  /* no width/height here to avoid altering layout */
+  background: var(--sb-track);
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--sb-thumb);
+  border-radius: 999px;
+  border: 3px solid transparent;       /* makes the thumb look thinner without changing layout */
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+
+*::-webkit-scrollbar-thumb:active {
+  background-color: var(--sb-thumb-active);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--sb-track);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--sb-track);
+}
+
+/* Optional: hide scrollbar buttons for a cleaner look (doesn't affect size) */
+*::-webkit-scrollbar-button { display: none; }
 </style>

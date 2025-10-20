@@ -69,6 +69,17 @@
         </div>
       </div>
 
+      <!-- ✅ ADDED: Rail-only avatar shown when collapsed (above Dashboard) -->
+      <div class="text-center mb-3" v-show="isRail">
+        <div
+          class="rail-avatar rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white"
+          :title="displayName"
+        >
+          <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
+          {{ initials }}
+        </div>
+      </div>
+
       <!-- Nav -->
       <ul class="nav nav-pills flex-column gap-1 mb-auto">
         <li class="nav-item">
@@ -460,7 +471,6 @@ onUnmounted(() => mqLg.removeEventListener('change', onMqChange))
 // IMPORTANT: "rail" (icon-only) is allowed ONLY on lg+
 // On md and below, the sidebar is always expanded inside the drawer
 const isRail = computed(() => isLgUp.value && isCollapsed.value)
-
 </script>
 
 <style scoped>
@@ -549,5 +559,14 @@ const isRail = computed(() => isLgUp.value && isCollapsed.value)
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+/* ✅ ADDED: small avatar for rail/collapsed mode */
+.rail-avatar {
+  width: 44px;
+  height: 44px;
+  font-weight: 700;
+  position: relative;
+  overflow: hidden;
 }
 </style>

@@ -241,8 +241,8 @@
             @click="handleOutcomeAction"
             :class="outcomeType === 'winner' ? 'btn-winner' : 'btn-loser'"
           >
-            <span v-if="outcomeType === 'winner'">Go to Purchases</span>
-            <span v-else>Back to Games</span>
+            <span v-if="outcomeType === 'winner'">View Prize</span>
+            <span v-else>Refund</span>
           </button>
         </div>
 
@@ -501,7 +501,7 @@ const revealWinner = ref(false)
 const useChaseMode = ref(true)
 const activeSliceIndex = ref<number | null>(null)
 /* Micro-tail during mid-blast to avoid blink */
-const chaseTrailLen = ref(0)
+const chaseTrailLen = ref(1) /* TWEAK: ensure at least one trail is always visible */
 const chaseSlowPhase = ref(false)
 const chaseMidBlastPhase = ref(false) /* NEW: style hint for fastest middle phase */
 let chaseTimer: number | null = null
@@ -1075,6 +1075,7 @@ async function startChase(forcedIndex: number) {
   spinning.value = true
   chaseSlowPhase.value = false
   chaseMidBlastPhase.value = false
+  chaseTrailLen.value = 1 /* TWEAK: visible trail from the very first step */
   updateFxIntensity(1)
   initAudio()
   startWhoosh()
@@ -1090,7 +1091,7 @@ async function startChase(forcedIndex: number) {
   let step = 0
 
   const stepRun = async () => {
-    current = (current + 1) % n
+    current = (current + 1) % n /* TWEAK: strict +1 modulo n ensures perfect circular sequence */
     activeSliceIndex.value = current
     playTick(1800 + Math.random() * 400, 0.045, 0.08)
     step++
@@ -1100,8 +1101,8 @@ async function startChase(forcedIndex: number) {
     chaseMidBlastPhase.value = p > 0.35 && p < 0.75     // fastest region
     chaseSlowPhase.value = p >= 0.80                    // end slow-down
 
-    // keep a tiny tail during mid-blast to prevent "blink"
-    chaseTrailLen.value = chaseMidBlastPhase.value ? 1 : 0
+    // keep trail ALWAYS on; stronger during mid-blast to avoid any blink
+    chaseTrailLen.value = chaseMidBlastPhase.value ? 2 : 1 /* TWEAK: no zero-tail gaps */
 
     if (step >= totalSteps) {
       clearChaseTimer()
@@ -1117,7 +1118,7 @@ async function startChase(forcedIndex: number) {
       return
     }
 
-    const delay = bellDelay(p, 44, 560) // slow→fast→slow profile
+    const delay = bellDelay(p, 44, 560) // slow→fast→slow profile, but never hides the glow
     chaseTimer = window.setTimeout(stepRun, delay)
   }
   stepRun()
@@ -2312,12 +2313,12 @@ onBeforeUnmount(() => {
 function handleOutcomeAction() {
   if (outcomeType.value === 'winner') {
     // Go to purchases
-    try { router.push({ name: 'user.purchases' }); return } catch {}
+    try { router.push({ name: 'user.winner' }); return } catch {}
     try { router.push('/app/purchases'); return } catch {}
     router.push('/purchases')
   } else {
     // Back to games
-    try { router.push({ name: 'user.minigames' }); return } catch {}
+    try { router.push({ name: 'user.loser' }); return } catch {}
     try { router.push('/app/mini-games'); return } catch {}
     router.push('/games')
   }
@@ -2612,7 +2613,10 @@ function goToMinigames() {
   opacity: 0;
   transition: opacity .18s ease-in-out;
 }
-.chase-layer.chase-midblast .chase-wedge.is-active { transition: opacity .06s ease-out; }
+/* TWEAK: mid-blast needs immediate swaps—no fade that can cause a “blink” */
+.chase-layer.chase-midblast .chase-wedge { transition: none; }
+
+.chase-layer.chase-midblast .chase-wedge.is-active { transition: none; }
 
 /* Whole wedge subtle lift */
 .chase-wedge::before {
@@ -2778,7 +2782,6 @@ function goToMinigames() {
 @keyframes fall { to{ transform: translateY(110vh) rotate(540deg); opacity: 1; } }
 @keyframes sway { 0%,100%{ margin-left:-6px } 50%{ margin-left:6px } }
 
-/* Outcome modal */
 .outcome-backdrop {
   position: fixed; inset: 0; z-index: 60; background: rgba(6,10,24,.65); backdrop-filter: blur(4px);
   display: grid; place-items: center; animation: fadeIn .18s ease;
