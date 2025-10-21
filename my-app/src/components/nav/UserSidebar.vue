@@ -73,6 +73,7 @@
       <div class="text-center mb-3" v-show="isRail">
         <div
           class="rail-avatar rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white"
+          style="width:35px;height:35px;font-size:32px;"
           :title="displayName"
         >
           <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />

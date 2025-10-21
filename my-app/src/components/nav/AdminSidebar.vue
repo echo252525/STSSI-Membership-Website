@@ -160,6 +160,21 @@
           </RouterLink>
         </li>
 
+        <!-- ⭐️ NEW: Discounts (added directly below Memberships) -->
+        <li class="nav-item" v-if="has('admin.discounts')">
+          <RouterLink
+            :to="{ name: 'admin.discounts' }"
+            class="nav-link d-flex align-items-center gap-2"
+            :class="{ 'icon-only': isRail }"
+            active-class="active"
+            :title="isRail ? 'Discounts' : ''"
+            @click="closeOffcanvasIfMobile"
+          >
+            <i class="bi bi-percent fs-5"></i>
+            <span class="link-text">Discounts</span>
+          </RouterLink>
+        </li>
+
         <li class="nav-item" v-if="has('admin.settings')">
           <RouterLink
             :to="{ name: 'admin.settings' }"

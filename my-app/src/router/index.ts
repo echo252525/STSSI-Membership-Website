@@ -38,6 +38,9 @@ import AdminMemberships from '@/pages/admin/AdminMemberships.vue'
 // 🆕 Admin Orders
 import Orders from '@/pages/admin/Orders.vue'
 
+// 🆕 Admin Discounts
+import AdminDiscounts from '@/pages/admin/AdminDiscounts.vue' // 🆕
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -94,6 +97,9 @@ const routes: RouteRecordRaw[] = [
       { path: 'Transactions', name: 'admin.transactions', component: Transactions },
       { path: 'orders', name: 'admin.orders', component: Orders }, // 🆕 Orders page
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
+
+      // 🆕 Discounts page route (works with your sidebar link)
+      { path: 'discounts', name: 'admin.discounts', component: AdminDiscounts }, // 🆕
     ],
   },
 ]
