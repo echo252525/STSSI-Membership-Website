@@ -1,5 +1,5 @@
 <template>
-  <div class="admin-products-page">
+  <div class="admin-products-page p-2">
     <!-- Header -->
     <div class="mb-3">
       <h3 class="fw-bold mb-3 d-flex gap-3 align-items-center">
@@ -57,7 +57,7 @@
           <!-- Grid -->
           <div class="row g-3">
             <div
-              class="productDiv col-12 col-sm-6 col-lg-4 col-xl-3"
+              class="productDiv col-6 col-md-4 col-lg-2"
               v-for="p in paginatedProducts"
               :key="p.id"
             >
@@ -87,7 +87,7 @@
                         :key="currentIndex(p.id)"
                         :src="imageUrlAt(p, currentIndex(p.id))"
                         :alt="p.name"
-                        class="w-100 h-100 object-fit-cover p-4"
+                        class="w-100 h-100 object-fit-cover p-1"
                         :style="swipeStyle(p.id)"
                         draggable="false"
                       />
@@ -1708,40 +1708,12 @@ onMounted(() => {
   --ring-green: 32, 164, 76;
 }
 
-/* Header: make primary button on-brand */
-.btn.btn-primary {
-  background: linear-gradient(90deg, var(--brand-azure), var(--brand-green));
-  border-color: var(--brand-azure);
-}
-.btn.btn-primary:hover,
-.btn.btn-primary:focus-visible {
-  filter: brightness(0.95);
-  box-shadow: 0 6px 18px rgba(var(--ring-azure), 0.22);
-}
-
-/* Secondary outline with azure tint */
-.btn-outline-secondary {
-  color: var(--brand-azure);
-  border-color: rgba(var(--ring-azure), 0.35);
-}
-.btn-outline-secondary:hover,
-.btn-outline-secondary:focus-visible {
-  background: rgba(var(--ring-azure), 0.08);
-  border-color: var(--brand-azure);
-}
-
 /* Price badge -> brand green */
 .badge.text-bg-primary {
   background-color: var(--brand-green) !important;
   color: #fff !important;
   box-shadow: 0 6px 14px rgba(var(--ring-green), 0.22);
   border: 0;
-}
-
-/* Search focus ring in azure */
-.input-group .form-control:focus {
-  border-color: var(--brand-azure);
-  box-shadow: 0 0 0 0.18rem rgba(var(--ring-azure), 0.16);
 }
 
 /* Prevent the search from shrinking too small on wider screens */
@@ -1906,8 +1878,7 @@ onMounted(() => {
   position: relative;
   background: transparent;
   border-radius: 16px;
-  overflow: hidden !important; 
-  height: 240px;
+  overflow: hidden !important;
 }
 
 .img-count-pill {

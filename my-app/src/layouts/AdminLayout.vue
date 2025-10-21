@@ -10,7 +10,7 @@
         <!-- Mobile toggler (opens the offcanvas sidebar) -->
         <button
           type="button"
-          class="btn btn-outline-secondary d-md-none"
+          class="btnMenu btn btn-outline-secondary d-md-none ms-4 m-3"
           data-bs-toggle="offcanvas"
           data-bs-target="#adminSidebar"
           aria-controls="adminSidebar"
@@ -69,6 +69,11 @@ const handleLogout = async () => {
 @media (max-width: 767.98px) {
   .content > main {
     margin-left: 0;
+  }
+}
+@media (max-width: 450px) {
+  main {
+    padding: 0.6rem !important;
   }
 }
 </style>

@@ -104,7 +104,7 @@
               <span class="material-symbols-outlined">timeline</span>
               Recent Activity
             </h5>
-            <span class="badge rounded-pill bg-light text-secondary">Today</span>
+            <span class="badge rounded-pill bg-light text-secondary p-2 px-4">Today</span>
           </div>
 
           <ul class="activity-list list-unstyled mb-0 bg-light">
@@ -266,6 +266,19 @@ nav h1::before{
 .row.g-4 > .col-md-4:nth-child(3) .card {
   background-image: linear-gradient(180deg, #FFFFFF 0%, #F5FFF9 60%, #EAFBF3 100%);
   color: #000000;
+}
+
+@media (max-width: 450px) {
+  nav h1 {
+    font-size: 1.7rem;
+  }
+  .card-body {
+    height: 80px;
+    padding: 0px;
+  }
+  .activity-item {
+    padding-left: 1.6rem !important;
+  }
 }
 
 

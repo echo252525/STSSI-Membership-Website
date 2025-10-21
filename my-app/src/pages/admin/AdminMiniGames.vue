@@ -1,18 +1,18 @@
 <template>
-  <div class="mini-games-page">
+  <div class="mini-games-page p-1">
     <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-4">
+    <div class="title d-flex align-items-center justify-content-between mb-3">
       <h3 class="fw-bold mb-0 d-flex align-items-center gap-2">
         <i class="bi bi-joystick"></i>
         Admin Mini Games
       </h3>
       <button
         type="button"
-        class="btn btn-primary d-flex align-items-center gap-2"
+        class="btn btn-primary d-flex align-items-center gap-1"
         @click="openForm()"
       >
         <i class="bi bi-plus-lg"></i>
-        New Spin & Win
+        New Spin
       </button>
     </div>
 
@@ -34,7 +34,7 @@
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-upcoming"></span>
-                  <h5 class="mb-0 fw-bold">Draft</h5>
+                  <h5 class="statusTitle mb-0 fw-bold">Draft</h5>
                 </div>
                 <small class="text-muted">Not live</small>
               </div>
@@ -77,7 +77,10 @@
                       :disabled="isBusy(ev.id)"
                       @click="editDraft(ev)"
                     >
-                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="isBusy(ev.id)"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Edit
                     </button>
                     <button
@@ -85,7 +88,10 @@
                       :disabled="isBusy(ev.id)"
                       @click="deleteDraft(ev)"
                     >
-                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="isBusy(ev.id)"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Delete
                     </button>
                   </div>
@@ -98,7 +104,7 @@
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-live"></span>
-                  <h5 class="mb-0 fw-bold">Open</h5>
+                  <h5 class="statusTitle mb-0 fw-bold">Open</h5>
                 </div>
                 <small class="text-muted">Accepting players</small>
               </div>
@@ -126,7 +132,9 @@
                     </div>
                     <div class="pair">
                       <i class="bi bi-people"></i>
-                      <span>Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</span>
+                      <span
+                        >Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</span
+                      >
                     </div>
                     <div class="pair">
                       <i class="bi bi-cash-coin"></i>
@@ -141,7 +149,10 @@
                       :disabled="isBusy(ev.id)"
                       @click="cancelEvent(ev)"
                     >
-                      <span v-if="isBusy(ev.id)" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="isBusy(ev.id)"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Cancel
                     </button>
                   </div>
@@ -156,7 +167,7 @@
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-live"></span>
-                  <h4 class="mb-0 fw-bold">Happening Now</h4>
+                  <h4 class="statusTitle mb-0 fw-bold">Happening Now</h4>
                 </div>
                 <small class="text-muted">{{ nowFmt }}</small>
               </div>
@@ -192,7 +203,11 @@
                     <div class="flex-grow-1 small">
                       <div class="pair">
                         <i class="bi bi-people"></i>
-                        <span>Players: {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</span>
+                        <span
+                          >Players: {{ ev.player_count }}/{{
+                            ev.player_cap || PLAYER_LOCK_CAP
+                          }}</span
+                        >
                       </div>
                       <div class="pair mt-1">
                         <i class="bi bi-cash-coin"></i>
@@ -237,7 +252,7 @@
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="d-flex align-items-center gap-2">
                   <span class="dot dot-finished"></span>
-                  <h5 class="mb-0 fw-bold">Finished</h5>
+                  <h5 class="statusTitlemb-0 fw-bold">Finished</h5>
                 </div>
                 <small class="text-muted">Spun / Settled / Cancelled</small>
               </div>
@@ -426,7 +441,6 @@
                   required
                 />
                 <div class="form-text">Split evenly among all players (player_cap)</div>
-
               </div>
 
               <!-- 🆕 Player Cap -->
@@ -494,74 +508,76 @@
     <!-- =================== CARDS WITH TABS (STATUS-BASED) =================== -->
     <div class="card shadow-sm border-0 mt-4">
       <div class="card-header bg-white border-0 pt-3 pb-0">
-        <ul class="nav nav-tabs nav-fill card-tabs">
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'draft' }"
-              @click="activeTab = 'draft'"
-              type="button"
-            >
-              <i class="bi bi-pencil-square me-2"></i> Draft
-              <span class="badge bg-secondary ms-2">{{ draftEvents.length }}</span>
-            </button>
-          </li>
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'open' }"
-              @click="activeTab = 'open'"
-              type="button"
-            >
-              <i class="bi bi-broadcast me-2"></i> Open
-              <span class="badge bg-secondary ms-2">{{ openEvents.length }}</span>
-            </button>
-          </li>
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'locked' }"
-              @click="activeTab = 'locked'"
-              type="button"
-            >
-              <i class="bi bi-lock me-2"></i> Locked
-              <span class="badge bg-secondary ms-2">{{ lockedEvents.length }}</span>
-            </button>
-          </li>
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'spun' }"
-              @click="activeTab = 'spun'"
-              type="button"
-            >
-              <i class="bi bi-disc me-2"></i> Spun
-              <span class="badge bg-secondary ms-2">{{ spunEvents.length }}</span>
-            </button>
-          </li>
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'settled' }"
-              @click="activeTab = 'settled'"
-              type="button"
-            >
-              <i class="bi bi-check2-circle me-2"></i> Settled
-              <span class="badge bg-secondary ms-2">{{ settledEvents.length }}</span>
-            </button>
-          </li>
-          <li class="nav-item">
-            <button
-              class="nav-link"
-              :class="{ active: activeTab === 'cancelled' }"
-              @click="activeTab = 'cancelled'"
-              type="button"
-            >
-              <i class="bi bi-x-octagon me-2"></i> Cancelled
-              <span class="badge bg-secondary ms-2">{{ cancelledEvents.length }}</span>
-            </button>
-          </li>
-        </ul>
+        <div class="tabs-scroll">
+          <ul class="nav nav-tabs nav-fill card-tabs">
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'draft' }"
+                @click="activeTab = 'draft'"
+                type="button"
+              >
+                <i class="bi bi-pencil-square me-2"></i> Draft
+                <span class="badge bg-secondary ms-2">{{ draftEvents.length }}</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'open' }"
+                @click="activeTab = 'open'"
+                type="button"
+              >
+                <i class="bi bi-broadcast me-2"></i> Open
+                <span class="badge bg-secondary ms-2">{{ openEvents.length }}</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'locked' }"
+                @click="activeTab = 'locked'"
+                type="button"
+              >
+                <i class="bi bi-lock me-2"></i> Locked
+                <span class="badge bg-secondary ms-2">{{ lockedEvents.length }}</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'spun' }"
+                @click="activeTab = 'spun'"
+                type="button"
+              >
+                <i class="bi bi-disc me-2"></i> Spun
+                <span class="badge bg-secondary ms-2">{{ spunEvents.length }}</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'settled' }"
+                @click="activeTab = 'settled'"
+                type="button"
+              >
+                <i class="bi bi-check2-circle me-2"></i> Settled
+                <span class="badge bg-secondary ms-2">{{ settledEvents.length }}</span>
+              </button>
+            </li>
+            <li class="nav-item">
+              <button
+                class="nav-link"
+                :class="{ active: activeTab === 'cancelled' }"
+                @click="activeTab = 'cancelled'"
+                type="button"
+              >
+                <i class="bi bi-x-octagon me-2"></i> Cancelled
+                <span class="badge bg-secondary ms-2">{{ cancelledEvents.length }}</span>
+              </button>
+            </li>
+          </ul>
+        </div>
       </div>
 
       <div class="card-body">
@@ -684,7 +700,8 @@
                 <div class="d-flex justify-content-between small mb-2">
                   <div><i class="bi bi-cash-coin me-1"></i>₱ {{ number(ev.entry_fee) }}</div>
                   <div>
-                    <i class="bi bi-cash-stack me-1"></i>Winner Refund: ₱ {{ number(ev.winner_refund_amount) }}
+                    <i class="bi bi-cash-stack me-1"></i>Winner Refund: ₱
+                    {{ number(ev.winner_refund_amount) }}
                   </div>
                 </div>
                 <div class="d-flex flex-wrap gap-2 mt-2">
@@ -797,7 +814,9 @@
               <td>{{ i + 1 }}</td>
               <td class="fw-semibold">{{ ev.title }}</td>
               <td>{{ ev.title }}</td>
-              <td class="text-center">{{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}</td>
+              <td class="text-center">
+                {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}
+              </td>
               <td class="text-end">₱ {{ number(ev.entry_fee) }}</td>
               <td class="text-end">₱ {{ number(ev.interest_pool) }}</td>
               <td class="text-end">₱ {{ number(ev.winner_refund_amount) }}</td>
@@ -962,9 +981,9 @@ const form = reactive({
   product_id: '' as string | null,
   item_supplier_cost: 30.0,
   entry_fee: 50.0,
-  percent: 80,            // 🆕 adjustable percent (0–100)
+  percent: 80, // 🆕 adjustable percent (0–100)
   interest_pool: 15.0,
-  player_cap: 10,         // default cap
+  player_cap: 10, // default cap
   status: 'draft' as EventRow['status'], // only 'draft' | 'open' allowed in UI
 })
 
@@ -980,7 +999,11 @@ function round2(x: number) {
 }
 
 // 🆕 Interest Pool rule: (Entry Fee − Supplier Cost) × Percent
-function computeInterestPool(entryFee: number | string, supplierCost: number | string, percent: number | string) {
+function computeInterestPool(
+  entryFee: number | string,
+  supplierCost: number | string,
+  percent: number | string,
+) {
   const fee = Number(entryFee ?? 0)
   const cost = Number(supplierCost ?? 0)
   const pct = Number(percent ?? 0) / 100
@@ -1017,8 +1040,16 @@ function calcLoserRefund(entry_fee: number, interest_pool: number, player_cap: n
 const preview = reactive({
   interestPerPlayer: calcInterestPerPlayer(Number(form.interest_pool), Number(form.player_cap)),
   // keep the same key name but new meaning: "winnerPrice" now holds winner_refund_amount (IPP)
-  winnerPrice: calcWinnerRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
-  loserRefund: calcLoserRefund(Number(form.entry_fee), Number(form.interest_pool), Number(form.player_cap)),
+  winnerPrice: calcWinnerRefund(
+    Number(form.entry_fee),
+    Number(form.interest_pool),
+    Number(form.player_cap),
+  ),
+  loserRefund: calcLoserRefund(
+    Number(form.entry_fee),
+    Number(form.interest_pool),
+    Number(form.player_cap),
+  ),
 })
 
 // recompute preview on form changes
@@ -1373,9 +1404,7 @@ const draftEvents = computed(() => events.value.filter((e) => e.status === 'draf
 const openEvents = computed(() => events.value.filter((e) => e.status === 'open'))
 
 /** Happening Now: open OR locked */
-const nowEvents = computed(() =>
-  events.value.filter((e) => e.status === 'locked'),
-)
+const nowEvents = computed(() => events.value.filter((e) => e.status === 'locked'))
 
 /** Finished: spun / settled / cancelled */
 const finishedEvents = computed(() =>
@@ -1602,10 +1631,6 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
   color: #64748b;
   font-weight: 600;
 }
-.card-tabs .nav-link.active {
-  color: #0f172a;
-  border-bottom: 2px solid #0ea5e9;
-}
 .event-card {
   background: #fff;
   border-color: #e9ecef;
@@ -1631,6 +1656,77 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
   }
   .hero-center {
     min-height: 0;
+  }
+}
+
+
+@media (max-width: 450px) {
+  .events-hero .hero-content {
+    padding: 0 !important;
+    margin-top: 0.7rem;
+  }
+  .title {
+    margin: 0.1rem !important;
+  }
+  .statusTitle {
+    font-size: 1.2rem !important;
+  }
+
+  /* Scroll container */
+  .tabs-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .tabs-scroll::-webkit-scrollbar {
+    display: none;
+  } /* hide iOS/Chrome scrollbar */
+  .tabs-scroll {
+    scrollbar-width: none;
+  } /* hide Firefox scrollbar */
+
+  /* Turn the tab list into a single-row, non-wrapping strip */
+  .card-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    border-bottom: 1px solid #eef2f7; /* keeps a bottom rail like the screenshot */
+    width: max-content; /* shrink to content so the wrapper can scroll */
+  }
+
+  /* nav-fill normally forces equal widths—undo that on mobile so it can scroll */
+  .card-tabs.nav-fill > .nav-item {
+    flex: 0 0 auto;
+  }
+
+  /* Each tab = compact pill with uppercase label; keep your icon + badge */
+  .card-tabs .nav-link {
+    white-space: nowrap;
+    padding: 12px 8px;
+    color: #6b7280; /* gray-500 */
+    text-transform: uppercase;
+    border: 0; /* remove default bootstrap tab border */
+    background: transparent;
+    position: relative;
+  }
+
+  /* Purple active text + thin underline (matches the sample) */
+  .card-tabs .nav-link.active {
+    color: #0ea5e9; /* purple */
+  }
+  .card-tabs .nav-link.active::after {
+    content: '';
+    position: absolute;
+    left: 8px;
+    right: 8px;
+    bottom: -1px;
+    height: 2px;
+    border-radius: 2px;
+    background: #0ea5e9;
+  }
+
+  /* Optional: soften non-active on hover/focus */
+  .card-tabs .nav-link:not(.active):hover,
+  .card-tabs .nav-link:not(.active):focus-visible {
+    color: #0f172a;
   }
 }
 </style>
