@@ -233,7 +233,7 @@ function gamePrizeSnippet(prize: PrizePurchase): string {
 function cancelledReceiptGroupSentence(total: number, ref: string, whenIso: string): string {
   const date = fmtDate(whenIso)
   const amt = peso(total)
-  return `7. Your order #${ref} was cancelled on ${date}. The payment method was {payMethod}, with a total amount of ${amt}.`
+  return `7. Your order #${ref} was cancelled on ${date}.`
 }
 
 function cancelledEwalletGroupSentence(total: number, ref: string, whenIso: string): string {

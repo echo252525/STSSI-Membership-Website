@@ -1399,6 +1399,19 @@ async function fetchShippingQuote() {
 }
 /* ===== END SHIPPING INTEGRATION ===== */
 
+/* === NEW: Debounced re-quote helper (additive) === */
+const quoteDebounceMs = 600
+let quoteTimer: number | null = null
+function scheduleShippingQuote() {
+  if (quoteTimer) {
+    clearTimeout(quoteTimer)
+    quoteTimer = null
+  }
+  quoteTimer = window.setTimeout(() => {
+    fetchShippingQuote()
+  }, quoteDebounceMs)
+}
+
 /* Place-order helpers */
 const checkingOut = ref(false)
 const clearingCart = ref(false)
@@ -1898,6 +1911,8 @@ async function loadShipping() {
 }
 function openShippingModal() {
   showShipping.value = true
+  // NEW: quote immediately when the modal opens
+  scheduleShippingQuote()
 }
 function closeShippingModal() {
   showShipping.value = false
@@ -1924,6 +1939,8 @@ async function saveShipping() {
     await loadShipping()
     // Re-quote shipping if modal is open
     if (showPlace.value) await fetchShippingQuote()
+    // NEW: also schedule a re-quote (debounced) even if only the shipping modal is open
+    scheduleShippingQuote()
   } finally {
     savingShipping.value = false
   }
@@ -2529,15 +2546,22 @@ watch(resolvedDiscountByCode, (v) => {
   if (v) selectedDiscountId.value = ''
 })
 
-// NEW: re-quote shipping when address or free-shipping context changes
+// NEW: re-quote shipping when address or free-shipping context changes (debounced)
+// (Triggers if Place Order modal OR Shipping modal is open)
 watch(
   () => [shipping.value.postal_code, shipping.value.city, shipping.value.province, shipping.value.address_line1],
   () => {
-    if (showPlace.value) fetchShippingQuote()
+    if (showPlace.value || showShipping.value) scheduleShippingQuote()
   }
 )
+// Also re-quote when discount mode or selected discount affects free-shipping logic
 watch([discountMode, selectedDiscountId, resolvedDiscountByCode], () => {
-  if (showPlace.value) fetchShippingQuote()
+  if (showPlace.value || showShipping.value) scheduleShippingQuote()
+})
+
+// NEW: when shipping modal toggles on, schedule an immediate quote
+watch(showShipping, (isOpen) => {
+  if (isOpen) scheduleShippingQuote()
 })
 </script>
 

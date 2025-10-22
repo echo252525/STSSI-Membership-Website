@@ -165,9 +165,19 @@
                       {{ productName(it) }}
                     </div>
 
-                    <!-- PRICE (with optional discounted display when ref has any discounted item) -->
+                    <!-- PRICE (special display for discount_redemptions) -->
                     <div class="text-end ms-2">
-                      <template v-if="refHasDiscount(g.ref)">
+                      <!-- When there is any discount_redemption for this ref:
+                           Show original unit price (no slash) + a separate negative discount line -->
+                      <template v-if="refHasRedemption(g.ref)">
+                        <div class="fw-semibold">
+                          ₱ {{ number(productPrice(it)) }}
+                        </div>
+                        
+                      </template>
+
+                      <!-- Otherwise, keep your existing discount UI -->
+                      <template v-else-if="refHasDiscount(g.ref)">
                         <div class="text-muted text-decoration-line-through">
                           ₱ {{ number(productPrice(it)) }}
                         </div>
@@ -175,6 +185,7 @@
                           ₱ {{ number(discountedUnitPrice(it)) }}
                         </div>
                       </template>
+
                       <template v-else>
                         <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">
                           ₱ {{ number(productPrice(it)) }}
@@ -398,7 +409,7 @@
               <!-- Product tile -->
               <div class="col-12">
                 <div class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle">
-                  <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+                  <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
                     <img
                       v-if="productThumb(p)"
                       :src="productThumb(p)"
@@ -422,9 +433,18 @@
                         {{ productName(p) }}
                       </div>
 
-                      <!-- PRICE (with optional discounted display when ref has any discounted item) -->
+                      <!-- PRICE (special display for discount_redemptions) -->
                       <div class="text-end ms-2">
-                        <template v-if="refHasDiscount(p.reference_number || p.id)">
+                        <template v-if="refHasRedemption(p.reference_number || p.id)">
+                          <div class="fw-semibold">
+                            ₱ {{ number(productPrice(p)) }}
+                          </div>
+                          <div class="small text-danger">
+                            − ₱ {{ number(redemptionUnitDiscount(p)) }}
+                          </div>
+                        </template>
+
+                        <template v-else-if="refHasDiscount(p.reference_number || p.id)">
                           <div class="text-muted text-decoration-line-through">
                             ₱ {{ number(productPrice(p)) }}
                           </div>
@@ -432,6 +452,7 @@
                             ₱ {{ number(discountedUnitPrice(p)) }}
                           </div>
                         </template>
+
                         <template v-else>
                           <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">
                             ₱ {{ number(productPrice(p)) }}
@@ -559,7 +580,7 @@
                 title="Discount applied"
               >
                 <div class="ticket-left">
-                  <i class="bi bi-ticket-perforated me-1"></i>
+                  <i class="bi bi-ticket-perforated me-1)"></i>
                   <span class="ticket-title" :title="d.title">{{ d.title }}</span>
                 </div>
                 <div class="ticket-divider" aria-hidden="true"></div>
@@ -825,7 +846,7 @@
               :title="eventTitleForRef(selectedGroupComputed!.ref)"
             >
               <div class="ticket-left">
-                <i class="bi bi-trophy me-1"></i>
+                <i class="bi bi-trophy me-1)"></i>
                 <span class="ticket-title">{{ eventTitleForRef(selectedGroupComputed!.ref) }}</span>
               </div>
               <div class="ticket-divider"></div>
@@ -889,9 +910,18 @@
                     {{ productName(it) }}
                   </div>
 
-                  <!-- Unit + subtotal (discount-aware with slash if discounted) -->
+                  <!-- Unit + subtotal (special for discount_redemptions) -->
                   <div class="text-end ms-2">
-                    <template v-if="refHasDiscount(selectedGroupComputed!.ref)">
+                    <template v-if="refHasRedemption(selectedGroupComputed!.ref)">
+                      <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
+                      <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
+                      <!-- show subtotal ONLY when qty > 1 -->
+                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
+                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
+                      </div>
+                    </template>
+
+                    <template v-else-if="refHasDiscount(selectedGroupComputed!.ref)">
                       <div class="text-muted text-decoration-line-through">
                         ₱ {{ number(productPrice(it)) }}
                       </div>
@@ -903,6 +933,7 @@
                         Subtotal: ₱ {{ number(subtotalFor(it)) }}
                       </div>
                     </template>
+
                     <template v-else>
                       <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
                       <!-- show subtotal ONLY when qty > 1 -->
@@ -1182,10 +1213,50 @@ function productPrice(purchase: AnyRec): number {
   const raw = productOf(purchase)?.price
   return Number(raw ?? 0)
 }
+
+/** NEW: ensure a signed URL exists for the product's first image (bucket: prize_product) */
+function ensureSignedUrlForProduct(prod?: Product) {
+  if (!prod) return
+  const raw = firstUrl(prod.product_url)
+  if (!raw) return
+  if (!isStoragePath(raw)) return // already a public https url
+  if (signedUrlMap[prod.id] || signingBusy[prod.id]) return
+
+  signingBusy[prod.id] = true
+  // TTL 1 hour; adjust if you want longer
+  supabase.storage
+    .from('prize_product')
+    .createSignedUrl(raw, 3600)
+    .then(({ data, error }) => {
+      if (!error && data?.signedUrl) {
+        signedUrlMap[prod.id] = data.signedUrl
+      } else if (error) {
+        // Optional: surface/log signing errors
+        console.warn('Signed URL error for', prod.id, raw, error.message)
+      }
+    })
+    .finally(() => {
+      signingBusy[prod.id] = false
+    })
+}
+
+/** NEW: bulk helper to sign for all current products (idempotent) */
+function ensureSignedUrlsForAllProducts() {
+  for (const id in productsMap) {
+    ensureSignedUrlForProduct(productsMap[id])
+  }
+}
+
 function productThumb(purchase: AnyRec): string {
   const prod = productOf(purchase)
   if (!prod) return ''
   const raw = firstUrl(prod.product_url)
+
+  // NEW: kick off signing lazily if this looks like a storage path
+  if (raw && isStoragePath(raw) && !signedUrlMap[prod.id] && !signingBusy[prod.id]) {
+    ensureSignedUrlForProduct(prod)
+  }
+
   return raw && !isStoragePath(raw) ? raw : (signedUrlMap[prod.id] || '')
 }
 
@@ -1252,7 +1323,7 @@ async function autocloseOverdue(uid: string) {
   if (Array.isArray(updatedRows) && updatedRows.length) {
     const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
     for (const row of purchases.value) if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
-    // NEW: also create receipts for these auto-closed items
+    // NEW: also create receipts for these auto-closed items (and update monthly purchases)
     await createOrderReceiptForIds(Array.from(updatedIds))
   }
 }
@@ -1299,6 +1370,12 @@ function refHasDiscount(ref?: string): boolean {
   return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
 }
 
+/** NEW (for display): does this ref specifically have discount_redemptions? */
+function refHasRedemption(ref?: string): boolean {
+  if (!ref) return false
+  return (refRedeemedTotal[ref] || 0) > 0
+}
+
 /** Base group total WITHOUT shipping; helper for proportional redemption calc */
 function baseGroupTotalByRef(ref: string): number {
   const rows = purchases.value.filter((p) => (p.reference_number || p.id) === ref)
@@ -1312,7 +1389,7 @@ function baseGroupTotalByRef(ref: string): number {
 function discountedUnitPrice(purchase: AnyRec): number {
   if (hasItemLevelDiscount(purchase)) {
     return Number(purchase.discounted_price)
-  }
+    }
   const ref = purchase?.reference_number || purchase?.id
   const base = productPrice(purchase)
   const qty = Number(purchase?.qty ?? 1) || 1
@@ -1332,6 +1409,22 @@ function discountedUnitPrice(purchase: AnyRec): number {
   const off = refDiscount[ref] || 0
   const out = base - off
   return out > 0 ? out : 0
+}
+
+/** NEW (for display): per-unit discount amount when using discount_redemptions */
+function redemptionUnitDiscount(purchase: AnyRec): number {
+  const ref = purchase?.reference_number || purchase?.id
+  const redeemed = refRedeemedTotal[ref] || 0
+  if (redeemed <= 0) return 0
+  const base = productPrice(purchase)
+  const qty = Number(purchase?.qty ?? 1) || 1
+  const groupBase = baseGroupTotalByRef(ref)
+  if (groupBase <= 0 || qty <= 0) return 0
+  const myBaseSubtotal = base * qty
+  const myDiscountShare = (redeemed * myBaseSubtotal) / groupBase
+  const perUnit = myDiscountShare / qty
+  // Clamp to base (never exceed)
+  return perUnit > base ? base : perUnit
 }
 
 /** Group discounted total (adds shipping if any) */
@@ -1404,6 +1497,8 @@ async function loadPurchases() {
             specifications: (pr as any)?.specifications ?? null,
           }
         }
+        // NEW: make sure signed URLs exist for all fetched products
+        ensureSignedUrlsForAllProducts()
       }
     }
 
@@ -1559,6 +1654,9 @@ async function loadPurchases() {
         }
       }
     }
+
+    // NEW: sign any newly-seen product images again to be safe
+    ensureSignedUrlsForAllProducts()
   } finally {
     busy.value.load = false
   }
@@ -1828,7 +1926,50 @@ function groupAllToReceive(g: Group): boolean {
   return g.items.length > 0 && g.items.every((it) => it.status === STATUS.TO_RECEIVE)
 }
 
-/* ---------------- RR modal + submit ---------------- */
+/* =============================== */
+/* === NEW: MONTHLY TOTAL HELPER === */
+/* =============================== */
+/** Adds a delta to the current user's users.purchases_per_month (public schema) */
+async function addToUserPurchasesMonthly(delta: number) {
+  try {
+    const amt = Number(delta || 0)
+    if (!(amt > 0)) return
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth?.user?.id
+    if (!uid) return
+
+    // read current value
+    const { data: row, error: readErr } = await supabase
+      .from('users')
+      .select('purchases_per_month')
+      .eq('id', uid)
+      .limit(1)
+      .maybeSingle()
+
+    if (readErr) {
+      console.warn('Could not read users.purchases_per_month:', readErr.message)
+      return
+    }
+
+    const cur = Number(row?.purchases_per_month ?? 0) || 0
+    const next = Number((cur + amt).toFixed(2))
+
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ purchases_per_month: next })
+      .eq('id', uid)
+
+    if (updErr) {
+      console.warn('Could not update users.purchases_per_month:', updErr.message)
+    }
+  } catch (e) {
+    console.error('addToUserPurchasesMonthly failed', e)
+  }
+}
+
+/* =============================== */
+/* === RR modal + submit ======== */
+/* =============================== */
 const showRR = ref(false)
 const rrBusy = ref(false)
 const rrPurchase = ref<AnyRec | null>(null)
@@ -2125,6 +2266,10 @@ async function createOrderReceiptForGroup(g: Group) {
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+
+    // NEW: add to users.purchases_per_month (using the same amounts as receipts)
+    const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+    await addToUserPurchasesMonthly(total)
   } catch (e) {
     console.error(e)
   }
@@ -2146,6 +2291,10 @@ async function createOrderReceiptForGroupCompleted(g: Group, ids: string[]) {
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+
+    // NEW: add to users.purchases_per_month
+    const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+    await addToUserPurchasesMonthly(total)
   } catch (e) {
     console.error(e)
   }
@@ -2178,6 +2327,10 @@ async function createOrderReceiptForIds(ids: string[]) {
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Auto-complete succeeded, but creating receipts failed: ${recErr.message}`)
+
+    // NEW: add to users.purchases_per_month
+    const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
+    await addToUserPurchasesMonthly(total)
   } catch (e) {
     console.error(e)
   }
@@ -2269,6 +2422,7 @@ async function orderReceivedGroup(g: Group) {
       }
     }
 
+    // Create receipts and update users.purchases_per_month using discounted amounts
     await createOrderReceiptForGroupCompleted(g, updatedIds)
   } finally {
     groupBusy.received[g.ref] = false
@@ -2352,23 +2506,18 @@ watch(
   { immediate: true },
 )
 
-onMounted(() => {
-  loadPurchases()
-  // lazy sign images if needed
-  for (const id in productsMap) {
-    const prod = productsMap[id]
-    const raw = firstUrl(prod.product_url)
-    if (raw && isStoragePath(raw) && !signedUrlMap[prod.id] && !signingBusy[prod.id]) {
-      signingBusy[prod.id] = true
-      supabase.storage
-        .from('prize_product')
-        .createSignedUrl(raw, 3600)
-        .then(({ data, error }) => {
-          if (!error && data?.signedUrl) signedUrlMap[prod.id] = data.signedUrl
-        })
-        .finally(() => (signingBusy[prod.id] = false))
-    }
-  }
+/** NEW: if purchases or products change dynamically, try signing missing ones */
+watch(
+  () => Object.keys(productsMap).length,
+  () => ensureSignedUrlsForAllProducts(),
+)
+
+onMounted(async () => {
+  // Load purchases first
+  await loadPurchases()
+
+  // lazy sign images for all known products (idempotent; won't re-sign existing)
+  ensureSignedUrlsForAllProducts()
 })
 </script>
 

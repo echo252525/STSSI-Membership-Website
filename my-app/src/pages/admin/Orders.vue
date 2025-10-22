@@ -157,6 +157,10 @@
               <span class="badge text-bg-light border" :title="g.paymentSummaryTitle">
                 {{ g.paymentSummaryLabel }}
               </span>
+
+              <!-- NEW: discount summary badge per reference -->
+              
+              <!-- /NEW -->
             </div>
           </div>
 
@@ -230,10 +234,10 @@
 
               <!-- NEW: rightmost discounted line total -->
               <div class="text-end fw-semibold" v-else>
-                <div class="small text-muted text-decoration-line-through">
+                <div class="small text-muted">
                   ₱ {{ number(it.line_total) }}
                 </div>
-                <div>₱ {{ number(lineTotalAfterDiscount(it, g.reference_number)) }}</div>
+                
               </div>
             </div>
           </div>
@@ -254,23 +258,34 @@
               <div class="text-end">
                 <div class="text-muted small">Subtotal</div>
 
-                <!-- ORIGINAL subtotal (kept when no event) -->
+                <!-- Subtotal WITHOUT shipping -->
                 <div class="fw-semibold fs-5" v-if="!hasEventDiscount(g.reference_number)">
                   ₱ {{ number(groupSubtotal(g)) }}
                 </div>
 
-                <!-- NEW: subtotal with strike-through original when event/per-purchase discount applies -->
+                <!-- Subtotal discounted WITHOUT shipping -->
                 <div v-else>
                   <div class="small text-muted text-decoration-line-through">
                     ₱ {{ number(groupSubtotalOriginal(g)) }}
                   </div>
-                  <div class="fw-semibold fs-5">
+                  <!-- CHANGED TO GREEN -->
+                  <div class="small text-success fw-semibold">
                     ₱ {{ number(groupSubtotalDiscounted(g)) }}
                   </div>
                 </div>
 
-                <!-- FIXED: Recorded total now matches discounted total when event applies -->
-                <div class="small text-muted">Recorded total: ₱ {{ number(g.total_amount) }}</div>
+                <!-- NEW: Discount total line (shown ABOVE shipping fee) -->
+                <div class="small text-muted" v-if="(g.discount_total || 0) > 0">
+                  Discounts: − ₱ {{ number(g.discount_total) }}
+                </div>
+
+                <!-- Shipping line (separate) -->
+                <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
+                  Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
+                </div>
+
+                <!-- Recorded total INCLUDES shipping -->
+                <div class="fw-semibold fs-5">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
           </div>
@@ -691,6 +706,15 @@ type ViewGroup = {
   siblingCompletedItems: Array<OrderItem>
   /* NEW for Completed tab display of refunded items */
   completedRRItems: Array<OrderItem & { rrStatus: string | null }>
+  /* NEW: per-reference discount sum & shipping */
+  discount_total?: number
+}
+
+type DiscountRow = {
+  purchase_id: string
+  redeemed_amount: number | string
+  discount_id: string
+  created_at: string
 }
 
 /* ---------- UI state ---------- */
@@ -716,6 +740,13 @@ let groupIndex: Record<string, string[]> = Object.create(null)
 /* ★ ADDED: per-purchase discounted price cache (final price each) */
 const discountedByPurchase: Record<string, number | null> = reactive({})
 
+/* ★ NEW: per-purchase & per-reference discount redemption caches */
+const discountByPurchase: Record<string, number> = reactive({})
+const discountByRef: Record<string, number> = reactive({})
+
+/* ★ NEW: per-reference shipping fee cache */
+const shippingByRef: Record<string, number> = reactive({})
+
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
   return ids.some(id => !!busy.value.action[id])
@@ -733,7 +764,7 @@ const pageSize = ref(10)
 const total = ref(0)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 const orders = ref<ViewOrder[]>([])
 const productsMap = reactive<Record<string, Product>>({})
 const buyersMap = reactive<Record<string, Buyer>>({})
@@ -887,17 +918,35 @@ function lineTotalAfterDiscount(it: OrderItem, ref?: string | null): number {
   return Number((each * qty).toFixed(2))
 }
 
+/* ---------- SHIPPING & DISCOUNT helpers ---------- */
+function shippingForRef(ref?: string | null): number {
+  if (!ref) return 0
+  return Number(shippingByRef[ref] ?? 0) || 0
+}
+function discountSumForRef(ref?: string | null): number {
+  if (!ref) return 0
+  return Number(discountByRef[ref] ?? 0) || 0
+}
+
 /* ---------- Subtotals (original vs discounted) ---------- */
-function groupSubtotal(g: ViewGroup) {
-  // kept legacy behavior (used when no discount)
+function groupItemsTotalOriginal(g: ViewGroup) {
   return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
 }
+function groupItemsTotalDiscounted(g: ViewGroup) {
+  if (!hasEventDiscount(g.reference_number)) return groupItemsTotalOriginal(g)
+  return g.items.reduce((sum, it) => sum + lineTotalAfterDiscount(it, g.reference_number), 0)
+}
+
+/* Subtotal display (ITEMS ONLY — no shipping) */
 function groupSubtotalOriginal(g: ViewGroup) {
-  return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
+  return groupItemsTotalOriginal(g)
 }
 function groupSubtotalDiscounted(g: ViewGroup) {
-  if (!hasEventDiscount(g.reference_number)) return groupSubtotalOriginal(g)
-  return g.items.reduce((sum, it) => sum + lineTotalAfterDiscount(it, g.reference_number), 0)
+  return groupItemsTotalDiscounted(g)
+}
+/* kept legacy name used in template */
+function groupSubtotal(g: ViewGroup) {
+  return groupSubtotalOriginal(g)
 }
 
 /* replaced in group display: list all RRs per group */
@@ -971,10 +1020,11 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const items = arr.flatMap(a => a.items)
 
-    // FIX: compute recorded total as discounted sum when event/per-purchase discount applies
-    const total_amount = hasEventDiscount(ref)
+    // Recorded total still includes shipping
+    const itemsTotal = hasEventDiscount(ref)
       ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
+    const total_amount = itemsTotal + shippingForRef(ref)
 
     const containsRR = arr.some(a => (rrByPurchase[a.id] || []).length > 0)
 
@@ -1023,6 +1073,9 @@ const orderGroups = computed<ViewGroup[]>(() => {
       }
     }
 
+    /* NEW: attach per-reference discount sum for badge display */
+    const discount_total = discountSumForRef(ref)
+
     groups.push({
       groupKey: ref,
       reference_number: ref,
@@ -1044,7 +1097,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
       canGroupCancel,
       siblingRRItems,
       siblingCompletedItems,
-      completedRRItems
+      completedRRItems,
+      discount_total
     })
   }
 
@@ -1110,7 +1164,7 @@ function groupRRs(g: ViewGroup): ReturnRefundRow[] {
   return out.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
-/* ---------- Fetch from games.purchases + join products & users (+ returns + events) ---------- */
+/* ---------- Fetch from games.purchases + join products & users (+ returns + events + discounts + shipping) ---------- */
 async function loadOrders(resetPage = false) {
   if (resetPage) page.value = 1
   busy.value.load = true
@@ -1181,7 +1235,7 @@ async function loadOrders(resetPage = false) {
       for (const s of siblingRows) {
         if (s.product_id) productIds.add(s.product_id)
         if (s.user_id) userIds.add(s.user_id)
-        // include siblings in RR fetch set
+        // include siblings in RR & discount fetch set
         purchaseIds.add(s.id)
         // ★ ADDED: cache sibling discounts too
         discountedByPurchase[s.id] = s.discounted_price != null ? Number(s.discounted_price) : discountedByPurchase[s.id] ?? null
@@ -1249,8 +1303,7 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // === NEW: Fetch event discounts by reference_number ===
-    // Assumes table: games.event with columns (id, winner_refund_amount)
+    /* === NEW: Fetch event discounts by reference_number === */
     for (const k of Object.keys(eventDiscountByRef)) delete eventDiscountByRef[k]
     if (refSet.size > 0) {
       const { data: evRows } = await supabase
@@ -1261,6 +1314,51 @@ async function loadOrders(resetPage = false) {
       if (Array.isArray(evRows)) {
         for (const e of evRows as EventRow[]) {
           eventDiscountByRef[e.id] = Number(e.winner_refund_amount || 0) || 0
+        }
+      }
+    }
+
+    /* === NEW: Fetch DISCOUNT REDEMPTIONS per purchase and aggregate per reference === */
+    for (const k of Object.keys(discountByPurchase)) delete discountByPurchase[k]
+    for (const k of Object.keys(discountByRef)) delete discountByRef[k]
+
+    if (purchaseIds.size > 0) {
+      const { data: drows } = await supabase
+        .schema('rewards')
+        .from('discount_redemptions')
+        .select('purchase_id,redeemed_amount,discount_id,created_at')
+        .in('purchase_id', Array.from(purchaseIds))
+      if (Array.isArray(drows)) {
+        for (const d of drows as DiscountRow[]) {
+          const pid = d.purchase_id
+          const amt = Number(d.redeemed_amount || 0) || 0
+          discountByPurchase[pid] = (discountByPurchase[pid] || 0) + amt
+        }
+      }
+    }
+
+    // Per-reference aggregation (use rows we already fetched for current page)
+    // Include siblings when we previously fetched them (for To Receive / Completed contexts)
+    for (const ref of Array.from(refSet)) {
+      let pids = purchaseRows.filter(p => p.reference_number === ref).map(p => p.id)
+      if ((siblingsByRef[ref] || []).length) {
+        pids = siblingsByRef[ref].map(s => s.id)
+      }
+      const sum = pids.reduce((acc, pid) => acc + Number(discountByPurchase[pid] || 0), 0)
+      if (sum > 0) discountByRef[ref] = Number(sum.toFixed(2))
+    }
+
+    /* === NEW: Fetch SHIPPING FEES per reference === */
+    for (const k of Object.keys(shippingByRef)) delete shippingByRef[k]
+    if (refSet.size > 0) {
+      const { data: ships } = await supabase
+        .schema('games')
+        .from('shipping_charges')
+        .select('reference_number,amount')
+        .in('reference_number', Array.from(refSet))
+      if (Array.isArray(ships)) {
+        for (const s of ships as { reference_number: string, amount: number | string | null }[]) {
+          shippingByRef[s.reference_number] = Number(s.amount ?? 0) || 0
         }
       }
     }
@@ -1401,6 +1499,54 @@ function isCODPayment(method?: string | null) {
   return String(method || '').trim().toLowerCase() === 'cod'
 }
 
+/* ---------- helpers to decide shipping refund conditions ---------- */
+async function allPurchasesCancelledForRef(ref: string): Promise<boolean> {
+  const { data: rows } = await supabase
+    .schema('games')
+    .from('purchases')
+    .select('status')
+    .eq('reference_number', ref)
+  if (!Array.isArray(rows)) return false
+  return rows.every(r => String(r.status || '').toLowerCase() === STATUS.CANCELLED)
+}
+async function countCompletedRefundsForRef(ref: string): Promise<number> {
+  // find all purchases under ref -> their rr rows with status completed
+  const { data: pRows } = await supabase
+    .schema('games')
+    .from('purchases')
+    .select('id')
+    .eq('reference_number', ref)
+  if (!Array.isArray(pRows) || pRows.length === 0) return 0
+  const pids = pRows.map(r => r.id)
+  const { data: rrRows } = await supabase
+    .schema('games')
+    .from('return_refunds')
+    .select('id,status')
+    .in('purchase_id', pids)
+  if (!Array.isArray(rrRows)) return 0
+  return rrRows.filter(r => String(r.status || '').toLowerCase() === 'completed').length
+}
+
+/* ---------- NEW: helper to read redeemed discount amount for a purchase ---------- */
+async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
+  // prefer cache if available
+  if (purchaseId in discountByPurchase) {
+    return Number(discountByPurchase[purchaseId] || 0) || 0
+  }
+  try {
+    const { data, error } = await supabase
+      .schema('rewards')
+      .from('discount_redemptions')
+      .select('redeemed_amount')
+      .eq('purchase_id', purchaseId)
+
+    if (error || !Array.isArray(data)) return 0
+    return data.reduce((s, r: any) => s + (Number(r?.redeemed_amount || 0) || 0), 0)
+  } catch {
+    return 0
+  }
+}
+
 /* UPDATED: supports bulk cancellation without per-item prompts when skipConfirm=true.
   E-WALLET + TO_SHIP: refund balance + insert into ewallet.cancelled_ewallet_receipt.
   COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
@@ -1452,7 +1598,11 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         return
       }
 
-      const refundAmount = orderSubtotal(order)
+      // === UPDATED: compute refund excluding any discount_redemptions ===
+      const itemsSubtotal = orderSubtotal(order) // items only, no shipping
+      const redeemed = await redeemedDiscountAmount(purchaseId) // discount applied to this purchase
+      const netRefundItems = Math.max(0, Number((itemsSubtotal - redeemed).toFixed(2)))
+
       const userId = order.user_id
 
       const { data: urow, error: uErr } = await supabase
@@ -1464,7 +1614,7 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
       if (uErr || !urow) {
         console.error('[cancel ewallet refund] user fetch failed:', uErr?.message)
       } else {
-        const newBal = Number(Number(urow.balance || 0) + Number(refundAmount)).toFixed(2)
+        const newBal = Number(Number(urow.balance || 0) + Number(netRefundItems)).toFixed(2)
         const { error: balErr } = await supabase
           .from('users')
           .update({ balance: Number(newBal) })
@@ -1475,13 +1625,13 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         }
       }
 
-      // Insert into ewallet.cancelled_ewallet_receipt (bulk-friendly; includes reference_number)
+      // Insert into ewallet.cancelled_ewallet_receipt with the NET refund (post-discount)
       try {
         const { error: ewRecErr } = await supabase
           .schema('ewallet')
           .from('cancelled_ewallet_receipt')
           .insert({
-            amount: Number(refundAmount.toFixed(2)),
+            amount: Number(netRefundItems.toFixed(2)),
             reference_number: order.reference_number || null,
             purchase_id: purchaseId,
           })
@@ -1495,6 +1645,46 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 
       // ★ STOCK RESTORE on cancel
       await restoreStock(productIdForStock, qtyForStock)
+
+      // ★ NEW: if all purchases under this reference are now cancelled, also refund SHIPPING FEE (EWALLET only)
+      try {
+        if (order.reference_number && await allPurchasesCancelledForRef(order.reference_number)) {
+          const ship = shippingForRef(order.reference_number)
+          if (ship > 0) {
+            const { data: urow2, error: uErr2 } = await supabase
+              .from('users')
+              .select('id,balance')
+              .eq('id', order.user_id)
+              .single()
+            if (!uErr2 && urow2) {
+              const newBal2 = Number(Number(urow2.balance || 0) + ship).toFixed(2)
+              const { error: balErr2 } = await supabase
+                .from('users')
+                .update({ balance: Number(newBal2) })
+                .eq('id', order.user_id)
+              if (balErr2) {
+                console.error('[shipping refund (cancel)] balance update failed', balErr2.message)
+              }
+              // Log separate receipt for shipping refund
+              try {
+                const { error: recErr2 } = await supabase
+                  .schema('ewallet')
+                  .from('cancelled_ewallet_receipt')
+                  .insert({
+                    amount: Number(ship.toFixed(2)),
+                    reference_number: order.reference_number || null,
+                    purchase_id: purchaseId, // tie to a purchase id for traceability
+                  })
+                if (recErr2) console.error('[shipping refund (cancel)] receipt insert failed', recErr2.message)
+              } catch (e: any) {
+                console.error('[shipping refund (cancel)] insert exception', e?.message || e)
+              }
+            }
+          }
+        }
+      } catch (e: any) {
+        console.error('[cancel shipping refund check] exception', e?.message || e)
+      }
 
       order.status = STATUS.CANCELLED
       return
@@ -1650,7 +1840,7 @@ async function rejectRefund(rr: ReturnRefundRow) {
 
 /* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ----------
    UPDATED: 
-   - Refunds (qty × effectiveEach)
+   - Refunds (qty × effectiveEach) + possible SHIPPING REFUND (first refund completion for ref)
    - effectiveEach = per-purchase discounted price (if cached) 
                      else (product.price - eventLess) clamped to ≥ 0
                      else product.price
@@ -1669,13 +1859,21 @@ async function completeRefund(rr: ReturnRefundRow) {
     const { data: purchase, error: pErr } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id,user_id,product_id,qty,reference_number')
+      .select('id,user_id,product_id,qty,reference_number,modeofpayment')
       .eq('id', rr.purchase_id)
       .single()
 
     if (pErr || !purchase) {
       alert(pErr?.message || 'Purchase not found for this refund.')
       return
+    }
+
+    // BEFORE updating rr -> check if this is the first completed refund for the reference
+    const ref = purchase.reference_number
+    let includeShipping = false
+    if (ref) {
+      const completedBefore = await countCompletedRefundsForRef(ref)
+      includeShipping = completedBefore === 0
     }
 
     // Product base price (fallback if no discounts apply)
@@ -1711,9 +1909,9 @@ async function completeRefund(rr: ReturnRefundRow) {
       effectiveEach = baseEach
     }
 
-    // Total refund = qty × effectiveEach
-    const totalRefund = Number((effectiveEach * qty).toFixed(2))
-    if (!isFinite(totalRefund) || totalRefund <= 0) {
+    // Total refund for product = qty × effectiveEach
+    const productRefund = Number((effectiveEach * qty).toFixed(2))
+    if (!isFinite(productRefund) || productRefund <= 0) {
       alert('Invalid refund amount computed.')
       return
     }
@@ -1733,7 +1931,7 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    // Credit user's e-wallet with TOTAL amount
+    // Credit user's e-wallet with PRODUCT refund
     const { data: urow, error: uErr } = await supabase
       .from('users')
       .select('id,balance')
@@ -1745,9 +1943,46 @@ async function completeRefund(rr: ReturnRefundRow) {
       return
     }
 
-    const currentBal = Number(urow.balance || 0)
-    const newBal = Number((currentBal + totalRefund).toFixed(2))
+    let newBal = Number(urow.balance || 0) + productRefund
 
+    // Insert refund receipt with PRODUCT amount_refunded
+    try {
+      const { error: rrRecErr } = await supabase
+        .schema('ewallet')
+        .from('refund_receipt')
+        .insert({
+          return_refund_id: rrId,
+          amount_refunded: productRefund,
+        })
+      if (rrRecErr) {
+        console.error('[refund_receipt insert failed]', rrRecErr.message)
+      }
+    } catch (e: any) {
+      console.error('[refund_receipt insert exception]', e?.message || e)
+    }
+
+    // ★ NEW: include SHIPPING fee on first refund completion for this reference (EWALLET or COD)
+    if (includeShipping && ref) {
+      const ship = shippingForRef(ref)
+      if (ship > 0) {
+        newBal = Number((newBal + ship).toFixed(2))
+        // Log an additional receipt row for the shipping refund (ties to current RR)
+        try {
+          const { error: rrShipErr } = await supabase
+            .schema('ewallet')
+            .from('refund_receipt')
+            .insert({
+              return_refund_id: rrId,
+              amount_refunded: Number(ship.toFixed(2)),
+            })
+          if (rrShipErr) console.error('[shipping refund receipt insert failed]', rrShipErr.message)
+        } catch (e: any) {
+          console.error('[shipping refund receipt insert exception]', e?.message || e)
+        }
+      }
+    }
+
+    // Persist updated balance
     const { error: balErr } = await supabase
       .from('users')
       .update({ balance: newBal })
@@ -1756,23 +1991,6 @@ async function completeRefund(rr: ReturnRefundRow) {
     if (balErr) {
       alert(balErr.message)
       return
-    }
-
-    // Insert refund receipt with TOTAL amount_refunded
-    try {
-      const { error: rrRecErr } = await supabase
-        .schema('ewallet')
-        .from('refund_receipt')
-        .insert({
-          return_refund_id: rrId,
-          amount_refunded: totalRefund, // ← TOTAL (qty × effectiveEach)
-        })
-
-      if (rrRecErr) {
-        console.error('[refund_receipt insert failed]', rrRecErr.message)
-      }
-    } catch (e: any) {
-      console.error('[refund_receipt insert exception]', e?.message || e)
     }
 
     // ★ STOCK RESTORE on refund completion (return the purchased qty)
@@ -1900,3 +2118,7 @@ onMounted(() => {
   line-height: 1;
 }
 </style>
+
+
+
+

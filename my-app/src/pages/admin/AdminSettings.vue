@@ -83,7 +83,59 @@
           </div>
         </div>
       </div>
+
+      <!-- Danger Zone -->
+      <div class="col-12">
+        <div class="card shadow-sm border-0 danger-card">
+          <div class="card-body p-4">
+            <h5 class="fw-semibold mb-2 text-danger">Danger Zone</h5>
+            <p class="small text-muted mb-3">
+              Deleting your account is <span class="text-danger fw-semibold">permanent</span> and cannot be undone.
+              This will remove your admin profile and revoke access.
+            </p>
+            <div class="d-flex align-items-center gap-2">
+              <button class="btn btn-outline-danger" @click="openDeleteModal" :disabled="deletingAccount">
+                <span v-if="deletingAccount" class="spinner-border spinner-border-sm me-2"></span>
+                Delete account
+              </button>
+              <small v-if="deleteNotice" class="text-muted">{{ deleteNotice }}</small>
+              <small v-if="deleteError" class="text-danger">{{ deleteError }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
+
+    <!-- Confirm Delete Modal -->
+    <div v-if="showDeleteModal" class="modal-backdrop-simple">
+      <div class="modal-dialog-simple">
+        <div class="modal-content-simple p-4">
+          <h5 class="fw-semibold mb-2">Confirm account deletion</h5>
+          <p class="small text-muted">
+            This will permanently delete your account. To confirm, type
+            <strong>DELETE</strong> below.
+          </p>
+          <input
+            v-model.trim="deleteConfirmText"
+            class="form-control mb-3"
+            placeholder="Type DELETE to confirm"
+            :disabled="deletingAccount"
+          />
+          <div class="d-flex justify-content-end gap-2">
+            <button class="btn btn-secondary" @click="closeDeleteModal" :disabled="deletingAccount">Cancel</button>
+            <button
+              class="btn btn-danger"
+              @click="deleteAccount"
+              :disabled="deleteConfirmText !== 'DELETE' || deletingAccount"
+            >
+              <span v-if="deletingAccount" class="spinner-border spinner-border-sm me-2"></span>
+              Permanently delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /Confirm Delete Modal -->
   </div>
 </template>
 
@@ -122,6 +174,13 @@ const confirmPassword = ref('');
 const changingPassword = ref(false);
 const passwordNotice = ref('');
 const passwordError = ref('');
+
+// delete account state
+const deletingAccount = ref(false);
+const deleteNotice = ref('');
+const deleteError = ref('');
+const showDeleteModal = ref(false);
+const deleteConfirmText = ref('');
 
 let userId: string | null = null;
 
@@ -222,6 +281,49 @@ const changePassword = async () => {
     changingPassword.value = false;
   }
 };
+
+// ===== Delete Account (Edge Function: delete-account-user) =====
+const openDeleteModal = () => {
+  deleteNotice.value = '';
+  deleteError.value = '';
+  deleteConfirmText.value = '';
+  showDeleteModal.value = true;
+};
+
+const closeDeleteModal = () => {
+  if (!deletingAccount.value) showDeleteModal.value = false;
+};
+
+const deleteAccount = async () => {
+  deleteNotice.value = '';
+  deleteError.value = '';
+  deletingAccount.value = true;
+
+  try {
+    if (!userId) throw new Error('No authenticated user.');
+
+    // Invoke your Supabase Edge Function
+    const { data, error } = await supabase.functions.invoke('delete-account-user', {
+      body: { user_id: userId },
+    });
+    if (error) throw error;
+
+    // Sign out locally after deletion
+    await supabase.auth.signOut();
+
+    deleteNotice.value = 'Account deleted. Redirecting…';
+    showDeleteModal.value = false;
+
+    // Redirect to login (adjust route name if needed)
+    setTimeout(() => {
+      router.push({ name: 'login' }).catch(() => {});
+    }, 900);
+  } catch (e: any) {
+    deleteError.value = e?.message ?? 'Unable to delete account.';
+  } finally {
+    deletingAccount.value = false;
+  }
+};
 </script>
 
 <style scoped>
@@ -230,5 +332,30 @@ const changePassword = async () => {
 }
 .card {
   border-radius: 14px;
+}
+
+/* Danger Zone card subtle red border */
+.danger-card {
+  border: 1px solid rgba(220, 53, 69, 0.2);
+}
+
+/* Lightweight modal without Bootstrap JS */
+.modal-backdrop-simple {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+}
+.modal-dialog-simple {
+  width: 100%;
+  max-width: 520px;
+}
+.modal-content-simple {
+  background: var(--bs-body-bg);
+  border-radius: 14px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
 }
 </style>
