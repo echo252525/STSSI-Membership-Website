@@ -89,6 +89,49 @@
               </div>
             </div>
 
+            <!-- ===== NEW: Event Winner ticket (if ref is an event id) ===== -->
+            <div
+              v-if="eventTitleForRef(g.ref)"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+              @click.stop
+            >
+              <div class="event-ticket" :title="eventTitleForRef(g.ref)">
+                <div class="ticket-left">
+                  <i class="bi bi-trophy me-1"></i>
+                  <span class="ticket-title">{{ eventTitleForRef(g.ref) }}</span>
+                </div>
+                <div class="ticket-divider" aria-hidden="true"></div>
+                <div class="ticket-right">
+                  <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== NEW: Discount ticket(s) for this group (if any) ===== -->
+            <div
+              v-if="discountsForRef(g.ref).length"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+              @click.stop
+            >
+              <div
+                v-for="d in discountsForRef(g.ref)"
+                :key="d.id"
+                class="discount-ticket"
+                title="Discount applied"
+              >
+                <div class="ticket-left">
+                  <i class="bi bi-ticket-perforated me-1"></i>
+                  <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                </div>
+                <div class="ticket-divider" aria-hidden="true"></div>
+                <div class="ticket-right">
+                  <span class="ticket-value">{{ discountLabel(d) }}</span>
+                  <span class="ticket-tag">APPLIED</span>
+                </div>
+              </div>
+            </div>
+            <!-- ========================================================= -->
+
             <!-- Items inside group -->
             <div class="mt-3 vstack gap-2">
               <div
@@ -176,6 +219,17 @@
             <!-- Group totals -->
             <div class="mt-3 d-flex align-items-center justify-content-end">
               <div class="text-end">
+
+                <!-- ================= NEW: Price breakdown ABOVE Subtotal ================= -->
+                <div class="small text-muted mb-1">
+                  <div>Items: ₱ {{ number(groupItemsBaseTotal(g)) }}</div>
+                  <div v-if="refHasDiscount(g.ref)">
+                    Discount: −₱ {{ number(groupDiscountAmount(g)) }}
+                  </div>
+                  <div>Shipping: ₱ {{ number(shippingFor(g.ref)) }}</div>
+                </div>
+                <!-- ================================================================ -->
+
                 <div class="small text-muted">Subtotal</div>
 
                 <!-- SUBTOTAL (now shows slash + discounted when applicable) -->
@@ -294,6 +348,49 @@
                 <span class="badge" :class="statusClass(p.status)">
                   {{ prettyStatusWithRR(p.status, p.id) }}
                 </span>
+              </div>
+            </div>
+
+            <!-- NEW: Event ticket in fallback view -->
+            <div
+              v-if="eventTitleForRef(p.reference_number || p.id)"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+            >
+              <div
+                class="event-ticket"
+                :title="eventTitleForRef(p.reference_number || p.id)"
+              >
+                <div class="ticket-left">
+                  <i class="bi bi-trophy me-1"></i>
+                  <span class="ticket-title">{{ eventTitleForRef(p.reference_number || p.id) }}</span>
+                </div>
+                <div class="ticket-divider"></div>
+                <div class="ticket-right">
+                  <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- (Optional) discount ticket in fallback view -->
+            <div
+              v-if="discountsForRef(p.reference_number || p.id).length"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+            >
+              <div
+                v-for="d in discountsForRef(p.reference_number || p.id)"
+                :key="d.id"
+                class="discount-ticket"
+                title="Discount applied"
+              >
+                <div class="ticket-left">
+                  <i class="bi bi-ticket-perforated me-1"></i>
+                  <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                </div>
+                <div class="ticket-divider" aria-hidden="true"></div>
+                <div class="ticket-right">
+                  <span class="ticket-value">{{ discountLabel(d) }}</span>
+                  <span class="ticket-tag">APPLIED</span>
+                </div>
               </div>
             </div>
 
@@ -433,6 +530,46 @@
               <div class="small text-muted">Updated: {{ formatDate(rrGroup.updated_at) }}</div>
             </div>
 
+            <!-- Event ticket in RR modal -->
+            <div
+              v-if="eventTitleForRef(rrGroup.ref)"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+            >
+              <div class="event-ticket" :title="eventTitleForRef(rrGroup.ref)">
+                <div class="ticket-left">
+                  <i class="bi bi-trophy me-1"></i>
+                  <span class="ticket-title">{{ eventTitleForRef(rrGroup.ref) }}</span>
+                </div>
+                <div class="ticket-divider"></div>
+                <div class="ticket-right">
+                  <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Discount ticket(s) in RR modal -->
+            <div
+              v-if="discountsForRef(rrGroup.ref).length"
+              class="mt-2 d-flex flex-wrap align-items-center gap-2"
+            >
+              <div
+                v-for="d in discountsForRef(rrGroup.ref)"
+                :key="d.id"
+                class="discount-ticket"
+                title="Discount applied"
+              >
+                <div class="ticket-left">
+                  <i class="bi bi-ticket-perforated me-1"></i>
+                  <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                </div>
+                <div class="ticket-divider" aria-hidden="true"></div>
+                <div class="ticket-right">
+                  <span class="ticket-value">{{ discountLabel(d) }}</span>
+                  <span class="ticket-tag">APPLIED</span>
+                </div>
+              </div>
+            </div>
+
             <!-- Select items inside this group -->
             <div class="mt-2 border rounded p-2">
               <div class="d-flex align-items-center justify-content-between mb-2">
@@ -530,7 +667,7 @@
                         </select>
                       </div>
                       <div class="col-12 col-md-7">
-                        <label class="form-label small mb-1">Details (optional)</label>
+                        <label class="form-label small mb-1">Details</label>
                         <textarea
                           class="form-control form-control-sm"
                           rows="2"
@@ -678,6 +815,50 @@
             </span>
           </div>
 
+          <!-- Event ticket in details modal -->
+          <div
+            v-if="eventTitleForRef(selectedGroupComputed!.ref)"
+            class="mt-2 d-flex flex-wrap align-items-center gap-2"
+          >
+            <div
+              class="event-ticket"
+              :title="eventTitleForRef(selectedGroupComputed!.ref)"
+            >
+              <div class="ticket-left">
+                <i class="bi bi-trophy me-1"></i>
+                <span class="ticket-title">{{ eventTitleForRef(selectedGroupComputed!.ref) }}</span>
+              </div>
+              <div class="ticket-divider"></div>
+              <div class="ticket-right">
+                <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Discount ticket(s) in details modal -->
+          <div
+            v-if="discountsForRef(selectedGroupComputed!.ref).length"
+            class="mt-2 d-flex flex-wrap align-items-center gap-2"
+          >
+            <div
+              v-for="d in discountsForRef(selectedGroupComputed!.ref)"
+              :key="d.id"
+              class="discount-ticket"
+              title="Discount applied"
+            >
+              <div class="ticket-left">
+                <i class="bi bi-ticket-perforated me-1"></i>
+                <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+              </div>
+              <div class="ticket-divider" aria-hidden="true"></div>
+              <div class="ticket-right">
+                <span class="ticket-value">{{ discountLabel(d) }}</span>
+                <span class="ticket-tag">APPLIED</span>
+              </div>
+            </div>
+          </div>
+          <!-- ================================================ -->
+
           <!-- Items -->
           <div class="mt-3 vstack gap-2">
             <div
@@ -773,6 +954,17 @@
           <!-- Totals (now shows slash when discounted) -->
           <div class="mt-3 d-flex align-items-center justify-content-end">
             <div class="text-end">
+
+              <!-- ================= NEW: Price breakdown ABOVE Subtotal (Modal) ================= -->
+              <div class="small text-muted mb-1">
+                <div>Items: ₱ {{ number(groupItemsBaseTotal(selectedGroupComputed!)) }}</div>
+                <div v-if="refHasDiscount(selectedGroupComputed!.ref)">
+                  Discount: −₱ {{ number(groupDiscountAmount(selectedGroupComputed!)) }}
+                </div>
+                <div>Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</div>
+              </div>
+              <!-- ===================================================================== -->
+
               <div class="small text-muted">Subtotal</div>
               <template v-if="refHasDiscount(selectedGroupComputed!.ref)">
                 <div class="text-muted text-decoration-line-through">
@@ -785,6 +977,9 @@
               <template v-else>
                 <div class="fs-5 fw-bold">₱ {{ number(groupTotal(selectedGroupComputed!)) }}</div>
               </template>
+              <div v-if="shippingFor(selectedGroupComputed!.ref) > 0" class="small text-muted mt-1">
+                (Includes shipping ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }})
+              </div>
             </div>
           </div>
 
@@ -991,20 +1186,7 @@ function productThumb(purchase: AnyRec): string {
   const prod = productOf(purchase)
   if (!prod) return ''
   const raw = firstUrl(prod.product_url)
-  if (!raw) return ''
-  if (!isStoragePath(raw)) return raw
-  if (signedUrlMap[prod.id]) return signedUrlMap[prod.id]
-  if (!signingBusy[prod.id]) {
-    signingBusy[prod.id] = true
-    supabase.storage
-      .from('prize_product')
-      .createSignedUrl(raw, 3600)
-      .then(({ data, error }) => {
-        if (!error && data?.signedUrl) signedUrlMap[prod.id] = data.signedUrl
-      })
-      .finally(() => (signingBusy[prod.id] = false))
-  }
-  return ''
+  return raw && !isStoragePath(raw) ? raw : (signedUrlMap[prod.id] || '')
 }
 
 /* ---- NEW: Product meta helpers for modal (desc • warranty • specs) ---- */
@@ -1075,9 +1257,23 @@ async function autocloseOverdue(uid: string) {
   }
 }
 
-/** ========= DISCOUNT (refund_lock + event.interest_per_player + discounted_price column) ========= */
-/** Map of reference_number (which equals event_id) -> interest_per_player */
-const refDiscount: Record<string, number> = reactive({})
+/** ========= DISCOUNT (refund_lock + event.interest_per_player + discounted_price column + redemptions) ========= */
+const refDiscount: Record<string, number> = reactive({}) // event.interest_per_player fallback
+const refRedeemedTotal: Record<string, number> = reactive({}) // NEW: total redeemed_amount per ref
+const refShippingTotal: Record<string, number> = reactive({}) // NEW: total shipping per ref
+
+/** ===== NEW: discount metadata (title + %/amount) per ref ===== */
+type Discount = {
+  id: string
+  title: string
+  percent_off: number | null
+  amount_off: number | null
+}
+const discountsById = reactive<Record<string, Discount>>({})
+const refDiscountIds = reactive<Record<string, string[]>>({})
+
+/** ===== NEW: Event meta (title) per ref ===== */
+const refEventTitle: Record<string, string> = reactive({})
 
 /** Simple UUID check to avoid querying invalid refs */
 function isUuidLike(s: string): boolean {
@@ -1091,40 +1287,63 @@ function hasItemLevelDiscount(purchase: AnyRec): boolean {
   return Number.isFinite(dp) && dp >= 0 && dp < base
 }
 
-/** New: true if any item in the ref has discounted_price; otherwise fallback to refDiscount map */
+/** NEW: check if a ref is discounted either via per-item dp, redemption total, or event offset */
 function refHasDiscount(ref?: string): boolean {
   if (!ref) return false
-  // Prefer row-level discounted_price
   if (
     purchases.value.some((p) => (p.reference_number || p.id) === ref && hasItemLevelDiscount(p))
   ) {
     return true
   }
-  // Fallback: previous event-based discount flag
+  if ((refRedeemedTotal[ref] || 0) > 0) return true
   return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
 }
 
-/** Unit price to display when discounted: prefer purchase.discounted_price; else original - interest_per_player */
+/** Base group total WITHOUT shipping; helper for proportional redemption calc */
+function baseGroupTotalByRef(ref: string): number {
+  const rows = purchases.value.filter((p) => (p.reference_number || p.id) === ref)
+  return rows.reduce((sum, it) => {
+    const q = Number(it?.qty ?? 1) || 1
+    return sum + q * productPrice(it)
+  }, 0)
+}
+
+/** Unit price when discounted */
 function discountedUnitPrice(purchase: AnyRec): number {
   if (hasItemLevelDiscount(purchase)) {
     return Number(purchase.discounted_price)
   }
   const ref = purchase?.reference_number || purchase?.id
-  const off = refDiscount[ref] || 0
   const base = productPrice(purchase)
+  const qty = Number(purchase?.qty ?? 1) || 1
+
+  const redeemed = refRedeemedTotal[ref] || 0
+  if (redeemed > 0) {
+    const groupBase = baseGroupTotalByRef(ref)
+    if (groupBase > 0) {
+      const myBaseSubtotal = base * qty
+      const myDiscountShare = (redeemed * myBaseSubtotal) / groupBase
+      const unitLess = myDiscountShare / qty
+      const out = base - unitLess
+      return out > 0 ? out : 0
+    }
+  }
+
+  const off = refDiscount[ref] || 0
   const out = base - off
   return out > 0 ? out : 0
 }
 
-/** Group discounted total */
+/** Group discounted total (adds shipping if any) */
 function groupTotalDiscounted(g: Group): number {
-  return g.items.reduce((sum, it) => {
+  const items = g.items.reduce((sum, it) => {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * discountedUnitPrice(it)
   }, 0)
+  return items + (refShippingTotal[g.ref] || 0)
 }
 
-/** Load all purchases + products + RR rows + refund_lock + event (for discounts) */
+/** Load all data (+ event title detection) */
 async function loadPurchases() {
   busy.value.load = true
   try {
@@ -1133,8 +1352,12 @@ async function loadPurchases() {
     if (!uid) {
       purchases.value = []
       Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
-      // also clear discounts
       Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
+      Object.keys(refRedeemedTotal).forEach((k) => delete refRedeemedTotal[k])
+      Object.keys(refShippingTotal).forEach((k) => delete refShippingTotal[k])
+      Object.keys(discountsById).forEach((k) => delete discountsById[k])
+      Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
+      Object.keys(refEventTitle).forEach((k) => delete refEventTitle[k])
       return
     }
 
@@ -1142,7 +1365,6 @@ async function loadPurchases() {
       .schema('games')
       .from('purchases')
       .select(
-        // ✅ include discounted_price
         'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price',
       )
       .eq('user_id', uid)
@@ -1151,6 +1373,11 @@ async function loadPurchases() {
       purchases.value = []
       Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
       Object.keys(refDiscount).forEach((k) => delete refDiscount[k])
+      Object.keys(refRedeemedTotal).forEach((k) => delete refRedeemedTotal[k])
+      Object.keys(refShippingTotal).forEach((k) => delete refShippingTotal[k])
+      Object.keys(discountsById).forEach((k) => delete discountsById[k])
+      Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
+      Object.keys(refEventTitle).forEach((k) => delete refEventTitle[k])
       return
     }
     purchases.value = Array.isArray(data) ? data : []
@@ -1163,7 +1390,6 @@ async function loadPurchases() {
       const { data: prows, error: perr } = await supabase
         .schema('games')
         .from('products')
-        // ✅ include description (already), warranty, specifications
         .select('id,name,description,price,product_url,warranty,specifications')
         .in('id', ids)
       if (!perr && Array.isArray(prows)) {
@@ -1241,6 +1467,95 @@ async function loadPurchases() {
               if (!isNaN(off)) refDiscount[ev.id] = off
             }
           }
+        }
+      }
+
+      // ===== NEW: Direct event lookup by ref to capture event titles (and fallback discount amount) =====
+      const { data: eventsByRef, error: evMetaErr } = await supabase
+        .schema('games')
+        .from('event')
+        .select('id,title,name,interest_per_player')
+        .in('id', uuidRefs)
+
+      if (!evMetaErr && Array.isArray(eventsByRef)) {
+        for (const ev of eventsByRef as Array<any>) {
+          const evId = ev.id as string
+          const title = (ev.title || ev.name || 'Event').toString()
+          refEventTitle[evId] = title
+          const off = Number(ev.interest_per_player ?? NaN)
+          if (!isNaN(off) && off > 0) refDiscount[evId] = off
+        }
+      }
+    }
+
+    // ===== NEW: Discount Redemptions (per user, per purchase) -> aggregate by reference_number =====
+    Object.keys(refRedeemedTotal).forEach((k) => delete refRedeemedTotal[k])
+    Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
+    const allDiscountIds = new Set<string>()
+
+    if (purchaseIds.length) {
+      const { data: redRows, error: redErr } = await supabase
+        .schema('rewards')
+        .from('discount_redemptions')
+        .select('purchase_id,redeemed_amount,discount_id')
+        .eq('user_id', uid)
+        .in('purchase_id', purchaseIds)
+
+      if (!redErr && Array.isArray(redRows)) {
+        // map purchase_id -> ref
+        const pidToRef = new Map<string, string>()
+        for (const r of purchases.value) {
+          pidToRef.set(r.id, r.reference_number || r.id)
+        }
+        for (const r of redRows as Array<{ purchase_id: string; redeemed_amount: any; discount_id?: string }>) {
+          const ref = pidToRef.get(r.purchase_id)
+          if (!ref) continue
+          const amt = Number(r.redeemed_amount ?? 0) || 0
+          refRedeemedTotal[ref] = (refRedeemedTotal[ref] || 0) + amt
+
+          const did = (r as any).discount_id as string | undefined
+          if (did) {
+            allDiscountIds.add(did)
+            if (!refDiscountIds[ref]) refDiscountIds[ref] = []
+            if (!refDiscountIds[ref].includes(did)) refDiscountIds[ref].push(did)
+          }
+        }
+      }
+
+      // Fetch discount metadata
+      if (allDiscountIds.size) {
+        const { data: drows, error: derr } = await supabase
+          .schema('rewards')
+          .from('discounts')
+          .select('id,title,percent_off,amount_off')
+          .in('id', Array.from(allDiscountIds))
+        if (!derr && Array.isArray(drows)) {
+          for (const d of drows as Array<any>) {
+            discountsById[d.id] = {
+              id: d.id,
+              title: d.title,
+              percent_off: d.percent_off ?? null,
+              amount_off: d.amount_off ?? null,
+            }
+          }
+        }
+      }
+    }
+
+    // ===== NEW: Shipping charges per reference_number =====
+    Object.keys(refShippingTotal).forEach((k) => delete refShippingTotal[k])
+    if (refs.length) {
+      const { data: shipRows, error: shipErr } = await supabase
+        .schema('games')
+        .from('shipping_charges')
+        .select('reference_number,amount')
+        .in('reference_number', refs)
+
+      if (!shipErr && Array.isArray(shipRows)) {
+        for (const sr of shipRows as Array<{ reference_number: string; amount: any }>) {
+          const ref = sr.reference_number
+          const amt = Number(sr.amount ?? 0) || 0
+          refShippingTotal[ref] = (refShippingTotal[ref] || 0) + amt
         }
       }
     }
@@ -1373,9 +1688,7 @@ const formatDate = (iso?: string) => {
       'Nov',
       'Dec',
     ]
-    const mon = months[d.getMonth()],
-      day = d.getDate(),
-      year = d.getFullYear()
+    const mon = months[d.getMonth()], day = d.getDate(), year = d.getFullYear()
     let h = d.getHours()
     const ampm = h >= 12 ? 'PM' : 'AM'
     h = h % 12
@@ -1424,11 +1737,31 @@ function prettyStatusWithRR(s?: string, purchaseId?: string, group?: Group): str
   const base = prettyStatus(s)
   const k = (s || '') as Status
   if (k !== STATUS.RETURN_REFUND) return base
-  // prefer item-level rr status if purchaseId present
   let rr: RRState | undefined
   if (purchaseId) rr = rrStatus(purchaseId)
   if (!rr && group?.rrBadge) rr = group.rrBadge
   return rr ? `${base} • ${capitalize(rr)}` : base
+}
+
+/** ===== NEW: discount & event UI helpers ===== */
+function discountsForRef(ref: string): Discount[] {
+  const ids = refDiscountIds[ref] || []
+  return ids.map((id) => discountsById[id]).filter(Boolean)
+}
+function discountLabel(d: Discount): string {
+  const pct = d.percent_off
+  const amt = d.amount_off
+  if (typeof pct === 'number' && pct > 0) {
+    const whole = Math.round(pct)
+    return `${Math.abs(pct - whole) < 1e-6 ? whole : pct.toFixed(2)}% OFF`
+  }
+  if (typeof amt === 'number' && amt > 0) {
+    return `₱ ${number(amt)} OFF`
+  }
+  return 'Discount Applied'
+}
+function eventTitleForRef(ref: string): string {
+  return refEventTitle[ref] || ''
 }
 
 /** Navigation & actions */
@@ -1448,21 +1781,46 @@ async function goToReturnTab(refNo?: string) {
 async function goRefundOtherProducts(g: Group) {
   activeTab.value = STATUS.TO_RECEIVE
   await nextTick()
-  // Re-find the group by ref from current purchases, then open the modal
   const groups = buildGroups(purchases.value)
   const found = groups.find((x) => x.ref === g.ref)
   if (found) openReturnRefundGroup(found)
 }
 
-function groupTotal(g: Group): number {
-  return g.items.reduce((sum, it) => {
-    const q = Number(it?.qty ?? 1) || 1
-    const pr = productPrice(it)
-    return sum + q * pr
-  }, 0)
+/** Shipping helper (per ref) */
+function shippingFor(ref: string): number {
+  return Number(refShippingTotal[ref] || 0)
 }
 
-/** New helpers for To Receive logic */
+function groupTotal(g: Group): number {
+  const items = g.items.reduce((sum, it) => {
+    const q = Number(it?.qty ?? 1) || 1
+    return sum + q * productPrice(it)
+  }, 0)
+  return items + shippingFor(g.ref) // include shipping in subtotal
+}
+
+/** ===================== PRICE BREAKDOWN HELPERS ===================== */
+function groupItemsBaseTotal(g: Group): number {
+  return g.items.reduce((sum, it) => {
+    const q = Number(it?.qty ?? 1) || 1
+    return sum + q * productPrice(it)
+  }, 0)
+}
+function groupItemsDiscountedTotal(g: Group): number {
+  return g.items.reduce((sum, it) => {
+    const q = Number(it?.qty ?? 1) || 1
+    return sum + q * discountedUnitPrice(it)
+  }, 0)
+}
+function groupDiscountAmount(g: Group): number {
+  if (!refHasDiscount(g.ref)) return 0
+  const base = groupItemsBaseTotal(g)
+  const disc = groupItemsDiscountedTotal(g)
+  const diff = base - disc
+  return diff > 0 ? diff : 0
+}
+
+/** To Receive logic */
 function groupToReceiveCount(g: Group): number {
   return g.items.filter((it) => it.status === STATUS.TO_RECEIVE).length
 }
@@ -1799,7 +2157,6 @@ async function createOrderReceiptForIds(ids: string[]) {
     const idSet = new Set(ids)
     const rows: Array<{ amount: number; reference_number: string; purchase_id: string }> = []
 
-    // Build rows from local purchase cache, respecting discounts per reference
     const byRef = new Map<string, AnyRec[]>()
     for (const p of purchases.value) {
       if (!idSet.has(p.id)) continue
@@ -1829,10 +2186,6 @@ async function createOrderReceiptForIds(ids: string[]) {
 /* =============================== */
 /* === NEW: STOCK RESTORATION  === */
 /* =============================== */
-
-/**
- * Aggregate entries by product_id so we only hit the DB once per product.
- */
 function aggregateByProduct(entries: Array<{ product_id: string; qty: number }>) {
   const map = new Map<string, number>()
   for (const e of entries) {
@@ -1843,18 +2196,9 @@ function aggregateByProduct(entries: Array<{ product_id: string; qty: number }>)
   return Array.from(map.entries()).map(([product_id, qty]) => ({ product_id, qty }))
 }
 
-/**
- * Safely increments games.products.stock by `delta` for a given product.
- * This is a read-then-update (two queries). If you want full atomicity under race,
- * consider creating a small SQL RPC like:
- *   CREATE OR REPLACE FUNCTION games.increment_stock(pid uuid, by_qty int) RETURNS void AS $$
- *   UPDATE games.products SET stock = stock + by_qty WHERE id = pid;
- *   $$ LANGUAGE sql;
- */
 async function adjustProductStock(productId: string, delta: number) {
   if (!productId || !Number.isFinite(delta) || delta === 0) return
 
-  // Read current stock
   const { data: row, error: selErr } = await supabase
     .schema('games')
     .from('products')
@@ -1886,18 +2230,12 @@ async function adjustProductStock(productId: string, delta: number) {
   }
 }
 
-/**
- * Restores stock for a list of entries (product_id + qty). Quantities are aggregated per product.
- * Example:
- *   await restoreStock([{ product_id, qty }])
- */
 async function restoreStock(entries: Array<{ product_id: string; qty: number }>) {
   if (!Array.isArray(entries) || entries.length === 0) return
   const reduced = aggregateByProduct(entries)
   for (const e of reduced) {
     const inc = Number(e.qty) || 0
     if (inc > 0) {
-      // increase stock by qty
       await adjustProductStock(e.product_id, inc)
     }
   }
@@ -1906,17 +2244,11 @@ async function restoreStock(entries: Array<{ product_id: string; qty: number }>)
 /* =============================== */
 /* === NEW: ORDER RECEIVED BTN === */
 /* =============================== */
-
-/**
- * Marks all TO_RECEIVE items in the group as COMPLETED and creates order receipts.
- * Respects discounted prices via refHasDiscount/discountedUnitPrice helpers.
- */
 async function orderReceivedGroup(g: Group) {
   const toReceiveIds = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
   if (!toReceiveIds.length) return
   groupBusy.received[g.ref] = true
   try {
-    // Update DB
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
@@ -1929,7 +2261,6 @@ async function orderReceivedGroup(g: Group) {
     }
     const updatedIds: string[] = Array.isArray(data) ? data.map((r: AnyRec) => r.id) : toReceiveIds
 
-    // Local state update
     const idSet = new Set(updatedIds)
     for (const row of purchases.value) {
       if (idSet.has(row.id)) {
@@ -1938,7 +2269,6 @@ async function orderReceivedGroup(g: Group) {
       }
     }
 
-    // Insert ewallet receipts for just-completed items (discount-aware)
     await createOrderReceiptForGroupCompleted(g, updatedIds)
   } finally {
     groupBusy.received[g.ref] = false
@@ -1948,23 +2278,18 @@ async function orderReceivedGroup(g: Group) {
 /* =============================== */
 /* === NEW: QTY/SUBTOTAL HELPERS === */
 /* =============================== */
-
-/** Returns unit price for a purchase respecting ref-level or row-level discount logic */
 function unitPriceFor(purchase: AnyRec): number {
   const ref = purchase?.reference_number || purchase?.id
   return refHasDiscount(ref) ? discountedUnitPrice(purchase) : productPrice(purchase)
 }
-
-/** Returns subtotal = qty * unit price */
 function subtotalFor(purchase: AnyRec): number {
   const qty = Number(purchase?.qty ?? 1) || 1
   return qty * unitPriceFor(purchase)
 }
 
 /* =============================== */
-/* === NEW: GROUP DETAILS MODAL === */
+/* === GROUP DETAILS MODAL NAV  === */
 /* =============================== */
-
 const showGroupDetails = ref(false)
 const selectedRef = ref<string>('')
 const highlightPid = ref<string>('')
@@ -1980,11 +2305,9 @@ function openGroupDetails(g: Group, pid?: string) {
   highlightPid.value = pid || ''
   showGroupDetails.value = true
 
-  // ✅ Update URL query with ONLY ?ref=... (no &pid=...)
   const nextQuery: Record<string, any> = { ...route.query, ref: g.ref }
   router.replace({ query: nextQuery })
 
-  // Still scroll to the clicked item (without putting pid in the URL)
   nextTick(() => {
     if (pid) {
       const el = document.getElementById('pid-' + pid)
@@ -1997,20 +2320,18 @@ function closeGroupDetails() {
   showGroupDetails.value = false
   selectedRef.value = ''
   highlightPid.value = ''
-  // Remove query params
   const nextQuery: Record<string, any> = { ...route.query }
   delete nextQuery.ref
   delete nextQuery.pid
   router.replace({ query: nextQuery })
 }
 
-/** Deep-link handling: open modal if ?ref=... (and optional ?pid=...) is present */
+/** Deep-link handling */
 watch(
   () => route.query.ref,
   (newRef) => {
     const refStr = typeof newRef === 'string' ? newRef : ''
     if (!refStr) {
-      // If URL no longer has ref, close the modal
       if (showGroupDetails.value) closeGroupDetails()
       return
     }
@@ -2033,6 +2354,21 @@ watch(
 
 onMounted(() => {
   loadPurchases()
+  // lazy sign images if needed
+  for (const id in productsMap) {
+    const prod = productsMap[id]
+    const raw = firstUrl(prod.product_url)
+    if (raw && isStoragePath(raw) && !signedUrlMap[prod.id] && !signingBusy[prod.id]) {
+      signingBusy[prod.id] = true
+      supabase.storage
+        .from('prize_product')
+        .createSignedUrl(raw, 3600)
+        .then(({ data, error }) => {
+          if (!error && data?.signedUrl) signedUrlMap[prod.id] = data.signedUrl
+        })
+        .finally(() => (signingBusy[prod.id] = false))
+    }
+  }
 })
 </script>
 
@@ -2129,5 +2465,112 @@ onMounted(() => {
   font-size: 0.85rem;
   color: #6c757d;
   word-break: break-word;
+}
+
+/* ===== TICKET SHAPES (blended with Bootstrap) ===== */
+.discount-ticket,
+.event-ticket {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #f8f9fa;            /* blends with site */
+  border: 1px dashed #e9ecef;     /* subtle perforation */
+  border-radius: 12px;
+  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.04);
+  color: #212529;
+}
+
+.discount-ticket::before,
+.discount-ticket::after,
+.event-ticket::before,
+.event-ticket::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 14px;
+  height: 14px;
+  background: #ffffff;            /* card bg */
+  border: 1px solid #e9ecef;
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+.discount-ticket::before,
+.event-ticket::before { left: -7px; }
+.discount-ticket::after,
+.event-ticket::after { right: -7px; }
+
+.ticket-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.ticket-title {
+  max-width: 36ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ticket-divider {
+  height: 20px;
+  width: 0;
+  border-left: 1px dashed #e9ecef;
+}
+.ticket-right {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.ticket-value {
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+
+/* Subtle tags tuned to Bootstrap palette */
+.ticket-tag {
+  font-size: 0.7rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid #e9ecef;
+  background: #ffffff;
+  color: #6c757d;
+}
+.ticket-tag--event {
+  border-color: #cfe2ff;
+  background: #f8faff;
+  color: #0d6efd;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .discount-ticket,
+  .event-ticket {
+    background: #212529;
+    color: #e9ecef;
+    border-color: #343a40;
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.3);
+  }
+  .discount-ticket::before,
+  .discount-ticket::after,
+  .event-ticket::before,
+  .event-ticket::after {
+    background: #0f141a;
+    border-color: #343a40;
+  }
+  .ticket-divider {
+    border-left-color: #343a40;
+  }
+  .ticket-tag {
+    border-color: #343a40;
+    background: #0f141a;
+    color: #adb5bd;
+  }
+  .ticket-tag--event {
+    border-color: #1d3b64;
+    background: #0f1d33;
+    color: #9ec5fe;
+  }
 }
 </style>
