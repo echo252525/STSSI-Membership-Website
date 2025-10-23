@@ -184,6 +184,7 @@
                       </label>
                     </div>
 
+                    <!-- Only when NOT published -->
                     <div class="d-flex gap-2" v-if="!p.ispublish">
                       <button class="btn btn-sm btn-outline-secondary" @click.stop="openEdit(p)">
                         <i class="bi bi-pencil-square me-1"></i>Edit
@@ -286,6 +287,20 @@
                 <div class="form-text" v-if="supplierOk">
                   Must be strictly lower than the selling price.
                 </div>
+              </div>
+
+              <!-- NEW: Stock -->
+              <div class="col-md-6">
+                <label class="form-label">Stock (units)</label>
+                <input
+                  v-model.number="form.stock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="form-control"
+                  placeholder="0"
+                />
+                <div class="form-text">Leave 0 if not tracking inventory.</div>
               </div>
 
               <div class="col-md-6">
@@ -633,7 +648,12 @@
                 <button class="btn btn-outline-secondary btn-sm" @click="openEdit(viewItem!)">
                   <i class="bi bi-pencil-square me-1"></i>Edit
                 </button>
-                <button class="btn btn-outline-danger btn-sm" @click="deleteProduct(viewItem!)">
+                <!-- Only show Delete when NOT published -->
+                <button
+                  v-if="!viewItem.ispublish"
+                  class="btn btn-outline-danger btn-sm"
+                  @click="deleteProduct(viewItem!)"
+                >
                   <i class="bi bi-trash me-1"></i>Delete
                 </button>
               </div>
@@ -691,6 +711,19 @@
                   required
                 />
                 <div class="invalid-feedback">Supplier price must be &lt; Price and ≥ 0.</div>
+              </div>
+
+              <!-- NEW: Stock (Edit) -->
+              <div class="col-md-6">
+                <label class="form-label">Stock (units)</label>
+                <input
+                  v-model.number="editForm.stock"
+                  type="number"
+                  min="0"
+                  step="1"
+                  class="form-control"
+                  placeholder="0"
+                />
               </div>
 
               <div class="col-12">
@@ -918,6 +951,7 @@ type ProductRow = {
   product_url: string[]
   warranty?: string | null
   specifications?: any | null
+  stock: number | string
   created_at: string
   updated_at: string
   ispublish: boolean
@@ -994,6 +1028,7 @@ const form = reactive({
   product_urls: [''] as string[],
   warranty: '' as string,
   specList: [] as SpecRow[], // rows only
+  stock: 0 as number | string, // NEW
 })
 
 /** helpers */
@@ -1089,7 +1124,7 @@ async function loadProducts() {
     .schema('games')
     .from('products')
     .select(
-      'id, name, description, price, supplier_price, product_url, warranty, specifications, created_at, updated_at, ispublish',
+      'id, name, description, price, supplier_price, product_url, warranty, specifications, stock, created_at, updated_at, ispublish',
     )
     .order('created_at', { ascending: false })
 
@@ -1102,6 +1137,7 @@ async function loadProducts() {
           ? [row.product_url]
           : [],
       ispublish: !!row.ispublish,
+      stock: Number(row.stock ?? 0),
     })) as ProductRow[]
   }
   loading.value = false
@@ -1123,6 +1159,7 @@ function resetForm() {
   form.product_urls = ['']
   form.warranty = ''
   form.specList = []
+  form.stock = 0
   // clear files + revoke previews
   selectedFiles.value = []
   filePreviews.value.forEach((p) => URL.revokeObjectURL(p.url))
@@ -1309,6 +1346,7 @@ async function submit() {
       product_url: urls,
       warranty: form.warranty?.trim() || null,
       specifications: Object.keys(specificationsObj).length ? specificationsObj : null,
+      stock: Number(form.stock ?? 0), // NEW
     }
 
     if (!(payload.supplier_price >= 0 && payload.supplier_price < payload.price)) {
@@ -1482,6 +1520,7 @@ const editForm = reactive({
   supplier_price: 0 as number | string,
   warranty: '',
   specList: [] as SpecRow[],
+  stock: 0 as number | string, // NEW
 })
 
 function openEdit(p: ProductRow) {
@@ -1494,6 +1533,7 @@ function openEdit(p: ProductRow) {
   editForm.price = Number(p.price ?? 0)
   editForm.supplier_price = Number(p.supplier_price ?? 0)
   editForm.warranty = p.warranty ?? ''
+  editForm.stock = Number(p.stock ?? 0)
   try {
     const obj = p.specifications && typeof p.specifications === 'object' ? p.specifications : null
     editForm.specList = objectToRows(obj)
@@ -1665,6 +1705,7 @@ async function saveEdit() {
       warranty: editForm.warranty?.trim() || null,
       specifications: Object.keys(specificationsObj).length ? specificationsObj : null,
       product_url: finalUrls,
+      stock: Number(editForm.stock ?? 0), // NEW
     }
 
     if (!(payload.supplier_price >= 0 && payload.supplier_price < payload.price)) {
@@ -2086,4 +2127,3 @@ onMounted(() => {
   }
 }
 </style>
-  

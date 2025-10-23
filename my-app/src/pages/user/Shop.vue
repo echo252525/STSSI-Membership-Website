@@ -246,7 +246,11 @@
 
           <!-- 2 / 3 / 4 cards per row -->
           <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id">
-            <div class="card h-100 product-card border-0 shadow-sm">
+            <div
+              class="card h-100 product-card border-0 shadow-sm product-card--clickable"
+              @click="openProductModal(p)"
+              tabindex="0"
+            >
               <div class="ratio product-thumb bg-light">
                 <div
                   v-if="hasMultipleImages(p)"
@@ -339,7 +343,7 @@
                     <button
                       type="button"
                       class="btn btn-outline-secondary"
-                      @click="decQty(p)"
+                      @click.stop="decQty(p)"
                       :disabled="cartQty(p.id) <= 1"
                     >
                       <i class="bi bi-dash"></i>
@@ -352,7 +356,7 @@
                     <button
                       type="button"
                       class="btn btn-outline-secondary"
-                      @click="incQty(p)"
+                      @click.stop="incQty(p)"
                       :disabled="p.stock != null ? cartQty(p.id) >= Number(p.stock) : false"
                     >
                       <i class="bi bi-plus"></i>
@@ -361,7 +365,7 @@
                   <button
                     class="btn btn-primary"
                     :disabled="(p.stock ?? 0) <= 0 || addToCartBusy[p.id]"
-                    @click="onAddToCart($event, p)"
+                    @click.stop="onAddToCart($event, p)"
                   >
                     <span
                       v-if="addToCartBusy[p.id]"
@@ -807,6 +811,178 @@
         </div>
       </div>
     </div>
+
+    <!-- === NEW: Product Details Modal === -->
+    <div v-if="showProductModal && productModal" class="modal-backdrop-custom">
+      <div class="modal-card card shadow-lg product-modal-card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Product Details</strong>
+          <button class="btn btn-sm btn-outline-secondary" @click="closeProductModal">✕</button>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+            <!-- Gallery -->
+            <div class="col-12 col-lg-6">
+              <div
+                class="ratio product-modal-thumb bg-light"
+                ref="productModalThumbRef"
+              >
+                <div
+                  v-if="hasMultipleImages(productModal)"
+                  class="carousel-thumb"
+                  @touchstart.passive="onTouchStart($event, productModal.id)"
+                  @touchend.passive="onTouchEnd($event, productModal.id)"
+                >
+                  <div class="slides">
+                    <img
+                      v-for="(u, i) in productImages(productModal)"
+                      :key="i"
+                      :src="u"
+                      :alt="productModal.name"
+                      class="slide-img"
+                      :class="{ 'slide-img--active': currentSlide(productModal.id) === i }"
+                    />
+                  </div>
+                  <div class="dots">
+                    <span
+                      class="dot"
+                      v-for="(u, i) in productImages(productModal)"
+                      :key="'md' + i"
+                      :class="{ active: currentSlide(productModal.id) === i }"
+                      @click.stop="goToSlide(productModal.id, i)"
+                      aria-label="Go to image"
+                    ></span>
+                  </div>
+                  <button
+                    class="nav left"
+                    @click.stop="prevSlide(productModal.id)"
+                    aria-label="Previous image"
+                  >
+                    <i class="bi bi-chevron-left"></i>
+                  </button>
+                  <button
+                    class="nav right"
+                    @click.stop="nextSlide(productModal.id)"
+                    aria-label="Next image"
+                  >
+                    <i class="bi bi-chevron-right"></i>
+                  </button>
+                </div>
+
+                <img
+                  v-else-if="imageUrl(productModal)"
+                  :src="imageUrl(productModal)"
+                  :alt="productModal.name"
+                  class="w-100 h-100 object-fit-cover rounded-top product-img"
+                />
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted product-img-fallback"
+                >
+                  <i class="bi bi-image fs-3"></i>
+                </div>
+              </div>
+            </div>
+
+            <!-- Details -->
+            <div class="col-12 col-lg-6">
+              <div class="d-flex align-items-start justify-content-between">
+                <h4 class="mb-1">{{ productModal.name }}</h4>
+                <span
+                  class="badge ms-2"
+                  :class="(productModal.stock ?? 0) > 0 ? 'text-bg-success' : 'text-bg-secondary'"
+                >
+                  Stock: {{ productModal.stock ?? 0 }}
+                </span>
+              </div>
+
+              <div class="mb-3">
+                <div class="fs-5 fw-semibold">
+                  <template v-if="hasMemberDiscount && canDiscountProduct(productModal)">
+                    <span class="text-muted text-decoration-line-through me-2">
+                      ₱ {{ number(productModal.price) }}
+                    </span>
+                    <span>₱ {{ number(discountedPrice(productModal.price)) }}</span>
+                    <span class="badge ms-2 text-bg-warning">-{{ discountLabel }}</span>
+                  </template>
+                  <template v-else>
+                    ₱ {{ number(productModal.price) }}
+                  </template>
+                </div>
+              </div>
+
+              <div class="mb-3" v-if="productModal.description">
+                <div class="fw-semibold mb-1">Description</div>
+                <div class="text-muted">{{ productModal.description }}</div>
+              </div>
+
+              <!-- NEW: Warranty -->
+              <div class="mb-3" v-if="productModal.warranty">
+                <div class="fw-semibold mb-1">Warranty</div>
+                <div class="text-muted">{{ productModal.warranty }}</div>
+              </div>
+
+              <!-- NEW: Specifications (JSON) -->
+              <div class="mb-3" v-if="hasSpecs(productModal)">
+                <div class="fw-semibold mb-1">Specifications</div>
+                <table class="table table-sm table-borderless specs-table">
+                  <tbody>
+                    <tr v-for="(pair, idx) in getSpecs(productModal)" :key="idx">
+                      <th class="text-muted small">{{ pair[0] }}</th>
+                      <td class="small">{{ pair[1] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <div class="d-grid gap-2">
+                <div class="input-group input-group-sm" style="max-width: 240px">
+                  <span class="input-group-text">Qty</span>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    @click="decQty(productModal)"
+                    :disabled="cartQty(productModal.id) <= 1"
+                  >
+                    <i class="bi bi-dash"></i>
+                  </button>
+                  <input
+                    class="form-control text-center qty-field"
+                    :value="cartQty(productModal.id)"
+                    readonly
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary"
+                    @click="incQty(productModal)"
+                    :disabled="productModal.stock != null ? cartQty(productModal.id) >= Number(productModal.stock) : false"
+                  >
+                    <i class="bi bi-plus"></i>
+                  </button>
+                </div>
+
+                <button
+                  class="btn btn-primary"
+                  :disabled="(productModal.stock ?? 0) <= 0 || addToCartBusy[productModal.id]"
+                  @click="onAddToCartFromModal($event)"
+                >
+                  <span
+                    v-if="addToCartBusy[productModal.id]"
+                    class="spinner-border spinner-border-sm me-2"
+                  ></span>
+                  Add to cart
+                </button>
+              </div>
+
+              <div class="mt-3 small text-muted">
+                <i class="bi bi-shield-check me-1"></i>Published: {{ productModal.ispublish ? 'Yes' : 'No' }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- === END Product Details Modal === -->
   </div>
 </template>
 
@@ -835,6 +1011,9 @@ type Product = {
   ispublish: boolean
   stock?: number | null
   created_at: string
+  /** NEW: additional columns */
+  specifications?: Record<string, any> | string | null
+  warranty?: string | null
 }
 
 type CartRow = {
@@ -1486,7 +1665,7 @@ async function loadCartDetails() {
   const { data: prodRows, error: prodErr } = await supabase
     .schema('games')
     .from('products')
-    .select('id,name,description,price,product_url,ispublish,stock,created_at')
+    .select('id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty')
     .in('id', ids)
 
   if (prodErr || !prodRows) return
@@ -2230,21 +2409,48 @@ async function placeOrder() {
     }
 
     // ===== NEW: persist shipping charge =====
-    try {
-      const addrSnap = buildAddressString(shipping.value)
-      const { error: shipErr } = await supabase
-        .schema('games')
-        .from('shipping_charges')
-        .insert([{
-          reference_number: batchReference,
-          amount: Number(effectiveShippingFee.value.toFixed(2)),
-          currency: shippingCurrency.value || 'PHP',
-          address_snapshot: `${shipping.value.phone} • ${addrSnap}`,
-        }])
-      if (shipErr) console.warn('[shipping_charges insert failed]', shipErr.message)
-    } catch (e) {
-      console.warn('[shipping_charges insert exception]', e)
-    }
+    // ===== NEW: persist shipping charge =====
+try {
+  const addrSnap = buildAddressString(shipping.value)
+  const { error: shipErr } = await supabase
+    .schema('games')
+    .from('shipping_charges')
+    .insert([{
+      reference_number: batchReference,
+      amount: Number(effectiveShippingFee.value.toFixed(2)),
+      currency: shippingCurrency.value || 'PHP',
+      address_snapshot: `${shipping.value.phone} • ${addrSnap}`,
+      purchase_id: firstPurchaseId, // ✅ NEW
+    }])
+  if (shipErr) console.warn('[shipping_charges insert failed]', shipErr.message)
+} catch (e) {
+  console.warn('[shipping_charges insert exception]', e)
+}
+
+
+    // ==== NEW: Push the order to AfterShip Commerce ====
+try {
+  const discountTotalForAftership =
+    (discountMode.value === 'discount' ? orderDiscountAmt : 0) +
+    (discountMode.value === 'credits'  ? totalDiscountCreditsUsed.value : 0);
+
+  await pushOrderToAfterShip({
+    batchReference,
+    lines,                                  // the LineDraft[] you already built earlier
+    finalSubtotal: finalTotal,              // items after discounts, before shipping
+    shippingFee: effectiveShippingFee.value,
+    discountTotal: discountTotalForAftership,
+    shipping: shipping.value,
+    isPaid: paymentMethod.value === 'ewallet',
+    currency: 'PHP',
+    // Optional:
+    customerName: null,
+    customerEmail: null,
+  });
+} catch (e) {
+  console.warn('[AfterShip push failed]', e);
+}
+
 
     // Discount credits deduction path
     if (discountMode.value === 'credits') {
@@ -2384,7 +2590,7 @@ async function fetchProducts() {
   let query = supabase
     .schema('games')
     .from('products')
-    .select('id,name,description,price,product_url,ispublish,stock,created_at', { count: 'exact' })
+    .select('id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty', { count: 'exact' })
     .eq('ispublish', true)
 
   if (inStockOnly.value) query = query.gt('stock', 0)
@@ -2563,6 +2769,132 @@ watch([discountMode, selectedDiscountId, resolvedDiscountByCode], () => {
 watch(showShipping, (isOpen) => {
   if (isOpen) scheduleShippingQuote()
 })
+
+/* ==== NEW: AfterShip push helper ==== */
+async function pushOrderToAfterShip(args: {
+  batchReference: string;
+  lines: Array<{
+    p: Product;
+    quantity: number;
+    unitBeforeOrder: number; // original unit price
+    lineBeforeOrder: number; // original unit * quantity
+    unitFinal: number;       // final unit price after per-line/order discounts
+  }>;
+  finalSubtotal: number;          // items total AFTER discounts, BEFORE shipping
+  shippingFee: number;            // effectiveShippingFee.value
+  discountTotal: number;          // full order discount (order-level + credits)
+  shipping: ShippingRow;
+  isPaid: boolean;                // paymentMethod === 'ewallet'
+  currency?: string;              // default 'PHP'
+  customerName?: string | null;   // optional
+  customerEmail?: string | null;  // optional
+}) {
+  const cur = args.currency || 'PHP';
+
+  const items = args.lines.map((ln, idx) => {
+    const perLineDiscount = Math.max(0, (ln.unitBeforeOrder - ln.unitFinal) * ln.quantity);
+    return {
+      id: `li_${idx + 1}`,
+      product_title: ln.p.name,
+      sku: ln.p.id,
+      quantity: ln.quantity,
+      unit_price: { currency: cur, amount: ln.unitFinal.toFixed(2) },
+      discount:   { currency: cur, amount: perLineDiscount.toFixed(2) },
+    };
+  });
+
+  const order = {
+    number: args.batchReference,
+    currency: cur,
+    status: 'open',
+    financial_status: args.isPaid ? 'paid' : 'unpaid',
+    fulfillment_status: 'unfulfilled',
+    subtotal:       { currency: cur, amount: args.finalSubtotal.toFixed(2) },
+    shipping_total: { currency: cur, amount: args.shippingFee.toFixed(2) },
+    discount_total: { currency: cur, amount: Math.max(0, args.discountTotal).toFixed(2) },
+    order_total:    { currency: cur, amount: (args.finalSubtotal + args.shippingFee).toFixed(2) },
+    items,
+    shipping_address: {
+      name: args.customerName ?? null,
+      phone: args.shipping.phone || null,
+      address1: args.shipping.address_line1 || null,
+      city: args.shipping.city || null,
+      region: args.shipping.province || null,
+      postal_code: args.shipping.postal_code || null,
+      country_region: 'PHL', // Philippines ISO-3166 alpha-3
+    },
+    customer: {
+      name: args.customerName ?? null,
+      email: args.customerEmail ?? null,
+      phone: args.shipping.phone || null,
+    },
+  };
+
+  const { data, error } = await supabase.functions.invoke('aftership_create_order', {
+    body: { order },
+  });
+
+  if (error) {
+    console.warn('[aftership_create_order] invoke error:', error.message);
+    return null;
+  }
+  if (!data?.ok) {
+    console.warn('[aftership_create_order] non-ok:', data);
+  }
+  return data;
+}
+
+/* ===== NEW: Product Details Modal State & Methods ===== */
+const showProductModal = ref(false)
+const productModal = ref<Product | null>(null)
+const productModalThumbRef = ref<HTMLElement | null>(null)
+
+function openProductModal(p: Product) {
+  productModal.value = p
+  // ensure images are signed/populated
+  productImages(p)
+  // reset slide to 0
+  slideIdx[p.id] = 0
+  showProductModal.value = true
+}
+function closeProductModal() {
+  showProductModal.value = false
+  productModal.value = null
+}
+async function onAddToCartFromModal(ev: MouseEvent) {
+  if (!productModal.value) return
+  await onAddToCart(ev, productModal.value)
+  // If original onAddToCart couldn't find a product-card, animate from the modal image
+  const el = productModalThumbRef.value
+  if (el) flyToCart(el)
+}
+
+/* ==== NEW: Specifications helpers ==== */
+function parseSpecs(raw: unknown): Record<string, any> {
+  if (raw == null) return {}
+  if (typeof raw === 'string') {
+    try {
+      const obj = JSON.parse(raw)
+      return obj && typeof obj === 'object' && !Array.isArray(obj) ? obj as Record<string, any> : {}
+    } catch {
+      return {}
+    }
+  }
+  if (typeof raw === 'object' && !Array.isArray(raw)) {
+    return raw as Record<string, any>
+  }
+  return {}
+}
+function getSpecs(p: Product | null | undefined): Array<[string, string]> {
+  if (!p) return []
+  const spec = parseSpecs(p.specifications as any)
+  return Object.entries(spec)
+    .map(([k, v]) => [k, String(v ?? '').trim()] as [string, string])
+    .filter(([, v]) => v.length > 0)
+}
+function hasSpecs(p: Product | null | undefined): boolean {
+  return getSpecs(p).length > 0
+}
 </script>
 
 <style scoped>
@@ -2603,6 +2935,7 @@ watch(showShipping, (isOpen) => {
   transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
 }
+.product-card--clickable { cursor: pointer; }
 
 .product-thumb {
   border-top-left-radius: var(--card-radius);
@@ -2731,6 +3064,29 @@ watch(showShipping, (isOpen) => {
 }
 .cart-added-badge--show { opacity: 1; transform: translateY(-8px); }
 
+/* === NEW: Product modal visuals === */
+.product-modal-card {
+  width: min(980px, 96vw);
+}
+.product-modal-thumb.ratio {
+  --bs-aspect-ratio: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.product-modal-card .carousel-thumb {
+  border-radius: 12px;
+}
 .opacity-50 { opacity: 0.5; }
 .pe-none { pointer-events: none; }
+
+/* NEW: Specifications table styling */
+.specs-table th {
+  width: 40%;
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 1rem;
+}
+.specs-table td {
+  word-break: break-word;
+}
 </style>

@@ -9,13 +9,7 @@
         </p>
       </div>
       <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-secondary btn-sm" :disabled="busy.load" @click="load(true)">
-          <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
-          Refresh
-        </button>
-        <button class="btn btn-primary btn-sm" @click="openCreate">
-          <i class="bi bi-plus-lg me-1"></i> New Tier
-        </button>
+        <!-- controls removed as requested: Refresh + New Tier -->
       </div>
     </div>
 
@@ -121,34 +115,14 @@
               >
                 Manage
               </button>
-              <button class="btn btn-outline-danger btn-sm" @click="openDelete(t)">Delete</button>
+              <!-- delete button removed as requested -->
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Pagination -->
-    <div class="card-body d-flex align-items-center justify-content-between px-0">
-      <div class="small text-muted">Showing {{ tiers.length }} of {{ total }}</div>
-      <div class="btn-group">
-        <button
-          class="btn btn-outline-secondary btn-sm"
-          :disabled="page === 1"
-          @click="page-- && load()"
-        >
-          <i class="bi bi-chevron-left"></i>
-        </button>
-        <button class="btn btn-outline-secondary btn-sm" disabled>{{ page }}</button>
-        <button
-          class="btn btn-outline-secondary btn-sm"
-          :disabled="page * pageSize >= total"
-          @click="page++ && load()"
-        >
-          <i class="bi bi-chevron-right"></i>
-        </button>
-      </div>
-    </div>
+    <!-- Pagination removed as requested -->
 
     <!-- Alerts -->
     <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</p>
@@ -330,7 +304,7 @@
       </div>
     </div>
 
-    <!-- Delete Modal -->
+    <!-- Delete Modal (left intact but unreachable without button) -->
     <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

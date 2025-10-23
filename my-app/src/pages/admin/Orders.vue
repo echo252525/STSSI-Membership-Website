@@ -7,10 +7,6 @@
         <p class="text-muted small mb-0">Manage customer orders, shipping, and fulfillment.</p>
       </div>
       <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-secondary btn-sm" :disabled="busy.load" @click="loadOrders(true)">
-          <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
-          Refresh
-        </button>
       </div>
     </div>
 
@@ -159,7 +155,12 @@
               </span>
 
               <!-- NEW: discount summary badge per reference -->
-              
+              <!-- /NEW -->
+
+              <!-- NEW: open modal button (per reference) -->
+              <button class="btn btn-outline-secondary btn-sm" @click="openGroupModal(g)">
+                <i class="bi bi-eye me-1"></i> View details
+              </button>
               <!-- /NEW -->
             </div>
           </div>
@@ -237,7 +238,7 @@
                 <div class="small text-muted">
                   ₱ {{ number(it.line_total) }}
                 </div>
-                
+                <!-- (Intentionally left: discounted totals are shown in modal / totals area) -->
               </div>
             </div>
           </div>
@@ -327,7 +328,6 @@
               </div>
 
               <div class="text-muted mt-1">
-                <!-- UPDATED: clean date/time -->
                 Created: {{ formatClean(rr.created_at) }}
               </div>
 
@@ -576,11 +576,275 @@
         <i class="bi bi-chevron-right"></i>
       </button>
     </div>
+
+    <!-- ===================================================== -->
+    <!-- NEW: ORDER DETAILS MODAL (per reference_number)       -->
+    <!-- ===================================================== -->
+    <div v-if="selectedRef && selectedGroup" class="orders-modal-overlay" @click.self="closeGroupModal">
+      <div class="orders-modal-card">
+        <!-- Modal header -->
+        <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
+          <div>
+            <div class="fw-semibold">
+              Order Details — <span class="text-muted">Ref#</span>
+              <span class="ms-1">{{ selectedGroup.reference_number }}</span>
+            </div>
+            <div class="small text-muted">
+              Created: {{ formatClean(selectedGroup.created_at) }}
+              <span v-if="selectedGroup.updated_at"> • Updated: {{ formatClean(selectedGroup.updated_at) }}</span>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge" :class="statusClass(selectedGroup.statusSummaryClassKey)">{{ selectedGroup.statusSummaryLabel }}</span>
+            <span class="badge text-bg-light border" :title="selectedGroup.paymentSummaryTitle">{{ selectedGroup.paymentSummaryLabel }}</span>
+            <button class="btn btn-light btn-sm" @click="closeGroupModal" aria-label="Close">
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Modal body -->
+        <div class="orders-modal-body">
+          <!-- Buyer & Shipping -->
+          <div class="row g-3">
+            <div class="col-12 col-lg-6">
+              <div class="small text-muted mb-1">Buyer / Shipping to</div>
+              <div class="border rounded p-2 bg-body small">
+                <div class="fw-semibold">{{ selectedGroup.shipping_name || '—' }}</div>
+                <div class="text-muted">{{ selectedGroup.phone_number || '—' }}</div>
+                <div>{{ selectedGroup.shipping_address || '—' }}</div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="small text-muted mb-1">Reference Summary</div>
+              <div class="border rounded p-2 bg-body small">
+                <div>
+                  <span class="text-muted">Payment: </span>{{ selectedGroup.paymentSummaryLabel }}
+                </div>
+                <div v-if="(selectedGroup.discount_total || 0) > 0">
+                  <span class="text-muted">Discounts Applied: </span>₱ {{ number(selectedGroup.discount_total) }}
+                </div>
+                <div>
+                  <span class="text-muted">Shipping Fee: </span>₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Items & per-purchase actions -->
+          <div class="mt-3">
+            <div class="small text-muted mb-1">Items in this reference</div>
+            <div
+              v-for="o in selectedGroup.purchases"
+              :key="o.id"
+              class="border rounded p-2 bg-body mb-2"
+            >
+              <div class="d-flex align-items-start gap-3">
+                <!-- thumb -->
+                <div class="order-thumb ratio ratio-1x1 bg-white rounded">
+                  <img
+                    v-if="productThumb(o.items[0]?.product)"
+                    :src="productThumb(o.items[0]?.product)"
+                    :alt="o.items[0]?.product?.name || 'Product'"
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
+
+                <div class="flex-grow-1">
+                  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <div class="fw-semibold title-ellipsis" :title="o.items[0]?.product?.name || o.items[0]?.product_id">
+                      {{ o.items[0]?.product?.name || o.items[0]?.product_id }}
+                      <span class="small ms-2">
+                        <template v-if="!hasEventDiscount(selectedGroup.reference_number)">
+                          ({{ o.items[0]?.qty }} × ₱ {{ number(o.items[0]?.price_each) }})
+                        </template>
+                        <template v-else>
+                          ({{ o.items[0]?.qty }} ×
+                          <span class="text-muted text-decoration-line-through me-1">₱ {{ number(o.items[0]?.price_each) }}</span>
+                          <span class="fw-semibold text-danger">
+                            ₱ {{ number(discountedPriceEachForItem(o.items[0], selectedGroup.reference_number)) }}
+                          </span>)
+                        </template>
+                      </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2">
+                      <span class="badge badge-tight" :class="statusClass(o.status)">{{ prettyStatus(o.status) }}</span>
+                      <span class="badge text-bg-light border badge-tight">{{ o.payment_method || '—' }}</span>
+                    </div>
+                  </div>
+
+                  <!-- line totals -->
+                  <div class="mt-1">
+                    <template v-if="!hasEventDiscount(selectedGroup.reference_number)">
+                      <span class="text-muted small">Line total:</span>
+                      <span class="fw-semibold"> ₱ {{ number(o.items[0]?.line_total) }}</span>
+                    </template>
+                    <template v-else>
+                      <span class="text-muted small">Line total:</span>
+                      <span class="text-muted small text-decoration-line-through me-1">₱ {{ number(o.items[0]?.line_total) }}</span>
+                      <span class="fw-semibold">₱ {{ number(lineTotalAfterDiscount(o.items[0], selectedGroup.reference_number)) }}</span>
+                    </template>
+                  </div>
+
+                  <!-- Return/Refund rows for this purchase (with buttons) -->
+                  <div v-if="(rrByPurchase[o.id] || []).length" class="mt-2">
+                    <div
+                      v-for="rr in rrByPurchase[o.id]"
+                      :key="rr.id"
+                      class="border rounded p-2 bg-light-subtle small mb-2"
+                    >
+                      <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span class="badge" :class="rrBadgeClass(rr.status)">{{ prettyRRStatus(rr.status) }}</span>
+                        <span class="text-muted">•</span>
+                        <span class="fw-semibold">Reason:</span>
+                        <span>{{ rr.reason }}</span>
+                      </div>
+                      <div v-if="rr.details" class="mt-1">
+                        <span class="fw-semibold">Details:</span> <span>{{ rr.details }}</span>
+                      </div>
+                      <div class="text-muted mt-1">Created: {{ formatClean(rr.created_at) }}</div>
+
+                      <div class="mt-2 d-flex justify-content-end gap-2">
+                        <template v-if="isRRPending(rr)">
+                          <button class="btn btn-success btn-sm" :disabled="busy.action[rr.id]" @click="approveRefund(rr)">
+                            <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                            Approve refund
+                          </button>
+                          <button class="btn btn-outline-danger btn-sm" :disabled="busy.action[rr.id]" @click="rejectRefund(rr)">
+                            <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                            Reject
+                          </button>
+                        </template>
+                        <button
+                          v-else-if="isRRApproved(rr)"
+                          class="btn btn-primary btn-sm"
+                          :disabled="busy.action[rr.id]"
+                          @click="completeRefund(rr)"
+                        >
+                          <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                          Mark as Completed
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Per-purchase action buttons -->
+                  <div class="mt-2 d-flex flex-wrap gap-2 justify-content-end">
+                    <button
+                      v-if="String(o.status).toLowerCase() === STATUS.TO_PAY"
+                      class="btn btn-primary btn-sm"
+                      :disabled="busy.action[o.id]"
+                      @click="approveOrder(o)"
+                    >
+                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      Approve
+                    </button>
+
+                    <button
+                      v-if="String(o.status).toLowerCase() === STATUS.TO_SHIP"
+                      class="btn btn-primary btn-sm"
+                      :disabled="busy.action[o.id]"
+                      @click="markAsShipped(o.id)"
+                    >
+                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      Mark as Shipped
+                    </button>
+
+                    <button
+                      v-if="String(o.status).toLowerCase() === STATUS.TO_RECEIVE"
+                      class="btn btn-primary btn-sm"
+                      :disabled="busy.action[o.id]"
+                      @click="markAsCompleted(o.id)"
+                    >
+                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      Mark as Completed
+                    </button>
+
+                    <button
+                      v-if="['to pay','to ship'].includes(String(o.status).toLowerCase())"
+                      class="btn btn-outline-danger btn-sm"
+                      :disabled="busy.action[o.id]"
+                      @click="cancelOrder(o.id)"
+                    >
+                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Totals -->
+            <div class="d-flex flex-column align-items-end mt-3">
+              <div class="text-muted small">Subtotal</div>
+              <div v-if="!hasEventDiscount(selectedGroup.reference_number)" class="fw-semibold fs-5">
+                ₱ {{ number(groupSubtotal(selectedGroup)) }}
+              </div>
+              <div v-else class="text-end">
+                <div class="small text-muted text-decoration-line-through">
+                  ₱ {{ number(groupSubtotalOriginal(selectedGroup)) }}
+                </div>
+                <div class="small text-success fw-semibold">
+                  ₱ {{ number(groupSubtotalDiscounted(selectedGroup)) }}
+                </div>
+              </div>
+
+              <div class="small text-muted" v-if="(selectedGroup.discount_total || 0) > 0">
+                Discounts: − ₱ {{ number(selectedGroup.discount_total) }}
+              </div>
+              <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
+                Shipping fee: ₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
+              </div>
+              <div class="fw-semibold fs-5">
+                Recorded total: ₱ {{ number(selectedGroup.total_amount) }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal footer: group-level actions mirrored -->
+        <div class="d-flex flex-wrap gap-2 justify-content-end border-top pt-3 mt-3">
+          <button
+            v-if="selectedGroup.allToPay"
+            class="btn btn-primary btn-sm"
+            :disabled="busy.anyGroup(selectedGroup.groupKey)"
+            @click="approveGroup(selectedGroup)"
+          >
+            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            Approve (all)
+          </button>
+          <button
+            v-if="selectedGroup.allToShip"
+            class="btn btn-primary btn-sm"
+            :disabled="busy.anyGroup(selectedGroup.groupKey)"
+            @click="markGroupAsShipped(selectedGroup)"
+          >
+            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            Mark as Shipped (all)
+          </button>
+          <button
+            v-if="selectedGroup.canGroupCancel"
+            class="btn btn-outline-danger btn-sm"
+            :disabled="busy.anyGroup(selectedGroup.groupKey)"
+            @click="cancelGroup(selectedGroup)"
+          >
+            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            Cancel (all)
+          </button>
+          <button class="btn btn-light btn-sm" @click="closeGroupModal">Close</button>
+        </div>
+      </div>
+    </div>
+    <!-- /MODAL -->
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onBeforeUnmount } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
@@ -1838,13 +2102,7 @@ async function rejectRefund(rr: ReturnRefundRow) {
 }
 /* ---------- /NEW ---------- */
 
-/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ----------
-   UPDATED: 
-   - Refunds (qty × effectiveEach) + possible SHIPPING REFUND (first refund completion for ref)
-   - effectiveEach = per-purchase discounted price (if cached) 
-                     else (product.price - eventLess) clamped to ≥ 0
-                     else product.price
-*/
+/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ---------- */
 async function completeRefund(rr: ReturnRefundRow) {
   if (!rr) return
   if (!isRRApproved(rr)) {
@@ -2066,6 +2324,25 @@ function viewReturnDetails() {
   loadOrders(true)
 }
 
+/* ===== NEW: Modal state & handlers ===== */
+const selectedRef = ref<string | null>(null)
+const selectedGroup = computed(() =>
+  orderGroups.value.find(g => g.reference_number === selectedRef.value) || null
+)
+function openGroupModal(g: ViewGroup) {
+  selectedRef.value = g.reference_number
+}
+function closeGroupModal() {
+  selectedRef.value = null
+}
+// ESC key to close
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && selectedRef.value) closeGroupModal()
+}
+onMounted(() => window.addEventListener('keydown', onKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+/* ===== /NEW ===== */
+
 /* ---------- Init ---------- */
 onMounted(() => {
   loadOrders(true)
@@ -2117,8 +2394,33 @@ onMounted(() => {
   border-radius: 999px;
   line-height: 1;
 }
+
+/* ===== NEW: Modal styling (Bootstrap-like, no dependency) ===== */
+.orders-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.orders-modal-card {
+  width: 100%;
+  max-width: 980px;
+  background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529);
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  padding: 1rem 1rem 1.25rem;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.orders-modal-body {
+  overflow: auto;
+  padding-right: 0.25rem;
+}
 </style>
-
-
-
-
