@@ -1,13 +1,19 @@
 <template>
   <!-- (UNCHANGED TEMPLATE, includes the avatar row I added earlier) -->
-  <div class="container-fluid">
-    <div class="card border-0 padding-0 margin-0 shadow-sm rounded-4">
-      <div class="card-body">
-        <h2 class="h4 mb-1">Mini Gamessses</h2>
+  <div class="container-fluid game-surface">
+    <div class="card border-0 padding-0 margin-0 shadow-sm rounded-4 game-card">
+      <div class="card-body game-card__body">
+        <!-- ⭐ NEW BG: decorative, non-interactive animated background -->
+        <div class="game-bg-anim" aria-hidden="true"></div>
+
+        <h2 class="h4 mb-1 game-title">
+          <span class="game-title__glow"></span>
+          Mini Gamessses
+        </h2>
         <p class="text-secondary mb-1">Join events, spin the wheel, and win purchase discounts.</p>
 
         <div class="d-flex align-items-center justify-content-between">
-          <h3 class="h6 mb-0">Open Events</h3>
+          <h3 class="h6 mb-0 game-sub">Open Events</h3>
         </div>
 
         <!-- Loading -->
@@ -44,14 +50,19 @@
               v-for="(ev, i) in openEvents"
               :key="ev.id"
               class="slider__item"
+              :class="{ 'is-active': i === activeIndex }"
               :style="slideStyle(i)"
               @click="goTo(i)"
             >
-              <!-- ORIGINAL CARD CONTENT STARTS (unchanged except join btn removed & mask clickable) -->
+              <!-- ORIGINAL CARD CONTENT STARTS (unchanged except small attributes added) -->
               <div
                 class="spin-card h-100 border rounded-4"
                 :class="{ 'spin-card--locked': ev.status !== 'open' }"
                 tabindex="0"
+                :data-joined="joinOk[ev.id] ? 'true' : null"
+                :style="cardStyle(ev, i)"
+                @mousemove="onCardMove($event, i)"
+                @mouseleave="onCardLeave(i)"
               >
                 <!-- Subtle animated halo -->
                 <div class="spin-card__halo" aria-hidden="true"></div>
@@ -73,6 +84,7 @@
                     class="spin-wheel mb-3"
                     :class="{ 'spin-wheel--paused': ev.status !== 'open' }"
                   >
+                    <!-- progress HUD ring (driven by CSS var set on card) -->
                     <div class="spin-wheel__ring"></div>
 
                     <!-- CLICKABLE MASK (replaces join button action) -->
@@ -161,7 +173,7 @@
 
                   <!-- Bottom row -->
                   <div class="d-flex justify-content-between align-items-center">
-                    <span class="small text-muted d-inline-flex align-items-center gap-1">
+                    <span class="small text-muted d-inline-flex align-items-center gap-1 slots-hud">
                       <span class="dot-pulse" aria-hidden="true"></span>
                       {{ slotsLeft(ev) }} slots left
                     </span>
@@ -591,6 +603,32 @@ function humanizeError(e: any): string {
   return raw || 'Failed to join.'
 }
 
+/* ========= Tiny SFX (no external files) ========= */
+const audioCtx = ref<AudioContext | null>(null)
+function ensureAudio() {
+  if (audioCtx.value) return
+  const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
+  if (Ctx) audioCtx.value = new Ctx()
+}
+function playBeep(freq = 880, duration = 0.08, type: OscillatorType = 'triangle') {
+  try {
+    ensureAudio()
+    const ctx = audioCtx.value!
+    const o = ctx.createOscillator()
+    const g = ctx.createGain()
+    o.type = type
+    o.frequency.value = freq
+    o.connect(g)
+    g.connect(ctx.destination)
+    const now = ctx.currentTime
+    g.gain.setValueAtTime(0.0001, now)
+    g.gain.exponentialRampToValueAtTime(0.2, now + 0.01)
+    g.gain.exponentialRampToValueAtTime(0.0001, now + duration)
+    o.start(now)
+    o.stop(now + duration + 0.02)
+  } catch {}
+}
+
 async function join(ev: EventRow) {
   joinErr[ev.id] = ''
   joinOk[ev.id] = false
@@ -610,6 +648,7 @@ async function join(ev: EventRow) {
     if (alreadyJoined(ev.id)) {
       console.log('[JOIN] Already joined; navigating to waiting…')
       joinOk[ev.id] = true
+      playBeep(1320, 0.12, 'sine')
       router.push({ name: 'user.waiting', query: { eventId: ev.id } })
       return
     }
@@ -635,6 +674,7 @@ async function join(ev: EventRow) {
     if (updErr) console.warn('[JOIN] player_count update failed; realtime will fix.')
 
     joinOk[ev.id] = true
+    playBeep(1320, 0.12, 'sine')
     myEntries.value[ev.id] = true
 
     await loadOpenEvents()
@@ -665,6 +705,7 @@ function onWheelClick(ev: EventRow, i?: number) {
 
   // If user already joined, go to waiting area
   if (alreadyJoined(ev.id)) {
+    playBeep(1100, 0.08, 'square')
     router.push({ name: 'user.waiting', query: { eventId: ev.id } })
     return
   }
@@ -681,7 +722,8 @@ function onWheelClick(ev: EventRow, i?: number) {
     joinErr[ev.id] = 'Insufficient balance to join this event.'
     return
   }
-  // Eligible → proceed to join
+  // Eligible → tiny feedback + proceed to join
+  playBeep(900, 0.06, 'triangle')
   join(ev)
 }
 
@@ -1118,6 +1160,37 @@ async function refreshEntryCount(eventId: string) {
   }
 }
 
+/* ---------------- Game HUD vars & 3D tilt ---------------- */
+function hudVars(ev: EventRow) {
+  const cap = Math.max(1, Number(ev.player_cap || 1))
+  const ratio = Math.min(1, Math.max(0, joinedCount(ev) / cap))
+  return {
+    '--hud-deg': `${(ratio * 360).toFixed(1)}deg`,
+    '--hud-ratio': String(ratio),
+  } as CSSProperties
+}
+const tilt = reactive<{ rx: string; ry: string }>({ rx: '0deg', ry: '0deg' })
+function cardStyle(ev: EventRow, i: number) {
+  if (i === activeIndex.value) {
+    return { ...hudVars(ev), '--rx': tilt.rx, '--ry': tilt.ry } as CSSProperties
+  }
+  return hudVars(ev)
+}
+function onCardMove(e: MouseEvent, i: number) {
+  if (i !== activeIndex.value) return
+  const el = e.currentTarget as HTMLElement
+  const r = el.getBoundingClientRect()
+  const px = (e.clientX - r.left) / r.width - 0.5
+  const py = (e.clientY - r.top) / r.height - 0.5
+  tilt.ry = `${(px * 8).toFixed(2)}deg`
+  tilt.rx = `${(-py * 8).toFixed(2)}deg`
+}
+function onCardLeave(i: number) {
+  if (i !== activeIndex.value) return
+  tilt.rx = '0deg'
+  tilt.ry = '0deg'
+}
+
 /* ---------------- lifecycle ---------------- */
 function safeLogUnmountStatus(_: any, tag: string) {
   try {
@@ -1269,6 +1342,9 @@ onUnmounted(() => {
     cursor: grabbing;
   }
 }
+.slider__item.is-active .spin-card {
+  box-shadow: 0 14px 40px rgba(67, 97, 238, 0.18), 0 0 0 1px rgba(67, 97, 238, 0.12);
+}
 
 /* Bullets */
 .bullets {
@@ -1287,12 +1363,14 @@ onUnmounted(() => {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.2);
   border: 0;
+  transition: transform .15s ease;
 }
 .bullets__item:hover {
   background: #fff;
 }
 .bullets__item.is-active {
   background: #4361ee;
+  transform: scale(1.2);
 }
 
 /* Optional nav buttons */
@@ -1373,27 +1451,16 @@ onUnmounted(() => {
   animation: haloFloat 7s ease-in-out infinite;
 }
 @keyframes haloFloat {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-.spin-card__title {
-  letter-spacing: 0.2px;
-}
-.spin-card__status {
-  backdrop-filter: saturate(1.2);
-}
+.spin-card__title { letter-spacing: 0.2px; }
+.spin-card__status { backdrop-filter: saturate(1.2); }
 
 /* ⭐ Slightly tighter padding on small screens for more breathing room overall */
 @media (max-width: 600px) {
-  .spin-card__body {
-    padding: 0.85rem !important; /* keep your p-3 on larger screens */
-  }
+  .spin-card__body { padding: 0.85rem !important; }
 }
 
 /* --- Wheel --- */
@@ -1405,9 +1472,23 @@ onUnmounted(() => {
   place-items: center;
   isolation: isolate;
 }
-.spin-wheel--paused .spin-wheel__ring {
-  animation-play-state: paused;
+/* Progress ring HUD (driven by --hud-deg) */
+.spin-wheel::after {
+  content: '';
+  position: absolute;
+  width: 94%;
+  height: 94%;
+  border-radius: 50%;
+  background:
+    conic-gradient(#7c3aed var(--hud-deg, 0deg), rgba(0,0,0,0.06) 0);
+  -webkit-mask:
+    radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
+  mask:
+    radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
+  filter: drop-shadow(0 2px 8px rgba(124, 58, 237, .25));
+  z-index: 0;
 }
+.spin-wheel--paused .spin-wheel__ring { animation-play-state: paused; }
 .spin-wheel__ring {
   position: absolute;
   width: 84%;
@@ -1425,15 +1506,10 @@ onUnmounted(() => {
     0 2px 10px rgba(0, 0, 0, 0.04);
   animation: ringSpin 18s linear infinite;
   transition: filter 0.25s ease;
+  z-index: 1;
 }
-.spin-card:hover .spin-wheel__ring {
-  filter: saturate(1.1) brightness(1.02);
-}
-@keyframes ringSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+.spin-card:hover .spin-wheel__ring { filter: saturate(1.1) brightness(1.02); }
+@keyframes ringSpin { to { transform: rotate(360deg); } }
 
 /* CLICKABLE MASK micro-interactions */
 .spin-wheel__mask {
@@ -1445,7 +1521,7 @@ onUnmounted(() => {
   background: #f6f7fb;
   border: 8px solid #fff;
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
-  z-index: 1;
+  z-index: 2;
 }
 .spin-wheel__mask.is-clickable {
   cursor: pointer;
@@ -1455,9 +1531,7 @@ onUnmounted(() => {
   transform: scale(1.025);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
 }
-.spin-wheel__mask.is-clickable:active {
-  transform: scale(0.995);
-}
+.spin-wheel__mask.is-clickable:active { transform: scale(0.995); }
 .spin-wheel__mask.is-clickable:focus {
   outline: 0;
   box-shadow:
@@ -1465,53 +1539,33 @@ onUnmounted(() => {
     0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
-.spin-wheel__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+.spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .spin-wheel__placeholder {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  color: #94a3b8;
-  font-size: 2rem;
+  width: 100%; height: 100%;
+  display: grid; place-items: center;
+  color: #94a3b8; font-size: 2rem;
 }
 
 .spin-wheel__pointer {
   position: absolute;
-  top: 2%;
-  left: 50%;
-  width: 0;
-  height: 0;
+  top: 2%; left: 50%;
+  width: 0; height: 0;
   transform: translateX(-50%);
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
   border-bottom: 10px solid rgba(0, 0, 0, 0.15);
-  z-index: 2;
+  z-index: 3;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
 }
 
 /* --- Stats Row --- */
-.spin-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.5rem;
-}
+.spin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
 @media (max-width: 480px) {
-  .spin-stats {
-    grid-template-columns: repeat(2, 1fr); /* better fit on small phones */
-    gap: 0.5rem;
-  }
+  .spin-stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
 }
 /* ⭐ Ultra-small phones: stack stats for zero squeeze */
 @media (max-width: 420px) {
-  .spin-stats {
-    grid-template-columns: 1fr;
-    gap: 0.45rem;
-  }
+  .spin-stats { grid-template-columns: 1fr; gap: 0.45rem; }
 }
 .spin-stat {
   background: #fff;
@@ -1520,118 +1574,200 @@ onUnmounted(() => {
   padding: 0.5rem 0.6rem;
   text-align: center;
 }
-.spin-stat__label {
-  font-size: 0.72rem;
-  color: #6c757d;
-}
-.spin-stat__value {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
+.spin-stat__label { font-size: 0.72rem; color: #6c757d; }
+.spin-stat__value { font-size: 0.9rem; font-weight: 600; }
 
 /* --- Avatars --- */
 .avatar-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
 }
 .avatars {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  max-height: 44px;
-  overflow: hidden;
+  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
+  max-height: 44px; overflow: hidden;
 }
 .avatar-img,
 .avatar-fallback {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: inline-grid; place-items: center;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fff;
-  overflow: hidden;
+  background: #fff; overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0,0,0,.04);
 }
-.avatar-img {
-  object-fit: cover;
-}
-.avatar-fallback {
-  color: #94a3b8;
-  font-size: 1rem;
-  background: #f1f5f9;
-}
+.avatar-img { object-fit: cover; }
+.avatar-img:hover { box-shadow: 0 0 0 2px rgba(67, 97, 238, .25); }
+.avatar-fallback { color: #94a3b8; font-size: 1rem; background: #f1f5f9; }
 .avatar-more {
-  font-size: 0.8rem;
-  color: #6c757d;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 999px;
-  padding: 0.2rem 0.5rem;
+  font-size: 0.8rem; color: #6c757d;
+  background: #fff; border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px; padding: 0.2rem 0.5rem;
 }
-/* ⭐ Slightly smaller avatars on phones for tidier rows */
 @media (max-width: 600px) {
-  .avatar-img,
-  .avatar-fallback {
-    width: 28px;
-    height: 28px;
-  }
+  .avatar-img, .avatar-fallback { width: 28px; height: 28px; }
 }
 
 /* --- Slots left indicator --- */
 .dot-pulse {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
+  width: 6px; height: 6px; border-radius: 50%;
   background: #20c997;
   box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
   animation: pulse 1.8s infinite;
 }
 @keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(32, 201, 151, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(32, 201, 151, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
 }
 
 /* --- Join button micro-interactions (kept for compatibility; button removed) --- */
 .join-btn {
   position: relative;
   overflow: hidden;
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
 }
-.join-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25);
-}
-.join-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
-}
+.join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25); }
+.join-btn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2); }
 .join-btn::after {
   content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  transform: translateX(-120%); transition: transform 0.6s ease;
+}
+.join-btn:hover::after { transform: translateX(120%); }
+.join-btn--disabled, .join-btn:disabled { opacity: 0.7; box-shadow: none; cursor: not-allowed; }
+
+/* ===================== NEW — GAME SURFACE & ARCADE ACCENTS ===================== */
+/* Neon gradient canvas */
+.game-surface {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(67,97,238,.12), transparent 60%),
+    radial-gradient(800px 500px at 110% 0%, rgba(124,58,237,.12), transparent 60%),
+    linear-gradient(180deg, #f6f7fb 0%, #eef1f7 100%);
+  padding: 24px 12px;
+}
+.game-card {
+  overflow: hidden;
+  position: relative;
+  border-radius: 24px;
+}
+.game-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(120deg, rgba(67,97,238,.35), rgba(124,58,237,.28), rgba(16,185,129,.28));
+  opacity: .12;
+  pointer-events: none;
+}
+.game-card__body {
+  position: relative;
+  z-index: 1;
+  /* Helps keep background animation isolated behind content */
+  isolation: isolate;
+}
+
+/* ⭐ NEW BG: CSS-only animated background (no JS, no mouse) */
+.game-bg-anim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transform: translateX(-120%);
-  transition: transform 0.6s ease;
+  z-index: 0;           /* sit behind the content */
+  pointer-events: none; /* never block clicks */
+  opacity: 0.45;
+  background:
+    radial-gradient(1200px 800px at 10% -10%, rgba(67,97,238,.20), transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, rgba(124,58,237,.18), transparent 60%),
+    conic-gradient(from 0deg, rgba(16,185,129,.12), rgba(67,97,238,.12), rgba(124,58,237,.12), rgba(16,185,129,.12));
+  animation: bgSlowSpin 24s linear infinite;
+  /* soft vignette to avoid clashing with text */
+  mask-image: radial-gradient(85% 85% at 50% 40%, #000 70%, transparent 100%);
 }
-.join-btn:hover::after {
-  transform: translateX(120%);
+@keyframes bgSlowSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .game-bg-anim { animation: none; }
 }
-.join-btn--disabled,
-.join-btn:disabled {
-  opacity: 0.7;
-  box-shadow: none;
-  cursor: not-allowed;
+
+/* Glossy title w/ glow underline */
+.game-title {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 4px;
 }
+.game-title__glow {
+  position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; border-radius: 999px;
+  background: linear-gradient(90deg, #4361ee, #7c3aed, #10b981);
+  filter: blur(0.6px);
+}
+
+/* Subheader accent */
+.game-sub {
+  position: relative;
+  padding-left: 10px;
+}
+.game-sub::before {
+  content: '';
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  width: 4px; height: 14px; border-radius: 2px;
+  background: linear-gradient(180deg, #7c3aed, #4361ee);
+}
+
+/* Gradient border accent around spin-card (non-destructive) */
+.spin-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: 16px;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(67,97,238,.32), rgba(124,58,237,.28), rgba(16,185,129,.28));
+  -webkit-mask: 
+    linear-gradient(#000 0 0) content-box, 
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Success sparkle burst (triggered via data-joined) */
+.spin-card[data-joined="true"]::after {
+  --c: rgba(255, 215, 97, .95);
+  content: '';
+  position: absolute; inset: -10%;
+  background:
+    radial-gradient(10px 10px at 30% 45%, var(--c), transparent 60%),
+    radial-gradient(8px 8px at 70% 30%, var(--c), transparent 60%),
+    radial-gradient(6px 6px at 55% 75%, var(--c), transparent 60%),
+    radial-gradient(7px 7px at 80% 60%, var(--c), transparent 60%),
+    radial-gradient(5px 5px at 20% 70%, var(--c), transparent 60%);
+  animation: popSpark .65s ease-out forwards;
+  pointer-events: none;
+}
+@keyframes popSpark {
+  from { opacity: 0; transform: scale(.85); filter: blur(2px); }
+  30% { opacity: 1; }
+  to { opacity: 0; transform: scale(1.25); filter: blur(6px); }
+}
+
+/* HUD: slot progress underline */
+.slots-hud {
+  position: relative;
+}
+.slots-hud::after {
+  content: '';
+  height: 2px; width: 64px;
+  margin-left: 8px;
+  background: repeating-linear-gradient(90deg, #10b981 0 6px, rgba(16,185,129,.3) 6px 12px);
+  display: inline-block; border-radius: 999px;
+  opacity: .6;
+}
+
+/* 3D tilt override (keeps original hover lift intact) */
+.spin-card {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(0);
+}
+.spin-card:hover {
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-2px);
+}
+
+/* Extra emphasis for active card */
+.slider__item.is-active .spin-wheel__mask.is-clickable {
+  box-shadow: 0 8px 26px rgba(67, 97, 238, 0.22);
+}
+
+/* ===================== END NEW ===================== */
 </style>

@@ -7,7 +7,11 @@
           class="navbar-brand fw-bold d-flex align-items-center gap-2"
           :to="{ name: 'home' }"
         >
-          <img src="/STSSI_logo.png" alt="STSSI Logo" class="simp-logo img-fluid" />
+          <img
+            src="/STSSI_logo.png"
+            alt="STSSI Logo"
+            class="simp-logo img-fluid"
+          />
           <span class="logoText h5 m-0">STSSI Member Incentive Program</span>
         </router-link>
 
@@ -42,8 +46,9 @@
             <router-link class="btn btn-primary btn-modern --pulse" :to="{ name: 'signup' }">
               <i class="bi bi-person-plus-fill me-1"></i> Sign up
             </router-link>
-            <!-- admin button -->
+            <!-- admin button: hidden by default; reveal via Alt+Shift+A -->
             <router-link
+              v-if="showAdminIcon"
               :to="{ name: 'admin.login' }"
               class="admin-icon-btn"
               aria-label="Admin login"
@@ -292,53 +297,12 @@
       </div>
     </section>
 
-    <!-- ====================== TESTIMONIALS (Cards)
-    <section id="testimonials" class="section-pad">
-      <div class="container-xl">
-        <div class="section-head">
-          <h2 class="fw-bold">What members say</h2>
-          <p class="text-secondary mb-0">Real outcomes from our community.</p>
-        </div>
-
-        <div class="row g-4">
-          <div class="col-12 col-md-4">
-            <div class="quote-card h-100">
-              <div class="avatar bg-primary-subtle text-primary">
-                <i class="bi bi-person-badge"></i>
-              </div>
-              <p class="mb-1">“Got verified and landed more CCTV installs.”</p>
-              <small class="text-secondary">— Carlo, Installer</small>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-4">
-            <div class="quote-card h-100">
-              <div class="avatar bg-success-subtle text-success"><i class="bi bi-cpu"></i></div>
-              <p class="mb-1">“Courses helped me level up and earn better gigs.”</p>
-              <small class="text-secondary">— Sean, Network Tech</small>
-            </div>
-          </div>
-
-          <div class="col-12 col-md-4">
-            <div class="quote-card h-100">
-              <div class="avatar bg-warning-subtle text-warning">
-                <i class="bi bi-emoji-smile"></i>
-              </div>
-              <p class="mb-1">“Support is responsive and perks are worth it.”</p>
-              <small class="text-secondary">— Murky, Member</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-    ====================== -->
-
     <!-- ====================== FAQ (Accordion) ====================== -->
     <section id="faq" class="section-pad bg-section">
       <div class="container-xl">
         <div class="section-head">
           <h2 class="fw-bold">Frequently Asked Questions</h2>
-          <p class="text-secondary mb-0">Quick answers about membership &amp; features.</p>
+        <p class="text-secondary mb-0">Quick answers about membership &amp; features.</p>
         </div>
 
         <div class="accordion modern-acc" id="faqAcc">
@@ -544,7 +508,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
@@ -555,6 +519,27 @@ const open = ref<string | null>(null)
 const toggle = (id: string) => {
   open.value = open.value === id ? null : id
 }
+
+/** Hidden admin icon logic */
+const showAdminIcon = ref(false)
+
+// Secret keyboard combo: Alt + Shift + A to toggle; Esc to hide
+function onKeydown(e: KeyboardEvent) {
+  const key = e.key.toLowerCase()
+  if (e.altKey && e.shiftKey && key === 'a') {
+    showAdminIcon.value = !showAdminIcon.value
+  }
+  if (key === 'escape') {
+    showAdminIcon.value = false
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+})
 </script>
 
 <style scoped>
@@ -634,6 +619,7 @@ html {
 }
 .simp-logo {
   height: 45px;
+  cursor: default;
 }
 
 @media (max-width: 500px) {
@@ -817,8 +803,8 @@ html {
   height: auto;
 }
 .tier-logo {
-  max-height: 120px; /* or whatever fits */
-  width: auto; /* keep aspect ratio */
+  max-height: 120px;
+  width: auto;
 }
 .list-unstyled li {
   display: flex;
@@ -827,26 +813,6 @@ html {
   padding: 0.4rem 0;
   border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
 }
-
-/* ---------- Testimonials
-.quote-card {
-  padding: 1.25rem;
-  border-radius: 16px;
-  background: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow: 0 0.75rem 2rem rgba(0, 0, 0, 0.04);
-}
-.avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 0.5rem;
-  font-size: 1.25rem;
-}
----------- */
 
 /* ---------- Accordion ---------- */
 .modern-acc .accordion-button {

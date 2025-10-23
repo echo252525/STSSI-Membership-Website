@@ -85,7 +85,7 @@
                               : 'Use this discount'
                           "
                         >
-                          {{ exceededUserLimit(d) ? 'Used' : 'Claim' }}
+                          {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
                         </button>
                       </div>
                     </div>
@@ -204,6 +204,84 @@
           </div>
         </div>
       </div>
+
+      <!-- ================= NEW: Referees & This Month Purchases ================= -->
+      <div class="flex-grow-1 col-12 col-lg-6">
+        <div class="card ref-list-card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+          <div
+            class="ref-hero d-flex align-items-center justify-content-between gap-3 px-3 px-md-4 py-3"
+          >
+            <div>
+              <div class="eyebrow text-uppercase fw-semibold small mb-1">Your Network</div>
+              <h3 class="h6 m-0">Referees & Purchases This Month</h3>
+            </div>
+            <span class="badge bg-white border text-muted">{{ referees.length }} total</span>
+          </div>
+
+          <div class="card-body p-3 p-md-4">
+            <div v-if="busyReferees" class="text-center text-muted py-4">
+              <div class="spinner-border mb-2"></div>
+              <div>Loading referees…</div>
+            </div>
+
+            <div v-else-if="referees.length === 0" class="text-center text-muted py-4">
+              <i class="bi bi-person-plus" style="font-size: 1.6rem"></i>
+              <div class="mt-2">No referees yet.</div>
+              <small class="text-muted">Share your link to start building your network.</small>
+            </div>
+
+            <ul v-else class="list-group list-group-flush">
+              <li
+                v-for="r in referees"
+                :key="r.id"
+                class="list-group-item d-flex align-items-center justify-content-between py-3"
+              >
+                <div class="d-flex align-items-center gap-3">
+                  <img
+                    :src="r.avatar_url || defaultAvatar"
+                    class="avatar-40 rounded-circle border"
+                    alt=""
+                    referrerpolicy="no-referrer"
+                  />
+                  <div>
+                    <div class="fw-semibold">{{ r.full_name || 'Unnamed User' }}</div>
+                    <div class="small text-muted">Joined via your link</div>
+                    <!-- Progress toward goal -->
+                    <div v-if="goalPerRef != null" class="mt-2" style="min-width:220px;">
+                      <div class="d-flex justify-content-between small mb-1">
+                        <span class="text-muted">Progress</span>
+                        <span class="fw-semibold">₱
+                          {{ r.purchasesThisMonth.count }} / ₱ {{ goalPerRef }}
+                        </span>
+                      </div>
+                      <div class="progress progress-thin" style="height:8px;">
+                        <div
+                          class="progress-bar"
+                          role="progressbar"
+                          :style="{ width: progressPct(r) }"
+                          :aria-valuenow="pctNumber(r)"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-end">
+                  <div class="fw-semibold">
+                    ₱ {{ r.purchasesThisMonth.count }}
+                  </div>
+                  <div class="small text-muted" v-if="r.purchasesThisMonth.totalAmount != null">
+                    ₱ {{ money(r.purchasesThisMonth.totalAmount) }} total
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <!-- =============== /NEW: Referees & This Month Purchases ================= -->
     </div>
     <!-- /row -->
   </div>
@@ -240,10 +318,9 @@ type Discount = {
   starts_at?: string | null
   status?: 'draft' | 'active' | 'disabled' | null
   is_public?: boolean | null
-  // NEW: to enforce per-user limits
   max_uses_per_user?: number | null
 
-  /* 👉 new (UI only) */
+  /* UI-only */
   min_spend?: number | null
   brand_label?: string | null
   tag?: string | null
@@ -257,13 +334,14 @@ type GiftCert = {
 }
 
 const busy = ref(false)
-const discounts = ref<Discount[]>([]) // now wired to rewards.discounts
-const gcs = ref<GiftCert[]>([]) // kept (no real data)
-const affiliateUrl = ref<string | null>(null) // now wired
-const referralStats = ref({ total: 0, converted: 0, commission: 0 }) // total now wired
-
-// NEW: track user's redemption counts per discount_id
+const discounts = ref<Discount[]>([])
+const gcs = ref<GiftCert[]>([])
+const affiliateUrl = ref<string | null>(null)
+const referralStats = ref({ total: 0, converted: 0, commission: 0 })
 const userRedemptions = ref<Record<string, number>>({})
+
+/** NEW: goal per referee from membership.tiers.purchases_per_referrals */
+const goalPerRef = ref<number | null>(null)
 
 function money(v: number | string | null | undefined) {
   const n = Number(v ?? 0)
@@ -292,10 +370,6 @@ function expiryLabel(d: Discount) {
 
 /* =========================
    === REFERRALS START ===
-   Pulls referral_code from public.users,
-   builds share link, and counts referrals.
-   Tries the referral_stats view first; if missing,
-   falls back to counting public.referrals.
    ========================= */
 type ReferralStatsView = {
   referrer_id: string
@@ -303,7 +377,6 @@ type ReferralStatsView = {
   referrals_count: number | null
 }
 
-// Build a shareable link given a referral code
 function buildAffiliateUrl(code: string | null | undefined) {
   if (!code) return null
   const origin = window?.location?.origin ?? ''
@@ -311,23 +384,17 @@ function buildAffiliateUrl(code: string | null | undefined) {
 }
 
 async function loadReferralBits(uid: string) {
-  // 1) get referral_code from public.users
   const { data: me, error: meErr } = await supabase
     .from('users')
     .select('referral_code')
     .eq('id', uid)
     .maybeSingle()
 
-  if (meErr) {
-    console.warn('users.referral_code load error:', meErr)
-  }
+  if (meErr) console.warn('users.referral_code load error:', meErr)
   const code = (me?.referral_code as string | null) ?? null
   affiliateUrl.value = buildAffiliateUrl(code)
 
-  // 2) count referrals (prefer view, fallback to table count)
   let total = 0
-
-  // Try referral_stats view (if you created it)
   const { data: vData, error: vErr } = await supabase
     .from('referral_stats')
     .select('referrals_count, referral_code')
@@ -337,24 +404,15 @@ async function loadReferralBits(uid: string) {
   if (!vErr && vData) {
     total = Number(vData.referrals_count ?? 0)
   } else {
-    // Fallback: count from public.referrals
     const { count, error: cErr } = await supabase
       .from('referrals')
       .select('referee_id', { count: 'exact', head: true })
       .eq('referrer_id', uid)
-
-    if (cErr) {
-      console.warn('referrals count error:', cErr)
-    }
+    if (cErr) console.warn('referrals count error:', cErr)
     total = Number(count ?? 0)
   }
 
-  // Update the UI
-  referralStats.value = {
-    total,
-    converted: 0, // keep zero unless you wire conversions
-    commission: 0, // keep zero unless you compute commissions
-  }
+  referralStats.value = { total, converted: 0, commission: 0 }
 }
 /* =======================
    === REFERRALS END ===
@@ -362,13 +420,9 @@ async function loadReferralBits(uid: string) {
 
 /* =========================
    === DISCOUNTS (NEW) ===
-   Load active, public discounts from rewards.discounts
    ========================= */
 async function loadActiveDiscounts() {
   const nowIso = new Date().toISOString()
-
-  // Requires: rewards schema exposed to API, RLS select policy
-  // filtering: public + active + time window
   const { data, error } = await supabase
     .schema('rewards')
     .from('discounts')
@@ -386,15 +440,11 @@ async function loadActiveDiscounts() {
     discounts.value = []
     return
   }
-
   discounts.value = (data || []) as Discount[]
 }
 
 /* ================================
    === USER REDEMPTION COUNTS ===
-   Reads the user's redemption rows and tallies per discount_id
-   Table assumed: rewards.discount_redemptions(user_id, discount_id, ...)
-   If missing, this silently keeps counts at 0.
    ================================ */
 async function loadUserRedemptions(uid: string) {
   try {
@@ -422,39 +472,193 @@ async function loadUserRedemptions(uid: string) {
   }
 }
 
-// helpers for template
 function userUseCount(discountId: string) {
   return userRedemptions.value[discountId] ?? 0
 }
-
 function exceededUserLimit(d: Discount) {
   if (d.max_uses_per_user == null) return false
   const used = userUseCount(d.id)
   return used >= d.max_uses_per_user
 }
-
 function valueBadge(d: Discount) {
-  if (d.type === 'percent') {
-    return `${Number(d.percent_off ?? 0)}% OFF`
-  }
-  if (d.type === 'fixed_amount') {
-    return `₱${money(d.amount_off ?? 0)} OFF`
-  }
-  if (d.type === 'free_shipping') {
-    return 'Free Shipping'
-  }
-  // fallback to old label if present
+  if (d.type === 'percent') return `${Number(d.percent_off ?? 0)}% OFF`
+  if (d.type === 'fixed_amount') return `₱${money(d.amount_off ?? 0)} OFF`
+  if (d.type === 'free_shipping') return 'Free Shipping'
   if (d.label) return d.label
   return 'Discount'
 }
-
 function goToShop(d: Discount) {
-  // Pass the discount code to Shop (adjust route name/path if yours differs)
-  if (d.code) {
-    router.push({ name: 'user.shop', query: { code: d.code } })
-  } else {
-    router.push({ name: 'user.shop' })
+  if (d.code) router.push({ name: 'user.shop', query: { code: d.code } })
+  else router.push({ name: 'user.shop' })
+}
+
+/* =========================
+   === NEW: REFEREES LOAD ===
+   Uses users.profile_url (storage path) and users.purchases_per_month
+   Goal comes from membership.tiers.purchases_per_referrals using current user's membership_id
+   ========================= */
+type RefereeRow = {
+  id: string
+  full_name: string | null
+  avatar_url: string | null
+  purchasesThisMonth: { count: number; totalAmount: number | null }
+}
+
+const PROFILE_BUCKET = 'user_profile' // change if your bucket has a different name
+const referees = ref<RefereeRow[]>([])
+const busyReferees = ref(false)
+const defaultAvatar = '/default-avatar.png'
+
+function startOfMonthISO(d = new Date()) {
+  const x = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0)
+  return x.toISOString()
+}
+function endOfMonthISO(d = new Date()) {
+  const x = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999)
+  return x.toISOString()
+}
+
+/** NEW: Signed URL helper with a tiny in-memory cache (per page load). */
+const signedUrlCache = new Map<string, string>()
+const SIGNED_URL_EXPIRES_IN = 60 * 60 // 1 hour (seconds)
+
+async function buildProfileSignedUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null
+  if (signedUrlCache.has(path)) return signedUrlCache.get(path) as string
+
+  try {
+    const { data, error } = await supabase.storage
+      .from(PROFILE_BUCKET)
+      .createSignedUrl(path, SIGNED_URL_EXPIRES_IN)
+
+    if (error) {
+      console.warn('createSignedUrl error:', error)
+      // Fallback to public URL if bucket/object is public or dev default
+      const pub = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)?.data?.publicUrl ?? null
+      signedUrlCache.set(path, pub || '')
+      return pub
+    }
+
+    const url = data?.signedUrl || null
+    signedUrlCache.set(path, url || '')
+    return url
+  } catch (e) {
+    console.warn('buildProfileSignedUrl exception:', e)
+    const pub = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)?.data?.publicUrl ?? null
+    signedUrlCache.set(path, pub || '')
+    return pub
   }
+}
+
+/** NEW: load goal per referee for the current user (from membership.tiers) */
+async function loadGoalPerRef(uid: string) {
+  // 1) find current user's membership_id
+  const { data: u, error: uErr } = await supabase
+    .from('users')
+    .select('membership_id')
+    .eq('id', uid)
+    .maybeSingle()
+
+  if (uErr) {
+    console.warn('users.membership_id load error:', uErr)
+    goalPerRef.value = null
+    return
+  }
+
+  const membershipId = (u?.membership_id as string | number | null) ?? null
+  if (!membershipId) {
+    goalPerRef.value = null
+    return
+  }
+
+  // 2) load purchases_per_referrals from membership.tiers
+  const { data: tier, error: tErr } = await supabase
+    .schema('membership')
+    .from('tiers')
+    .select('id, purchases_per_referrals')
+    .eq('id', membershipId)
+    .maybeSingle()
+
+  if (tErr) {
+    console.warn('membership.tiers load error:', tErr)
+    goalPerRef.value = null
+    return
+  }
+
+  const val = Number(tier?.purchases_per_referrals ?? 0)
+  goalPerRef.value = Number.isFinite(val) && val > 0 ? val : 0
+}
+
+async function loadReferees(uid: string) {
+  busyReferees.value = true
+  try {
+    // 1) Get referee IDs
+    const { data: refRows, error: refErr } = await supabase
+      .from('referrals')
+      .select('referee_id')
+      .eq('referrer_id', uid)
+
+    if (refErr) {
+      console.warn('loadReferees referrals error:', refErr)
+      referees.value = []
+      return
+    }
+
+    const ids = (refRows || []).map(r => (r as { referee_id: string }).referee_id)
+    if (ids.length === 0) {
+      referees.value = []
+      return
+    }
+
+    // 2) Load users with profile_url and purchases_per_month
+    const { data: usersData, error: usersErr } = await supabase
+      .from('users')
+      .select('id, full_name, profile_url, purchases_per_month')
+      .in('id', ids)
+
+    if (usersErr) {
+      console.warn('loadReferees users error:', usersErr)
+      referees.value = []
+      return
+    }
+
+    // 3) Resolve signed URLs concurrently
+    const rows = (usersData || []) as Array<{
+      id: string
+      full_name: string | null
+      profile_url: string | null
+      purchases_per_month: number | null
+    }>
+
+    const avatarUrls = await Promise.all(
+      rows.map(u => buildProfileSignedUrl(u.profile_url)),
+    )
+
+    referees.value = rows.map((u, i) => {
+      const purchases_per_month = Number(u.purchases_per_month ?? 0) || 0
+      return {
+        id: u.id,
+        full_name: u.full_name ?? null,
+        avatar_url: avatarUrls[i] || null, // signed URL (or fallback public)
+        purchasesThisMonth: {
+          count: purchases_per_month,
+          totalAmount: null, // no purchases table
+        },
+      } as RefereeRow
+    })
+  } finally {
+    busyReferees.value = false
+  }
+}
+
+/** Progress helpers (UI only) */
+function pctNumber(r: RefereeRow): number {
+  if (goalPerRef.value == null || goalPerRef.value <= 0) return 0
+  const pct = (r.purchasesThisMonth.count / goalPerRef.value) * 100
+  return Math.max(0, Math.min(100, Math.round(pct)))
+}
+function progressPct(r: RefereeRow): string {
+  return `${pctNumber(r)}%`
 }
 
 /* =========================
@@ -464,25 +668,24 @@ async function loadAll() {
   busy.value = true
   try {
     const { data: auth } = await supabase.auth.getUser()
-    // You can use auth?.user?.id later for gated loads if needed
 
-    // === ADDED: load active discounts ===
     await loadActiveDiscounts()
-
-    // kept (placeholders)
     gcs.value = []
 
-    // === ADDED: wire referrals + redemption counts ===
     const uid = auth?.user?.id
     if (uid) {
       await Promise.all([
         loadReferralBits(uid),
-        loadUserRedemptions(uid), // NEW: get per-user counts
+        loadUserRedemptions(uid),
+        loadGoalPerRef(uid),  // NEW: fetch goal per referee for current user
+        loadReferees(uid),    // NEW: build referee list with purchases_per_month + signed avatars
       ])
     } else {
       affiliateUrl.value = null
       referralStats.value = { total: 0, converted: 0, commission: 0 }
       userRedemptions.value = {}
+      referees.value = []
+      goalPerRef.value = null
     }
   } finally {
     busy.value = false
@@ -568,8 +771,7 @@ onMounted(() => {
   padding: 18px 14px;
   text-align: center;
 }
-.ticket-side::before,
-.ticket-side::after {
+.ticket-side::before, .ticket-side::after {
   content: '';
   position: absolute;
   top: -12px;
@@ -657,5 +859,25 @@ onMounted(() => {
 .ref-link .btn {
   border-top-left-radius: 0;
   border-bottom-left-radius: 0;
+}
+
+/* Avatars */
+.avatar-40 {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+}
+
+/* Progress */
+.progress-thin {
+  background-color: #eef3f6;
+}
+.progress-thin .progress-bar {
+  background-color: #20647c;
+}
+
+/* Secondary card bg match */
+.ref-list-card {
+  background: #fff;
 }
 </style>

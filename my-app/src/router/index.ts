@@ -41,6 +41,9 @@ import Orders from '@/pages/admin/Orders.vue'
 // 🆕 Admin Discounts
 import AdminDiscounts from '@/pages/admin/AdminDiscounts.vue' // 🆕
 
+/* 🔒 Admin gate */
+import { isGateOpen } from '@/lib/adminGate'
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -50,9 +53,19 @@ const routes: RouteRecordRaw[] = [
       { path: 'login', name: 'login', component: Login },
       { path: 'signup', name: 'signup', component: Signup },
 
-      // 🔒 Admin login/signup (public)
-      { path: 'admin/login', name: 'admin.login', component: AdminLogin },
-      { path: 'admin/signup', name: 'admin.signup', component: AdminSignup },
+      // 🔒 Admin login/signup (now both gated)
+      {
+        path: 'admin/login',
+        name: 'admin.login',
+        component: AdminLogin,
+        meta: { requiresAdminGate: true },
+      },
+      {
+        path: 'admin/signup',
+        name: 'admin.signup',
+        component: AdminSignup,
+        meta: { requiresAdminGate: true },
+      },
 
       // 👉 Waiting page WITHOUT UserLayout sidebar (public layout wrapper)
       { path: 'waiting', name: 'user.waiting', component: WaitingArea },
@@ -107,6 +120,19 @@ const routes: RouteRecordRaw[] = [
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+/**
+ * 🔒 Admin-gate guard:
+ * Blocks any route that has `requiresAdminGate` on ANY matched record.
+ * This catches nested/aliased cases reliably.
+ */
+router.beforeEach((to, _from, next) => {
+  const needsGate = to.matched.some(record => record.meta?.requiresAdminGate)
+  if (needsGate && !isGateOpen()) {
+    return next({ name: 'home' })
+  }
+  return next()
 })
 
 export default router

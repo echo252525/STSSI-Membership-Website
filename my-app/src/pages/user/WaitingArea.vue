@@ -1,8 +1,32 @@
 <template>
-  <div class="container py-4 waiting-area-root">
-    <!-- Neon gradient lobby background -->
+  <div
+    class="container py-4 waiting-area-root"
+    ref="rootEl"
+    @mousemove="onMouseMove"
+    @click="onRootClick"
+  >
+    <!-- NEW: animated background layers -->
     <div class="wa-aurora"></div>
     <div class="wa-grid"></div>
+    <div class="wa-sparkles">
+      <span
+        v-for="(_, i) in sparkles.length"
+        :key="'sp-' + i"
+        class="wa-sparkle"
+        :style="sparkleStyle(i)"
+      ></span>
+    </div>
+
+    <!-- Loader overlay (text updated here) -->
+    <div v-if="isLoading || imageLoading" class="wa-loader-overlay">
+      <div class="wa-loader">
+        <div class="wa-loader-core"></div>
+        <div class="wa-orbit">
+          <span></span><span></span><span></span>
+        </div>
+        <div class="wa-loader-text">Waiting for other players…</div>
+      </div>
+    </div>
 
     <div class="card border-0 shadow-sm rounded-4 wa-card">
       <div class="card-body p-4 text-center position-relative">
@@ -39,7 +63,7 @@
           </div>
         </div>
 
-        <!-- Players grid (ML-style ready room vibes) -->
+        <!-- Players grid -->
         <div v-if="event" class="mt-4">
           <div class="d-flex align-items-center justify-content-between mb-2 px-0">
             <div class="text-start">
@@ -51,7 +75,7 @@
           <div class="wa-users-grid ml-flavor">
             <!-- loading skeletons -->
             <template v-if="loadingJoined">
-              <div v-for="n in 6" :key="'s' + n" class="wa-user-card">
+              <div v-for="n in 6" :key="'s' + n" class="wa-user-card" :style="{ animationDelay: (n * 0.05) + 's' }">
                 <div class="wa-avatar-skeleton"></div>
                 <div class="wa-username-skeleton"></div>
               </div>
@@ -60,10 +84,11 @@
             <!-- users -->
             <template v-else>
               <div
-                v-for="u in joinedUsers"
+                v-for="(u, i) in joinedUsers"
                 :key="u.id"
                 class="wa-user-card"
                 :title="u.full_name || '—'"
+                :style="{ animationDelay: (i * 0.04) + 's' }"
               >
                 <div class="wa-user-glow"></div>
                 <img
@@ -89,7 +114,7 @@
         </div>
         <!-- /Players grid -->
 
-        <!-- Product spotlight (center) with fade slideshow -->
+        <!-- Product spotlight with slideshow -->
         <div class="wa-product-spot mt-1">
           <div class="wa-image-frame">
             <div class="wa-img-skeleton-circle" v-if="imageLoading"></div>
@@ -119,6 +144,7 @@
             />
 
             <div class="wa-ring"></div>
+            <div class="wa-pulse"></div>
           </div>
 
           <div class="wa-product-info mt-3">
@@ -208,7 +234,7 @@
       </div>
     </div>
 
-    <!-- (Kept) Event card wrapper below if you want to place extra content later -->
+    <!-- (Kept) Event card wrapper below -->
     <div class="card border-0 shadow-sm rounded-4 mt-3 d-none">
       <div class="card-body p-4"></div>
     </div>
@@ -316,7 +342,6 @@ const progressPct = computed<number>(() => {
 })
 
 // ===== CONFIG =====
-// Keep bucket as requested
 const PRODUCT_BUCKETS = ['prize_product']
 const AVATAR_BUCKET = 'user_profile'
 const READY_STATUS = 'ready'
@@ -398,7 +423,7 @@ async function listProductImages(productId: string): Promise<string[]> {
         if (!signErr && signed?.signedUrl) out.push(signed.signedUrl)
       }
 
-      if (out.length) return out // prefer first bucket that yields images
+      if (out.length) return out
     } catch {}
   }
   return out
@@ -648,11 +673,10 @@ async function fetchEventAndImage() {
 
     // 2) Product: title/name + price + images
     if (ev?.product_id) {
-      // === CHANGED: query the products table from the `prize_product` schema/profile first ===
       let prod: any = null
 
       const { data: prodPrimary, error: prodPrimaryErr } = await supabase
-        .schema('prize_product') // <<< points PostgREST to /rest/v1/prize_product (profile)
+        .schema('prize_product')
         .from('products')
         .select('product_url, title, name, price')
         .eq('id', ev.product_id)
@@ -661,16 +685,14 @@ async function fetchEventAndImage() {
       if (!prodPrimaryErr && prodPrimary) {
         prod = prodPrimary
       } else {
-        // Fallback to your previous schema just in case you still keep data there
         const { data: prodFallback } = await supabase
-          .schema('games') // fallback (old path)
+          .schema('games')
           .from('products')
           .select('product_url, title, name, price')
           .eq('id', ev.product_id)
           .maybeSingle()
         if (prodFallback) prod = prodFallback
       }
-      // === /CHANGED ===
 
       if (prod) {
         productTitle.value = prod?.title || prod?.name || null
@@ -678,19 +700,16 @@ async function fetchEventAndImage() {
         productOriginalPrice.value = rawPrice != null ? Number(rawPrice) : null
       }
 
-      // Try folder-first listing (per your required structure)
       const allSigned = await listProductImages(ev.product_id)
       if (allSigned.length) {
         signedImageUrls.value = allSigned
         imageLoading.value = false
         startSlideshow()
       } else {
-        // Fallback: single product_url
         const path = prod?.product_url as string | null
         const signedFromUrl = await toSignedUrl(path)
         if (signedFromUrl) imageUrl.value = signedFromUrl
         else {
-          // last fallback: try to find first image anyway
           const fallback = await listProductImages(ev.product_id)
           if (fallback.length) {
             signedImageUrls.value = fallback
@@ -758,7 +777,7 @@ async function fetchJoinedUsers() {
   }
 }
 
-// delete logic (kept)
+// delete logic
 let deleteRan = false
 async function deleteEntryIfNeeded() {
   if (deleteRan) return
@@ -809,7 +828,7 @@ onBeforeRouteLeave((to: any) => {
   void deleteEntryIfNeeded()
 })
 
-// page unload guard (kept)
+// page unload guard
 function beforeUnload(e: BeforeUnloadEvent) {
   if (!deleteRan) {
     e.preventDefault()
@@ -850,7 +869,7 @@ function initials(name?: string | null) {
   return parts.map((p) => p[0]?.toUpperCase() || '').join('') || 'U'
 }
 
-/* Realtime + polling (kept) */
+/* Realtime + polling */
 let realtimeChannel: any | null = null
 let realtimeEntryChannel: any | null = null
 let refreshTimer: number | null = null
@@ -944,7 +963,7 @@ function startPoll() {
   pollHandle = window.setInterval(() => {
     fetchEventAndImage()
     fetchJoinedUsers()
-  }, POLL_MS)
+  }, POLL_MS) /* fixed POLL_ME -> POLL_MS */
 }
 function stopPoll() {
   if (pollHandle) {
@@ -965,9 +984,67 @@ watch(
 watch(
   () => event.value?.status,
   (nv, ov) => {
-    if (ov !== undefined && nv !== nv) maybeRedirect()
+    if (ov !== undefined && nv !== ov) maybeRedirect() /* fixed comparison */
   },
 )
+
+/* ===== Interactivity (parallax, sparkles, click pulses) ===== */
+const rootEl = ref<HTMLElement | null>(null)
+
+function onMouseMove(e: MouseEvent) {
+  const el = rootEl.value
+  if (!el) return
+  const r = el.getBoundingClientRect()
+  const x = (e.clientX - r.left) / r.width - 0.5
+  const y = (e.clientY - r.top) / r.height - 0.5
+  el.style.setProperty('--mx', String(x))
+  el.style.setProperty('--my', String(y))
+}
+
+function onRootClick(e: MouseEvent) {
+  const el = rootEl.value
+  if (!el) return
+  const pulse = document.createElement('span')
+  pulse.className = 'wa-click-pulse'
+  const r = el.getBoundingClientRect()
+  pulse.style.left = `${e.clientX - r.left}px`
+  pulse.style.top = `${e.clientY - r.top}px`
+  el.appendChild(pulse)
+  pulse.addEventListener('animationend', () => pulse.remove())
+}
+
+// Sparkles
+type Sparkle = { left: number; top: number; size: number; duration: number; delay: number; opacity: number }
+const sparkles = ref<Sparkle[]>([])
+
+function initSparkles() {
+  const COUNT = 28
+  const arr: Sparkle[] = []
+  for (let i = 0; i < COUNT; i++) {
+    arr.push({
+      left: Math.random() * 100,
+      top: Math.random() * 100,
+      size: 2 + Math.random() * 3,
+      duration: 6 + Math.random() * 10,
+      delay: Math.random() * 6,
+      opacity: 0.35 + Math.random() * 0.45,
+    })
+  }
+  sparkles.value = arr
+}
+function sparkleStyle(i: number) {
+  const s = sparkles.value[i]
+  if (!s) return {}
+  return {
+    left: s.left + '%',
+    top: s.top + '%',
+    width: s.size + 'px',
+    height: s.size + 'px',
+    animationDuration: s.duration + 's',
+    animationDelay: s.delay + 's',
+    opacity: s.opacity.toString(),
+  }
+}
 
 onMounted(() => {
   fetchEventAndImage()
@@ -978,6 +1055,10 @@ onMounted(() => {
   makeRealtimeEntryChannel()
   startPoll()
   document.addEventListener('visibilitychange', onVisibilityChange)
+
+  // init sparkles
+  initSparkles()
+  window.addEventListener('resize', initSparkles, { passive: true })
 })
 onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload)
@@ -1001,6 +1082,8 @@ onBeforeUnmount(() => {
   stopPoll()
   stopSlideshow()
   document.removeEventListener('visibilitychange', onVisibilityChange)
+
+  window.removeEventListener('resize', initSparkles)
 })
 </script>
 
@@ -1024,6 +1107,9 @@ onBeforeUnmount(() => {
   min-height: 70vh;
   color: #eaf1ff;
   overflow: hidden;
+  /* parallax cursor variables */
+  --mx: 0;
+  --my: 0;
 }
 
 /* Neon gradient background + subtle grid */
@@ -1036,7 +1122,16 @@ onBeforeUnmount(() => {
     radial-gradient(50% 60% at 50% 90%, rgba(143, 119, 255, 0.18), transparent 60%);
   filter: blur(30px);
   z-index: 0;
+  animation: wa-aurora-shift 18s ease-in-out infinite alternate;
+  transform: translate3d(calc(var(--mx) * 24px), calc(var(--my) * 24px), 0) scale(1.06);
+  transition: transform 120ms linear;
 }
+@keyframes wa-aurora-shift {
+  0% { filter: blur(28px) brightness(0.9); }
+  50% { filter: blur(32px) brightness(1); }
+  100% { filter: blur(28px) brightness(0.92); }
+}
+
 .wa-grid {
   position: absolute;
   inset: 0;
@@ -1046,6 +1141,34 @@ onBeforeUnmount(() => {
   background-size: 32px 32px;
   mask-image: radial-gradient(80% 60% at 50% 40%, #000 60%, transparent 100%);
   z-index: 0;
+  animation: wa-grid-drift 40s linear infinite;
+  transform: translate3d(calc(var(--mx) * 12px), calc(var(--my) * 12px), 0);
+  transition: transform 120ms linear;
+}
+@keyframes wa-grid-drift {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: 256px 128px, 128px 256px; }
+}
+
+.wa-sparkles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.wa-sparkle {
+  position: absolute;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(124,156,255,0.8), rgba(124,156,255,0.05) 60%, transparent 70%);
+  box-shadow: 0 0 8px rgba(124,156,255,0.35), 0 0 16px rgba(82,227,182,0.18);
+  animation-name: wa-sparkle-float;
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+}
+@keyframes wa-sparkle-float {
+  0% { transform: translateY(0) scale(1); opacity: 0.2; }
+  50% { transform: translateY(-12px) scale(1.2); opacity: 0.75; }
+  100% { transform: translateY(0) scale(1); opacity: 0.2; }
 }
 
 .wa-card {
@@ -1056,35 +1179,47 @@ onBeforeUnmount(() => {
     0 10px 30px rgba(0, 0, 0, 0.25),
     inset 0 0 0 1px rgba(255, 255, 255, 0.02);
   z-index: 1;
+  animation: wa-float 6s ease-in-out infinite;
+  transform: translate3d(calc(var(--mx) * 6px), calc(var(--my) * 6px), 0);
+  transition: transform 120ms linear, box-shadow 200ms ease;
 }
-.wa-title {
-  color: #f3f6ff;
+.wa-card:hover {
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.35),
+    0 0 24px rgba(124, 156, 255, 0.12);
 }
-.wa-subtext {
-  color: #f3f6ff;
-  opacity: 0.8;
-}
-.wa-title-wrap {
-  display: grid;
-  gap: 2px;
+@keyframes wa-float {
+  0%, 100% { transform: translateY(0) }
+  50% { transform: translateY(-6px) }
 }
 
+.wa-title { color: #f3f6ff; }
+.wa-subtext { color: #f3f6ff; opacity: 0.8; }
+.wa-title-wrap { display: grid; gap: 2px; }
+
 /* Lobby top row */
-.wa-lobby-top {
-  display: grid;
-  gap: 10px;
-}
-.wa-lobby-row {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  flex-wrap: wrap;
-}
+.wa-lobby-top { display: grid; gap: 10px; }
+.wa-lobby-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
 .wa-pill {
   background: var(--wa-chip);
   color: #dbe5ff;
   border: 1px solid var(--wa-chip-border);
+  position: relative;
+  overflow: hidden;
+}
+.wa-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.07), transparent);
+  transform: translateX(-100%);
+  animation: wa-shine 3.6s ease-in-out infinite;
+}
+@keyframes wa-shine {
+  0% { transform: translateX(-120%); }
+  60% { transform: translateX(120%); }
+  100% { transform: translateX(120%); }
 }
 .wa-pill-soft {
   background: var(--wa-chip-soft);
@@ -1117,33 +1252,17 @@ onBeforeUnmount(() => {
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.4);
 }
 
-/* Users grid – ML style */
+/* Users grid */
 .wa-users-grid {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
   text-align: left;
 }
-@media (max-width: 1200px) {
-  .wa-users-grid {
-    grid-template-columns: repeat(5, 1fr);
-  }
-}
-@media (max-width: 992px) {
-  .wa-users-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-@media (max-width: 768px) {
-  .wa-users-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-@media (max-width: 576px) {
-  .wa-users-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+@media (max-width: 1200px) { .wa-users-grid { grid-template-columns: repeat(5, 1fr); } }
+@media (max-width: 992px)  { .wa-users-grid { grid-template-columns: repeat(4, 1fr); } }
+@media (max-width: 768px)  { .wa-users-grid { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 576px)  { .wa-users-grid { grid-template-columns: repeat(2, 1fr); } }
 
 .wa-user-card {
   position: relative;
@@ -1157,7 +1276,20 @@ onBeforeUnmount(() => {
   align-items: center;
   column-gap: 10px;
   overflow: hidden;
+  animation: wa-rise-in 420ms cubic-bezier(.2,.9,.25,1) both;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  will-change: transform;
 }
+.wa-user-card:hover {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 8px 22px rgba(124,156,255,0.12);
+  border-color: #2f4277;
+}
+@keyframes wa-rise-in {
+  from { opacity: 0; transform: translateY(8px) scale(.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 .wa-user-glow {
   content: '';
   position: absolute;
@@ -1207,14 +1339,8 @@ onBeforeUnmount(() => {
 }
 
 /* Product spotlight */
-.wa-product-spot {
-  display: grid;
-  place-items: center;
-}
-.wa-product-info {
-  display: grid;
-  gap: 4px;
-}
+.wa-product-spot { display: grid; place-items: center; }
+.wa-product-info { display: grid; gap: 4px; }
 .wa-product-title {
   font-weight: 700;
   font-size: 16px;
@@ -1228,12 +1354,7 @@ onBeforeUnmount(() => {
   align-items: baseline;
   justify-content: center;
 }
-.wa-price-old {
-  color: #9fb0d9;
-  text-decoration: line-through;
-  opacity: 0.75;
-  font-size: 14px;
-}
+.wa-price-old { color: #9fb0d9; text-decoration: line-through; opacity: 0.75; font-size: 14px; }
 .wa-price-new {
   font-size: 20px;
   font-weight: 800;
@@ -1242,38 +1363,18 @@ onBeforeUnmount(() => {
 }
 
 /* Circular prize image + slideshow */
-.wa-image-frame {
-  position: relative;
-  display: grid;
-  place-items: center;
-  min-height: 180px;
-}
-.wa-slideshow {
-  position: relative;
-  width: 164px;
-  height: 164px;
-}
+.wa-image-frame { position: relative; display: grid; place-items: center; min-height: 180px; }
+.wa-slideshow { position: relative; width: 164px; height: 164px; }
 .wa-image-circle {
-  width: 164px;
-  height: 164px;
-  border-radius: 50%;
+  width: 164px; height: 164px; border-radius: 50%;
   border: 1px solid var(--wa-border);
   object-fit: cover;
   box-shadow: 0 10px 28px rgba(36, 62, 160, 0.25);
 }
-.wa-slide {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 600ms ease;
-}
-.wa-slide.active {
-  opacity: 1;
-}
+.wa-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 600ms ease; }
+.wa-slide.active { opacity: 1; }
 .wa-img-skeleton-circle {
-  width: 164px;
-  height: 164px;
-  border-radius: 50%;
+  width: 164px; height: 164px; border-radius: 50%;
   border: 1px solid var(--wa-border);
   background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
   background-size: 400% 100%;
@@ -1281,127 +1382,108 @@ onBeforeUnmount(() => {
 }
 .wa-ring {
   position: absolute;
-  width: 200px;
-  height: 200px;
+  width: 200px; height: 200px;
   border-radius: 50%;
   border: 1px dashed rgba(124, 156, 255, 0.35);
   animation: wa-spin 10s linear infinite;
   pointer-events: none;
   z-index: 0;
+  transform: translate3d(calc(var(--mx) * 4px), calc(var(--my) * 4px), 0);
 }
-@keyframes wa-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.wa-pulse {
+  position: absolute; width: 220px; height: 220px; border-radius: 50%;
+  z-index: -1;
+  background: radial-gradient(circle, rgba(82,227,182,0.08), transparent 65%);
+  animation: wa-pulse 2.6s ease-in-out infinite;
 }
-@keyframes wa-shimmer {
-  0% {
-    background-position: 100% 0;
-  }
-  100% {
-    background-position: 0 0;
-  }
-}
+@keyframes wa-spin { to { transform: rotate(360deg); } }
+@keyframes wa-pulse { 0%,100% { opacity: .35; transform: scale(1); } 50% { opacity: .65; transform: scale(1.05); } }
+@keyframes wa-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 
 /* Dots */
-.wa-dots {
-  display: inline-flex;
-  gap: 6px;
-}
+.wa-dots { display: inline-flex; gap: 6px; }
 .wa-dots span {
-  width: 6px;
-  height: 6px;
-  background: #7e8cc2;
-  border-radius: 999px;
-  display: inline-block;
+  width: 6px; height: 6px; background: #7e8cc2; border-radius: 999px; display: inline-block;
   animation: wa-bounce 1.4s infinite;
 }
-.wa-dots span:nth-child(2) {
-  animation-delay: 0.12s;
-}
-.wa-dots span:nth-child(3) {
-  animation-delay: 0.24s;
-}
+.wa-dots span:nth-child(2) { animation-delay: 0.12s; }
+.wa-dots span:nth-child(3) { animation-delay: 0.24s; }
 @keyframes wa-bounce {
-  0%,
-  80%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.85;
-  }
-  40% {
-    transform: translateY(-5px);
-    opacity: 1;
-  }
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.85; }
+  40% { transform: translateY(-5px); opacity: 1; }
 }
 
-/* Tip marquee, buttons, modal (kept) */
+/* Tip marquee, buttons, modal */
 .wa-tips {
-  position: relative;
-  height: 28px;
-  overflow: hidden;
-  border-radius: 999px;
-  border: 1px solid #1f2a49;
-  background: #0b1124;
+  position: relative; height: 28px; overflow: hidden;
+  border-radius: 999px; border: 1px solid #1f2a49; background: #0b1124;
 }
 .wa-tips-track {
-  display: inline-flex;
-  align-items: center;
-  gap: 18px;
-  white-space: nowrap;
-  padding: 4px 12px;
-  animation: wa-marquee 18s linear infinite;
-  color: #b6c5ff;
-  font-size: 12px;
-  animation: wa-marquee 60s linear infinite; /* slower */
+  display: inline-flex; align-items: center; gap: 18px; white-space: nowrap;
+  padding: 4px 12px; color: #b6c5ff; font-size: 12px;
+  animation: wa-marquee 60s linear infinite;
 }
-.wa-dot {
-  opacity: 0.5;
-  padding: 0 8px;
-}
-@keyframes wa-marquee {
-  0% {
-    transform: translateX(0%);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
+.wa-dot { opacity: 0.5; padding: 0 8px; }
+@keyframes wa-marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
 
 .wa-leave-btn {
-  border-width: 2px;
-  color: #dbe5ff;
-  border-color: #263459;
-  background: #0d1530;
+  border-width: 2px; color: #dbe5ff; border-color: #263459; background: #0d1530;
+  transition: transform 120ms ease, box-shadow 160ms ease;
 }
-.wa-leave-btn:hover {
-  border-color: #3b4e86;
-  box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15);
-}
+.wa-leave-btn:hover { border-color: #3b4e86; box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15); transform: translateY(-1px); }
 
 .wa-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(11, 16, 32, 0.65);
-  backdrop-filter: blur(4px);
-  display: grid;
-  place-items: center;
-  z-index: 1040;
+  position: fixed; inset: 0; background: rgba(11, 16, 32, 0.65); backdrop-filter: blur(4px);
+  display: grid; place-items: center; z-index: 1040;
 }
 .wa-modal {
-  position: relative;
-  width: min(520px, 92vw);
-  border: 1px solid var(--wa-border);
-  background: linear-gradient(180deg, #0f172e, #0b1225);
-  color: #eaf1ff;
+  position: relative; width: min(520px, 92vw); border: 1px solid var(--wa-border);
+  background: linear-gradient(180deg, #0f172e, #0b1225); color: #eaf1ff;
 }
-.wa-modal-close {
-  position: absolute;
-  top: 8px;
-  right: 10px;
-  border: 0;
-  background: transparent;
-  color: #9aa6b2;
-  cursor: pointer;
+.wa-modal-close { position: absolute; top: 8px; right: 10px; border: 0; background: transparent; color: #9aa6b2; cursor: pointer; }
+
+/* Loader overlay */
+.wa-loader-overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(80% 60% at 50% 40%, rgba(9,14,28,0.65), rgba(9,14,28,0.85));
+  z-index: 2; display: grid; place-items: center; pointer-events: none;
 }
+.wa-loader { position: relative; width: 140px; height: 140px; display: grid; place-items: center; }
+.wa-loader-core {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(124,156,255,.9), rgba(82,227,182,.9), rgba(143,119,255,.9), rgba(124,156,255,.9));
+  -webkit-mask: radial-gradient(circle 22px, transparent 57%, #000 58%);
+          mask: radial-gradient(circle 22px, transparent 57%, #000 58%);
+  animation: wa-rotate 1.2s linear infinite; box-shadow: 0 0 30px rgba(124,156,255,.25);
+}
+@keyframes wa-rotate { to { transform: rotate(360deg); } }
+.wa-orbit { position: absolute; inset: 0; display: grid; place-items: center; filter: drop-shadow(0 0 8px rgba(124,156,255,.45)); }
+.wa-orbit span {
+  position: absolute; width: 8px; height: 8px; border-radius: 50%;
+  background: #7c9cff; animation: wa-orbit 2.4s linear infinite;
+}
+.wa-orbit span:nth-child(2) { animation-delay: .2s; background: #52e3b6; }
+.wa-orbit span:nth-child(3) { animation-delay: .4s; background: #8f77ff; }
+@keyframes wa-orbit {
+  0%   { transform: rotate(0deg) translateX(56px) rotate(0deg); }
+  100% { transform: rotate(360deg) translateX(56px) rotate(-360deg); }
+}
+.wa-loader-text {
+  position: absolute; bottom: -26px; width: 220px; text-align: center;
+  font-size: 12px; color: #cfe3ff; letter-spacing: .3px; text-shadow: 0 2px 6px rgba(0,0,0,.35);
+}
+
+/* Click pulse */
+.wa-click-pulse {
+  position: absolute; width: 12px; height: 12px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(82,227,182,.9), rgba(82,227,182,.1) 60%, transparent 70%);
+  transform: translate(-50%, -50%); animation: wa-click 800ms ease-out forwards;
+  pointer-events: none; z-index: 3;
+}
+.wa-click-pulse::after {
+  content: ""; position: absolute; inset: -6px; border: 1px solid rgba(124,156,255,.55);
+  border-radius: 50%; animation: wa-click-ring 800ms ease-out forwards;
+}
+@keyframes wa-click { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.6); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(3.2); } }
+@keyframes wa-click-ring { 0% { opacity: .8; transform: scale(1); } 100% { opacity: 0; transform: scale(2.4); } }
 </style>

@@ -14,6 +14,9 @@ import * as bootstrap from 'bootstrap'
 // ⭐ Global UI cleanup on every navigation
 import { cleanupBootstrapArtifacts } from '@/lib/uiCleanup'
 
+// ⬇️⛳️ NEW: admin gate hotkey (Alt+Shift+A)
+import { initAdminGateHotkey } from '@/lib/adminGate'
+
 const app = createApp(App)
 
 // Nuke any lingering offcanvas/modal/dropdown artifacts before & after nav
@@ -34,4 +37,8 @@ router.onError((err) => {
 })
 
 app.use(router)
+
+// ⬇️⛳️ NEW: enable the hotkey across the app (does not show any UI)
+initAdminGateHotkey()
+
 app.mount('#app')
