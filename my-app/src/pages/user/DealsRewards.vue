@@ -2,24 +2,21 @@
   <div class="container py-4">
     <div class="d-flex align-items-center justify-content-between mb-3">
       <h1 class="h4 m-0">Deals & Rewards</h1>
-      <div class="d-flex align-items-center gap-2">
-        <button class="btn btn-outline-secondary btn-sm" @click="reload" :disabled="busy">
-          <span v-if="busy" class="spinner-border spinner-border-sm me-2"></span>
-          Refresh
-        </button>
-      </div>
     </div>
 
     <div class="row g-3">
-      <!-- ===================== Active Discounts (voucher table removed) ===================== -->
+      <!-- ===================== Active Discounts ===================== -->
       <div class="col-12">
-        <div class="card shadow-sm rounded-4">
-          <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <h2 class="h6 m-0">Active Discounts</h2>
-              <span class="badge text-bg-light">{{ discounts.length }} total</span>
-            </div>
+        <div class="card disc-card shadow-sm rounded-4 overflow-hidden">
+          <!-- Hero header -->
+          <div
+            class="disc-hero d-flex align-items-center justify-content-between px-3 px-md-4 py-3"
+          >
+            <h2 class="h6 m-0">Active Discounts</h2>
+            <span class="badge text-bg-light border">{{ discounts.length }} total</span>
+          </div>
 
+          <div class="card-body p-3 p-md-4">
             <div v-if="busy" class="text-center text-muted py-4">
               <div class="spinner-border mb-2"></div>
               <div>Loading…</div>
@@ -31,153 +28,171 @@
               <small class="text-muted">Discounts will appear here when available.</small>
             </div>
 
-            <!-- ✅ Show discounts when present -->
-            <ul v-else class="list-group list-group-flush">
-              <li
+            <!-- Horizontal voucher rail -->
+            <div v-else class="voucher-rail">
+              <div
                 v-for="d in discounts"
                 :key="d.id"
-                class="list-group-item d-flex align-items-center justify-content-between"
+                class="ticket card border-0 shadow-sm"
+                :style="{ '--ticket-accent': d.type === 'free_shipping' ? '#16a085' : '#e74c3c' }"
               >
-                <div class="me-3">
-                  <div class="fw-semibold">
-                    {{ d.title }}
-                    <span class="badge bg-secondary ms-2">{{ valueBadge(d) }}</span>
-                    <!-- NEW: small status pill when user exceeded limit -->
-                    <span
-                      v-if="exceededUserLimit(d)"
-                      class="badge text-bg-warning ms-2"
-                      title="You have reached the maximum number of uses for this discount"
-                    >
-                      Limit reached
-                    </span>
-                  </div>
-                  <div class="small text-muted" v-if="d.description">{{ d.description }}</div>
-                  <div class="small mt-1">
-                    <span v-if="d.code"
-                      >Code: <code>{{ d.code }}</code></span
-                    >
-                    <span class="text-muted ms-2">• {{ expiryLabel(d) }}</span>
-                  </div>
-
-                  <!-- NEW: usage note -->
+                <div class="ticket-inner d-flex align-items-stretch">
+                  <!-- LEFT colored side -->
                   <div
-                    v-if="typeof d.max_uses_per_user === 'number'"
-                    class="small mt-1"
-                    :class="exceededUserLimit(d) ? 'text-danger' : 'text-muted'"
+                    class="ticket-side text-white d-flex flex-column align-items-center justify-content-center"
                   >
-                    Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }} times
-                    <span v-if="exceededUserLimit(d)">• You’ve exceeded your allowed uses.</span>
+                    <i
+                      :class="
+                        d.type === 'free_shipping' ? 'bi bi-truck fs-1' : 'bi bi-percent fs-1'
+                      "
+                    ></i>
+                    <div class="fw-semibold text-center small mt-1">
+                      {{ d.type === 'free_shipping' ? 'FREE' : d.brand_label || 'Mega Discount' }}
+                    </div>
+                  </div>
+
+                  <!-- RIGHT content -->
+                  <div class="ticket-body flex-grow-1 position-relative">
+                    <div class="d-flex align-items-start justify-content-between gap-3">
+                      <div class="me-auto">
+                        <div class="h6 fw-bold mb-1">{{ d.title }}</div>
+
+                        <span
+                          v-if="d.tag"
+                          class="badge rounded-pill border text-danger bg-white mb-2"
+                          >{{ d.tag }}</span
+                        >
+
+                        <div class="text-muted">
+                          <span v-if="d.min_spend != null">Min. Spend ₱{{ d.min_spend }}</span>
+                          <span v-else-if="d.description">{{ d.description }}</span>
+                        </div>
+
+                        <div class="small text-muted mt-2">
+                          Valid {{ expiryLabel(d) }} <a href="#" class="fw-semibold ms-2">T&C</a>
+                        </div>
+                      </div>
+
+                      <div class="d-flex align-items-center">
+                        <button
+                          class="btn btn-claim px-4"
+                          @click="goToShop(d)"
+                          :disabled="exceededUserLimit(d)"
+                          :aria-disabled="exceededUserLimit(d)"
+                          :title="
+                            exceededUserLimit(d)
+                              ? 'You have reached the allowed uses for this discount'
+                              : 'Use this discount'
+                          "
+                        >
+                          {{ exceededUserLimit(d) ? 'Used' : 'Claim' }}
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- Code + usage -->
+                    <div class="small mt-2">
+                      <span v-if="d.code"
+                        >Code: <code>{{ d.code }}</code></span
+                      >
+                      <span
+                        v-if="typeof d.max_uses_per_user === 'number'"
+                        class="ms-2"
+                        :class="exceededUserLimit(d) ? 'text-danger' : 'text-muted'"
+                      >
+                        Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
+                      </span>
+                    </div>
                   </div>
                 </div>
-
-                <div class="d-flex align-items-center gap-2">
-                  <button
-                    class="btn btn-primary btn-sm"
-                    @click="goToShop(d)"
-                    :disabled="exceededUserLimit(d)"
-                    :title="
-                      exceededUserLimit(d)
-                        ? 'You have reached the allowed uses for this discount'
-                        : 'Use this discount'
-                    "
-                    :aria-disabled="exceededUserLimit(d)"
-                  >
-                    {{ exceededUserLimit(d) ? 'Use (limit reached)' : 'Use' }}
-                  </button>
-                </div>
-              </li>
-            </ul>
+              </div>
+            </div>
+            <!-- /rail -->
           </div>
         </div>
       </div>
       <!-- =================== /Active Discounts ====================== -->
 
-      <!-- Gift Certificates (UI retained, real data removed) -->
-      <div class="col-12 col-lg-6">
-        <div class="card shadow-sm rounded-4 h-100">
-          <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <h2 class="h6 m-0">Gift Certificates</h2>
-              <span class="badge text-bg-light">{{ gcs.length }} available</span>
+      <!-- Affiliate Link & Referral Summary (redesigned) -->
+      <div class="flex-grow-1 col-12 col-lg-6">
+        <div class="card ref-card border-0 shadow-sm rounded-4 h-100 overflow-hidden">
+          <!-- Hero header -->
+          <div
+            class="ref-hero d-flex align-items-center justify-content-between gap-3 px-3 px-md-4 py-3"
+          >
+            <div>
+              <div class="eyebrow text-uppercase fw-semibold small mb-1">Invite & Earn</div>
+              <h3 class="h6 m-0">Affiliate & Referrals</h3>
             </div>
-
-            <div v-if="busy" class="text-center text-muted py-4">
-              <div class="spinner-border mb-2"></div>
-              <div>Loading…</div>
-            </div>
-
-            <div v-else-if="gcs.length === 0" class="text-center text-muted py-4">
-              <i class="bi bi-card-text" style="font-size: 1.6rem"></i>
-              <div class="mt-2">No gift certificates to show.</div>
-              <small class="text-muted">Earn gift certificates via referrals.</small>
-            </div>
-
-            <ul v-else class="list-group list-group-flush">
-              <!-- intentionally empty to avoid real Supabase data -->
-            </ul>
-
-            <div v-if="gcs.length" class="mt-3 small text-muted">
-              * Gift certificates can be applied at checkout.
+            <div class="d-flex align-items-center gap-2">
+              <button
+                class="btn btn-light btn-sm ref-btn"
+                @click="copyAffiliate"
+                :disabled="!affiliateUrl"
+                title="Copy your referral link"
+              >
+                <i class="bi bi-clipboard"></i> <span class="ms-1 d-none d-sm-inline">Copy</span>
+              </button>
+              <a
+                v-if="affiliateUrl"
+                class="btn btn-light btn-sm ref-btn"
+                :href="affiliateUrl"
+                target="_blank"
+                rel="noopener"
+                title="Open your referral link"
+              >
+                <i class="bi bi-box-arrow-up-right"></i>
+                <span class="ms-1 d-none d-sm-inline">Open</span>
+              </a>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- Affiliate Link & Referral Summary (UI retained; now wired) -->
-      <div class="col-12 col-lg-6">
-        <div class="card shadow-sm rounded-4 h-100">
-          <div class="card-body">
-            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-              <h2 class="h6 m-0">Affiliate & Referrals</h2>
-              <div class="d-flex align-items-center gap-2">
-                <button
-                  class="btn btn-outline-primary btn-sm"
-                  @click="copyAffiliate"
-                  :disabled="!affiliateUrl"
-                >
-                  <i class="bi bi-clipboard"></i>
-                  <span class="ms-2">Copy link</span>
-                </button>
-                <a
-                  v-if="affiliateUrl"
-                  class="btn btn-outline-secondary btn-sm"
-                  :href="affiliateUrl"
-                  target="_blank"
-                  rel="noopener"
-                >
-                  <i class="bi bi-box-arrow-up-right"></i>
-                  <span class="ms-2">Open</span>
-                </a>
-              </div>
-            </div>
-
-            <div class="input-group mb-3">
-              <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+          <div class="card-body p-3 p-md-4">
+            <!-- Pretty link field -->
+            <div class="ref-link input-group mb-3 rounded-3 overflow-hidden">
+              <span class="input-group-text bg-white"><i class="bi bi-link-45deg"></i></span>
               <input
                 type="text"
-                class="form-control"
+                class="form-control ref-input"
                 :value="affiliateUrl || 'Unavailable'"
                 readonly
               />
+              <button class="btn btn-primary" @click="copyAffiliate" :disabled="!affiliateUrl">
+                Copy
+              </button>
             </div>
 
+            <!-- Metrics -->
             <div class="row g-3">
               <div class="col-12 col-md-4">
-                <div class="p-3 rounded-3 border">
-                  <div class="small text-muted">Total Referrals</div>
-                  <div class="fs-4 fw-semibold">{{ referralStats.total }}</div>
+                <div class="metric d-flex align-items-center gap-3 p-3 rounded-3">
+                  <div class="icon-wrap"><i class="bi bi-people"></i></div>
+                  <div>
+                    <div class="label small text-muted">Total Referrals</div>
+                    <div class="value fs-4 fw-semibold">{{ referralStats.total }}</div>
+                  </div>
                 </div>
               </div>
+
               <div class="col-12 col-md-4">
-                <div class="p-3 rounded-3 border">
-                  <div class="small text-muted">Converted Sales</div>
-                  <div class="fs-4 fw-semibold">{{ referralStats.converted }}</div>
+                <div class="metric d-flex align-items-center gap-3 p-3 rounded-3">
+                  <div class="icon-wrap"><i class="bi bi-bag-check"></i></div>
+                  <div>
+                    <div class="label small text-muted">Converted Sales</div>
+                    <div class="value fs-4 fw-semibold">{{ referralStats.converted }}</div>
+                  </div>
                 </div>
               </div>
+
               <div class="col-12 col-md-4">
-                <div class="p-3 rounded-3 border">
-                  <div class="small text-muted">Earned Commission</div>
-                  <div class="fs-4 fw-semibold">₱ {{ money(referralStats.commission) }}</div>
+                <div class="metric d-flex align-items-center gap-3 p-3 rounded-3">
+                  <div class="icon-wrap"><i class="bi bi-wallet2"></i></div>
+                  <div>
+                    <div class="label small text-muted">Earned Commission</div>
+                    <div class="value fs-4 fw-semibold">
+                      ₱ {{ money(referralStats.commission) }}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -212,14 +227,12 @@ onMounted(async () => {
 
 type Discount = {
   id: string
-  // original props kept
   label?: string | null
   amount_off?: number | null
   percent_off?: number | null
   product_name?: string | null
   expires_at?: string | null
 
-  // ✅ added to match rewards.discounts for display
   title?: string | null
   description?: string | null
   code?: string | null
@@ -229,6 +242,11 @@ type Discount = {
   is_public?: boolean | null
   // NEW: to enforce per-user limits
   max_uses_per_user?: number | null
+
+  /* 👉 new (UI only) */
+  min_spend?: number | null
+  brand_label?: string | null
+  tag?: string | null
 }
 
 type GiftCert = {
@@ -502,12 +520,142 @@ onMounted(() => {
   border-bottom: 0;
 }
 
-/* Voucher thumbnail (left in case you reintroduce images elsewhere) */
-.voucher-thumb {
-  width: 64px;
-  height: 64px;
-  object-fit: cover;
-  border-radius: 10px;
+/* Active Discounts — hero + horizontal rail */
+.disc-card {
+  border: 0;
+}
+.disc-hero {
+  background:
+    radial-gradient(1200px 70px at -10% 0%, rgba(32, 100, 124, 0.12), transparent 60%),
+    linear-gradient(135deg, #f6fafc 0%, #f3fbf6 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.disc-hero .badge {
+  background: #fff;
+}
+
+/* Rail: one line, scrollable */
+.voucher-rail {
+  display: flex;
+  gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 2px 2px 6px;
+  scroll-snap-type: x proximity;
+}
+.voucher-rail .ticket {
+  min-width: 560px;
+  border-radius: 14px;
+  scroll-snap-align: start;
+}
+@media (max-width: 576px) {
+  .voucher-rail .ticket {
+    min-width: 92vw;
+  }
+}
+
+/* Ticket internals */
+.ticket-inner {
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Left colored block with perforations */
+.ticket-side {
+  width: 160px;
+  background-color: #20a44c;
+  position: relative;
+  padding: 18px 14px;
+  text-align: center;
+}
+.ticket-side::before,
+.ticket-side::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  bottom: -12px;
+  width: 12px;
+  background: radial-gradient(circle at 6px 12px, #fff 6px, transparent 7px) repeat-y;
+  background-size: 12px 24px;
+  pointer-events: none;
+}
+.ticket-side::before {
+  left: -6px;
+} /* outer perforation */
+.ticket-side::after {
+  right: -6px;
+} /* inner perforation */
+
+.ticket-body {
+  background: #fff;
+  padding: 16px 18px;
+}
+
+/* Claim button */
+.btn-claim {
+  background-color: #20647c;
+  border: none;
+  color: #fff;
+  border-radius: 0.6rem;
+}
+.btn-claim[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Affiliate & Referrals — refreshed */
+.ref-card {
+  background: #fff;
+}
+
+/* Gradient hero with subtle pattern */
+.ref-hero {
+  background:
+    radial-gradient(1200px 70px at -10% 0%, rgba(32, 100, 124, 0.14), transparent 60%),
+    linear-gradient(135deg, #f6fafc 0%, #f3fbf6 100%);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.ref-hero .eyebrow {
+  color: #20647c;
+  letter-spacing: 0.6px;
+  opacity: 0.8;
+}
+.ref-btn {
+  border-radius: 0.65rem;
+}
+
+/* Link input */
+.ref-link .ref-input {
+  background: #fff;
+  border-left: 0;
+}
+.ref-link .input-group-text {
+  border-right: 0;
+  color: #20647c;
+}
+
+/* Metrics */
+.metric {
+  background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+}
+.metric .icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  color: #20647c;
+  background: linear-gradient(135deg, rgba(32, 100, 124, 0.12), rgba(32, 164, 76, 0.12));
+}
+.metric .icon-wrap .bi {
+  font-size: 1.15rem;
+}
+
+/* Small polish */
+.ref-link .btn {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
 }
 </style>

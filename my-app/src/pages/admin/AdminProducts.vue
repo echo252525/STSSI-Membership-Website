@@ -57,7 +57,7 @@
           <!-- Grid -->
           <div class="row g-3">
             <div
-              class="productDiv col-6 col-md-4 col-lg-2"
+              class="productDiv col-6 col-md-4 col-lg-3"
               v-for="p in paginatedProducts"
               :key="p.id"
             >
@@ -147,9 +147,9 @@
                 </div>
 
                 <!-- Body -->
-                <div class="p-3 card-body-stable">
+                <div class="p-2 card-body-stable">
                   <div class="d-flex justify-content-between align-items-start gap-2">
-                    <strong class="text-truncate" @click.stop="openView(p)">{{ p.name }}</strong>
+                    <strong class="text-truncate productTitle" @click.stop="openView(p)">{{ p.name }}</strong>
                     <span class="badge text-bg-primary">₱ {{ number(p.price) }}</span>
                   </div>
 
@@ -163,9 +163,9 @@
                   </div>
 
                   <div
-                    class="d-flex justify-content-between align-items-center mt-3 small text-muted"
+                    class="d-flex row justify-content-between align-items-center mt-3 text-muted dateProduct"
                   >
-                    <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(p.created_at) }}</span>
+                    <span><i class="bi bi-calendar-plus me-1 dateProduct"></i>{{ fmt(p.created_at) }}</span>
                     <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
                   </div>
 
@@ -1749,6 +1749,14 @@ onMounted(() => {
   object-fit: cover;
 }
 
+.productTitle {
+  font-size: small;
+}
+
+
+
+
+
 /* Ensure consistent body height regardless of description length */
 .card-body-stable {
   min-height: 138px; /* title/price + meta + spacing; adjust if needed */
@@ -1892,7 +1900,10 @@ onMounted(() => {
 }
 
 .product-card .ratio-4x3 {
-  margin-bottom: 1rem;
+  padding-top: 100%;
+}
+.dateProduct {
+  font-size: 0.6rem;
 }
 
 .fb-dropzone {
