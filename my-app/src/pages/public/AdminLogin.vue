@@ -30,6 +30,15 @@
               </span>
             </span>
           </div>
+          <!-- ✅ ADDED: Forgot password link (right below Password field) -->
+            <div class="d-flex justify-content-end mt-1">
+              <router-link
+                :to="{ name: 'forgot-password' }"
+                class="small text-decoration-none"
+              >
+                Forgot password?
+              </router-link>
+            </div>
         </div>
 
         <div class="d-flex flex-column flex-sm-row gap-2">

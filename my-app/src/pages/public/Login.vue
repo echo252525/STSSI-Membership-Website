@@ -42,11 +42,20 @@
                 role="button"
                 @click="togglePassword"
               >
-                <span
-                  class="material-symbols-outlined">
+                <span class="material-symbols-outlined">
                   {{ showPassword ? 'visibility' : 'visibility_off' }}
                 </span>
               </span>
+            </div>
+
+            <!-- ✅ ADDED: Forgot password link (right below Password field) -->
+            <div class="d-flex justify-content-end mt-1">
+              <router-link
+                :to="{ name: 'forgot-password' }"
+                class="small text-decoration-none"
+              >
+                Forgot password?
+              </router-link>
             </div>
           </div>
 
@@ -115,15 +124,12 @@ const onSubmit = async () => {
     }
 
     // 3) Check that a corresponding row exists in public.users
-    //    Assumes your public.users primary key (id) equals the auth user id.
-    //    If you use a different column (e.g., auth_user_id), change the .eq('id', uid) accordingly.
     const { data: profile, error: profileErr } = await supabase
       .from('users')
       .select('id')
       .eq('id', uid)
       .maybeSingle()
 
-    // If query errored (likely RLS) or no row exists, block login
     if (profileErr || !profile) {
       await supabase.auth.signOut()
       throw new Error('Incorrect email or password.')

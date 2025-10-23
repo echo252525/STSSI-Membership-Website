@@ -10,6 +10,7 @@ import Login from '@/pages/public/Login.vue'
 import Signup from '@/pages/public/Signup.vue'
 import AdminLogin from '@/pages/public/AdminLogin.vue'
 import AdminSignup from '@/pages/public/AdminSignup.vue'
+import ForgotPassword from '@/pages/public/ForgotPassword.vue' // adjust path if needed
 
 import UserDashboard from '@/pages/user/Dashboard.vue'
 import Membership from '@/pages/user/Membership.vue'
@@ -52,6 +53,9 @@ const routes: RouteRecordRaw[] = [
       { path: '', name: 'home', component: Home },
       { path: 'login', name: 'login', component: Login },
       { path: 'signup', name: 'signup', component: Signup },
+
+      // ✅ Forgot Password (PUBLIC)
+      { path: 'forgot-password', name: 'forgot-password', component: ForgotPassword },
 
       // 🔒 Admin login/signup (now both gated)
       {
@@ -136,3 +140,4 @@ router.beforeEach((to, _from, next) => {
 })
 
 export default router
+  

@@ -93,7 +93,6 @@
                 {{ r.name }}
               </button>
             </div>
-            <div class="form-text">Source: <a href="https://psgc.cloud/" target="_blank" rel="noopener">PSGC Cloud</a></div>
           </div>
 
           <!-- City / Municipality -->
@@ -120,7 +119,7 @@
                 <span v-if="regionNameForLGU(l)" class="text-muted"> — {{ regionNameForLGU(l) }}</span>
               </button>
             </div>
-            <div class="form-text">Source: <a href="https://psgc.cloud/" target="_blank" rel="noopener">PSGC Cloud</a></div>
+           
           </div>
 
           <!-- Barangay -->
@@ -145,7 +144,6 @@
                 {{ b.name }}
               </button>
             </div>
-            <div class="form-text">Source: <a href="https://psgc.cloud/" target="_blank" rel="noopener">PSGC Cloud</a></div>
           </div>
 
           <!-- ZIP -->
