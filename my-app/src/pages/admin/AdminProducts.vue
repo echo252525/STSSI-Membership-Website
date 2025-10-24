@@ -1805,6 +1805,7 @@ onMounted(() => {
 
 
 
+
 /* Ensure consistent body height regardless of description length */
 .card-body-stable {
   min-height: 138px; /* title/price + meta + spacing; adjust if needed */
