@@ -943,6 +943,55 @@
               <div class="small text-muted">No discount applied.</div>
             </template>
           </div>
+<!-- Items (READ-ONLY) -->
+<div class="border rounded-3 p-3">
+  <div class="fw-semibold mb-2"><i class="bi bi-bag me-2"></i>Items</div>
+
+  <div v-if="cartItems.length === 0" class="text-muted small">
+    No items found for this pending order.
+  </div>
+
+  <div v-else class="vstack gap-2">
+    <div
+      v-for="it in cartItems"
+      :key="it.product.id"
+      class="d-flex align-items-start gap-3"
+    >
+      <!-- thumb -->
+      <div class="pending-item-thumb bg-light rounded">
+        <img
+          v-if="it.imageUrl"
+          :src="it.imageUrl"
+          :alt="it.product.name"
+          class="w-100 h-100 object-fit-cover rounded"
+        />
+        <div
+          v-else
+          class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+        >
+          <i class="bi bi-image"></i>
+        </div>
+      </div>
+
+      <!-- texts -->
+      <div class="flex-grow-1">
+        <div class="fw-semibold line-clamp-1" :title="it.product.name">
+          {{ it.product.name }}
+        </div>
+        <div
+          v-if="it.product.description"
+          class="text-muted small line-clamp-2"
+          :title="it.product.description"
+        >
+          {{ it.product.description }}
+        </div>
+        <div class="small mt-1">
+          Qty: {{ it.qty }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
 
           <!-- Shipping Fee (display only) -->
           <div class="border rounded-3 p-3 bg-light-subtle">
@@ -3653,4 +3702,119 @@ function hasSpecs(p: Product | null | undefined): boolean {
 
 /* Minor utility */
 .text-monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
+
+/* --- Pending list compact mode (icon-only) --- */
+.pending-thumb {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  border-radius: 6px;
+}
+
+.pending-sample-name {
+  display: none !important; /* hide name to save space, keep markup intact */
+}
+
+/* --- Pending modal item rows --- */
+.pending-item-thumb {
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Single-line and two-line clamps for clean ellipsis */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* --- Ensure custom modals appear above any sticky/offcanvas sidebars --- */
+.modal-backdrop-custom {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  backdrop-filter: blur(1px);
+  z-index: 1200; /* higher than any sidebar/offcanvas */
+  display: grid;
+  place-items: center;
+}
+
+.modal-card {
+  position: relative;
+  width: min(92vw, 960px);
+  max-height: 90vh;
+  overflow: auto;
+  z-index: 1201;
+  border-radius: 16px;
+}
+
+/* Optional aesthetic modifier already in your markup */
+.modal-card--aesthetic {
+  border: 1px solid rgba(0,0,0,.08);
+}
+
+/* --- Pending Orders: tiny icon pills --- */
+.pending-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #f8f9fa;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  line-height: 1;
+  user-select: none;
+}
+.pending-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.pending-icon--more {
+  padding: 0 6px;
+  min-width: 24px;
+}
+
+/* Read-only pending item card thumb in the modal */
+.pending-item-thumb {
+  width: 56px;
+  height: 56px;
+}
+
+/* Multiline clamp helpers used in the modal item list */
+.line-clamp-1 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  overflow: hidden;
+}
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Small animation for cart qty fields you already use */
+.qty-bump { animation: qtyBump .18s ease; }
+@keyframes qtyBump {
+  0% { transform: scale(.98); }
+  100% { transform: scale(1); }
+}
+
 </style>

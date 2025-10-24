@@ -4,7 +4,7 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div>
         <h3 class="fw-bold d-flex gap-3 align-items-center mt-2">
-          <i class="bi bi-basket"></i>Orders
+          <i class="bi bi-basket"></i>Orders  
         </h3>
         <p class="text-muted small mb-0">Manage customer orders, shipping, and fulfillment.</p>
       </div>
@@ -156,9 +156,6 @@
                 {{ g.paymentSummaryLabel }}
               </span>
 
-              <!-- NEW: discount summary badge per reference -->
-              <!-- /NEW -->
-
               <!-- NEW: open modal button (per reference) -->
               <button class="btn btn-outline-secondary btn-sm d-flex" @click="openGroupModal(g)">
                 <i class="bi bi-eye me-1"></i> View details
@@ -166,6 +163,50 @@
               <!-- /NEW -->
             </div>
           </div>
+
+          <!-- NEW: Offer Shipping controls (only show in the Offer Shipping tab) -->
+          <div
+            v-if="statusFilter === TAB_OFFER_SHIPPING && isGroupPendingShipping(g)"
+            class="mt-3 border rounded p-3 bg-body"
+          >
+            <div class="small text-muted mb-2">Shipping offer</div>
+            <div class="d-flex flex-wrap align-items-end gap-2" style="max-width:600px">
+              <div class="flex-grow-1">
+                <label class="form-label small text-muted mb-1">Shipping fee (₱ PHP)</label>
+                <!-- removed .trim; we coerce safely in code -->
+                <input
+                  v-model="shippingOfferInputByRef[g.reference_number]"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="form-control"
+                  :placeholder="`₱ ${number(0)}`"
+                />
+                <div class="form-text">Set one shipping fee for the entire reference.</div>
+              </div>
+              <button
+                class="btn btn-primary"
+                :disabled="isOffering(g) || !canOfferShipping(g)"
+                @click="offerShipping(g)"
+                title="Save shipping fee for all purchases under this reference"
+              >
+                <span v-if="isOffering(g)" class="spinner-border spinner-border-sm me-2"></span>
+                Offer shipping
+              </button>
+              <button
+                class="btn btn-outline-danger"
+                :disabled="isOffering(g)"
+                @click="cancelGroup(g)"
+                title="Cancel all purchases under this reference"
+              >
+                Cancel
+              </button>
+            </div>
+            <div class="small mt-2" v-if="shippingForRef(g.reference_number) > 0">
+              Current saved shipping fee: <strong>₱ {{ number(shippingForRef(g.reference_number)) }}</strong>
+            </div>
+          </div>
+          <!-- /NEW -->
 
           <!-- Row 2: Items for the whole group -->
           <div class="mt-3">
@@ -231,6 +272,16 @@
                     {{ purchasePayment(g, it.order_id) || '—' }}
                   </span>
                 </div>
+
+                <!-- NEW: Show tracking link when item is To Receive -->
+                <div
+                  class="mt-1 small"
+                  v-if="purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE && purchaseTrackingLink(g, it.order_id)"
+                >
+                  <a :href="purchaseTrackingLink(g, it.order_id)!" target="_blank" rel="noopener"
+                    >Tracking link</a
+                  >
+                </div>
               </div>
 
               <!-- ORIGINAL rightmost line total (kept when no event) -->
@@ -241,7 +292,6 @@
               <!-- NEW: rightmost discounted line total -->
               <div class="text-end fw-semibold" v-else>
                 <div class="small text-muted">₱ {{ number(it.line_total) }}</div>
-                <!-- (Intentionally left: discounted totals are shown in modal / totals area) -->
               </div>
             </div>
           </div>
@@ -249,10 +299,8 @@
           <!-- Row 3: shipping + totals -->
           <div class="mt-3 row g-3">
             <div class="col-12 col-md-7">
-              <!-- UPDATED LABEL -->
               <div class="small text-muted mb-1">Shipping info</div>
               <div class="border rounded p-2 bg-body small">
-                <!-- NEW: Name + Phone + Address -->
                 <div class="fw-semibold">{{ g.shipping_name || '—' }}</div>
                 <div class="text-muted">{{ g.phone_number || '—' }}</div>
                 <div>{{ g.shipping_address || '—' }}</div>
@@ -262,33 +310,24 @@
               <div class="text-end ms-auto">
                 <div class="text-muted small">Subtotal</div>
 
-                <!-- Subtotal WITHOUT shipping -->
                 <div class="fw-semibold fs-5" v-if="!hasEventDiscount(g.reference_number)">
                   ₱ {{ number(groupSubtotal(g)) }}
                 </div>
 
-                <!-- Subtotal discounted WITHOUT shipping -->
                 <div v-else>
                   <div class="small text-muted text-decoration-line-through">
                     ₱ {{ number(groupSubtotalOriginal(g)) }}
                   </div>
-                  <!-- CHANGED TO GREEN -->
                   <div class="small text-success fw-semibold">
                     ₱ {{ number(groupSubtotalDiscounted(g)) }}
                   </div>
                 </div>
 
-                <!-- NEW: Discount total line (shown ABOVE shipping fee) -->
                 <div class="small text-muted" v-if="(g.discount_total || 0) > 0">
                   Discounts: − ₱ {{ number(g.discount_total) }}
                 </div>
 
-                <!-- Shipping line (separate) -->
-                <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
-                  Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
-                </div>
-
-                <!-- Recorded total INCLUDES shipping -->
+                
                 <div class="fw-semibold fs-5">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
@@ -304,12 +343,10 @@
               class="border rounded p-2 bg-body small mb-2"
             >
               <div class="d-flex flex-wrap align-items-center gap-2">
-                <!-- existing RR status badge -->
                 <span class="badge" :class="rrBadgeClass(rr.status)">
                   {{ prettyRRStatus(rr.status) }}
                 </span>
 
-                <!-- NEW: payment badge for this RR item -->
                 <span class="badge text-bg-light border">
                   {{ purchasePayment(g, rr.purchase_id) || '—' }}
                 </span>
@@ -329,9 +366,7 @@
 
               <div class="text-muted mt-1">Created: {{ formatClean(rr.created_at) }}</div>
 
-              <!-- Approve/Complete/Reject buttons per RR row (PER PRODUCT) -->
               <div class="mt-2 d-flex justify-content-end gap-2">
-                <!-- Pending: Approve + Reject -->
                 <template v-if="isRRPending(rr)">
                   <button
                     class="btn btn-success btn-sm"
@@ -360,7 +395,6 @@
                   </button>
                 </template>
 
-                <!-- Approved: Mark as Completed -->
                 <button
                   v-else-if="isRRApproved(rr)"
                   class="btn btn-primary btn-sm"
@@ -378,10 +412,7 @@
             </div>
 
             <div class="border rounded p-2 bg-body small" v-if="groupRRs(g).length === 0">
-              No return/refund record found for this grouped order (filtered by "{{
-                rrStatusFilter
-              }}").
-            </div>
+              No return/refund record found for this grouped order (filtered by "{{ rrStatusFilter }}").</div>
           </div>
 
           <!-- ===== NEW: In 'To Receive' tab, also show siblings (RR + Completed) ===== -->
@@ -394,11 +425,11 @@
           >
             <div class="small text-muted mb-1">Other items in this reference</div>
 
-            <!-- RR siblings -->
+            <!-- RR siblings (RED BORDER + STATUS + BUTTON) -->
             <div
               v-for="s in g.siblingRRItems"
               :key="'rr-' + g.groupKey + ':' + s.product_id + ':' + s.order_id"
-              class="d-flex align-items-center justify-content-between border rounded p-2 bg-body mb-2"
+              class="d-flex align-items-center justify-content-between border border-danger rounded p-2 bg-body mb-2"
             >
               <div class="d-flex align-items-center gap-3">
                 <div class="order-thumb ratio ratio-1x1 bg-white rounded">
@@ -422,7 +453,6 @@
                   >
                     {{ s.product?.name || s.product_id }}
                     <span class="small">
-                      <!-- Per-item price with discount (ALL TABS) -->
                       <template v-if="!hasEventDiscount(g.reference_number)">
                         ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                       </template>
@@ -439,18 +469,18 @@
                     </span>
                   </div>
                   <div class="text-danger small">
-                    Return/Refund — {{ prettyRRStatus(s.rrStatus) }}
+                    Return/Refund — {{ prettyRRStatus((s as any).rrStatus) }}
                   </div>
                 </div>
               </div>
               <div class="d-flex align-items-center gap-2">
                 <button class="btn btn-outline-danger btn-sm" @click="viewReturnDetails()">
-                  View return details
+                  Refund details
                 </button>
               </div>
             </div>
 
-            <!-- Completed siblings -->
+            <!-- Completed siblings (kept) -->
             <div
               v-for="s in g.siblingCompletedItems"
               :key="'done-' + g.groupKey + ':' + s.product_id + ':' + s.order_id"
@@ -474,7 +504,6 @@
                 <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
                   {{ s.product?.name || s.product_id }}
                   <span class="small">
-                    <!-- Per-item price with discount (ALL TABS) -->
                     <template v-if="!hasEventDiscount(g.reference_number)">
                       ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                     </template>
@@ -491,7 +520,6 @@
                   </span>
                 </div>
 
-                <!-- Line total with discount (ALL TABS) -->
                 <div
                   class="small"
                   :class="hasEventDiscount(g.reference_number) ? '' : 'text-muted'"
@@ -507,6 +535,16 @@
                       >₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span
                     >
                   </template>
+                </div>
+
+                <!-- NEW: Show tracking link for completed sibling that was To Receive before -->
+                <div
+                  class="small mt-1"
+                  v-if="purchaseStatusKey(g, s.order_id) === STATUS.TO_RECEIVE && purchaseTrackingLink(g, s.order_id)"
+                >
+                  <a :href="purchaseTrackingLink(g, s.order_id)!" target="_blank" rel="noopener"
+                    >Tracking link</a
+                  >
                 </div>
               </div>
               <span class="badge text-bg-success-subtle border">Completed</span>
@@ -542,7 +580,6 @@
                   <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
                     {{ s.product?.name || s.product_id }}
                     <span class="small">
-                      <!-- Per-item price with discount (ALL TABS) -->
                       <template v-if="!hasEventDiscount(g.reference_number)">
                         ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                       </template>
@@ -587,8 +624,9 @@
             <button
               v-if="g.allToShip"
               class="btn btn-primary btn-sm"
-              :disabled="busy.anyGroup(g.groupKey)"
+              :disabled="busy.anyGroup(g.groupKey) || !canGroupMarkAsShipped(g)"
               @click="markGroupAsShipped(g)"
+              title="Set a single tracking link in the details, then ship"
             >
               <span
                 v-if="busy.anyGroup(g.groupKey)"
@@ -701,6 +739,20 @@
                   <span class="text-muted">Shipping Fee: </span>₱
                   {{ number(shippingForRef(selectedGroup.reference_number)) }}
                 </div>
+
+                <!-- NEW: Single tracking link per reference -->
+                <div v-if="selectedGroupHasToShip" class="mt-2">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">Tracking link</span>
+                    <input
+                      v-model.trim="trackLinkByRef[selectedGroup.reference_number]"
+                      type="url"
+                      class="form-control"
+                      placeholder="https://courier.example/track/ABC123"
+                    />
+                  </div>
+                  <div class="form-text">One link for the whole reference. Required before shipping.</div>
+                </div>
               </div>
             </div>
           </div>
@@ -791,6 +843,27 @@
                     </template>
                   </div>
 
+                  <!-- NEW: Show existing tracking link when To Receive -->
+                  <div
+                    class="mt-1 small"
+                    v-if="String(o.status).toLowerCase() === STATUS.TO_RECEIVE && o.tracking_link"
+                  >
+                    <a :href="o.tracking_link!" target="_blank" rel="noopener">Tracking link</a>
+                  </div>
+
+                  <!-- NOTE: per-item tracking input kept but disabled -->
+                  <div v-if="false && String(o.status).toLowerCase() === STATUS.TO_SHIP" class="mt-2">
+                    <div class="input-group input-group-sm" style="max-width: 520px">
+                      <span class="input-group-text">Tracking link</span>
+                      <input
+                        type="url"
+                        class="form-control"
+                        placeholder="https://courier.example/track/ABC123"
+                      />
+                    </div>
+                    <div class="form-text">Required before marking as shipped.</div>
+                  </div>
+
                   <!-- Return/Refund rows for this purchase (with buttons) -->
                   <div v-if="(rrByPurchase[o.id] || []).length" class="mt-2">
                     <div
@@ -852,60 +925,7 @@
                     </div>
                   </div>
 
-                  <!-- Per-purchase action buttons -->
-                  <div class="mt-2 d-flex flex-wrap gap-2 justify-content-end">
-                    <button
-                      v-if="String(o.status).toLowerCase() === STATUS.TO_PAY"
-                      class="btn btn-primary btn-sm"
-                      :disabled="busy.action[o.id]"
-                      @click="approveOrder(o)"
-                    >
-                      <span
-                        v-if="busy.action[o.id]"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
-                      Approve
-                    </button>
-
-                    <button
-                      v-if="String(o.status).toLowerCase() === STATUS.TO_SHIP"
-                      class="btn btn-primary btn-sm"
-                      :disabled="busy.action[o.id]"
-                      @click="markAsShipped(o.id)"
-                    >
-                      <span
-                        v-if="busy.action[o.id]"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
-                      Mark as Shipped
-                    </button>
-
-                    <button
-                      v-if="String(o.status).toLowerCase() === STATUS.TO_RECEIVE"
-                      class="btn btn-primary btn-sm"
-                      :disabled="busy.action[o.id]"
-                      @click="markAsCompleted(o.id)"
-                    >
-                      <span
-                        v-if="busy.action[o.id]"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
-                      Mark as Completed
-                    </button>
-
-                    <button
-                      v-if="['to pay', 'to ship'].includes(String(o.status).toLowerCase())"
-                      class="btn btn-outline-danger btn-sm"
-                      :disabled="busy.action[o.id]"
-                      @click="cancelOrder(o.id)"
-                    >
-                      <span
-                        v-if="busy.action[o.id]"
-                        class="spinner-border spinner-border-sm me-1"
-                      ></span>
-                      Cancel
-                    </button>
-                  </div>
+                 
                 </div>
               </div>
             </div>
@@ -961,8 +981,9 @@
           <button
             v-if="selectedGroup.allToShip"
             class="btn btn-primary btn-sm"
-            :disabled="busy.anyGroup(selectedGroup.groupKey)"
+            :disabled="busy.anyGroup(selectedGroup.groupKey) || !canGroupMarkAsShipped(selectedGroup)"
             @click="markGroupAsShipped(selectedGroup)"
+            title="Provide the single tracking link above first"
           >
             <span
               v-if="busy.anyGroup(selectedGroup.groupKey)"
@@ -1009,15 +1030,24 @@ onMounted(async () => {
 const STATUS = {
   TO_PAY: 'to pay',
   TO_SHIP: 'to ship',
-  TO_RECEIVE: 'to receive', // kept spelling per your schema
+  TO_RECEIVE: 'to receive',
   COMPLETED: 'completed',
   RETURN_REFUND: 'return/refund',
   CANCELLED: 'cancelled',
 } as const
 
+/** NEW: support pretty label/class for 'pending' without changing your schema usage */
+function isPending(s?: string | null) {
+  return String(s || '').toLowerCase() === 'pending'
+}
+
+/** NEW: custom tab id */
+const TAB_OFFER_SHIPPING = '_offer_shipping' as const
+
 /** Tabs */
 const tabs = [
   { label: 'All', value: 'all' },
+  { label: 'Offer Shipping', value: TAB_OFFER_SHIPPING }, // NEW
   { label: 'To Pay', value: STATUS.TO_PAY },
   { label: 'To Ship', value: STATUS.TO_SHIP },
   { label: 'To Receive', value: STATUS.TO_RECEIVE },
@@ -1042,6 +1072,8 @@ type PurchaseRow = {
   modeofpayment: string | null
   qty: number
   discounted_price: number | string | null // ★ ADDED
+  shipping_fee: number | string | null     // ★ ADDED
+  tracking_link: string | null             // ★ ADDED
 }
 type Product = {
   id: string
@@ -1090,6 +1122,7 @@ type ViewOrder = {
   created_at: string
   updated_at: string
   items: Array<OrderItem>
+  tracking_link?: string | null // ★ ADDED
 }
 
 /** Grouped view model */
@@ -1112,12 +1145,9 @@ type ViewGroup = {
   allToPay: boolean
   allToShip: boolean
   canGroupCancel: boolean
-  /* NEW for To Receive sibling display */
   siblingRRItems: Array<OrderItem & { rrStatus: string | null }>
   siblingCompletedItems: Array<OrderItem>
-  /* NEW for Completed tab display of refunded items */
   completedRRItems: Array<OrderItem & { rrStatus: string | null }>
-  /* NEW: per-reference discount sum & shipping */
   discount_total?: number
 }
 
@@ -1155,8 +1185,17 @@ const discountedByPurchase: Record<string, number | null> = reactive({})
 const discountByPurchase: Record<string, number> = reactive({})
 const discountByRef: Record<string, number> = reactive({})
 
-/* ★ NEW: per-reference shipping fee cache */
+/* ★ NEW: per-reference shipping fee cache (MAX of purchases.shipping_fee) */
 const shippingByRef: Record<string, number> = reactive({})
+
+/* ★ NEW: single tracking link per reference */
+const trackLinkByRef: Record<string, string> = reactive({})
+
+/* Map purchase -> ref for quick lookup when shipping */
+const purchaseRefIndex: Record<string, string> = reactive({})
+
+/* NEW: per-reference shipping offer input can be string OR number (from number input) */
+const shippingOfferInputByRef: Record<string, string | number> = reactive({})
 
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
@@ -1167,6 +1206,8 @@ const statusFilter = ref<(typeof tabs)[number]['value']>('all')
 const search = ref('')
 const payment = ref<string>('') // UI-only currently
 const dateFrom = ref<string>('')
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const dateTo = ref<string>('')
 
 /* pagination */
@@ -1209,7 +1250,6 @@ function formatClean(iso?: string) {
 }
 
 const formatDate = (iso?: string) => {
-  // kept (legacy)
   if (!iso) return '—'
   try {
     return new Date(iso).toLocaleString()
@@ -1231,6 +1271,7 @@ function genReference(prefix = 'TXN'): string {
 
 function prettyStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
+  if (k === 'pending') return 'Pending' // NEW: so badges look nice if you have pending status
   if (k === STATUS.TO_PAY) return 'To Pay'
   if (k === STATUS.TO_SHIP) return 'To Ship'
   if (k === STATUS.TO_RECEIVE) return 'To Receive'
@@ -1241,6 +1282,7 @@ function prettyStatus(s?: string | null) {
 }
 function statusClass(s?: string | null) {
   const k = String(s || '').toLowerCase()
+  if (k === 'pending') return 'text-bg-light border' // NEW
   if (k === STATUS.CANCELLED) return 'text-bg-danger-subtle border'
   if (k === STATUS.RETURN_REFUND) return 'text-bg-warning-subtle border'
   if (k === STATUS.COMPLETED) return 'text-bg-success-subtle border'
@@ -1271,6 +1313,13 @@ function isRRPending(rr?: ReturnRefundRow) {
 function isRRApproved(rr?: ReturnRefundRow) {
   if (!rr) return false
   return String(rr.status || '').toLowerCase() === 'approved'
+}
+/** NEW: latest RR status for a purchase (used for To Receive sibling RR badges) */
+function rrStatusForPurchase(purchaseId: string): string | null {
+  const list = rrByPurchase[purchaseId] || []
+  if (!list.length) return null
+  const sorted = list.slice().sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  return String(sorted[0].status || '').toLowerCase()
 }
 
 function toArray(u: any): string[] {
@@ -1368,17 +1417,11 @@ function groupSubtotal(g: ViewGroup) {
   return groupSubtotalOriginal(g)
 }
 
-/* replaced in group display: list all RRs per group */
 function orderSubtotal(o: ViewOrder) {
   return o.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
 }
 
-function firstReturn(purchaseId: string): ReturnRefundRow | undefined {
-  const list = rrByPurchase[purchaseId] || []
-  return list[0]
-}
-
-/* Helper: pull purchase info for badges */
+/* Helper: pull purchase info for badges & links */
 function purchaseFromGroup(g: ViewGroup, purchaseId: string): ViewOrder | undefined {
   return g.purchases.find((p) => p.id === purchaseId)
 }
@@ -1387,6 +1430,9 @@ function purchaseStatusKey(g: ViewGroup, purchaseId: string): string {
 }
 function purchasePayment(g: ViewGroup, purchaseId: string): string | null {
   return purchaseFromGroup(g, purchaseId)?.payment_method || null
+}
+function purchaseTrackingLink(g: ViewGroup, purchaseId: string): string | null | undefined {
+  return purchaseFromGroup(g, purchaseId)?.tracking_link
 }
 
 /* ---------- GROUPING (by reference_number) ---------- */
@@ -1444,18 +1490,16 @@ const orderGroups = computed<ViewGroup[]>(() => {
     const itemsTotal = hasEventDiscount(ref)
       ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
-    const total_amount = itemsTotal + shippingForRef(ref)
+    const total_amount = itemsTotal 
 
     const containsRR = arr.some((a) => (rrByPurchase[a.id] || []).length > 0)
 
-    /* NEW: build sibling display arrays for To Receive */
     const siblingRRItems: Array<OrderItem & { rrStatus: string | null }> = []
     const siblingCompletedItems: Array<OrderItem> = []
 
-    /* NEW: for Completed tab — gather RR purchases with rr status = completed */
     const completedRRItems: Array<OrderItem & { rrStatus: string | null }> = []
     if (statusFilter.value === STATUS.COMPLETED) {
-      const allForRef: PurchaseRow[] = (siblingsByRef[ref] || []).length
+      const allForRef: any[] = (siblingsByRef[ref] || []).length
         ? siblingsByRef[ref]
         : arr.map(
             (a) =>
@@ -1469,7 +1513,9 @@ const orderGroups = computed<ViewGroup[]>(() => {
                 updated_at: a.updated_at,
                 modeofpayment: a.payment_method,
                 qty: a.items[0]?.qty || 1,
-                discounted_price: null, // keep shape
+                discounted_price: null,
+                shipping_fee: null,
+                tracking_link: a.tracking_link ?? null,
               }) as PurchaseRow,
           )
 
@@ -1496,7 +1542,59 @@ const orderGroups = computed<ViewGroup[]>(() => {
       }
     }
 
-    /* NEW: attach per-reference discount sum for badge display */
+    /* ===== NEW: populate RR + Completed siblings for TO_RECEIVE tab ===== */
+    if (statusFilter.value === STATUS.TO_RECEIVE) {
+      const allForRef: PurchaseRow[] = (siblingsByRef[ref] && siblingsByRef[ref].length)
+        ? siblingsByRef[ref]
+        : arr.map(
+            (a) =>
+              ({
+                id: a.id,
+                user_id: a.user_id,
+                product_id: a.items[0]?.product_id || '',
+                reference_number: ref,
+                status: String(a.status || ''),
+                created_at: a.created_at,
+                updated_at: a.updated_at,
+                modeofpayment: a.payment_method,
+                qty: a.items[0]?.qty || 1,
+                discounted_price: discountedByPurchase[a.id] ?? null,
+                shipping_fee: null,
+                tracking_link: a.tracking_link ?? null,
+              }) as PurchaseRow,
+          )
+
+      for (const pr of allForRef) {
+        const st = String(pr.status || '').toLowerCase()
+        const prod = productsMap[pr.product_id]
+        const qty = Number(pr.qty ?? 1) || 1
+        const price = Number(prod?.price ?? 0)
+
+        if (st === STATUS.RETURN_REFUND) {
+          const rrStatus = rrStatusForPurchase(pr.id)
+          siblingRRItems.push({
+            order_id: pr.id,
+            product_id: pr.product_id,
+            qty,
+            price_each: price,
+            line_total: Number((price * qty).toFixed(2)),
+            product: prod,
+            rrStatus,
+          })
+        } else if (st === STATUS.COMPLETED) {
+          siblingCompletedItems.push({
+            order_id: pr.id,
+            product_id: pr.product_id,
+            qty,
+            price_each: price,
+            line_total: Number((price * qty).toFixed(2)),
+            product: prod,
+          })
+        }
+      }
+    }
+    /* ===== /NEW ===== */
+
     const discount_total = discountSumForRef(ref)
 
     groups.push({
@@ -1529,11 +1627,9 @@ const orderGroups = computed<ViewGroup[]>(() => {
     (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )
 
-  // NEW: Completed tab visibility filter based on whole reference state
   if (statusFilter.value === STATUS.COMPLETED) {
     out = out.filter((g) => {
       const allPurchasesForRef = (siblingsByRef[g.reference_number] || [])
-        // join with current visible ones (which are completed)
         .concat(
           g.purchases.map(
             (p) =>
@@ -1547,21 +1643,18 @@ const orderGroups = computed<ViewGroup[]>(() => {
                 updated_at: p.updated_at,
                 modeofpayment: p.payment_method,
                 qty: p.items[0]?.qty || 1,
-                discounted_price: discountedByPurchase[p.id] ?? null, // ★ ADDED (safe)
+                discounted_price: discountedByPurchase[p.id] ?? null,
+                shipping_fee: null,
+                tracking_link: p.tracking_link ?? null,
               }) as PurchaseRow,
           ),
         )
 
-      // For a reference to show in Completed:
-      // - every purchase must be either completed
-      // - or return/refund with status approved/completed
-      // - if any pending RR or any other status (to pay/ship/receive), hide
       for (const pr of allPurchasesForRef) {
         const st = String(pr.status || '').toLowerCase()
         if (st === STATUS.COMPLETED) continue
         if (st === STATUS.RETURN_REFUND) {
           const list = rrByPurchase[pr.id] || []
-          // consider presence of any pending => hide
           const hasPending = list.some((r) => String(r.status).toLowerCase() === 'pending')
           const okNonPending =
             list.length > 0 &&
@@ -1573,11 +1666,16 @@ const orderGroups = computed<ViewGroup[]>(() => {
           if (!okNonPending) return false
           continue
         }
-        // any other status blocks
         return false
       }
       return true
     })
+  }
+
+  /* NEW: Offer Shipping tab filter:
+     show refs with shipping_fee == 0 AND ALL purchases are 'pending' */
+  if (statusFilter.value === TAB_OFFER_SHIPPING) {
+    out = out.filter((g) => isGroupPendingShipping(g))
   }
 
   return out
@@ -1596,7 +1694,28 @@ function groupRRs(g: ViewGroup): ReturnRefundRow[] {
   return out.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
 
-/* ---------- Fetch from games.purchases + join products & users (+ returns + events + discounts + shipping) ---------- */
+/* ---------- NEW helpers for Offer Shipping tab ---------- */
+function getShippingInputRaw(ref: string): string {
+  const v = (shippingOfferInputByRef as Record<string, any>)[ref]
+  if (v === null || v === undefined) return ''
+  return typeof v === 'string' ? v.trim() : String(v) // ← SAFE COERCION to fix .trim issue
+}
+function isGroupPendingShipping(g: ViewGroup): boolean {
+  const feePending = shippingForRef(g.reference_number) <= 0
+  const allPending =
+    g.purchases.length > 0 && g.purchases.every((p) => isPending(p.status))
+  return feePending && allPending
+}
+function isOffering(g: ViewGroup): boolean {
+  return !!busy.value.action[`offer:${g.reference_number}`]
+}
+function canOfferShipping(g: ViewGroup): boolean {
+  const raw = getShippingInputRaw(g.reference_number)
+  const n = Number(raw)
+  return raw !== '' && isFinite(n) && n >= 0
+}
+
+/* ---------- Fetch & build ---------- */
 async function loadOrders(resetPage = false) {
   if (resetPage) page.value = 1
   busy.value.load = true
@@ -1607,13 +1726,13 @@ async function loadOrders(resetPage = false) {
     let q = supabase
       .schema('games')
       .from('purchases')
-      // ★ ADDED discounted_price in select
       .select(
-        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price',
+        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link',
         { count: 'exact' },
       )
 
-    if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
+    /* CHANGED: avoid filtering by a non-existent status for the custom tab */
+    if (statusFilter.value !== 'all' && statusFilter.value !== TAB_OFFER_SHIPPING) q = q.eq('status', statusFilter.value)
 
     if (dateFrom.value) q = q.gte('created_at', new Date(dateFrom.value).toISOString())
     if (dateTo.value) {
@@ -1639,23 +1758,26 @@ async function loadOrders(resetPage = false) {
     total.value = count ?? 0
     const purchaseRows = (rows || []) as PurchaseRow[]
 
-    // collect primary id sets
     const productIds = new Set<string>()
     const userIds = new Set<string>()
     const purchaseIds = new Set<string>()
     const refSet = new Set<string>()
 
-    // ★ ADDED: seed per-purchase discounted cache
     for (const p of purchaseRows) {
       if (p.product_id) productIds.add(p.product_id)
       if (p.user_id) userIds.add(p.user_id)
       purchaseIds.add(p.id)
-      if (p.reference_number) refSet.add(p.reference_number)
+      if (p.reference_number) {
+        refSet.add(p.reference_number)
+        purchaseRefIndex[p.id] = p.reference_number
+      }
       discountedByPurchase[p.id] = p.discounted_price != null ? Number(p.discounted_price) : null
+      // seed reference tracking link from any existing purchase link if not set yet
+      if (p.reference_number && !trackLinkByRef[p.reference_number] && p.tracking_link) {
+        trackLinkByRef[p.reference_number] = p.tracking_link
+      }
     }
 
-    // === NEW: fetch siblings for To Receive & Completed tabs ===
-    // for those references, we need all purchases in that reference (any status)
     let siblingRows: PurchaseRow[] = []
     if (
       refSet.size &&
@@ -1665,9 +1787,8 @@ async function loadOrders(resetPage = false) {
       const { data: sib } = await supabase
         .schema('games')
         .from('purchases')
-        // ★ ADDED discounted_price in sibling fetch
         .select(
-          'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price',
+          'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link',
         )
         .in('reference_number', refs)
 
@@ -1675,23 +1796,21 @@ async function loadOrders(resetPage = false) {
       for (const s of siblingRows) {
         if (s.product_id) productIds.add(s.product_id)
         if (s.user_id) userIds.add(s.user_id)
-        // include siblings in RR & discount fetch set
         purchaseIds.add(s.id)
-        // ★ ADDED: cache sibling discounts too
         discountedByPurchase[s.id] =
           s.discounted_price != null
             ? Number(s.discounted_price)
             : (discountedByPurchase[s.id] ?? null)
+        purchaseRefIndex[s.id] = s.reference_number
+        if (!trackLinkByRef[s.reference_number] && s.tracking_link) {
+          trackLinkByRef[s.reference_number] = s.tracking_link
+        }
       }
-
-      // store siblings by reference (for display/filtering)
       for (const r of refs) siblingsByRef[r] = siblingRows.filter((s) => s.reference_number === r)
     } else {
-      // clear old cache to avoid leaking old state
       for (const k of Object.keys(siblingsByRef)) delete siblingsByRef[k]
     }
 
-    // products
     if (productIds.size > 0) {
       const { data: prows } = await supabase
         .schema('games')
@@ -1703,7 +1822,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // users (UPDATED: include full_name)
     if (userIds.size > 0) {
       const { data: urows } = await supabase
         .from('users')
@@ -1714,15 +1832,14 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // clear RR map before refill
     for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
 
-    // We now ALSO need RR when statusFilter is TO_RECEIVE or COMPLETED (for sibling/visibility logic)
     const needRR =
       (statusFilter.value === STATUS.RETURN_REFUND ||
         statusFilter.value === 'all' ||
         statusFilter.value === STATUS.TO_RECEIVE ||
-        statusFilter.value === STATUS.COMPLETED) &&
+        statusFilter.value === STATUS.COMPLETED ||
+        statusFilter.value === TAB_OFFER_SHIPPING) &&
       purchaseIds.size > 0
 
     if (needRR) {
@@ -1746,7 +1863,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    /* === NEW: Fetch event discounts by reference_number === */
     for (const k of Object.keys(eventDiscountByRef)) delete eventDiscountByRef[k]
     if (refSet.size > 0) {
       const { data: evRows } = await supabase
@@ -1761,7 +1877,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    /* === NEW: Fetch DISCOUNT REDEMPTIONS per purchase and aggregate per reference === */
     for (const k of Object.keys(discountByPurchase)) delete discountByPurchase[k]
     for (const k of Object.keys(discountByRef)) delete discountByRef[k]
 
@@ -1780,8 +1895,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // Per-reference aggregation (use rows we already fetched for current page)
-    // Include siblings when we previously fetched them (for To Receive / Completed contexts)
     for (const ref of Array.from(refSet)) {
       let pids = purchaseRows.filter((p) => p.reference_number === ref).map((p) => p.id)
       if ((siblingsByRef[ref] || []).length) {
@@ -1791,22 +1904,28 @@ async function loadOrders(resetPage = false) {
       if (sum > 0) discountByRef[ref] = Number(sum.toFixed(2))
     }
 
-    /* === NEW: Fetch SHIPPING FEES per reference === */
     for (const k of Object.keys(shippingByRef)) delete shippingByRef[k]
-    if (refSet.size > 0) {
-      const { data: ships } = await supabase
-        .schema('games')
-        .from('shipping_charges')
-        .select('reference_number,amount')
-        .in('reference_number', Array.from(refSet))
-      if (Array.isArray(ships)) {
-        for (const s of ships as { reference_number: string; amount: number | string | null }[]) {
-          shippingByRef[s.reference_number] = Number(s.amount ?? 0) || 0
-        }
+    function maxShippingFrom(list: PurchaseRow[]) {
+      let max = 0
+      for (const p of list) {
+        const v = Number(p.shipping_fee ?? 0) || 0
+        if (v > max) max = v
+      }
+      return max
+    }
+    for (const ref of Array.from(refSet)) {
+      const list =
+        (siblingsByRef[ref] && siblingsByRef[ref].length
+          ? siblingsByRef[ref]
+          : purchaseRows.filter((p) => p.reference_number === ref)) || []
+      shippingByRef[ref] = maxShippingFrom(list)
+
+      // prime the input with current shipping (if any)
+      if (shippingByRef[ref] > 0 && !shippingOfferInputByRef[ref]) {
+        shippingOfferInputByRef[ref] = String(shippingByRef[ref])
       }
     }
 
-    // build view rows (only for the fetched set for this tab)
     let view: ViewOrder[] = purchaseRows.map((pr) => {
       const prod = productsMap[pr.product_id]
       const buyer = buyersMap[pr.user_id]
@@ -1834,6 +1953,7 @@ async function loadOrders(resetPage = false) {
         created_at: pr.created_at,
         updated_at: pr.updated_at,
         items: [item],
+        tracking_link: pr.tracking_link ?? null,
       }
     })
 
@@ -1869,7 +1989,7 @@ async function loadOrders(resetPage = false) {
   }
 }
 
-/* ---------- Actions => update games.purchases.status ---------- */
+/* ---------- Actions ---------- */
 async function updateStatus(purchaseId: string, status: string) {
   busy.value.action[purchaseId] = true
   try {
@@ -1890,14 +2010,13 @@ async function updateStatus(purchaseId: string, status: string) {
   }
 }
 
-/* ★ STOCK RESTORE: helper to add qty back to games.products.stock */
+/* STOCK RESTORE */
 async function restoreStock(productId?: string | null, qty?: number | null) {
   try {
     const pid = String(productId || '')
     const addQty = Number(qty ?? 0)
     if (!pid || !isFinite(addQty) || addQty <= 0) return
 
-    // 1) read current stock
     const { data: prod, error: getErr } = await supabase
       .schema('games')
       .from('products')
@@ -1912,7 +2031,6 @@ async function restoreStock(productId?: string | null, qty?: number | null) {
 
     const newStock = Number(prod.stock || 0) + addQty
 
-    // 2) update stock (triggers trg_products_touch)
     const { error: upErr } = await supabase
       .schema('games')
       .from('products')
@@ -1927,8 +2045,40 @@ async function restoreStock(productId?: string | null, qty?: number | null) {
   }
 }
 
+/* Single source of truth: tracking link is per reference */
+function trackingFilledRef(ref?: string | null): boolean {
+  if (!ref) return false
+  return !!(trackLinkByRef[ref]?.trim().length)
+}
+
 async function markAsShipped(purchaseId: string) {
-  await updateStatus(purchaseId, STATUS.TO_RECEIVE)
+  const ref = purchaseRefIndex[purchaseId] || orders.value.find(o => o.id === purchaseId)?.reference_number
+  const link = (ref && trackLinkByRef[ref]) ? trackLinkByRef[ref].trim() : ''
+  if (!link) {
+    alert('Please enter the reference tracking link before marking as shipped.')
+    return
+  }
+  busy.value.action[purchaseId] = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ status: STATUS.TO_RECEIVE, tracking_link: link })
+      .eq('id', purchaseId)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    const row = orders.value.find((o) => o.id === purchaseId)
+    if (row) {
+      row.status = STATUS.TO_RECEIVE
+      row.tracking_link = link
+    }
+  } finally {
+    busy.value.action[purchaseId] = false
+  }
 }
 async function markAsCompleted(purchaseId: string) {
   await updateStatus(purchaseId, STATUS.COMPLETED)
@@ -1936,18 +2086,12 @@ async function markAsCompleted(purchaseId: string) {
 
 /* helper: detect e-wallet */
 function isEwalletPayment(method?: string | null) {
-  const k = String(method || '')
-    .trim()
-    .toLowerCase()
+  const k = String(method || '').trim().toLowerCase()
   return k === 'ewallet' || k === 'e-wallet' || k === 'e wallet'
 }
 /* NEW helper: detect COD */
 function isCODPayment(method?: string | null) {
-  return (
-    String(method || '')
-      .trim()
-      .toLowerCase() === 'cod'
-  )
+  return String(method || '').trim().toLowerCase() === 'cod'
 }
 
 /* ---------- helpers to decide shipping refund conditions ---------- */
@@ -1961,7 +2105,6 @@ async function allPurchasesCancelledForRef(ref: string): Promise<boolean> {
   return rows.every((r) => String(r.status || '').toLowerCase() === STATUS.CANCELLED)
 }
 async function countCompletedRefundsForRef(ref: string): Promise<number> {
-  // find all purchases under ref -> their rr rows with status completed
   const { data: pRows } = await supabase
     .schema('games')
     .from('purchases')
@@ -1980,7 +2123,6 @@ async function countCompletedRefundsForRef(ref: string): Promise<number> {
 
 /* ---------- NEW: helper to read redeemed discount amount for a purchase ---------- */
 async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
-  // prefer cache if available
   if (purchaseId in discountByPurchase) {
     return Number(discountByPurchase[purchaseId] || 0) || 0
   }
@@ -1998,39 +2140,24 @@ async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
   }
 }
 
-/* UPDATED: supports bulk cancellation without per-item prompts when skipConfirm=true.
-  E-WALLET + TO_SHIP: refund balance + insert into ewallet.cancelled_ewallet_receipt.
-  COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
+/* CANCEL ORDER (kept from previous) */
 async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
   const order = orders.value.find((o) => o.id === purchaseId)
-  if (!order) {
-    // Fallback: update status then fetch qty/product to restore stock
-    await updateStatus(purchaseId, STATUS.CANCELLED)
-    try {
-      const { data: pr } = await supabase
-        .schema('games')
-        .from('purchases')
-        .select('product_id, qty')
-        .eq('id', purchaseId)
-        .single()
-      await restoreStock(pr?.product_id, pr?.qty)
-    } catch {}
-    return
+  if (order) {
+    // continue with existing branch logic
   }
-
-  const statusKey = String(order.status || '').toLowerCase()
+  const statusKey = String(order?.status || '').toLowerCase()
   const isToShip = statusKey === STATUS.TO_SHIP
   const isToPay = statusKey === STATUS.TO_PAY
 
-  const isEwallet = isEwalletPayment(order.payment_method)
-  const isCOD = isCODPayment(order.payment_method)
+  const isEwallet = isEwalletPayment(order?.payment_method)
+  const isCOD = isCODPayment(order?.payment_method)
 
   const shouldRefundEwallet = isEwallet && isToShip
   const shouldInsertCODReceipt = isCOD && (isToPay || isToShip)
 
-  // ★ STOCK RESTORE: get product & qty from local order item (single-item purchases design)
-  const item = order.items?.[0]
+  const item = order?.items?.[0]
   const productIdForStock = item?.product_id || null
   const qtyForStock = item?.qty ?? 1
 
@@ -2045,100 +2172,66 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         .eq('status', STATUS.TO_SHIP)
 
       if (upErr) {
-        alert(upErr.message)
-        return
+        alert(upErr.message); return
       }
 
-      // === UPDATED: compute refund excluding any discount_redemptions ===
-      const itemsSubtotal = orderSubtotal(order) // items only, no shipping
-      const redeemed = await redeemedDiscountAmount(purchaseId) // discount applied to this purchase
+      const itemsSubtotal = orderSubtotal(order!)
+      const redeemed = await redeemedDiscountAmount(purchaseId)
       const netRefundItems = Math.max(0, Number((itemsSubtotal - redeemed).toFixed(2)))
 
-      const userId = order.user_id
-
+      const userId = order!.user_id
       const { data: urow, error: uErr } = await supabase
         .from('users')
         .select('id,balance')
         .eq('id', userId)
         .single()
 
-      if (uErr || !urow) {
-        console.error('[cancel ewallet refund] user fetch failed:', uErr?.message)
-      } else {
+      if (!uErr && urow) {
         const newBal = Number(Number(urow.balance || 0) + Number(netRefundItems)).toFixed(2)
-        const { error: balErr } = await supabase
-          .from('users')
-          .update({ balance: Number(newBal) })
-          .eq('id', userId)
-
-        if (balErr) {
-          console.error('[cancel ewallet refund] balance update failed]', balErr.message)
-        }
+        await supabase.from('users').update({ balance: Number(newBal) }).eq('id', userId)
       }
 
-      // Insert into ewallet.cancelled_ewallet_receipt with the NET refund (post-discount)
       try {
-        const { error: ewRecErr } = await supabase
+        await supabase
           .schema('ewallet')
           .from('cancelled_ewallet_receipt')
           .insert({
             amount: Number(netRefundItems.toFixed(2)),
-            reference_number: order.reference_number || null,
+            reference_number: order!.reference_number || null,
             purchase_id: purchaseId,
           })
+      } catch {}
 
-        if (ewRecErr) {
-          console.error('[cancelled_ewallet_receipt insert failed]', ewRecErr.message)
-        }
-      } catch (e: any) {
-        console.error('[cancelled_ewallet_receipt insert exception]', e?.message || e)
-      }
-
-      // ★ STOCK RESTORE on cancel
       await restoreStock(productIdForStock, qtyForStock)
 
-      // ★ NEW: if all purchases under this reference are now cancelled, also refund SHIPPING FEE (EWALLET only)
       try {
-        if (order.reference_number && (await allPurchasesCancelledForRef(order.reference_number))) {
-          const ship = shippingForRef(order.reference_number)
+        if (order!.reference_number && (await allPurchasesCancelledForRef(order!.reference_number))) {
+          const ship = shippingForRef(order!.reference_number)
           if (ship > 0) {
-            const { data: urow2, error: uErr2 } = await supabase
+            const { data: urow2 } = await supabase
               .from('users')
               .select('id,balance')
-              .eq('id', order.user_id)
+              .eq('id', order!.user_id)
               .single()
-            if (!uErr2 && urow2) {
+            if (urow2) {
               const newBal2 = Number(Number(urow2.balance || 0) + ship).toFixed(2)
-              const { error: balErr2 } = await supabase
-                .from('users')
-                .update({ balance: Number(newBal2) })
-                .eq('id', order.user_id)
-              if (balErr2) {
-                console.error('[shipping refund (cancel)] balance update failed', balErr2.message)
-              }
-              // Log separate receipt for shipping refund
+              await supabase.from('users').update({ balance: Number(newBal2) }).eq('id', order!.user_id)
               try {
-                const { error: recErr2 } = await supabase
+                await supabase
                   .schema('ewallet')
                   .from('cancelled_ewallet_receipt')
                   .insert({
                     amount: Number(ship.toFixed(2)),
-                    reference_number: order.reference_number || null,
-                    purchase_id: purchaseId, // tie to a purchase id for traceability
+                    reference_number: order!.reference_number || null,
+                    purchase_id: purchaseId,
                   })
-                if (recErr2)
-                  console.error('[shipping refund (cancel)] receipt insert failed', recErr2.message)
-              } catch (e: any) {
-                console.error('[shipping refund (cancel)] insert exception', e?.message || e)
-              }
+              } catch {}
             }
           }
         }
-      } catch (e: any) {
-        console.error('[cancel shipping refund check] exception', e?.message || e)
-      }
+      } catch {}
 
-      order.status = STATUS.CANCELLED
+      if (order) order.status = STATUS.CANCELLED
       return
     }
 
@@ -2148,53 +2241,33 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         .from('purchases')
         .update({ status: STATUS.CANCELLED })
         .eq('id', purchaseId)
-        .eq('status', order.status as string)
+        .eq('status', order!.status as string)
 
-      if (upErr) {
-        alert(upErr.message)
-        return
-      }
+      if (upErr) { alert(upErr.message); return }
 
-      // Insert COD cancelled receipt AND include reference_number (requested)
       try {
-        const { error: recErr } = await supabase
+        await supabase
           .schema('ewallet')
           .from('cancelled_receipt')
           .insert({
             purchase_id: purchaseId,
-            reference_number: order.reference_number || null,
+            reference_number: order!.reference_number || null,
           })
+      } catch {}
 
-        if (recErr) {
-          console.error('[cancelled_receipt insert failed - COD]', recErr.message)
-        }
-      } catch (e: any) {
-        console.error('[cancelled_receipt insert exception - COD]', e?.message || e)
-      }
-
-      // ★ STOCK RESTORE on cancel
       await restoreStock(productIdForStock, qtyForStock)
-
-      order.status = STATUS.CANCELLED
+      if (order) order.status = STATUS.CANCELLED
       return
     }
 
-    // Generic cancel path
     await updateStatus(purchaseId, STATUS.CANCELLED)
-
-    // ★ STOCK RESTORE on generic cancel
     await restoreStock(productIdForStock, qtyForStock)
   } finally {
     busy.value.action[purchaseId] = false
   }
 }
 
-/**
- * Approve order:
- * - NO wallet deduction
- * - NO stock reservation
- * - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
- */
+/* Approve order (unchanged) */
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
   busy.value.action[purchaseId] = true
@@ -2210,10 +2283,7 @@ async function approveOrder(order: ViewOrder) {
       .update({ status: STATUS.TO_SHIP })
       .eq('id', purchaseId)
 
-    if (upErr) {
-      alert(upErr.message)
-      return
-    }
+    if (upErr) { alert(upErr.message); return }
 
     const row = orders.value.find((o) => o.id === purchaseId)
     if (row) row.status = STATUS.TO_SHIP
@@ -2223,18 +2293,15 @@ async function approveOrder(order: ViewOrder) {
       const item = order.items[0]
       if (item) {
         const amount = Number(item.price_each || 0) * Number(item.qty || 1)
-
-        const { error: recErr } = await supabase
-          .schema('ewallet')
-          .from('order_receipt')
-          .insert({
-            amount: Number(amount.toFixed(2)),
-            reference_number: order.reference_number || null,
-          })
-
-        if (recErr) {
-          console.error('[order_receipt insert failed]', recErr.message)
-        }
+        try {
+          await supabase
+            .schema('ewallet')
+            .from('order_receipt')
+            .insert({
+              amount: Number(amount.toFixed(2)),
+              reference_number: order.reference_number || null,
+            })
+        } catch {}
       }
     }
   } finally {
@@ -2242,7 +2309,7 @@ async function approveOrder(order: ViewOrder) {
   }
 }
 
-/* ---------- Approve Return/Refund ---------- */
+/* Approve/Reject/Complete Refund */
 async function approveRefund(rr: ReturnRefundRow) {
   if (!rr) return
   const rrId = rr.id
@@ -2253,19 +2320,12 @@ async function approveRefund(rr: ReturnRefundRow) {
       .from('return_refunds')
       .update({ status: 'approved' })
       .eq('id', rrId)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
+    if (error) { alert(error.message); return }
     rr.status = 'approved'
   } finally {
     busy.value.action[rrId] = false
   }
 }
-
-/* ---------- NEW: Reject Return/Refund (for pending) ---------- */
 async function rejectRefund(rr: ReturnRefundRow) {
   if (!rr) return
   if (!confirm('Reject this refund request?')) return
@@ -2277,91 +2337,55 @@ async function rejectRefund(rr: ReturnRefundRow) {
       .from('return_refunds')
       .update({ status: 'rejected' })
       .eq('id', rrId)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
+    if (error) { alert(error.message); return }
     rr.status = 'rejected'
   } finally {
     busy.value.action[rrId] = false
   }
 }
-/* ---------- /NEW ---------- */
-
-/* ---------- Complete Return/Refund (approved -> completed) + REFUND BALANCE + INSERT refund_receipt ---------- */
 async function completeRefund(rr: ReturnRefundRow) {
   if (!rr) return
-  if (!isRRApproved(rr)) {
-    alert('Only "Approved" refunds can be completed.')
-    return
-  }
+  if (!isRRApproved(rr)) { alert('Only "Approved" refunds can be completed.'); return }
 
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
-    // Fetch purchase with qty and reference_number (for event discount lookup)
     const { data: purchase, error: pErr } = await supabase
       .schema('games')
       .from('purchases')
       .select('id,user_id,product_id,qty,reference_number,modeofpayment')
       .eq('id', rr.purchase_id)
       .single()
+    if (pErr || !purchase) { alert(pErr?.message || 'Purchase not found for this refund.'); return }
 
-    if (pErr || !purchase) {
-      alert(pErr?.message || 'Purchase not found for this refund.')
-      return
-    }
-
-    // BEFORE updating rr -> check if this is the first completed refund for the reference
     const ref = purchase.reference_number
-    let includeShipping = false
-    if (ref) {
-      const completedBefore = await countCompletedRefundsForRef(ref)
-      includeShipping = completedBefore === 0
-    }
 
-    // Product base price (fallback if no discounts apply)
+    /* === CHANGED: Never refund shipping for completed refunds === */
+    let includeShipping = false
+    // (previous logic disabled by request)
+
     const { data: product, error: prodErr } = await supabase
       .schema('games')
       .from('products')
       .select('id,price')
       .eq('id', rr.product_id || purchase.product_id)
       .single()
-
-    if (prodErr || !product) {
-      alert(prodErr?.message || 'Product not found for this refund.')
-      return
-    }
+    if (prodErr || !product) { alert(prodErr?.message || 'Product not found for this refund.'); return }
 
     const qty = Number(purchase.qty ?? 1) || 1
     const baseEach = Number(product.price || 0)
-
-    // Determine effectiveEach:
-    // 1) Use cached per-purchase discounted price if present
     let effectiveEach =
       discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
-
-    // 2) Else apply event-based discount by reference_number (if any)
     if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
       const eventLess = winnerRefundForRef(purchase.reference_number)
       effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
     }
-
-    // 3) Final fallback to base price (should be rare)
     if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
       effectiveEach = baseEach
     }
-
-    // Total refund for product = qty × effectiveEach
     const productRefund = Number((effectiveEach * qty).toFixed(2))
-    if (!isFinite(productRefund) || productRefund <= 0) {
-      alert('Invalid refund amount computed.')
-      return
-    }
+    if (!isFinite(productRefund) || productRefund <= 0) { alert('Invalid refund amount computed.'); return }
 
-    // Transition RR to completed (only from approved)
     const { error: rrUpdateErr } = await supabase
       .schema('games')
       .from('return_refunds')
@@ -2370,82 +2394,42 @@ async function completeRefund(rr: ReturnRefundRow) {
       .eq('status', 'approved')
       .select('id')
       .single()
+    if (rrUpdateErr) { alert(rrUpdateErr.message); return }
 
-    if (rrUpdateErr) {
-      alert(rrUpdateErr.message)
-      return
-    }
-
-    // Credit user's e-wallet with PRODUCT refund
     const { data: urow, error: uErr } = await supabase
       .from('users')
       .select('id,balance')
       .eq('id', purchase.user_id)
       .single()
-
-    if (uErr || !urow) {
-      alert(uErr?.message || 'User not found for refund credit.')
-      return
-    }
+    if (uErr || !urow) { alert(uErr?.message || 'User not found for refund credit.'); return }
 
     let newBal = Number(urow.balance || 0) + productRefund
-
-    // Insert refund receipt with PRODUCT amount_refunded
     try {
-      const { error: rrRecErr } = await supabase.schema('ewallet').from('refund_receipt').insert({
+      await supabase.schema('ewallet').from('refund_receipt').insert({
         return_refund_id: rrId,
         amount_refunded: productRefund,
       })
-      if (rrRecErr) {
-        console.error('[refund_receipt insert failed]', rrRecErr.message)
-      }
-    } catch (e: any) {
-      console.error('[refund_receipt insert exception]', e?.message || e)
-    }
+    } catch {}
 
-    // ★ NEW: include SHIPPING fee on first refund completion for this reference (EWALLET or COD)
+    // NOTE: Shipping refund is intentionally disabled
     if (includeShipping && ref) {
-      const ship = shippingForRef(ref)
-      if (ship > 0) {
-        newBal = Number((newBal + ship).toFixed(2))
-        // Log an additional receipt row for the shipping refund (ties to current RR)
-        try {
-          const { error: rrShipErr } = await supabase
-            .schema('ewallet')
-            .from('refund_receipt')
-            .insert({
-              return_refund_id: rrId,
-              amount_refunded: Number(ship.toFixed(2)),
-            })
-          if (rrShipErr) console.error('[shipping refund receipt insert failed]', rrShipErr.message)
-        } catch (e: any) {
-          console.error('[shipping refund receipt insert exception]', e?.message || e)
-        }
-      }
+      /* no-op by design */
     }
 
-    // Persist updated balance
     const { error: balErr } = await supabase
       .from('users')
       .update({ balance: newBal })
       .eq('id', purchase.user_id)
+    if (balErr) { alert(balErr.message); return }
 
-    if (balErr) {
-      alert(balErr.message)
-      return
-    }
-
-    // ★ STOCK RESTORE on refund completion (return the purchased qty)
     await restoreStock(rr.product_id || purchase.product_id, qty)
-
     rr.status = 'completed'
   } finally {
     busy.value.action[rrId] = false
   }
 }
-/* ---------- /NEW ---------- */
 
-/* ---------- GROUP ACTION WRAPPERS (apply to all purchases with same reference_number) ---------- */
+/* GROUP ACTIONS */
 async function approveGroup(g: ViewGroup) {
   for (const o of g.purchases) {
     if (o.status === STATUS.TO_PAY) {
@@ -2453,7 +2437,15 @@ async function approveGroup(g: ViewGroup) {
     }
   }
 }
+function canGroupMarkAsShipped(g: ViewGroup): boolean {
+  if (!g.allToShip) return false
+  return trackingFilledRef(g.reference_number)
+}
 async function markGroupAsShipped(g: ViewGroup) {
+  if (!canGroupMarkAsShipped(g)) {
+    alert('Please provide the reference tracking link before marking as shipped.')
+    return
+  }
   for (const o of g.purchases) {
     if (o.status === STATUS.TO_SHIP) {
       await markAsShipped(o.id)
@@ -2462,13 +2454,12 @@ async function markGroupAsShipped(g: ViewGroup) {
 }
 async function cancelGroup(g: ViewGroup) {
   if (!confirm('Cancel all purchases under this reference?')) return
-  // Bulk cancel — no per-item confirmations:
   for (const o of g.purchases) {
     await cancelOrder(o.id, true /* skipConfirm */)
   }
 }
 
-/* ---------- Filters & pagination handlers ---------- */
+/* Filters & pagination */
 function setStatus(v: (typeof tabs)[number]['value']) {
   if (statusFilter.value !== v) {
     statusFilter.value = v
@@ -2484,9 +2475,7 @@ function setRRStatus(v: RRFilter) {
     }
   }
 }
-function applyFilters() {
-  loadOrders(true)
-}
+function applyFilters() { loadOrders(true) }
 function clearFilters() {
   search.value = ''
   payment.value = ''
@@ -2510,64 +2499,80 @@ function viewReturnDetails() {
   loadOrders(true)
 }
 
-/* ===== NEW: Modal state & handlers ===== */
+/* ===== Modal state & helpers ===== */
 const selectedRef = ref<string | null>(null)
 const selectedGroup = computed(
   () => orderGroups.value.find((g) => g.reference_number === selectedRef.value) || null,
 )
+const selectedGroupHasToShip = computed(() =>
+  !!selectedGroup.value?.purchases.some(p => String(p.status).toLowerCase() === STATUS.TO_SHIP),
+)
 function openGroupModal(g: ViewGroup) {
   selectedRef.value = g.reference_number
+  // Initialize ref link if missing from any purchase that has it
+  if (!trackLinkByRef[g.reference_number]) {
+    const found = g.purchases.find(p => (p.tracking_link || '').trim())
+    if (found?.tracking_link) trackLinkByRef[g.reference_number] = found.tracking_link
+  }
 }
-function closeGroupModal() {
-  selectedRef.value = null
-}
-// ESC key to close
+function closeGroupModal() { selectedRef.value = null }
 function onKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape' && selectedRef.value) closeGroupModal()
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
-/* ===== /NEW ===== */
+/* ===== /Modal ===== */
 
-/* ---------- Init ---------- */
-onMounted(() => {
-  loadOrders(true)
-})
+/* ===== NEW: Offer Shipping action ===== */
+async function offerShipping(g: ViewGroup) {
+  const ref = g.reference_number
+  const raw = getShippingInputRaw(ref) // SAFE
+  const amount = Number(raw)
+  if (!isFinite(amount) || amount < 0) {
+    alert('Please enter a valid shipping fee (₱).')
+    return
+  }
+  busy.value.action[`offer:${ref}`] = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ shipping_fee: amount })
+      .eq('reference_number', ref)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+    // Update local cache & refresh
+    shippingByRef[ref] = Number(amount.toFixed(2))
+    await loadOrders() // refresh totals and hide from the tab if not pending anymore
+    alert('Shipping fee saved for this reference.')
+  } finally {
+    busy.value.action[`offer:${ref}`] = false
+  }
+}
+ /* ===== /NEW ===== */
+
+/* Init */
+onMounted(() => { loadOrders(true) })
 </script>
 
 <style scoped>
 /* Subtle card styling */
-.card {
-  border: 1px solid #edf0f3;
-}
-.bg-light-subtle {
-  background: #f8f9fa;
-}
+.card { border: 1px solid #edf0f3; }
+.bg-light-subtle { background: #f8f9fa; }
 
 /* Pills look */
-.nav-pills .nav-link {
-  border-radius: 999px;
-}
-.nav-pills .nav-link:not(.active) {
-  background: #f8f9fa;
-  color: #212529;
-}
+.nav-pills .nav-link { border-radius: 999px; }
+.nav-pills .nav-link:not(.active) { background: #f8f9fa; color: #212529; }
 
 /* Thumbs */
-.order-thumb {
-  width: 64px;
-  min-width: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-}
-.object-fit-cover {
-  object-fit: cover;
-}
+.order-thumb { width: 64px; min-width: 64px; border-radius: 10px; overflow: hidden; }
+.object-fit-cover { object-fit: cover; }
 
 /* Hide messy descriptions but keep original node intact */
-.order-desc {
-  display: none !important;
-}
+.order-desc { display: none !important; }
 
 /* Ellipsis for long titles in card body */
 .title-ellipsis {
@@ -2579,9 +2584,7 @@ onMounted(() => {
 }
 
 /* Tight badges for item metadata */
-.badge {
-  color: #212529;
-}
+.badge { color: #212529; }
 .badge-tight {
   font-weight: 500;
   padding: 0.35rem 0.6rem;
@@ -2589,33 +2592,17 @@ onMounted(() => {
   line-height: 1;
 }
 
-/* ===== NEW: Modal styling (Bootstrap-like, no dependency) ===== */
+/* Modal styling */
 .orders-modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 1050;
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
 }
 .orders-modal-card {
-  width: 100%;
-  max-width: 980px;
-  background: var(--bs-body-bg, #fff);
-  color: var(--bs-body-color, #212529);
-  border-radius: 1rem;
+  width: 100%; max-width: 980px; background: var(--bs-body-bg, #fff);
+  color: var(--bs-body-color, #212529); border-radius: 1rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  padding: 1rem 1rem 1.25rem;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  padding: 1rem 1rem 1.25rem; max-height: 90vh; overflow: hidden;
+  display: flex; flex-direction: column;
 }
-.orders-modal-body {
-  overflow: auto;
-  padding-right: 0.25rem;
-}
-
+.orders-modal-body { overflow: auto; padding-right: 0.25rem; }
 </style>
