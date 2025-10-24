@@ -17,7 +17,7 @@
         </div>
       </nav>
 
-      <div class="container-fluid py-4">
+      <div class="container-fluid">
         <RouterView v-slot="{ Component }">
           <transition name="fade" mode="out-in">
             <component :is="Component" />
