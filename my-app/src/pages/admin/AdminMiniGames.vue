@@ -254,7 +254,7 @@
                   <span class="dot dot-finished"></span>
                   <h5 class="statusTitlemb-0 fw-bold">Finished</h5>
                 </div>
-                <small class="text-muted">Spun / Settled / Cancelled</small>
+                <small class="text-muted">Spun/Settled/Cancelled</small>
               </div>
 
               <div v-if="finishedEvents.length === 0" class="empty-state">
@@ -1564,12 +1564,12 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
 .event-pill .title {
   max-width: 65%;
 }
-
 .event-pill .meta {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 8px;
-  margin-top: 8px;
+  margin-top: 0.5rem;
+}
+.event-pill .meta span {
+  font-size: 0.8rem;
 }
 .event-pill .pair {
   display: flex;
@@ -1648,9 +1648,6 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
 
 /* Responsive polish */
 @media (max-width: 992px) {
-  .event-pill .meta {
-    grid-template-columns: 1fr 1fr;
-  }
   .price-row {
     grid-template-columns: 1fr;
   }

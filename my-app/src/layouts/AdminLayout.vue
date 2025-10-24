@@ -21,7 +21,7 @@
       </header>
 
       <!-- Content outlet -->
-      <main class="flex-grow-1 p-4 bg-light">
+      <main class="flex-grow-1 p-2 bg-light">
         <router-view />
       </main>
     </div>

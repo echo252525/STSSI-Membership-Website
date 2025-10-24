@@ -1,17 +1,18 @@
 <template>
-  <div class="container py-4">
+  <div class="container">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div>
-        <h1 class="h4 m-0">Orders</h1>
+        <h3 class="fw-bold d-flex gap-3 align-items-center mt-2">
+          <i class="bi bi-basket"></i>Orders
+        </h3>
         <p class="text-muted small mb-0">Manage customer orders, shipping, and fulfillment.</p>
       </div>
-      <div class="d-flex align-items-center gap-2">
-      </div>
+      <div class="d-flex align-items-center gap-2"></div>
     </div>
 
     <!-- Tabs (statuses) -->
-    <ul class="nav nav-pills mb-2 flex-wrap gap-2">
+    <ul class="nav nav-pills mb-2 flex-wrap">
       <li v-for="t in tabs" :key="t.value" class="nav-item">
         <button
           class="nav-link d-flex align-items-center gap-2"
@@ -24,10 +25,7 @@
     </ul>
 
     <!-- SUB-TABS (visible only for Return/Refund) -->
-    <ul
-      v-if="statusFilter === STATUS.RETURN_REFUND"
-      class="nav nav-pills mb-3 flex-wrap gap-2"
-    >
+    <ul v-if="statusFilter === STATUS.RETURN_REFUND" class="nav nav-pills mb-3 flex-wrap gap-2">
       <li class="nav-item">
         <button
           class="nav-link d-flex align-items-center gap-2"
@@ -71,7 +69,7 @@
     <!-- Filters -->
     <div class="card shadow-sm mb-3">
       <div class="card-body d-flex flex-wrap g-2 align-items-end gap-2">
-        <div class="flex-grow-1" style="min-width: 240px;">
+        <div class="flex-grow-1" style="min-width: 240px">
           <label class="form-label small text-muted mb-1">Search</label>
           <div class="input-group">
             <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
@@ -82,7 +80,9 @@
               placeholder="Search address, phone, order/ref no…"
               @keyup.enter="applyFilters"
             />
-            <button class="btn btn-outline-secondary" :disabled="busy.load" @click="applyFilters">Search</button>
+            <button class="btn btn-outline-secondary" :disabled="busy.load" @click="applyFilters">
+              Search
+            </button>
           </div>
         </div>
 
@@ -95,17 +95,21 @@
           </select>
         </div>
 
-        <div>
-          <label class="form-label small text-muted mb-1">From</label>
-          <input v-model="dateFrom" type="date" class="form-control" />
-        </div>
-        <div>
-          <label class="form-label small text-muted mb-1">To</label>
-          <input v-model="dateTo" type="date" class="form-control" />
+        <div class="d-flex gap-2 ">
+          <div>
+            <label class="form-label small text-muted mb-1">From</label>
+            <input v-model="dateFrom" type="date" class="form-control" />
+          </div>
+          <div>
+            <label class="form-label small text-muted mb-1">To</label>
+            <input v-model="dateTo" type="date" class="form-control" />
+          </div>
         </div>
 
         <div class="ms-auto d-flex align-items-end gap-2">
-          <button class="btn btn-outline-secondary" @click="clearFilters" :disabled="busy.load">Clear</button>
+          <button class="btn btn-outline-secondary" @click="clearFilters" :disabled="busy.load">
+            Clear
+          </button>
           <button class="btn btn-primary" @click="applyFilters" :disabled="busy.load">
             <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
             Apply
@@ -138,15 +142,13 @@
                 <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
               </div>
               <!-- UPDATED: clean date/time + updated_at -->
-              <div class="small text-muted">
-                Created: {{ formatClean(g.created_at) }}
-              </div>
+              <div class="small text-muted">Created: {{ formatClean(g.created_at) }}</div>
               <div class="small text-muted" v-if="g.updated_at">
                 Updated: {{ formatClean(g.updated_at) }}
               </div>
             </div>
 
-            <div class="d-flex align-items-center gap-2">
+            <div class="d-flex align-items-center gap-2 statusInfos">
               <span class="badge" :class="statusClass(g.statusSummaryClassKey)">
                 {{ g.statusSummaryLabel }}
               </span>
@@ -158,7 +160,7 @@
               <!-- /NEW -->
 
               <!-- NEW: open modal button (per reference) -->
-              <button class="btn btn-outline-secondary btn-sm" @click="openGroupModal(g)">
+              <button class="btn btn-outline-secondary btn-sm d-flex" @click="openGroupModal(g)">
                 <i class="bi bi-eye me-1"></i> View details
               </button>
               <!-- /NEW -->
@@ -179,22 +181,25 @@
                   :alt="it.product?.name || 'Product'"
                   class="w-100 h-100 object-fit-cover rounded"
                 />
-                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                >
                   <i class="bi bi-image"></i>
                 </div>
               </div>
 
               <div class="flex-grow-1">
                 <!-- UPDATED: ellipsis title (no specs/desc) -->
-                <div
-                  class="fw-semibold title-ellipsis"
-                  :title="it.product?.name || it.product_id"
-                >
+                <div class="fw-semibold" :title="it.product?.name || it.product_id">
                   {{ it.product?.name || it.product_id }}
                 </div>
 
                 <!-- HIDDEN but kept (do not remove existing code) -->
-                <div class="text-muted small text-truncate order-desc" v-if="it.product?.description">
+                <div
+                  class="text-muted small text-truncate order-desc"
+                  v-if="it.product?.description"
+                >
                   {{ it.product?.description }}
                 </div>
 
@@ -235,9 +240,7 @@
 
               <!-- NEW: rightmost discounted line total -->
               <div class="text-end fw-semibold" v-else>
-                <div class="small text-muted">
-                  ₱ {{ number(it.line_total) }}
-                </div>
+                <div class="small text-muted">₱ {{ number(it.line_total) }}</div>
                 <!-- (Intentionally left: discounted totals are shown in modal / totals area) -->
               </div>
             </div>
@@ -255,8 +258,8 @@
                 <div>{{ g.shipping_address || '—' }}</div>
               </div>
             </div>
-            <div class="col-12 col-md-5 d-flex align-items-end justify-content-md-end">
-              <div class="text-end">
+            <div class="col-12 col-md-5 d-flex align-items-end justify-content-end">
+              <div class="text-end ms-auto">
                 <div class="text-muted small">Subtotal</div>
 
                 <!-- Subtotal WITHOUT shipping -->
@@ -292,10 +295,7 @@
           </div>
 
           <!-- Row 3.5: Return/Refund info (per product rows) -->
-          <div
-            v-if="g.containsRR"
-            class="mt-3"
-          >
+          <div v-if="g.containsRR" class="mt-3">
             <div class="small text-muted mb-1">Return/Refund</div>
 
             <div
@@ -327,9 +327,7 @@
                 <span>{{ rr.details }}</span>
               </div>
 
-              <div class="text-muted mt-1">
-                Created: {{ formatClean(rr.created_at) }}
-              </div>
+              <div class="text-muted mt-1">Created: {{ formatClean(rr.created_at) }}</div>
 
               <!-- Approve/Complete/Reject buttons per RR row (PER PRODUCT) -->
               <div class="mt-2 d-flex justify-content-end gap-2">
@@ -341,7 +339,10 @@
                     @click="approveRefund(rr)"
                     title="Approve refund request"
                   >
-                    <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    <span
+                      v-if="busy.action[rr.id]"
+                      class="spinner-border spinner-border-sm me-1"
+                    ></span>
                     Approve refund
                   </button>
 
@@ -351,7 +352,10 @@
                     @click="rejectRefund(rr)"
                     title="Reject refund request"
                   >
-                    <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                    <span
+                      v-if="busy.action[rr.id]"
+                      class="spinner-border spinner-border-sm me-1"
+                    ></span>
                     Reject refund
                   </button>
                 </template>
@@ -364,25 +368,36 @@
                   @click="completeRefund(rr)"
                   title="Mark refund as completed"
                 >
-                  <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                  <span
+                    v-if="busy.action[rr.id]"
+                    class="spinner-border spinner-border-sm me-1"
+                  ></span>
                   Mark as Completed
                 </button>
               </div>
             </div>
 
             <div class="border rounded p-2 bg-body small" v-if="groupRRs(g).length === 0">
-              No return/refund record found for this grouped order (filtered by "{{ rrStatusFilter }}").
+              No return/refund record found for this grouped order (filtered by "{{
+                rrStatusFilter
+              }}").
             </div>
           </div>
 
           <!-- ===== NEW: In 'To Receive' tab, also show siblings (RR + Completed) ===== -->
-          <div v-if="statusFilter === STATUS.TO_RECEIVE && (g.siblingRRItems.length || g.siblingCompletedItems.length)" class="mt-3">
+          <div
+            v-if="
+              statusFilter === STATUS.TO_RECEIVE &&
+              (g.siblingRRItems.length || g.siblingCompletedItems.length)
+            "
+            class="mt-3"
+          >
             <div class="small text-muted mb-1">Other items in this reference</div>
 
             <!-- RR siblings -->
             <div
               v-for="s in g.siblingRRItems"
-              :key="'rr-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              :key="'rr-' + g.groupKey + ':' + s.product_id + ':' + s.order_id"
               class="d-flex align-items-center justify-content-between border rounded p-2 bg-body mb-2"
             >
               <div class="d-flex align-items-center gap-3">
@@ -393,12 +408,18 @@
                     :alt="s.product?.name || 'Product'"
                     class="w-100 h-100 object-fit-cover rounded"
                   />
-                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
                     <i class="bi bi-image"></i>
                   </div>
                 </div>
                 <div class="flex-grow-1">
-                  <div class="fw-semibold title-ellipsis text-danger" :title="s.product?.name || s.product_id">
+                  <div
+                    class="fw-semibold title-ellipsis text-danger"
+                    :title="s.product?.name || s.product_id"
+                  >
                     {{ s.product?.name || s.product_id }}
                     <span class="small">
                       <!-- Per-item price with discount (ALL TABS) -->
@@ -407,8 +428,12 @@
                       </template>
                       <template v-else>
                         ({{ s.qty }} ×
-                        <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
-                        <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                        <span class="text-muted text-decoration-line-through me-1"
+                          >₱ {{ number(s.price_each) }}</span
+                        >
+                        <span class="fw-semibold text-danger"
+                          >₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span
+                        >
                         )
                       </template>
                     </span>
@@ -428,7 +453,7 @@
             <!-- Completed siblings -->
             <div
               v-for="s in g.siblingCompletedItems"
-              :key="'done-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              :key="'done-' + g.groupKey + ':' + s.product_id + ':' + s.order_id"
               class="d-flex align-items-center gap-3 border rounded p-2 bg-body mb-2"
             >
               <div class="order-thumb ratio ratio-1x1 bg-white rounded">
@@ -437,8 +462,11 @@
                   :src="productThumb(s.product)"
                   :alt="s.product?.name || 'Product'"
                   class="w-100 h-100 object-fit-cover rounded"
-                  />
-                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                />
+                <div
+                  v-else
+                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                >
                   <i class="bi bi-image"></i>
                 </div>
               </div>
@@ -452,15 +480,22 @@
                     </template>
                     <template v-else>
                       ({{ s.qty }} ×
-                      <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
-                      <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                      <span class="text-muted text-decoration-line-through me-1"
+                        >₱ {{ number(s.price_each) }}</span
+                      >
+                      <span class="fw-semibold text-danger"
+                        >₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span
+                      >
                       )
                     </template>
                   </span>
                 </div>
 
                 <!-- Line total with discount (ALL TABS) -->
-                <div class="small" :class="hasEventDiscount(g.reference_number) ? '' : 'text-muted'">
+                <div
+                  class="small"
+                  :class="hasEventDiscount(g.reference_number) ? '' : 'text-muted'"
+                >
                   <template v-if="!hasEventDiscount(g.reference_number)">
                     ₱ {{ number(s.line_total) }}
                   </template>
@@ -468,7 +503,9 @@
                     <span class="text-muted text-decoration-line-through me-1">
                       ₱ {{ number(s.line_total) }}
                     </span>
-                    <span class="fw-semibold">₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span>
+                    <span class="fw-semibold"
+                      >₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span
+                    >
                   </template>
                 </div>
               </div>
@@ -483,7 +520,7 @@
 
             <div
               v-for="s in g.completedRRItems"
-              :key="'rrc-'+g.groupKey+':'+s.product_id+':'+s.order_id"
+              :key="'rrc-' + g.groupKey + ':' + s.product_id + ':' + s.order_id"
               class="d-flex align-items-center justify-content-between border rounded p-2 bg-body mb-2"
             >
               <div class="d-flex align-items-center gap-3">
@@ -494,7 +531,10 @@
                     :alt="s.product?.name || 'Product'"
                     class="w-100 h-100 object-fit-cover rounded"
                   />
-                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
                     <i class="bi bi-image"></i>
                   </div>
                 </div>
@@ -508,15 +548,17 @@
                       </template>
                       <template v-else>
                         ({{ s.qty }} ×
-                        <span class="text-muted text-decoration-line-through me-1">₱ {{ number(s.price_each) }}</span>
-                        <span class="fw-semibold text-danger">₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span>
+                        <span class="text-muted text-decoration-line-through me-1"
+                          >₱ {{ number(s.price_each) }}</span
+                        >
+                        <span class="fw-semibold text-danger"
+                          >₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span
+                        >
                         )
                       </template>
                     </span>
                   </div>
-                  <div class="small text-success">
-                    Refund Completed
-                  </div>
+                  <div class="small text-success">Refund Completed</div>
                 </div>
               </div>
               <span class="badge text-bg-success-subtle border">Refunded</span>
@@ -534,7 +576,10 @@
               @click="approveGroup(g)"
               title="Approve all purchases in this reference and move to To Ship (no deduction)"
             >
-              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              <span
+                v-if="busy.anyGroup(g.groupKey)"
+                class="spinner-border spinner-border-sm me-1"
+              ></span>
               Approve (all)
             </button>
 
@@ -545,7 +590,10 @@
               :disabled="busy.anyGroup(g.groupKey)"
               @click="markGroupAsShipped(g)"
             >
-              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              <span
+                v-if="busy.anyGroup(g.groupKey)"
+                class="spinner-border spinner-border-sm me-1"
+              ></span>
               Mark as Shipped (all)
             </button>
 
@@ -556,7 +604,10 @@
               :disabled="busy.anyGroup(g.groupKey)"
               @click="cancelGroup(g)"
             >
-              <span v-if="busy.anyGroup(g.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+              <span
+                v-if="busy.anyGroup(g.groupKey)"
+                class="spinner-border spinner-border-sm me-1"
+              ></span>
               Cancel (all)
             </button>
           </div>
@@ -565,14 +616,25 @@
     </div>
 
     <!-- Pagination -->
-    <div v-if="total > pageSize" class="d-flex align-items-center justify-content-center gap-2 mt-3">
-      <button class="btn btn-outline-secondary btn-sm" :disabled="page === 1 || busy.load" @click="goTo(page - 1)">
+    <div
+      v-if="total > pageSize"
+      class="d-flex align-items-center justify-content-center gap-2 mt-3"
+    >
+      <button
+        class="btn btn-outline-secondary btn-sm"
+        :disabled="page === 1 || busy.load"
+        @click="goTo(page - 1)"
+      >
         <i class="bi bi-chevron-left"></i>
       </button>
       <span class="small text-muted">
         Page <strong>{{ page }}</strong> of <strong>{{ totalPages }}</strong>
       </span>
-      <button class="btn btn-outline-secondary btn-sm" :disabled="page >= totalPages || busy.load" @click="goTo(page + 1)">
+      <button
+        class="btn btn-outline-secondary btn-sm"
+        :disabled="page >= totalPages || busy.load"
+        @click="goTo(page + 1)"
+      >
         <i class="bi bi-chevron-right"></i>
       </button>
     </div>
@@ -580,7 +642,11 @@
     <!-- ===================================================== -->
     <!-- NEW: ORDER DETAILS MODAL (per reference_number)       -->
     <!-- ===================================================== -->
-    <div v-if="selectedRef && selectedGroup" class="orders-modal-overlay" @click.self="closeGroupModal">
+    <div
+      v-if="selectedRef && selectedGroup"
+      class="orders-modal-overlay"
+      @click.self="closeGroupModal"
+    >
       <div class="orders-modal-card">
         <!-- Modal header -->
         <div class="d-flex align-items-center justify-content-between border-bottom pb-2 mb-3">
@@ -591,12 +657,18 @@
             </div>
             <div class="small text-muted">
               Created: {{ formatClean(selectedGroup.created_at) }}
-              <span v-if="selectedGroup.updated_at"> • Updated: {{ formatClean(selectedGroup.updated_at) }}</span>
+              <span v-if="selectedGroup.updated_at">
+                • Updated: {{ formatClean(selectedGroup.updated_at) }}</span
+              >
             </div>
           </div>
           <div class="d-flex align-items-center gap-2">
-            <span class="badge" :class="statusClass(selectedGroup.statusSummaryClassKey)">{{ selectedGroup.statusSummaryLabel }}</span>
-            <span class="badge text-bg-light border" :title="selectedGroup.paymentSummaryTitle">{{ selectedGroup.paymentSummaryLabel }}</span>
+            <span class="badge" :class="statusClass(selectedGroup.statusSummaryClassKey)">{{
+              selectedGroup.statusSummaryLabel
+            }}</span>
+            <span class="badge text-bg-light border" :title="selectedGroup.paymentSummaryTitle">{{
+              selectedGroup.paymentSummaryLabel
+            }}</span>
             <button class="btn btn-light btn-sm" @click="closeGroupModal" aria-label="Close">
               <i class="bi bi-x-lg"></i>
             </button>
@@ -622,10 +694,12 @@
                   <span class="text-muted">Payment: </span>{{ selectedGroup.paymentSummaryLabel }}
                 </div>
                 <div v-if="(selectedGroup.discount_total || 0) > 0">
-                  <span class="text-muted">Discounts Applied: </span>₱ {{ number(selectedGroup.discount_total) }}
+                  <span class="text-muted">Discounts Applied: </span>₱
+                  {{ number(selectedGroup.discount_total) }}
                 </div>
                 <div>
-                  <span class="text-muted">Shipping Fee: </span>₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
+                  <span class="text-muted">Shipping Fee: </span>₱
+                  {{ number(shippingForRef(selectedGroup.reference_number)) }}
                 </div>
               </div>
             </div>
@@ -648,14 +722,20 @@
                     :alt="o.items[0]?.product?.name || 'Product'"
                     class="w-100 h-100 object-fit-cover rounded"
                   />
-                  <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
                     <i class="bi bi-image"></i>
                   </div>
                 </div>
 
                 <div class="flex-grow-1">
                   <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                    <div class="fw-semibold title-ellipsis" :title="o.items[0]?.product?.name || o.items[0]?.product_id">
+                    <div
+                      class="fw-semibold"
+                      :title="o.items[0]?.product?.name || o.items[0]?.product_id"
+                    >
                       {{ o.items[0]?.product?.name || o.items[0]?.product_id }}
                       <span class="small ms-2">
                         <template v-if="!hasEventDiscount(selectedGroup.reference_number)">
@@ -663,17 +743,31 @@
                         </template>
                         <template v-else>
                           ({{ o.items[0]?.qty }} ×
-                          <span class="text-muted text-decoration-line-through me-1">₱ {{ number(o.items[0]?.price_each) }}</span>
+                          <span class="text-muted text-decoration-line-through me-1"
+                            >₱ {{ number(o.items[0]?.price_each) }}</span
+                          >
                           <span class="fw-semibold text-danger">
-                            ₱ {{ number(discountedPriceEachForItem(o.items[0], selectedGroup.reference_number)) }}
-                          </span>)
+                            ₱
+                            {{
+                              number(
+                                discountedPriceEachForItem(
+                                  o.items[0],
+                                  selectedGroup.reference_number,
+                                ),
+                              )
+                            }} </span
+                          >)
                         </template>
                       </span>
                     </div>
 
                     <div class="d-flex align-items-center gap-2">
-                      <span class="badge badge-tight" :class="statusClass(o.status)">{{ prettyStatus(o.status) }}</span>
-                      <span class="badge text-bg-light border badge-tight">{{ o.payment_method || '—' }}</span>
+                      <span class="badge badge-tight" :class="statusClass(o.status)">{{
+                        prettyStatus(o.status)
+                      }}</span>
+                      <span class="badge text-bg-light border badge-tight">{{
+                        o.payment_method || '—'
+                      }}</span>
                     </div>
                   </div>
 
@@ -685,8 +779,15 @@
                     </template>
                     <template v-else>
                       <span class="text-muted small">Line total:</span>
-                      <span class="text-muted small text-decoration-line-through me-1">₱ {{ number(o.items[0]?.line_total) }}</span>
-                      <span class="fw-semibold">₱ {{ number(lineTotalAfterDiscount(o.items[0], selectedGroup.reference_number)) }}</span>
+                      <span class="text-muted small text-decoration-line-through me-1"
+                        >₱ {{ number(o.items[0]?.line_total) }}</span
+                      >
+                      <span class="fw-semibold"
+                        >₱
+                        {{
+                          number(lineTotalAfterDiscount(o.items[0], selectedGroup.reference_number))
+                        }}</span
+                      >
                     </template>
                   </div>
 
@@ -698,7 +799,9 @@
                       class="border rounded p-2 bg-light-subtle small mb-2"
                     >
                       <div class="d-flex flex-wrap align-items-center gap-2">
-                        <span class="badge" :class="rrBadgeClass(rr.status)">{{ prettyRRStatus(rr.status) }}</span>
+                        <span class="badge" :class="rrBadgeClass(rr.status)">{{
+                          prettyRRStatus(rr.status)
+                        }}</span>
                         <span class="text-muted">•</span>
                         <span class="fw-semibold">Reason:</span>
                         <span>{{ rr.reason }}</span>
@@ -710,12 +813,26 @@
 
                       <div class="mt-2 d-flex justify-content-end gap-2">
                         <template v-if="isRRPending(rr)">
-                          <button class="btn btn-success btn-sm" :disabled="busy.action[rr.id]" @click="approveRefund(rr)">
-                            <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                          <button
+                            class="btn btn-success btn-sm"
+                            :disabled="busy.action[rr.id]"
+                            @click="approveRefund(rr)"
+                          >
+                            <span
+                              v-if="busy.action[rr.id]"
+                              class="spinner-border spinner-border-sm me-1"
+                            ></span>
                             Approve refund
                           </button>
-                          <button class="btn btn-outline-danger btn-sm" :disabled="busy.action[rr.id]" @click="rejectRefund(rr)">
-                            <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                          <button
+                            class="btn btn-outline-danger btn-sm"
+                            :disabled="busy.action[rr.id]"
+                            @click="rejectRefund(rr)"
+                          >
+                            <span
+                              v-if="busy.action[rr.id]"
+                              class="spinner-border spinner-border-sm me-1"
+                            ></span>
                             Reject
                           </button>
                         </template>
@@ -725,7 +842,10 @@
                           :disabled="busy.action[rr.id]"
                           @click="completeRefund(rr)"
                         >
-                          <span v-if="busy.action[rr.id]" class="spinner-border spinner-border-sm me-1"></span>
+                          <span
+                            v-if="busy.action[rr.id]"
+                            class="spinner-border spinner-border-sm me-1"
+                          ></span>
                           Mark as Completed
                         </button>
                       </div>
@@ -740,7 +860,10 @@
                       :disabled="busy.action[o.id]"
                       @click="approveOrder(o)"
                     >
-                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="busy.action[o.id]"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Approve
                     </button>
 
@@ -750,7 +873,10 @@
                       :disabled="busy.action[o.id]"
                       @click="markAsShipped(o.id)"
                     >
-                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="busy.action[o.id]"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Mark as Shipped
                     </button>
 
@@ -760,17 +886,23 @@
                       :disabled="busy.action[o.id]"
                       @click="markAsCompleted(o.id)"
                     >
-                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="busy.action[o.id]"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Mark as Completed
                     </button>
 
                     <button
-                      v-if="['to pay','to ship'].includes(String(o.status).toLowerCase())"
+                      v-if="['to pay', 'to ship'].includes(String(o.status).toLowerCase())"
                       class="btn btn-outline-danger btn-sm"
                       :disabled="busy.action[o.id]"
                       @click="cancelOrder(o.id)"
                     >
-                      <span v-if="busy.action[o.id]" class="spinner-border spinner-border-sm me-1"></span>
+                      <span
+                        v-if="busy.action[o.id]"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
                       Cancel
                     </button>
                   </div>
@@ -781,7 +913,10 @@
             <!-- Totals -->
             <div class="d-flex flex-column align-items-end mt-3">
               <div class="text-muted small">Subtotal</div>
-              <div v-if="!hasEventDiscount(selectedGroup.reference_number)" class="fw-semibold fs-5">
+              <div
+                v-if="!hasEventDiscount(selectedGroup.reference_number)"
+                class="fw-semibold fs-5"
+              >
                 ₱ {{ number(groupSubtotal(selectedGroup)) }}
               </div>
               <div v-else class="text-end">
@@ -796,7 +931,10 @@
               <div class="small text-muted" v-if="(selectedGroup.discount_total || 0) > 0">
                 Discounts: − ₱ {{ number(selectedGroup.discount_total) }}
               </div>
-              <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
+              <div
+                class="small text-muted"
+                v-if="shippingForRef(selectedGroup.reference_number) > 0"
+              >
                 Shipping fee: ₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
               </div>
               <div class="fw-semibold fs-5">
@@ -814,7 +952,10 @@
             :disabled="busy.anyGroup(selectedGroup.groupKey)"
             @click="approveGroup(selectedGroup)"
           >
-            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            <span
+              v-if="busy.anyGroup(selectedGroup.groupKey)"
+              class="spinner-border spinner-border-sm me-1"
+            ></span>
             Approve (all)
           </button>
           <button
@@ -823,7 +964,10 @@
             :disabled="busy.anyGroup(selectedGroup.groupKey)"
             @click="markGroupAsShipped(selectedGroup)"
           >
-            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            <span
+              v-if="busy.anyGroup(selectedGroup.groupKey)"
+              class="spinner-border spinner-border-sm me-1"
+            ></span>
             Mark as Shipped (all)
           </button>
           <button
@@ -832,7 +976,10 @@
             :disabled="busy.anyGroup(selectedGroup.groupKey)"
             @click="cancelGroup(selectedGroup)"
           >
-            <span v-if="busy.anyGroup(selectedGroup.groupKey)" class="spinner-border spinner-border-sm me-1"></span>
+            <span
+              v-if="busy.anyGroup(selectedGroup.groupKey)"
+              class="spinner-border spinner-border-sm me-1"
+            ></span>
             Cancel (all)
           </button>
           <button class="btn btn-light btn-sm" @click="closeGroupModal">Close</button>
@@ -862,7 +1009,7 @@ onMounted(async () => {
 const STATUS = {
   TO_PAY: 'to pay',
   TO_SHIP: 'to ship',
-  TO_RECEIVE: 'to receive',   // kept spelling per your schema
+  TO_RECEIVE: 'to receive', // kept spelling per your schema
   COMPLETED: 'completed',
   RETURN_REFUND: 'return/refund',
   CANCELLED: 'cancelled',
@@ -870,13 +1017,13 @@ const STATUS = {
 
 /** Tabs */
 const tabs = [
-  { label: 'All',            value: 'all' },
-  { label: 'To Pay',         value: STATUS.TO_PAY },
-  { label: 'To Ship',        value: STATUS.TO_SHIP },
-  { label: 'To Receive',     value: STATUS.TO_RECEIVE },
-  { label: 'Completed',      value: STATUS.COMPLETED },
-  { label: 'Return/Refund',  value: STATUS.RETURN_REFUND },
-  { label: 'Cancelled',      value: STATUS.CANCELLED },
+  { label: 'All', value: 'all' },
+  { label: 'To Pay', value: STATUS.TO_PAY },
+  { label: 'To Ship', value: STATUS.TO_SHIP },
+  { label: 'To Receive', value: STATUS.TO_RECEIVE },
+  { label: 'Completed', value: STATUS.COMPLETED },
+  { label: 'Return/Refund', value: STATUS.RETURN_REFUND },
+  { label: 'Cancelled', value: STATUS.CANCELLED },
 ] as const
 
 /** Return/Refund sub-filter (only used when statusFilter === RETURN_REFUND) */
@@ -905,7 +1052,7 @@ type Product = {
 }
 type Buyer = {
   id: string
-  full_name: string | null        // NEW
+  full_name: string | null // NEW
   phone_number: string | null
   address: string | null
 }
@@ -956,7 +1103,7 @@ type ViewGroup = {
   paymentSummaryLabel: string
   paymentSummaryTitle: string
   total_amount: number
-  shipping_name: string | null     // NEW
+  shipping_name: string | null // NEW
   shipping_address: string | null
   phone_number: string | null
   items: Array<OrderItem>
@@ -991,14 +1138,14 @@ type BusyState = {
 const busy = ref<BusyState>({
   load: false,
   action: {},
-  anyGroup: () => false
+  anyGroup: () => false,
 })
 
 /**
-* IMPORTANT: Make groupIndex NON-REACTIVE.
-* We fill/clear it inside the `orderGroups` computed. If this were reactive,
-* those mutations would retrigger the computed and cause an infinite loop.
-*/
+ * IMPORTANT: Make groupIndex NON-REACTIVE.
+ * We fill/clear it inside the `orderGroups` computed. If this were reactive,
+ * those mutations would retrigger the computed and cause an infinite loop.
+ */
 let groupIndex: Record<string, string[]> = Object.create(null)
 
 /* ★ ADDED: per-purchase discounted price cache (final price each) */
@@ -1013,10 +1160,10 @@ const shippingByRef: Record<string, number> = reactive({})
 
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
-  return ids.some(id => !!busy.value.action[id])
+  return ids.some((id) => !!busy.value.action[id])
 }
 
-const statusFilter = ref<typeof tabs[number]['value']>('all')
+const statusFilter = ref<(typeof tabs)[number]['value']>('all')
 const search = ref('')
 const payment = ref<string>('') // UI-only currently
 const dateFrom = ref<string>('')
@@ -1061,15 +1208,23 @@ function formatClean(iso?: string) {
   return `${month} ${day}, ${year} • ${hours} ${ampm}`
 }
 
-const formatDate = (iso?: string) => { // kept (legacy)
+const formatDate = (iso?: string) => {
+  // kept (legacy)
   if (!iso) return '—'
-  try { return new Date(iso).toLocaleString() } catch { return iso as string }
+  try {
+    return new Date(iso).toLocaleString()
+  } catch {
+    return iso as string
+  }
 }
 const shortId = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : '—')
 
 /* Kept utility */
 function genReference(prefix = 'TXN'): string {
-  const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
+  const ts = new Date()
+    .toISOString()
+    .replace(/[-:TZ.]/g, '')
+    .slice(0, 14)
   const rnd = Math.random().toString(36).slice(2, 10).toUpperCase()
   return `${prefix}-${ts}-${rnd}`
 }
@@ -1160,7 +1315,7 @@ function hasEventDiscount(ref?: string | null): boolean {
   if (hasEvent) return true
   if (!ref) return false
   const ids = groupIndex[ref] || []
-  return ids.some(id => {
+  return ids.some((id) => {
     const v = discountedByPurchase[id]
     return v != null && isFinite(Number(v)) && Number(v) >= 0
   })
@@ -1225,7 +1380,7 @@ function firstReturn(purchaseId: string): ReturnRefundRow | undefined {
 
 /* Helper: pull purchase info for badges */
 function purchaseFromGroup(g: ViewGroup, purchaseId: string): ViewOrder | undefined {
-  return g.purchases.find(p => p.id === purchaseId)
+  return g.purchases.find((p) => p.id === purchaseId)
 }
 function purchaseStatusKey(g: ViewGroup, purchaseId: string): string {
   return String(purchaseFromGroup(g, purchaseId)?.status || '')
@@ -1248,20 +1403,21 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
   const groups: ViewGroup[] = []
   for (const [ref, arr] of Object.entries(byRef)) {
-    groupIndex[ref] = arr.map(a => a.id)
+    groupIndex[ref] = arr.map((a) => a.id)
 
     const created_at = arr
-      .map(a => a.created_at)
+      .map((a) => a.created_at)
       .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())[0]
 
-    const updated_at = arr
-      .map(a => a.updated_at)
-      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+    const updated_at =
+      arr
+        .map((a) => a.updated_at)
+        .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
 
-    const statuses = Array.from(new Set(arr.map(a => String(a.status || '').toLowerCase())))
+    const statuses = Array.from(new Set(arr.map((a) => String(a.status || '').toLowerCase())))
     const allToPay = statuses.length === 1 && statuses[0] === STATUS.TO_PAY
     const allToShip = statuses.length === 1 && statuses[0] === STATUS.TO_SHIP
-    const canGroupCancel = statuses.every(s => s === STATUS.TO_PAY || s === STATUS.TO_SHIP)
+    const canGroupCancel = statuses.every((s) => s === STATUS.TO_PAY || s === STATUS.TO_SHIP)
 
     let statusSummaryLabel = 'Mixed'
     let statusSummaryClassKey = 'mixed'
@@ -1270,8 +1426,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
       statusSummaryClassKey = statuses[0]
     }
 
-    const pays = Array.from(new Set(arr.map(a => (a.payment_method || '—').toString())))
-    const paymentSummaryLabel = pays.length === 1 ? (pays[0] || '—') : 'Mixed'
+    const pays = Array.from(new Set(arr.map((a) => (a.payment_method || '—').toString())))
+    const paymentSummaryLabel = pays.length === 1 ? pays[0] || '—' : 'Mixed'
     const paymentSummaryTitle = pays.join(', ')
 
     const shipping_address = arr[0]?.shipping_address ?? null
@@ -1282,7 +1438,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
       return buyersMap[uid]?.full_name ?? null
     })()
 
-    const items = arr.flatMap(a => a.items)
+    const items = arr.flatMap((a) => a.items)
 
     // Recorded total still includes shipping
     const itemsTotal = hasEventDiscount(ref)
@@ -1290,7 +1446,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
     const total_amount = itemsTotal + shippingForRef(ref)
 
-    const containsRR = arr.some(a => (rrByPurchase[a.id] || []).length > 0)
+    const containsRR = arr.some((a) => (rrByPurchase[a.id] || []).length > 0)
 
     /* NEW: build sibling display arrays for To Receive */
     const siblingRRItems: Array<OrderItem & { rrStatus: string | null }> = []
@@ -1301,24 +1457,27 @@ const orderGroups = computed<ViewGroup[]>(() => {
     if (statusFilter.value === STATUS.COMPLETED) {
       const allForRef: PurchaseRow[] = (siblingsByRef[ref] || []).length
         ? siblingsByRef[ref]
-        : arr.map(a => ({
-            id: a.id,
-            user_id: a.user_id,
-            product_id: a.items[0]?.product_id || '',
-            reference_number: ref,
-            status: String(a.status || ''),
-            created_at: a.created_at,
-            updated_at: a.updated_at,
-            modeofpayment: a.payment_method,
-            qty: a.items[0]?.qty || 1,
-            discounted_price: null // keep shape
-          } as PurchaseRow))
+        : arr.map(
+            (a) =>
+              ({
+                id: a.id,
+                user_id: a.user_id,
+                product_id: a.items[0]?.product_id || '',
+                reference_number: ref,
+                status: String(a.status || ''),
+                created_at: a.created_at,
+                updated_at: a.updated_at,
+                modeofpayment: a.payment_method,
+                qty: a.items[0]?.qty || 1,
+                discounted_price: null, // keep shape
+              }) as PurchaseRow,
+          )
 
       for (const pr of allForRef) {
         const st = String(pr.status || '').toLowerCase()
         if (st === STATUS.RETURN_REFUND) {
           const rrList = rrByPurchase[pr.id] || []
-          const hasCompletedRR = rrList.some(r => String(r.status).toLowerCase() === 'completed')
+          const hasCompletedRR = rrList.some((r) => String(r.status).toLowerCase() === 'completed')
           if (hasCompletedRR) {
             const prod = productsMap[pr.product_id]
             const qty = Number(pr.qty ?? 1) || 1
@@ -1330,7 +1489,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
               price_each: price,
               line_total: Number((price * qty).toFixed(2)),
               product: prod,
-              rrStatus: 'completed'
+              rrStatus: 'completed',
             })
           }
         }
@@ -1362,29 +1521,36 @@ const orderGroups = computed<ViewGroup[]>(() => {
       siblingRRItems,
       siblingCompletedItems,
       completedRRItems,
-      discount_total
+      discount_total,
     })
   }
 
-  let out = groups.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+  let out = groups.sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  )
 
   // NEW: Completed tab visibility filter based on whole reference state
   if (statusFilter.value === STATUS.COMPLETED) {
-    out = out.filter(g => {
+    out = out.filter((g) => {
       const allPurchasesForRef = (siblingsByRef[g.reference_number] || [])
         // join with current visible ones (which are completed)
-        .concat(g.purchases.map(p => ({
-          id: p.id,
-          user_id: p.user_id,
-          product_id: p.items[0]?.product_id || '',
-          reference_number: g.reference_number,
-          status: String(p.status || ''),
-          created_at: p.created_at,
-          updated_at: p.updated_at,
-          modeofpayment: p.payment_method,
-          qty: p.items[0]?.qty || 1,
-          discounted_price: discountedByPurchase[p.id] ?? null // ★ ADDED (safe)
-        } as PurchaseRow)))
+        .concat(
+          g.purchases.map(
+            (p) =>
+              ({
+                id: p.id,
+                user_id: p.user_id,
+                product_id: p.items[0]?.product_id || '',
+                reference_number: g.reference_number,
+                status: String(p.status || ''),
+                created_at: p.created_at,
+                updated_at: p.updated_at,
+                modeofpayment: p.payment_method,
+                qty: p.items[0]?.qty || 1,
+                discounted_price: discountedByPurchase[p.id] ?? null, // ★ ADDED (safe)
+              }) as PurchaseRow,
+          ),
+        )
 
       // For a reference to show in Completed:
       // - every purchase must be either completed
@@ -1396,11 +1562,13 @@ const orderGroups = computed<ViewGroup[]>(() => {
         if (st === STATUS.RETURN_REFUND) {
           const list = rrByPurchase[pr.id] || []
           // consider presence of any pending => hide
-          const hasPending = list.some(r => String(r.status).toLowerCase() === 'pending')
-          const okNonPending = list.length > 0 && list.every(r => {
-            const rs = String(r.status).toLowerCase()
-            return rs === 'approved' || rs === 'completed'
-          })
+          const hasPending = list.some((r) => String(r.status).toLowerCase() === 'pending')
+          const okNonPending =
+            list.length > 0 &&
+            list.every((r) => {
+              const rs = String(r.status).toLowerCase()
+              return rs === 'approved' || rs === 'completed'
+            })
           if (hasPending) return false
           if (!okNonPending) return false
           continue
@@ -1422,7 +1590,7 @@ function groupRRs(g: ViewGroup): ReturnRefundRow[] {
     if (rrStatusFilter.value === 'all') {
       out.push(...list)
     } else {
-      out.push(...list.filter(r => String(r.status).toLowerCase() === rrStatusFilter.value))
+      out.push(...list.filter((r) => String(r.status).toLowerCase() === rrStatusFilter.value))
     }
   }
   return out.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -1440,7 +1608,10 @@ async function loadOrders(resetPage = false) {
       .schema('games')
       .from('purchases')
       // ★ ADDED discounted_price in select
-      .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price', { count: 'exact' })
+      .select(
+        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price',
+        { count: 'exact' },
+      )
 
     if (statusFilter.value !== 'all') q = q.eq('status', statusFilter.value)
 
@@ -1486,13 +1657,18 @@ async function loadOrders(resetPage = false) {
     // === NEW: fetch siblings for To Receive & Completed tabs ===
     // for those references, we need all purchases in that reference (any status)
     let siblingRows: PurchaseRow[] = []
-    if (refSet.size && (statusFilter.value === STATUS.TO_RECEIVE || statusFilter.value === STATUS.COMPLETED)) {
+    if (
+      refSet.size &&
+      (statusFilter.value === STATUS.TO_RECEIVE || statusFilter.value === STATUS.COMPLETED)
+    ) {
       const refs = Array.from(refSet)
       const { data: sib } = await supabase
         .schema('games')
         .from('purchases')
         // ★ ADDED discounted_price in sibling fetch
-        .select('id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price')
+        .select(
+          'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price',
+        )
         .in('reference_number', refs)
 
       siblingRows = Array.isArray(sib) ? (sib as PurchaseRow[]) : []
@@ -1502,11 +1678,14 @@ async function loadOrders(resetPage = false) {
         // include siblings in RR & discount fetch set
         purchaseIds.add(s.id)
         // ★ ADDED: cache sibling discounts too
-        discountedByPurchase[s.id] = s.discounted_price != null ? Number(s.discounted_price) : discountedByPurchase[s.id] ?? null
+        discountedByPurchase[s.id] =
+          s.discounted_price != null
+            ? Number(s.discounted_price)
+            : (discountedByPurchase[s.id] ?? null)
       }
 
       // store siblings by reference (for display/filtering)
-      for (const r of refs) siblingsByRef[r] = siblingRows.filter(s => s.reference_number === r)
+      for (const r of refs) siblingsByRef[r] = siblingRows.filter((s) => s.reference_number === r)
     } else {
       // clear old cache to avoid leaking old state
       for (const k of Object.keys(siblingsByRef)) delete siblingsByRef[k]
@@ -1539,12 +1718,12 @@ async function loadOrders(resetPage = false) {
     for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
 
     // We now ALSO need RR when statusFilter is TO_RECEIVE or COMPLETED (for sibling/visibility logic)
-    const needRR = (
-      statusFilter.value === STATUS.RETURN_REFUND ||
-      statusFilter.value === 'all' ||
-      statusFilter.value === STATUS.TO_RECEIVE ||
-      statusFilter.value === STATUS.COMPLETED
-    ) && purchaseIds.size > 0
+    const needRR =
+      (statusFilter.value === STATUS.RETURN_REFUND ||
+        statusFilter.value === 'all' ||
+        statusFilter.value === STATUS.TO_RECEIVE ||
+        statusFilter.value === STATUS.COMPLETED) &&
+      purchaseIds.size > 0
 
     if (needRR) {
       let rrQ = supabase
@@ -1604,9 +1783,9 @@ async function loadOrders(resetPage = false) {
     // Per-reference aggregation (use rows we already fetched for current page)
     // Include siblings when we previously fetched them (for To Receive / Completed contexts)
     for (const ref of Array.from(refSet)) {
-      let pids = purchaseRows.filter(p => p.reference_number === ref).map(p => p.id)
+      let pids = purchaseRows.filter((p) => p.reference_number === ref).map((p) => p.id)
       if ((siblingsByRef[ref] || []).length) {
-        pids = siblingsByRef[ref].map(s => s.id)
+        pids = siblingsByRef[ref].map((s) => s.id)
       }
       const sum = pids.reduce((acc, pid) => acc + Number(discountByPurchase[pid] || 0), 0)
       if (sum > 0) discountByRef[ref] = Number(sum.toFixed(2))
@@ -1621,14 +1800,14 @@ async function loadOrders(resetPage = false) {
         .select('reference_number,amount')
         .in('reference_number', Array.from(refSet))
       if (Array.isArray(ships)) {
-        for (const s of ships as { reference_number: string, amount: number | string | null }[]) {
+        for (const s of ships as { reference_number: string; amount: number | string | null }[]) {
           shippingByRef[s.reference_number] = Number(s.amount ?? 0) || 0
         }
       }
     }
 
     // build view rows (only for the fetched set for this tab)
-    let view: ViewOrder[] = purchaseRows.map(pr => {
+    let view: ViewOrder[] = purchaseRows.map((pr) => {
       const prod = productsMap[pr.product_id]
       const buyer = buyersMap[pr.user_id]
       const price = Number(prod?.price ?? 0)
@@ -1661,23 +1840,25 @@ async function loadOrders(resetPage = false) {
     if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
       const keep = new Set<string>()
       for (const [pid, list] of Object.entries(rrByPurchase)) {
-        if (list.some(r => String(r.status).toLowerCase() === rrStatusFilter.value)) keep.add(pid)
+        if (list.some((r) => String(r.status).toLowerCase() === rrStatusFilter.value)) keep.add(pid)
       }
-      view = view.filter(v => keep.has(v.id))
+      view = view.filter((v) => keep.has(v.id))
       total.value = view.length
     }
 
     if (search.value) {
       const term = search.value.trim().toLowerCase()
-      view = view.filter(v =>
-        (v.reference_number || '').toLowerCase().includes(term) ||
-        (v.id || '').toLowerCase().includes(term) ||
-        (v.shipping_address || '').toLowerCase().includes(term) ||
-        (v.phone_number || '').toLowerCase().includes(term) ||
-        v.items.some(it =>
-          (it.product?.name || '').toLowerCase().includes(term) ||
-          (it.product?.description || '').toLowerCase().includes(term)
-        )
+      view = view.filter(
+        (v) =>
+          (v.reference_number || '').toLowerCase().includes(term) ||
+          (v.id || '').toLowerCase().includes(term) ||
+          (v.shipping_address || '').toLowerCase().includes(term) ||
+          (v.phone_number || '').toLowerCase().includes(term) ||
+          v.items.some(
+            (it) =>
+              (it.product?.name || '').toLowerCase().includes(term) ||
+              (it.product?.description || '').toLowerCase().includes(term),
+          ),
       )
       total.value = view.length
     }
@@ -1702,7 +1883,7 @@ async function updateStatus(purchaseId: string, status: string) {
       alert(error.message)
       return
     }
-    const row = orders.value.find(o => o.id === purchaseId)
+    const row = orders.value.find((o) => o.id === purchaseId)
     if (row) row.status = status
   } finally {
     busy.value.action[purchaseId] = false
@@ -1755,12 +1936,18 @@ async function markAsCompleted(purchaseId: string) {
 
 /* helper: detect e-wallet */
 function isEwalletPayment(method?: string | null) {
-  const k = String(method || '').trim().toLowerCase()
+  const k = String(method || '')
+    .trim()
+    .toLowerCase()
   return k === 'ewallet' || k === 'e-wallet' || k === 'e wallet'
 }
 /* NEW helper: detect COD */
 function isCODPayment(method?: string | null) {
-  return String(method || '').trim().toLowerCase() === 'cod'
+  return (
+    String(method || '')
+      .trim()
+      .toLowerCase() === 'cod'
+  )
 }
 
 /* ---------- helpers to decide shipping refund conditions ---------- */
@@ -1771,7 +1958,7 @@ async function allPurchasesCancelledForRef(ref: string): Promise<boolean> {
     .select('status')
     .eq('reference_number', ref)
   if (!Array.isArray(rows)) return false
-  return rows.every(r => String(r.status || '').toLowerCase() === STATUS.CANCELLED)
+  return rows.every((r) => String(r.status || '').toLowerCase() === STATUS.CANCELLED)
 }
 async function countCompletedRefundsForRef(ref: string): Promise<number> {
   // find all purchases under ref -> their rr rows with status completed
@@ -1781,14 +1968,14 @@ async function countCompletedRefundsForRef(ref: string): Promise<number> {
     .select('id')
     .eq('reference_number', ref)
   if (!Array.isArray(pRows) || pRows.length === 0) return 0
-  const pids = pRows.map(r => r.id)
+  const pids = pRows.map((r) => r.id)
   const { data: rrRows } = await supabase
     .schema('games')
     .from('return_refunds')
     .select('id,status')
     .in('purchase_id', pids)
   if (!Array.isArray(rrRows)) return 0
-  return rrRows.filter(r => String(r.status || '').toLowerCase() === 'completed').length
+  return rrRows.filter((r) => String(r.status || '').toLowerCase() === 'completed').length
 }
 
 /* ---------- NEW: helper to read redeemed discount amount for a purchase ---------- */
@@ -1816,7 +2003,7 @@ async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
   COD + (TO_PAY or TO_SHIP): insert into ewallet.cancelled_receipt **with reference_number**. */
 async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
-  const order = orders.value.find(o => o.id === purchaseId)
+  const order = orders.value.find((o) => o.id === purchaseId)
   if (!order) {
     // Fallback: update status then fetch qty/product to restore stock
     await updateStatus(purchaseId, STATUS.CANCELLED)
@@ -1834,10 +2021,10 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 
   const statusKey = String(order.status || '').toLowerCase()
   const isToShip = statusKey === STATUS.TO_SHIP
-  const isToPay  = statusKey === STATUS.TO_PAY
+  const isToPay = statusKey === STATUS.TO_PAY
 
   const isEwallet = isEwalletPayment(order.payment_method)
-  const isCOD     = isCODPayment(order.payment_method)
+  const isCOD = isCODPayment(order.payment_method)
 
   const shouldRefundEwallet = isEwallet && isToShip
   const shouldInsertCODReceipt = isCOD && (isToPay || isToShip)
@@ -1912,7 +2099,7 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 
       // ★ NEW: if all purchases under this reference are now cancelled, also refund SHIPPING FEE (EWALLET only)
       try {
-        if (order.reference_number && await allPurchasesCancelledForRef(order.reference_number)) {
+        if (order.reference_number && (await allPurchasesCancelledForRef(order.reference_number))) {
           const ship = shippingForRef(order.reference_number)
           if (ship > 0) {
             const { data: urow2, error: uErr2 } = await supabase
@@ -1939,7 +2126,8 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
                     reference_number: order.reference_number || null,
                     purchase_id: purchaseId, // tie to a purchase id for traceability
                   })
-                if (recErr2) console.error('[shipping refund (cancel)] receipt insert failed', recErr2.message)
+                if (recErr2)
+                  console.error('[shipping refund (cancel)] receipt insert failed', recErr2.message)
               } catch (e: any) {
                 console.error('[shipping refund (cancel)] insert exception', e?.message || e)
               }
@@ -2002,11 +2190,11 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 }
 
 /**
-* Approve order:
-* - NO wallet deduction
-* - NO stock reservation
-* - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
-*/
+ * Approve order:
+ * - NO wallet deduction
+ * - NO stock reservation
+ * - If update to "to ship" succeeds and modeofpayment is COD, insert into ewallet.order_receipt
+ */
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
   busy.value.action[purchaseId] = true
@@ -2027,7 +2215,7 @@ async function approveOrder(order: ViewOrder) {
       return
     }
 
-    const row = orders.value.find(o => o.id === purchaseId)
+    const row = orders.value.find((o) => o.id === purchaseId)
     if (row) row.status = STATUS.TO_SHIP
 
     const isCOD = String(order.payment_method || '').toLowerCase() === 'cod'
@@ -2152,9 +2340,8 @@ async function completeRefund(rr: ReturnRefundRow) {
 
     // Determine effectiveEach:
     // 1) Use cached per-purchase discounted price if present
-    let effectiveEach = discountedByPurchase[purchase.id] != null
-      ? Number(discountedByPurchase[purchase.id])
-      : NaN
+    let effectiveEach =
+      discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
 
     // 2) Else apply event-based discount by reference_number (if any)
     if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
@@ -2205,13 +2392,10 @@ async function completeRefund(rr: ReturnRefundRow) {
 
     // Insert refund receipt with PRODUCT amount_refunded
     try {
-      const { error: rrRecErr } = await supabase
-        .schema('ewallet')
-        .from('refund_receipt')
-        .insert({
-          return_refund_id: rrId,
-          amount_refunded: productRefund,
-        })
+      const { error: rrRecErr } = await supabase.schema('ewallet').from('refund_receipt').insert({
+        return_refund_id: rrId,
+        amount_refunded: productRefund,
+      })
       if (rrRecErr) {
         console.error('[refund_receipt insert failed]', rrRecErr.message)
       }
@@ -2285,7 +2469,7 @@ async function cancelGroup(g: ViewGroup) {
 }
 
 /* ---------- Filters & pagination handlers ---------- */
-function setStatus(v: typeof tabs[number]['value']) {
+function setStatus(v: (typeof tabs)[number]['value']) {
   if (statusFilter.value !== v) {
     statusFilter.value = v
     if (statusFilter.value !== STATUS.RETURN_REFUND) rrStatusFilter.value = 'all'
@@ -2300,7 +2484,9 @@ function setRRStatus(v: RRFilter) {
     }
   }
 }
-function applyFilters() { loadOrders(true) }
+function applyFilters() {
+  loadOrders(true)
+}
 function clearFilters() {
   search.value = ''
   payment.value = ''
@@ -2326,8 +2512,8 @@ function viewReturnDetails() {
 
 /* ===== NEW: Modal state & handlers ===== */
 const selectedRef = ref<string | null>(null)
-const selectedGroup = computed(() =>
-  orderGroups.value.find(g => g.reference_number === selectedRef.value) || null
+const selectedGroup = computed(
+  () => orderGroups.value.find((g) => g.reference_number === selectedRef.value) || null,
 )
 function openGroupModal(g: ViewGroup) {
   selectedRef.value = g.reference_number
@@ -2351,8 +2537,12 @@ onMounted(() => {
 
 <style scoped>
 /* Subtle card styling */
-.card { border: 1px solid #edf0f3; }
-.bg-light-subtle { background: #f8f9fa; }
+.card {
+  border: 1px solid #edf0f3;
+}
+.bg-light-subtle {
+  background: #f8f9fa;
+}
 
 /* Pills look */
 .nav-pills .nav-link {
@@ -2370,10 +2560,14 @@ onMounted(() => {
   border-radius: 10px;
   overflow: hidden;
 }
-.object-fit-cover { object-fit: cover; }
+.object-fit-cover {
+  object-fit: cover;
+}
 
 /* Hide messy descriptions but keep original node intact */
-.order-desc { display: none !important; }
+.order-desc {
+  display: none !important;
+}
 
 /* Ellipsis for long titles in card body */
 .title-ellipsis {
@@ -2399,7 +2593,7 @@ onMounted(() => {
 .orders-modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(0, 0, 0, 0.5);
   z-index: 1050;
   display: flex;
   align-items: center;
@@ -2412,7 +2606,7 @@ onMounted(() => {
   background: var(--bs-body-bg, #fff);
   color: var(--bs-body-color, #212529);
   border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   padding: 1rem 1rem 1.25rem;
   max-height: 90vh;
   overflow: hidden;
@@ -2423,4 +2617,5 @@ onMounted(() => {
   overflow: auto;
   padding-right: 0.25rem;
 }
+
 </style>
