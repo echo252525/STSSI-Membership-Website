@@ -9,7 +9,7 @@
             Delivery details
             <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
           </div>
-          <div class="text-muted small" v-if="shippingLoaded && hasShipping">
+        <div class="text-muted small" v-if="shippingLoaded && hasShipping">
             {{ shippingSummary }}
           </div>
           <div class="text-muted small" v-else-if="shippingLoaded">
@@ -182,9 +182,9 @@
             <i class="bi bi-cart3 me-1"></i>
             View Cart
             <span
-              v-if="cartTotalItems > 0"
+              v-if="cartTotalItemsDisplay > 0"
               class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
-              >{{ cartTotalItems }}</span
+              >{{ cartTotalItemsDisplay }}</span
             >
           </button>
         </div>
@@ -228,6 +228,80 @@
             </div>
           </div>
         </div>
+
+        <!-- Pending Orders List (below Filters) -->
+        <div class="card shadow-sm border-0 mt-3">
+          <div class="card-header bg-white d-flex align-items-center justify-content-between">
+            <strong>Your Pending Orders</strong>
+            <button class="btn btn-sm btn-outline-secondary" @click="loadPendingOrders" title="Refresh">
+              <i class="bi bi-arrow-clockwise"></i>
+            </button>
+          </div>
+          <div class="card-body p-0">
+            <div v-if="pendingGroups.length === 0" class="p-3 text-muted small">
+              No pending orders yet.
+            </div>
+            <ul v-else class="list-group list-group-flush">
+              <li
+                v-for="g in pendingGroups"
+                :key="g.ref"
+                class="list-group-item d-flex flex-column gap-2"
+              >
+                <!-- header row: tiny pic + name + ref + items badge -->
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="pending-thumb">
+                      <img
+                        v-if="g.sampleImageUrl"
+                        :src="g.sampleImageUrl"
+                        alt=""
+                        class="w-100 h-100 object-fit-cover rounded"
+                      />
+                      <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                        <i class="bi bi-image"></i>
+                      </div>
+                    </div>
+                    <div class="d-flex flex-column">
+                      <div class="pending-sample-name" :title="g.sampleName || '—'">
+                        {{ g.sampleName || '—' }}
+                      </div>
+                      <div class="small text-muted">
+                        Ref: <span class="text-monospace">{{ g.ref }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="badge rounded-pill text-bg-secondary">
+                    {{ g.itemsCount }} item{{ g.itemsCount>1?'s':'' }}
+                  </span>
+                </div>
+
+                <!-- admin shipping & button -->
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="small">
+                    Admin shipping fee:
+                    <strong v-if="g.highestShippingFee > 0">₱ {{ number(g.highestShippingFee) }}</strong>
+                    <span v-else class="text-warning">awaiting…</span>
+                  </div>
+                  <button
+                    class="btn btn-sm btn-primary"
+                    :disabled="placingOrder || g.itemsCount===0"
+                    @click="openPlacePending(g.ref)"
+                    title="Review & Place"
+                  >
+                    Review & Place
+                  </button>
+                </div>
+
+                <div class="fw-semibold">
+  ₱ {{ number((g.displayTotal ?? (g.itemsTotal + (g.highestShippingFee > 0 ? g.highestShippingFee : 0)))) }}
+  <span v-if="g.highestShippingFee === 0" class="text-muted small">(+ shipping)</span>
+</div>
+
+              </li>
+            </ul>
+          </div>
+        </div>
+        <!-- /Pending Orders List -->
       </aside>
 
       <!-- Products -->
@@ -312,7 +386,7 @@
                   {{ p.description }}
                 </div>
                 <div class="mt-auto d-flex align-items-center justify-content-between">
-                  <!-- ==== UPDATED: Price display with membership discount & credits check ==== -->
+                  <!-- Price display with membership discount & credits check -->
                   <div class="price fw-bold">
                     <template v-if="hasMemberDiscount && canDiscountProduct(p)">
                       <span class="price-original text-muted text-decoration-line-through me-1">
@@ -509,7 +583,7 @@
                   :disabled="cartItems.length === 0"
                   @click="openPlaceOrder"
                 >
-                  Checkout
+                  Request Order
                 </button>
               </div>
             </div>
@@ -518,11 +592,11 @@
       </div>
     </div>
 
-    <!-- Place Order Modal -->
+    <!-- Request Order Modal (shipping is set later by admin, so total here is items only) -->
     <div v-if="showPlace" class="modal-backdrop-custom">
-      <div class="modal-card card shadow-lg">
+      <div class="modal-card card shadow-lg modal-card--aesthetic">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <strong>Place Order</strong>
+          <strong>Request Order</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closePlaceOrder">✕</button>
         </div>
         <div class="card-body vstack gap-3">
@@ -584,7 +658,7 @@
             </div>
           </div>
 
-          <!-- NEW: Payment method -->
+          <!-- Payment method -->
           <div class="border rounded-3 p-3">
             <div class="fw-semibold mb-2"><i class="bi bi-wallet2 me-2"></i>Payment method</div>
             <div class="vstack gap-2">
@@ -609,41 +683,20 @@
                   id="pmEW"
                   value="ewallet"
                   v-model="paymentMethod"
-                  :disabled="placingOrder || !enoughBalanceFinal"
+                  :disabled="placingOrder"
                 />
                 <label class="form-check-label" for="pmEW">
                   E-Wallet
                   <span class="text-muted"> (Balance: ₱ {{ number(userBalance) }}) </span>
                 </label>
               </div>
-
-              <div v-if="!enoughBalanceFinal" class="text-danger small">
-                Insufficient balance for E-Wallet. Choose Cash on Delivery or top up.
+              <div class="text-muted small">
+                No payment is deducted at this step. After admin sets the shipping fee, you can place the order.
               </div>
             </div>
           </div>
 
-          <!-- NEW: Shipping fee preview -->
-          <div class="border rounded-3 p-3">
-            <div class="fw-semibold mb-2"><i class="bi bi-truck me-2"></i>Shipping Fee</div>
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="text-muted">
-                <template v-if="hasFreeShipping">Free shipping (discount applied)</template>
-                <template v-else-if="quotingShipping">Getting live rate…</template>
-                <template v-else>
-                  <span v-if="shippingService">Service: {{ shippingService }} • </span>
-                  Destination: {{ shipping.address_line1 }}, {{ shipping.barangay }}, {{ shipping.city }},
-                  {{ shipping.province }}, {{ shipping.postal_code }}
-                </template>
-              </div>
-              <div class="fw-bold">
-                <template v-if="hasFreeShipping">₱ 0.00</template>
-                <template v-else>₱ {{ number(effectiveShippingFee) }}</template>
-              </div>
-            </div>
-          </div>
-
-          <!-- ==== NEW: Discount Mode Selector (mutual exclusivity) ==== -->
+          <!-- Discount Mode Selector -->
           <div class="border rounded-3 p-3">
             <div class="fw-semibold mb-2"><i class="bi bi-percent me-2"></i>Discount Options</div>
             <div class="d-flex flex-wrap gap-3">
@@ -678,6 +731,9 @@
                 <label class="form-check-label" for="modeNone">None</label>
               </div>
             </div>
+            <div class="small text-muted mt-2">
+              Discounts are finalized when you place the order after the shipping fee is set.
+            </div>
           </div>
 
           <!-- Discount Credits (disabled if mode !== credits) -->
@@ -692,33 +748,31 @@
               </div>
               <div class="vr d-none d-md-block"></div>
               <div>
-                <div class="text-muted small">Estimated Deduction This Order</div>
+                <div class="text-muted small">Estimated Deduction</div>
                 <div class="fs-5 fw-semibold">
                   ₱ {{ number(totalDiscountCreditsUsedIfCreditsMode) }}
                 </div>
               </div>
               <div class="ms-auto">
-                <div class="text-muted small">Projected Balance After Order</div>
+                <div class="text-muted small">Projected Balance</div>
                 <div class="fw-semibold">
                   ₱ {{ number(userDiscountCredits - totalDiscountCreditsUsedIfCreditsMode) }}
                 </div>
               </div>
             </div>
             <div class="small text-muted mt-2">
-              We deduct your membership discount from your Discount Credits (original price − discounted price per item × quantity).
+              We only deduct Discount Credits when you place the order (after the shipping fee is set).
             </div>
-
             <div
               v-if="discountMode==='credits' && insufficientDiscountCredits"
               class="alert alert-warning mt-3 mb-0 py-2 small"
               role="alert"
             >
-              Some items won’t receive a membership discount because your Discount Credits balance
-              is insufficient. We’ll apply discounts item-by-item until your balance is fully used.
+              Some items might not get a membership discount if credits are insufficient. This will be finalized when placing the order.
             </div>
           </div>
 
-          <!-- ==== NEW: Order Discount (code or select) ==== -->
+          <!-- Order Discount (code or select) -->
           <div class="border rounded-3 p-3" v-if="discountMode==='discount'">
             <div class="fw-semibold mb-2"><i class="bi bi-gift me-2"></i>Order Discount</div>
 
@@ -780,30 +834,162 @@
             </div>
           </div>
 
-          <!-- (Voucher coming soon) -->
-
-          <!-- Items total (kept) -->
+          <!-- Items total -->
           <div class="d-flex align-items-center justify-content-between fs-5">
-            <div class="fw-semibold">Total</div>
+            <div class="fw-semibold">Items Total</div>
             <div class="fw-bold">
               ₱ {{ number(finalPayableTotal) }}
             </div>
           </div>
 
-          <!-- NEW: Shipping row -->
-          <div class="d-flex align-items-center justify-content-between">
-            <div class="fw-semibold">Shipping</div>
-            <div class="fw-bold">₱ {{ number(effectiveShippingFee) }}</div>
-          </div>
-
-          <!-- NEW: Grand total -->
-          <div class="d-flex align-items-center justify-content-between fs-5">
-            <div class="fw-semibold">Grand Total</div>
-            <div class="fw-bold">₱ {{ number(finalPayableGrandTotal) }}</div>
-          </div>
-
           <div class="d-flex justify-content-end">
             <button class="btn btn-primary" :disabled="placingOrder" @click="placeOrder">
+              <span v-if="placingOrder" class="spinner-border spinner-border-sm me-2"></span>
+              Request Order
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Place Pending Order Modal (READ-ONLY review) -->
+    <div v-if="showPendingPlace" class="modal-backdrop-custom">
+      <div class="modal-card card shadow-lg modal-card--aesthetic">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Place Pending Order</strong>
+          <button class="btn btn-sm btn-outline-secondary" @click="closePlacePending">✕</button>
+        </div>
+        <div class="card-body vstack gap-3">
+          <div class="border rounded-3 p-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">
+                <i class="bi bi-receipt me-2"></i>Reference:
+                <span class="text-monospace">{{ pendingRefNumber }}</span>
+              </div>
+              <span class="badge rounded-pill text-bg-info">Pending</span>
+            </div>
+          </div>
+
+          <!-- Delivery (READ-ONLY) -->
+          <div class="border rounded-3 p-3">
+            <div class="fw-semibold mb-2"><i class="bi bi-truck me-2"></i>Delivery details</div>
+            <div class="small">
+              <div><strong>Phone:</strong> {{ shipping.phone || '—' }}</div>
+              <div><strong>Address:</strong> {{ shippingSummary || '—' }}</div>
+            </div>
+          </div>
+
+          <!-- Payment (READ-ONLY) -->
+          <div class="border rounded-3 p-3">
+            <div class="fw-semibold mb-2"><i class="bi bi-wallet2 me-2"></i>Payment method</div>
+            <span class="badge text-bg-secondary">
+              {{ paymentMethod === 'ewallet' ? 'E-Wallet' : 'Cash on Delivery' }}
+            </span>
+            <div v-if="paymentMethod==='ewallet'" class="text-muted small mt-1">
+              Balance: ₱ {{ number(userBalance) }}
+            </div>
+            <div v-if="paymentMethod==='ewallet' && !enoughBalanceForOrder" class="text-danger small mt-1">
+              Insufficient E-Wallet balance for order total.
+            </div>
+          </div>
+
+          <!-- Discount (READ-ONLY) -->
+          <div class="border rounded-3 p-3">
+            <div class="fw-semibold mb-2"><i class="bi bi-percent me-2"></i>Discount</div>
+
+            <!-- Credits mode summary -->
+            <template v-if="discountMode==='credits'">
+              <div class="small">
+                Membership discount via Discount Credits
+                <span class="text-muted">
+                  (estimated used: ₱ {{ number(totalDiscountCreditsUsedIfCreditsMode) }})
+                </span>
+              </div>
+            </template>
+
+            <!-- Order-level discount summary -->
+            <template v-else-if="discountMode==='discount'">
+              <div class="small">
+                <div class="mb-1">
+                  <strong>Applied:</strong>
+                  <template v-if="resolvedDiscountByCode">
+                    {{ resolvedDiscountByCode.title }}
+                  </template>
+                  <template v-else-if="selectedDiscountId">
+                    {{ discounts.find(d => d.id === selectedDiscountId)?.title || '—' }}
+                  </template>
+                  <template v-else>—</template>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="text-muted">Subtotal (before order discount)</span>
+                  <span>₱ {{ number(cartGrandTotalCreditsOff) }}</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="text-muted">Order Discount</span>
+                  <span class="fw-semibold">− ₱ {{ number(orderLevelDiscountAmount) }}</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between fs-6 mt-1">
+                  <span class="fw-semibold">Total after order discount</span>
+                  <span class="fw-bold">₱ {{ number(cartTotalAfterOrderDiscount) }}</span>
+                </div>
+                <div v-if="orderDiscountIneligibleReason" class="text-danger mt-2">
+                  {{ orderDiscountIneligibleReason }}
+                </div>
+              </div>
+            </template>
+
+            <!-- None -->
+            <template v-else>
+              <div class="small text-muted">No discount applied.</div>
+            </template>
+          </div>
+
+          <!-- Shipping Fee (display only) -->
+          <div class="border rounded-3 p-3 bg-light-subtle">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold"><i class="bi bi-truck-flatbed me-2"></i>Admin Shipping Fee</div>
+              <div class="fs-5">
+                <strong v-if="pendingHighestShippingFee>0">₱ {{ number(pendingHighestShippingFee) }}</strong>
+                <span v-else class="text-warning">awaiting…</span>
+              </div>
+            </div>
+            <div class="small text-muted mt-1">
+              We display the <em>highest</em> shipping fee among items in this reference. This fee is now included in your order total.
+            </div>
+          </div>
+
+          <!-- Totals (Items + Shipping = Order Total) -->
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="text-muted">Items Total</span>
+            <span>₱ {{ number(finalPayableTotal) }}</span>
+          </div>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="text-muted">Shipping Fee</span>
+            <span>₱ {{ number(pendingHighestShippingFee) }}</span>
+          </div>
+          <hr class="my-1" />
+          <div class="d-flex align-items-center justify-content-between fs-5">
+            <div class="fw-semibold">Order Total</div>
+            <div class="fw-bold">₱ {{ number(orderTotalPending) }}</div>
+          </div>
+
+          <div class="d-flex justify-content-between">
+            <!-- NEW: Cancel Request -->
+            <button
+              class="btn btn-outline-danger"
+              :disabled="placingOrder"
+              @click="cancelPendingOrder"
+              title="Cancel this pending request"
+            >
+              Cancel Request
+            </button>
+
+            <button
+              class="btn btn-primary"
+              :disabled="placingOrder || pendingHighestShippingFee <= 0 || (paymentMethod==='ewallet' && !enoughBalanceForOrder)"
+              @click="placePendingOrder"
+              title="Place Order (enabled when admin has set shipping fee)"
+            >
               <span v-if="placingOrder" class="spinner-border spinner-border-sm me-2"></span>
               Place Order
             </button>
@@ -811,8 +997,9 @@
         </div>
       </div>
     </div>
+    <!-- /Place Pending Order Modal -->
 
-    <!-- === NEW: Product Details Modal === -->
+    <!-- Product Details Modal -->
     <div v-if="showProductModal && productModal" class="modal-backdrop-custom">
       <div class="modal-card card shadow-lg product-modal-card">
         <div class="card-header d-flex align-items-center justify-content-between">
@@ -860,11 +1047,7 @@
                   >
                     <i class="bi bi-chevron-left"></i>
                   </button>
-                  <button
-                    class="nav right"
-                    @click.stop="nextSlide(productModal.id)"
-                    aria-label="Next image"
-                  >
+                  <button class="nav right" @click.stop="nextSlide(productModal.id)" aria-label="Next image">
                     <i class="bi bi-chevron-right"></i>
                   </button>
                 </div>
@@ -916,13 +1099,13 @@
                 <div class="text-muted">{{ productModal.description }}</div>
               </div>
 
-              <!-- NEW: Warranty -->
+              <!-- Warranty -->
               <div class="mb-3" v-if="productModal.warranty">
                 <div class="fw-semibold mb-1">Warranty</div>
                 <div class="text-muted">{{ productModal.warranty }}</div>
               </div>
 
-              <!-- NEW: Specifications (JSON) -->
+              <!-- Specifications (JSON) -->
               <div class="mb-3" v-if="hasSpecs(productModal)">
                 <div class="fw-semibold mb-1">Specifications</div>
                 <table class="table table-sm table-borderless specs-table">
@@ -982,7 +1165,7 @@
         </div>
       </div>
     </div>
-    <!-- === END Product Details Modal === -->
+    <!-- END Product Details Modal -->
   </div>
 </template>
 
@@ -1011,7 +1194,6 @@ type Product = {
   ispublish: boolean
   stock?: number | null
   created_at: string
-  /** NEW: additional columns */
   specifications?: Record<string, any> | string | null
   warranty?: string | null
 }
@@ -1036,8 +1218,20 @@ type ShippingRow = {
   updated_at: string
 }
 
-/** Helpers for inserts that return IDs */
 type InsertedPurchase = { id: string }
+
+type PurchaseRow = {
+  id: string
+  user_id: string
+  product_id: string
+  qty: number
+  reference_number: string
+  shipping_fee: number | null
+  status: string
+  modeofpayment: 'cod' | 'ewallet' | string
+  discounted_price: number | null
+  created_at: string
+}
 
 /* -------------------- Products state -------------------- */
 const products = ref<Product[]>([])
@@ -1288,9 +1482,13 @@ const router = useRouter()
 const cartTotalItems = computed(() =>
   Object.values(dbCartByProduct).reduce((a, b) => a + (Number(b) || 0), 0),
 )
+/* Hide the badge while the review & place (pending) modal is open */
+const cartTotalItemsDisplay = computed(() => (showPendingPlace.value ? 0 : cartTotalItems.value))
 
 const showCart = ref(false)
-const showPlace = ref(false)
+const showPlace = ref(false)             // Request Order modal
+const showPendingPlace = ref(false)      // Place Pending Order modal
+const inPendingContext = ref(false)      // prevents polluting cart count while reviewing pending
 const placingOrder = ref(false)
 const cartItems = ref<
   Array<{
@@ -1311,7 +1509,6 @@ function isItemDiscounted(productId: string): boolean {
 /* payment & balances */
 const paymentMethod = ref<'cod' | 'ewallet'>('cod')
 const userBalance = ref<number>(0)
-/* enoughBalanceFinal moved below after shipping integration */
 
 /* discount credits balance */
 const userDiscountCredits = ref<number>(0)
@@ -1476,7 +1673,7 @@ function computeOrderDiscountAmount(base: number, d: Discount | null): number {
     const amt = Math.max(0, Number(d.amount_off || 0))
     return Number(Math.min(amt, base).toFixed(2))
   }
-  // free_shipping handled in shipping block
+  // free_shipping ignored (no shipping fee added to total here)
   return 0
 }
 
@@ -1513,83 +1710,10 @@ const finalPayableTotal = computed(() => {
   return cartGrandTotal.value
 })
 
-/* ===== SHIPPING INTEGRATION ===== */
-// ==== SHIPPING FEE STATE ====
-const shippingFee = ref<number>(0)
-const shippingCurrency = ref<string>('PHP')
-const shippingService = ref<string | undefined>(undefined)
-const quotingShipping = ref(false)
-
-const hasFreeShipping = computed(() => {
-  if (discountMode.value !== 'discount') return false
-  const d = pickedDiscount.value
-  return !!d && d.type === 'free_shipping'
-})
-
-const effectiveShippingFee = computed(() =>
-  hasFreeShipping.value ? 0 : Number(shippingFee.value || 0)
-)
-
-const finalPayableGrandTotal = computed(() =>
-  Number((finalPayableTotal.value + effectiveShippingFee.value).toFixed(2))
-)
-
-// Replace/gate wallet against GRAND total (items + shipping)
-const enoughBalanceFinal = computed(() => userBalance.value >= finalPayableGrandTotal.value)
-
-// Quote shipping via Edge Function
-async function fetchShippingQuote() {
-  if (!shipping.value.postal_code || !shipping.value.city || !shipping.value.province || !shipping.value.address_line1) {
-    shippingFee.value = 0
-    shippingService.value = undefined
-    return
-  }
-  quotingShipping.value = true
-  try {
-    const { data, error } = await supabase.functions.invoke('shipping_quote', {
-      body: {
-        address: {
-          postal_code: shipping.value.postal_code,
-          city: shipping.value.city,
-          province: shipping.value.province,
-          address_line1: shipping.value.address_line1,
-          country: 'PH',
-        },
-        items: [
-          // Optionally map real weights here
-          // { weight_kg: 1, quantity: cartTotalItems.value || 1 }
-        ],
-        currency: 'PHP',
-        fallback_flat_fee: 120,
-      },
-    })
-    if (error) throw new Error(error.message || 'Failed to quote shipping')
-    const amt = Number(data?.amount ?? 0)
-    shippingFee.value = Number.isFinite(amt) ? amt : 0
-    shippingCurrency.value = data?.currency || 'PHP'
-    shippingService.value = data?.service_name
-  } catch (e) {
-    console.warn('[fetchShippingQuote]', (e as Error).message)
-    shippingFee.value = 120
-    shippingService.value = undefined
-  } finally {
-    quotingShipping.value = false
-  }
-}
-/* ===== END SHIPPING INTEGRATION ===== */
-
-/* === NEW: Debounced re-quote helper (additive) === */
-const quoteDebounceMs = 600
-let quoteTimer: number | null = null
-function scheduleShippingQuote() {
-  if (quoteTimer) {
-    clearTimeout(quoteTimer)
-    quoteTimer = null
-  }
-  quoteTimer = window.setTimeout(() => {
-    fetchShippingQuote()
-  }, quoteDebounceMs)
-}
+/* Wallet gating */
+const enoughBalanceForItems = computed(() => userBalance.value >= finalPayableTotal.value)
+/* NEW: consider shipping fee when in pending placement */
+const enoughBalanceForOrder = computed(() => userBalance.value >= (finalPayableTotal.value + pendingHighestShippingFee.value))
 
 /* Place-order helpers */
 const checkingOut = ref(false)
@@ -1975,7 +2099,7 @@ async function clearCart() {
   }
 }
 
-/* -------------------- Shipping state -------------------- */
+/* -------------------- Shipping state (address only, no fees at request time) -------------------- */
 const showShipping = ref(false)
 const savingShipping = ref(false)
 const shippingLoaded = ref(false)
@@ -2088,10 +2212,10 @@ async function loadShipping() {
 
   if (showCart.value || showPlace.value) await loadCartDetails()
 }
+
+/* Shipping modal toggles */
 function openShippingModal() {
   showShipping.value = true
-  // NEW: quote immediately when the modal opens
-  scheduleShippingQuote()
 }
 function closeShippingModal() {
   showShipping.value = false
@@ -2116,40 +2240,60 @@ async function saveShipping() {
       return
     }
     await loadShipping()
-    // Re-quote shipping if modal is open
-    if (showPlace.value) await fetchShippingQuote()
-    // NEW: also schedule a re-quote (debounced) even if only the shipping modal is open
-    scheduleShippingQuote()
   } finally {
     savingShipping.value = false
   }
 }
 
-/* -------------------- Place Order flow -------------------- */
+/* -------------------- Request Order (PENDING creation) -------------------- */
 function genReference(prefix = 'REF'): string {
-  const ts = new Date()
-    .toISOString()
-    .replace(/[-:TZ.]/g, '')
-    .slice(0, 14)
+  const ts = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14)
   const rnd = Math.random().toString(36).slice(2, 8).toUpperCase()
   return `${prefix}-${ts}-${rnd}`
+}
+
+/** Remember user's choices per reference (for read-only review later) */
+type OrderPrefs = {
+  paymentMethod: 'cod' | 'ewallet'
+  discountMode: 'credits' | 'discount' | 'none'
+  code?: string | null
+  selectedDiscountId?: string | null
+}
+const ORDER_PREFS_KEY = 'ORDER_PREFS_BY_REF'
+function readOrderPrefsMap(): Record<string, OrderPrefs> {
+  try { return JSON.parse(localStorage.getItem(ORDER_PREFS_KEY) || '{}') || {} } catch { return {} }
+}
+function writeOrderPrefsMap(map: Record<string, OrderPrefs>) {
+  try { localStorage.setItem(ORDER_PREFS_KEY, JSON.stringify(map)) } catch {}
+}
+function saveOrderPrefs(ref: string, prefs: OrderPrefs) {
+  const map = readOrderPrefsMap(); map[ref] = prefs; writeOrderPrefsMap(map)
+}
+function loadOrderPrefs(ref: string): OrderPrefs | null {
+  const map = readOrderPrefsMap(); return map[ref] || null
+}
+function deleteOrderPrefs(ref: string) {
+  const map = readOrderPrefsMap()
+  if (map[ref]) {
+    delete map[ref]
+    writeOrderPrefsMap(map)
+  }
 }
 
 function openPlaceOrder() {
   closeCartModal()
   loadActiveDiscounts()
   showPlace.value = true
-  // NEW: quote shipping on open
-  fetchShippingQuote()
 }
 function closePlaceOrder() {
   showPlace.value = false
 }
 
+/** Place Order: create PENDING purchases (no deductions/stock changes) */
 async function placeOrder() {
   const uid = await ensureUser()
   if (!uid) {
-    alert('Please log in to place the order.')
+    alert('Please log in to request the order.')
     return
   }
   if (cartItems.value.length === 0) {
@@ -2161,6 +2305,435 @@ async function placeOrder() {
     return
   }
 
+  placingOrder.value = true
+  try {
+    await saveShipping()
+
+    // Refresh balances
+    const { data: freshUser } = await supabase
+      .from('users')
+      .select('balance, discount_credits, membership_id')
+      .eq('id', uid)
+      .maybeSingle()
+
+    userBalance.value = Number(freshUser?.balance ?? 0)
+    userDiscountCredits.value = Number(freshUser?.discount_credits ?? 0)
+
+    await loadCartDetails()
+
+    const batchReference = genReference('REQ')
+
+    const lines = cartItems.value.map(it => {
+      const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+      const unitOriginal = Number(it.originalUnit || 0)
+      return {
+        p: it.product,
+        quantity: qty,
+        unitOriginal
+      }
+    })
+
+    let firstPurchaseId: string | null = null
+    for (const ln of lines) {
+      const { data: inserted, error: insErr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .insert([{
+          user_id: uid,
+          product_id: ln.p.id,
+          reference_number: batchReference,
+          qty: ln.quantity,
+          modeofpayment: paymentMethod.value,
+          status: 'pending',
+          discounted_price: ln.unitOriginal, // snapshot current unit (no discount yet)
+          shipping_fee: 0
+        } as any])
+        .select('id')
+        .single()
+
+      if (insErr) {
+        console.error('[requestOrder] purchases insert error:', insErr.message)
+        alert('Failed to request order: ' + insErr.message)
+        return
+      }
+      const purchaseId = (inserted as InsertedPurchase).id
+      if (!firstPurchaseId) firstPurchaseId = purchaseId
+    }
+
+    // Save user's selections for read-only review later
+    saveOrderPrefs(batchReference, {
+      paymentMethod: paymentMethod.value,
+      discountMode: discountMode.value,
+      code: discountCodeInput.value || null,
+      selectedDiscountId: selectedDiscountId.value || null,
+    })
+
+    // clear cart
+    await supabase.schema('games').from('cart').delete().eq('user_id', uid)
+    for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
+    cartItems.value = []
+
+    closePlaceOrder()
+    await fetchProducts()
+    await loadPendingOrders()
+
+    alert('Order requested! Status is now pending. Once admin sets the shipping fee, you can place the order.')
+  } finally {
+    placingOrder.value = false
+  }
+}
+
+/* -------------------- Pending Orders list & placement -------------------- */
+const pendingGroups = ref<Array<{
+  ref: string
+  created_at: string
+  itemsCount: number
+  totalQty: number
+  highestShippingFee: number
+  itemsTotal: number
+  sampleName: string
+  sampleImageUrl: string | null
+  displayTotal?: number   // <- NEW
+}>>([])
+
+const pendingRefNumber = ref<string | null>(null)
+const pendingHighestShippingFee = ref<number>(0)
+const pendingPurchases = ref<PurchaseRow[]>([])
+
+/* helper: resolve a single product's first image (signed if needed) */
+async function resolveFirstImageUrl(prod: { id: string, product_url: string[] | string | null }): Promise<string | null> {
+  const raw = firstUrl(prod.product_url)
+  if (!raw) return null
+  if (!isStoragePath(raw)) return raw
+  try {
+    const { data } = await supabase.storage.from('prize_product').createSignedUrl(raw, 3600)
+    return data?.signedUrl ?? null
+  } catch {
+    return null
+  }
+}
+
+async function loadPendingOrders() {
+  const uid = await ensureUser()
+  if (!uid) return
+
+  const { data, error } = await supabase
+    .schema('games')
+    .from('purchases')
+    .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price')
+    .eq('user_id', uid)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.warn('[loadPendingOrders] error:', error.message)
+    pendingGroups.value = []
+    return
+  }
+
+  const rows = (data || []) as PurchaseRow[]
+
+  // NEW: keep rows per reference for later displayTotal computation
+  const rowsByRef = new Map<string, PurchaseRow[]>()
+
+  // Build aggregate map by reference
+  const map = new Map<string, {
+    created_at: string
+    itemsCount: number
+    totalQty: number
+    highestShippingFee: number
+    itemsTotal: number
+    firstProductId?: string
+  }>()
+  for (const r of rows) {
+    const g = map.get(r.reference_number) || {
+      created_at: r.created_at,
+      itemsCount: 0,
+      totalQty: 0,
+      highestShippingFee: 0,
+      itemsTotal: 0,
+      firstProductId: undefined
+    }
+    if (!g.firstProductId) g.firstProductId = r.product_id
+    g.created_at = g.created_at || r.created_at
+    g.itemsCount += 1
+    g.totalQty += Number(r.qty || 0)
+    const sf = Number(r.shipping_fee ?? 0)
+    if (sf > g.highestShippingFee) g.highestShippingFee = sf
+    const unit = Number(r.discounted_price ?? 0)
+    g.itemsTotal += unit * Number(r.qty || 0)
+    map.set(r.reference_number, g)
+
+    // NEW: stash purchase rows per ref
+    const bucket = rowsByRef.get(r.reference_number) ?? []
+    bucket.push(r)
+    rowsByRef.set(r.reference_number, bucket)
+  }
+
+  // fetch sample products for thumbnails/names
+  const sampleIds = Array.from(
+    new Set(Array.from(map.values()).map(v => v.firstProductId).filter(Boolean))
+  ) as string[]
+
+  const prodMap = new Map<string, { name: string, product_url: string[] | string | null }>()
+  if (sampleIds.length > 0) {
+    const { data: prods } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id,name,product_url')
+      .in('id', sampleIds)
+    for (const p of (prods || []) as Array<{ id: string, name: string, product_url: string[] | string | null }>) {
+      prodMap.set(p.id, { name: p.name, product_url: p.product_url })
+    }
+  }
+
+  // Build groups
+  const groups: Array<{
+    ref: string
+    created_at: string
+    itemsCount: number
+    totalQty: number
+    highestShippingFee: number
+    itemsTotal: number
+    sampleName: string
+    sampleImageUrl: string | null
+    displayTotal?: number
+  }> = []
+  for (const [ref, g] of map.entries()) {
+    const p = g.firstProductId ? prodMap.get(g.firstProductId) : null
+    let sampleImageUrl: string | null = null
+    if (p) {
+      sampleImageUrl = await resolveFirstImageUrl({
+        id: g.firstProductId as string,
+        product_url: p.product_url
+      })
+    }
+    groups.push({
+      ref,
+      created_at: g.created_at,
+      itemsCount: g.itemsCount,
+      totalQty: g.totalQty,
+      highestShippingFee: g.highestShippingFee,
+      itemsTotal: Number(g.itemsTotal.toFixed(2)),
+      sampleName: p?.name || '',
+      sampleImageUrl
+    })
+  }
+
+  // NEW: hydrate displayTotal using saved prefs + discounts + shipping
+  for (const grp of groups) {
+    const rlist = rowsByRef.get(grp.ref) ?? []
+    // base = original unit snapshot * qty (stored in discounted_price at request time)
+    const base = Number(
+      rlist.reduce((s, r) => s + Number(r.discounted_price ?? 0) * Number(r.qty || 0), 0).toFixed(2)
+    )
+
+    const prefs = loadOrderPrefs(grp.ref) || { discountMode: 'credits', paymentMethod: 'cod' }
+    let items = base
+
+    if (prefs.discountMode === 'credits' && hasMemberDiscount.value) {
+      const pct = Math.max(0, Math.min(100, Number(memberDiscountPct.value || 0)))
+      const potential = Number((base * (pct / 100)).toFixed(2))
+      const usable = Math.min(potential, Number(userDiscountCredits.value || 0))
+      items = Number((base - usable).toFixed(2))
+    } else if (prefs.discountMode === 'discount') {
+      // try to resolve discount (id first, else code)
+      let disc: Discount | null = null
+      if (prefs.selectedDiscountId) {
+        const { data: d } = await supabase
+          .schema('rewards')
+          .from('discounts')
+          .select('id,title,type,percent_off,amount_off,min_subtotal,status,is_public,starts_at,expires_at')
+          .eq('id', prefs.selectedDiscountId)
+          .maybeSingle()
+        disc = (d as unknown as Discount) ?? null
+      } else if (prefs.code) {
+        const nowIso = new Date().toISOString()
+        const { data: d } = await supabase
+          .schema('rewards')
+          .from('discounts')
+          .select('id,title,type,percent_off,amount_off,min_subtotal,status,is_public,starts_at,expires_at')
+          .eq('status', 'active')
+          .eq('is_public', true)
+          .lte('starts_at', nowIso)
+          .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+          .ilike('code', prefs.code)
+          .maybeSingle()
+        disc = (d as unknown as Discount) ?? null
+      }
+      const less = computeOrderDiscountAmount(base, disc)
+      items = Number(Math.max(0, base - less).toFixed(2))
+    } // 'none' → keep base
+
+    const fee = Number(grp.highestShippingFee || 0)
+    grp.displayTotal = Number((items + (fee > 0 ? fee : 0)).toFixed(2))
+  }
+
+  pendingGroups.value = groups
+}
+
+
+async function openPlacePending(refNumber: string) {
+  const uid = await ensureUser()
+  if (!uid) return
+
+  // Load purchases for this reference
+  const { data, error } = await supabase
+    .schema('games')
+    .from('purchases')
+    .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment')
+    .eq('user_id', uid)
+    .eq('reference_number', refNumber)
+    .eq('status', 'pending')
+  
+
+  inPendingContext.value = true
+  pendingPurchases.value = data as PurchaseRow[]
+  pendingRefNumber.value = refNumber
+  pendingHighestShippingFee.value = pendingPurchases.value.reduce((mx, r) => Math.max(mx, Number(r.shipping_fee || 0)), 0)
+
+  // Defaults based on DB
+  const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
+  paymentMethod.value = dbPayment
+
+  // Load user's saved prefs for this reference (if any)
+  const prefs = loadOrderPrefs(refNumber)
+  if (prefs) {
+    paymentMethod.value = prefs.paymentMethod
+    discountMode.value = prefs.discountMode
+  } else {
+    discountMode.value = 'credits'
+  }
+
+  // Reset and load discounts list, then reflect saved discount (read-only)
+  selectedDiscountId.value = ''
+  discountCodeInput.value = ''
+  resolvedDiscountByCode.value = null
+  await loadActiveDiscounts()
+
+  if (prefs?.discountMode === 'discount') {
+    if (prefs.selectedDiscountId) {
+      selectedDiscountId.value = prefs.selectedDiscountId
+    } else if (prefs.code) {
+      discountCodeInput.value = prefs.code
+      await applyCode()
+    }
+  }
+
+  // Build items list from pending + selected discount mode (credits app)
+  await buildPendingCartItems()
+
+  showPendingPlace.value = true
+}
+
+function closePlacePending() {
+  showPendingPlace.value = false
+  inPendingContext.value = false
+  pendingRefNumber.value = null
+  pendingPurchases.value = []
+  pendingHighestShippingFee.value = 0
+}
+
+/** Rebuild pending cart items when discount mode changes (credits app) */
+async function buildPendingCartItems() {
+  if (pendingPurchases.value.length === 0) return
+
+  const ids = Array.from(new Set(pendingPurchases.value.map(p => p.product_id)))
+  const { data: prodRows } = await supabase
+    .schema('games')
+    .from('products')
+    .select('id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty')
+    .in('id', ids)
+
+  const map = new Map<string, Product>()
+  for (const p of (prodRows || []) as Product[]) map.set(p.id, p)
+
+  const list: Array<{
+    product: Product
+    qty: number
+    imageUrl: string | null
+    lineTotal: number
+    unit: number
+    originalUnit: number
+  }> = []
+
+  let remainingCredits = (discountMode.value === 'credits' && hasMemberDiscount.value)
+    ? Number(userDiscountCredits.value || 0)
+    : 0
+
+  for (const row of pendingPurchases.value) {
+    const p = map.get(row.product_id)
+    if (!p) continue
+
+    let img = imageUrl(p) || null
+    if (!img) {
+      const raw = firstUrl(p.product_url)
+      if (raw && isStoragePath(raw)) {
+        const { data } = await supabase.storage.from('prize_product').createSignedUrl(raw, 3600)
+        img = data?.signedUrl ?? null
+      } else {
+        img = raw || null
+      }
+    }
+
+    const qty = Math.max(1, Number(row.qty || 0))
+    const originalUnit = Number(p.price || 0)
+
+    let unitToUse = originalUnit
+    let lineTotal = originalUnit * qty
+
+    if (discountMode.value === 'credits' && hasMemberDiscount.value) {
+      const discountedUnitMember = discountedPrice(originalUnit)
+      const needPerUnit = Math.max(0, originalUnit - discountedUnitMember)
+      const needForItem = needPerUnit * qty
+
+      if (needPerUnit > 0 && remainingCredits >= needForItem) {
+        unitToUse = discountedUnitMember
+        lineTotal = unitToUse * qty
+        remainingCredits = Number((remainingCredits - needForItem).toFixed(2))
+        discountedItemMap[p.id] = true
+      } else {
+        discountedItemMap[p.id] = false
+      }
+    } else {
+      discountedItemMap[p.id] = false
+    }
+
+    list.push({ product: p, qty, imageUrl: img, lineTotal, unit: unitToUse, originalUnit })
+
+    // IMPORTANT: do NOT mutate dbCartByProduct while in pending context
+    if (!inPendingContext.value) {
+      dbCartByProduct[p.id] = qty
+    }
+  }
+
+  cartItems.value = list
+}
+
+/* NEW: Order total including shipping for pending review */
+const orderTotalPending = computed(() => Number((finalPayableTotal.value + pendingHighestShippingFee.value).toFixed(2)))
+
+/** Finalize a pending batch */
+async function placePendingOrder() {
+  const uid = await ensureUser()
+  if (!uid || !pendingRefNumber.value) {
+    alert('Please log in.')
+    return
+  }
+  if (cartItems.value.length === 0) {
+    alert('No items found for this pending order.')
+    return
+  }
+  if (!hasShipping.value) {
+    alert('Please complete your delivery details first.')
+    return
+  }
+  if (pendingHighestShippingFee.value <= 0) {
+    alert('Shipping fee not yet set by admin.')
+    return
+  }
+
+  // Validate order-level discount if used
   if (discountMode.value === 'discount') {
     if (!pickedDiscount.value) {
       alert('Please apply a valid discount code or select a discount.')
@@ -2173,11 +2746,8 @@ async function placeOrder() {
     const usedDiscountId =
       (resolvedDiscountByCode.value?.id?.trim()) ||
       (selectedDiscountId.value?.trim() || '')
-
     if (usedDiscountId) {
-      const uidNow = await ensureUser()
-      if (!uidNow) return
-      const { ok, message } = await assertPerUserEligible(usedDiscountId, uidNow)
+      const { ok, message } = await assertPerUserEligible(usedDiscountId, uid)
       if (!ok) {
         alert(message || 'You have reached the maximum number of uses for this discount.')
         return
@@ -2189,6 +2759,7 @@ async function placeOrder() {
   try {
     await saveShipping()
 
+    // Fresh balance/credits + membership %
     const { data: freshUser } = await supabase
       .from('users')
       .select('balance, discount_credits, membership_id')
@@ -2214,41 +2785,109 @@ async function placeOrder() {
     userBalance.value = freshBalance
     userDiscountCredits.value = freshDiscountCredits
 
-    await loadCartDetails()
-
-    // --- Figure out totals (items) ---
-    let finalTotal = 0
+    // Build lines for final pricing
+    let finalItemsTotal = 0
     let orderDiscountAmt = 0
 
     if (discountMode.value === 'discount') {
       const base = cartGrandTotalIgnoringCredits.value
-      let d: Discount | null = null
-      if (selectedDiscountId.value) {
-        d = discounts.value.find(dd => dd.id === selectedDiscountId.value) ?? null
-      } else if (resolvedDiscountByCode.value) {
-        d = resolvedDiscountByCode.value
-      }
+      const d = pickedDiscount.value
       orderDiscountAmt = computeOrderDiscountAmount(base, d)
-      finalTotal = Number(Math.max(0, base - orderDiscountAmt).toFixed(2))
+      finalItemsTotal = Number(Math.max(0, base - orderDiscountAmt).toFixed(2))
     } else {
-      finalTotal = cartGrandTotal.value
+      finalItemsTotal = cartGrandTotal.value
       orderDiscountAmt = 0
     }
 
-    // ✅ Include shipping for wallet gating and transactions
-    const grandTotal = Number((finalTotal + effectiveShippingFee.value).toFixed(2))
+    const shippingFee = Number(pendingHighestShippingFee.value || 0)
+    const itemsTotal = Number(finalItemsTotal.toFixed(2))
+    const grandTotalIncludingShipping = Number((itemsTotal + shippingFee).toFixed(2))
 
     const isEwallet = paymentMethod.value === 'ewallet'
     const purchaseStatus = isEwallet ? 'to ship' : 'to pay'
-    const totalToDeduct = isEwallet ? grandTotal : 0
+    const totalToDeduct = isEwallet ? grandTotalIncludingShipping : 0
 
     if (isEwallet && freshBalance < totalToDeduct) {
       alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
       return
     }
 
-    const batchReference = genReference('PUR')
+    // Build line drafts and update purchases rows
+    type LineDraft = {
+      p: Product
+      quantity: number
+      unitBeforeOrder: number
+      lineBeforeOrder: number
+      unitFinal: number
+      purchaseId: string
+    }
 
+    const lines: LineDraft[] = []
+
+    if (discountMode.value === 'discount') {
+      let baseSum = 0
+      const byProductPurchase = new Map<string, PurchaseRow>()
+      pendingPurchases.value.forEach(r => byProductPurchase.set(r.product_id, r))
+
+      for (const it of cartItems.value) {
+        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+        const unitBefore = Number(it.originalUnit || 0)
+        const lineBefore = unitBefore * qty
+        baseSum += lineBefore
+        lines.push({
+          p: it.product,
+          quantity: qty,
+          unitBeforeOrder: unitBefore,
+          lineBeforeOrder: lineBefore,
+          unitFinal: unitBefore,
+          purchaseId: byProductPurchase.get(it.product.id)?.id || ''
+        })
+      }
+      if (orderDiscountAmt > 0 && baseSum > 0) {
+        for (const ln of lines) {
+          const share = Number(((ln.lineBeforeOrder / baseSum) * orderDiscountAmt).toFixed(2))
+          const perUnitShare = Number((share / ln.quantity).toFixed(2))
+          ln.unitFinal = Number(Math.max(0, ln.unitBeforeOrder - perUnitShare).toFixed(2))
+        }
+      }
+    } else {
+      // credits or none — unit already computed into cartItems
+      const byProductPurchase = new Map<string, PurchaseRow>()
+      pendingPurchases.value.forEach(r => byProductPurchase.set(r.product_id, r))
+
+      for (const it of cartItems.value) {
+        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+        lines.push({
+          p: it.product,
+          quantity: qty,
+          unitBeforeOrder: Number(it.originalUnit),
+          lineBeforeOrder: Number(it.originalUnit) * qty,
+          unitFinal: Number(it.unit),
+          purchaseId: byProductPurchase.get(it.product.id)?.id || ''
+        })
+      }
+    }
+
+    // Update purchases rows with final unit + status + payment method
+    for (const ln of lines) {
+      if (!ln.purchaseId) continue
+      const { error: updErr } = await supabase
+        .schema('games')
+        .from('purchases')
+        .update({
+          discounted_price: ln.unitFinal,
+          status: purchaseStatus,
+          modeofpayment: paymentMethod.value
+        })
+        .eq('id', ln.purchaseId)
+      if (updErr) {
+        console.error('[update purchase unit/status] failed:', updErr.message)
+        alert('Failed to finalize order items: ' + updErr.message)
+        return
+      }
+    }
+
+    // Deduct ewallet balance now (items + shipping)
     if (isEwallet && totalToDeduct > 0) {
       const newBalance = Number((freshBalance - totalToDeduct).toFixed(2))
       const { error: balErr } = await supabase
@@ -2262,100 +2901,105 @@ async function placeOrder() {
       userBalance.value = newBalance
     }
 
-    type LineDraft = {
-      p: Product
-      quantity: number
-      unitBeforeOrder: number
-      lineBeforeOrder: number
-      unitFinal: number
-    }
+    // AfterShip push (shipping_total now included)
+    const discountTotalForAftership =
+      (discountMode.value === 'discount' ? orderDiscountAmt : 0) +
+      (discountMode.value === 'credits'  ? totalDiscountCreditsUsed.value : 0);
 
-    const lines: LineDraft[] = []
-    if (discountMode.value === 'discount') {
-      let baseSum = 0
-      for (const it of cartItems.value) {
-        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
-        const unitBefore = Number(it.originalUnit || 0)
-        const lineBefore = unitBefore * qty
-        baseSum += lineBefore
-        lines.push({
-          p: it.product,
-          quantity: qty,
-          unitBeforeOrder: unitBefore,
-          lineBeforeOrder: lineBefore,
-          unitFinal: unitBefore,
-        })
+    await pushOrderToAfterShip({
+      batchReference: pendingRefNumber.value,
+      lines: lines.map(ln => ({
+        p: ln.p,
+        quantity: ln.quantity,
+        unitBeforeOrder: ln.unitBeforeOrder,
+        lineBeforeOrder: ln.lineBeforeOrder,
+        unitFinal: ln.unitFinal
+      })),
+      finalSubtotal: itemsTotal,
+      shippingFee,
+      discountTotal: discountTotalForAftership,
+      shipping: shipping.value,
+      isPaid: paymentMethod.value === 'ewallet',
+      currency: 'PHP',
+      customerName: null,
+      customerEmail: null,
+    }).catch(e => console.warn('[AfterShip push failed]', e))
+
+    // Discount credits deduction (if credits mode)
+    if (discountMode.value === 'credits') {
+      let totalDiscountCreditsToDeduct = 0
+      for (const ln of lines) {
+        const perUnitDiff = Math.max(0, ln.unitBeforeOrder - ln.unitFinal)
+        totalDiscountCreditsToDeduct += perUnitDiff * ln.quantity
       }
-      if (orderDiscountAmt > 0 && baseSum > 0) {
-        for (const ln of lines) {
-          const share = Number(((ln.lineBeforeOrder / baseSum) * orderDiscountAmt).toFixed(2))
-          const perUnitShare = Number((share / ln.quantity).toFixed(2))
-          ln.unitFinal = Number(Math.max(0, ln.unitBeforeOrder - perUnitShare).toFixed(2))
+      totalDiscountCreditsToDeduct = Number(totalDiscountCreditsToDeduct.toFixed(2))
+
+      if (totalDiscountCreditsToDeduct > 0) {
+        // receipts per purchase
+        const receiptsPayload = lines
+          .map(ln => {
+            const perUnitDiff = Math.max(0, ln.unitBeforeOrder - ln.unitFinal)
+            const usedForThis = Number((perUnitDiff * ln.quantity).toFixed(2))
+            if (usedForThis <= 0 || !ln.purchaseId) return null
+            return {
+              purchase_id: ln.purchaseId,
+              amount_discounted: usedForThis,
+              reference_number: pendingRefNumber.value!
+            }
+          })
+          .filter(Boolean) as Array<{ purchase_id: string; amount_discounted: number; reference_number: string }>
+
+        if (receiptsPayload.length > 0) {
+          const { error: recErr } = await supabase
+            .schema('ewallet')
+            .from('discount_credits_receipt')
+            .insert(receiptsPayload as any)
+          if (recErr) {
+            console.error('[discount_credits_receipt insert failed]', recErr.message)
+            alert('Failed to create discount credits receipt: ' + recErr.message)
+            return
+          }
         }
-      }
-    } else {
-      for (const it of cartItems.value) {
-        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
-        lines.push({
-          p: it.product,
-          quantity: qty,
-          unitBeforeOrder: Number(it.unit),
-          lineBeforeOrder: Number(it.unit) * qty,
-          unitFinal: Number(it.unit),
-        })
-      }
-    }
 
-    let firstPurchaseId: string | null = null
-    for (const ln of lines) {
-      const { data: inserted, error: insErr } = await supabase
-        .schema('games')
-        .from('purchases')
-        .insert([{
-          user_id: uid,
-          product_id: ln.p.id,
-          reference_number: batchReference,
-          qty: ln.quantity,
-          modeofpayment: paymentMethod.value,
-          status: purchaseStatus,
-          discounted_price: ln.unitFinal,
-        } as any])
-        .select('id')
-        .single()
-
-      if (insErr) {
-        console.error('[placeOrder] purchases insert error:', insErr.message)
-        alert('Failed to place order: ' + insErr.message)
-        return
-      }
-      const purchaseId = (inserted as InsertedPurchase).id
-      if (!firstPurchaseId) firstPurchaseId = purchaseId
-    }
-
-    if (isEwallet) {
-      const { error: txnErr } = await supabase
-        .schema('ewallet')
-        .from('order_transactions')
-        .insert([{
-          reference_number: batchReference,
-          purchase_id: firstPurchaseId ?? null,
-          total_amount: Number(totalToDeduct.toFixed(2)),
-        } as any])
-
-      if (txnErr) {
-        console.error('[order_transactions insert failed]', txnErr.message)
-        alert('Failed to create transaction record: ' + txnErr.message)
-        return
+        // deduct from user credits
+        const { data: reUser } = await supabase.from('users').select('discount_credits').eq('id', uid).maybeSingle()
+        const currentCredits = Number(reUser?.discount_credits ?? 0)
+        const newDcBalance = Math.max(0, Number((currentCredits - totalDiscountCreditsToDeduct).toFixed(2)))
+        const { error: dcErr } = await supabase.from('users').update({ discount_credits: newDcBalance }).eq('id', uid)
+        if (dcErr) {
+          console.error('[users.discount_credits update failed]', dcErr.message)
+          alert('Failed to deduct discount credits: ' + dcErr.message)
+          return
+        }
+        userDiscountCredits.value = newDcBalance
       }
     }
 
-    // increment redemptions_count (RPC preferred)
+    // Order-level redemption record/counter
     try {
       if (discountMode.value === 'discount') {
         const usedDiscountId =
           (resolvedDiscountByCode.value?.id?.trim()) ||
           (selectedDiscountId.value?.trim() || '')
-        if (usedDiscountId) {
+        const redeemedAmount = Number(orderDiscountAmt || 0)
+
+        if (usedDiscountId && redeemedAmount > 0) {
+          const firstPurchaseId = pendingPurchases.value[0]?.id
+          if (firstPurchaseId) {
+            const { error: redInsErr } = await supabase
+              .schema('rewards')
+              .from('discount_redemptions')
+              .insert([{
+                discount_id: usedDiscountId,
+                user_id: uid,
+                purchase_id: firstPurchaseId,
+                redeemed_amount: redeemedAmount,
+                currency: 'PHP',
+              }])
+            if (redInsErr) console.warn('[discount_redemptions insert failed]', redInsErr.message)
+          }
+
+          // increment redemptions_count
           const { data: ok, error: redErr } = await supabase
             .rpc('inc_discount_redemption', { p_discount_id: usedDiscountId })
           if (redErr || ok === null) {
@@ -2380,155 +3024,10 @@ async function placeOrder() {
         }
       }
     } catch (e) {
-      console.warn('[inc_discount_redemption] exception:', e)
+      console.warn('[order-level redemption step exception]', e)
     }
 
-    // create discount_redemptions row
-    try {
-      if (discountMode.value === 'discount') {
-        const usedDiscountId =
-          (resolvedDiscountByCode.value?.id?.trim()) ||
-          (selectedDiscountId.value?.trim() || '')
-        const redeemedAmount = Number(orderDiscountAmt || 0)
-        if (usedDiscountId && redeemedAmount > 0 && firstPurchaseId) {
-          const { error: redInsErr } = await supabase
-            .schema('rewards')
-            .from('discount_redemptions')
-            .insert([{
-              discount_id: usedDiscountId,
-              user_id: uid,
-              purchase_id: firstPurchaseId,
-              redeemed_amount: redeemedAmount,
-              currency: 'PHP',
-            }])
-          if (redInsErr) console.warn('[discount_redemptions insert failed]', redInsErr.message)
-        }
-      }
-    } catch (e) {
-      console.warn('[discount_redemptions insert exception]', e)
-    }
-
-    // ===== NEW: persist shipping charge =====
-    // ===== NEW: persist shipping charge =====
-try {
-  const addrSnap = buildAddressString(shipping.value)
-  const { error: shipErr } = await supabase
-    .schema('games')
-    .from('shipping_charges')
-    .insert([{
-      reference_number: batchReference,
-      amount: Number(effectiveShippingFee.value.toFixed(2)),
-      currency: shippingCurrency.value || 'PHP',
-      address_snapshot: `${shipping.value.phone} • ${addrSnap}`,
-      purchase_id: firstPurchaseId, // ✅ NEW
-    }])
-  if (shipErr) console.warn('[shipping_charges insert failed]', shipErr.message)
-} catch (e) {
-  console.warn('[shipping_charges insert exception]', e)
-}
-
-
-    // ==== NEW: Push the order to AfterShip Commerce ====
-try {
-  const discountTotalForAftership =
-    (discountMode.value === 'discount' ? orderDiscountAmt : 0) +
-    (discountMode.value === 'credits'  ? totalDiscountCreditsUsed.value : 0);
-
-  await pushOrderToAfterShip({
-    batchReference,
-    lines,                                  // the LineDraft[] you already built earlier
-    finalSubtotal: finalTotal,              // items after discounts, before shipping
-    shippingFee: effectiveShippingFee.value,
-    discountTotal: discountTotalForAftership,
-    shipping: shipping.value,
-    isPaid: paymentMethod.value === 'ewallet',
-    currency: 'PHP',
-    // Optional:
-    customerName: null,
-    customerEmail: null,
-  });
-} catch (e) {
-  console.warn('[AfterShip push failed]', e);
-}
-
-
-    // Discount credits deduction path
-    if (discountMode.value === 'credits') {
-      let totalDiscountCreditsToDeduct = 0
-      for (const it of cartItems.value) {
-        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
-        const diff = Math.max(0, Number(it.originalUnit) - Number(it.unit))
-        totalDiscountCreditsToDeduct += diff * qty
-      }
-      totalDiscountCreditsToDeduct = Number(totalDiscountCreditsToDeduct.toFixed(2))
-
-      if (totalDiscountCreditsToDeduct > 0) {
-        const { data: recentPurchases } = await supabase
-          .schema('games')
-          .from('purchases')
-          .select('id,product_id,qty,discounted_price')
-          .eq('reference_number', batchReference)
-
-        const receiptsPayload: Array<{ purchase_id: string; amount_discounted: number; reference_number: string }> = []
-        if (recentPurchases && Array.isArray(recentPurchases)) {
-          const byPid = new Map<string, { unitOriginal: number; qty: number; unitFinal: number }>()
-          for (const it of cartItems.value) {
-            byPid.set(it.product.id, {
-              unitOriginal: Number(it.originalUnit),
-              unitFinal: Number(it.unit),
-              qty: Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1),
-            })
-          }
-          for (const pr of recentPurchases) {
-            const info = byPid.get(pr.product_id)
-            if (!info) continue
-            const perUnitDiff = Math.max(0, info.unitOriginal - info.unitFinal)
-            const usedForThis = Number((perUnitDiff * info.qty).toFixed(2))
-            if (usedForThis > 0) {
-              receiptsPayload.push({
-                purchase_id: pr.id,
-                amount_discounted: usedForThis,
-                reference_number: batchReference,
-              })
-            }
-          }
-        }
-
-        if (receiptsPayload.length > 0) {
-          const { error: recErr } = await supabase
-            .schema('ewallet')
-            .from('discount_credits_receipt')
-            .insert(receiptsPayload as any)
-          if (recErr) {
-            console.error('[discount_credits_receipt insert failed]', recErr.message)
-            alert('Failed to create discount credits receipt: ' + recErr.message)
-            return
-          }
-        }
-
-        const { data: recheckUser } = await supabase
-          .from('users')
-          .select('discount_credits')
-          .eq('id', uid)
-          .maybeSingle()
-
-        const currentCredits = Number(recheckUser?.discount_credits ?? 0)
-        const newDcBalance = Math.max(0, Number((currentCredits - totalDiscountCreditsToDeduct).toFixed(2)))
-
-        const { error: dcErr } = await supabase
-          .from('users')
-          .update({ discount_credits: newDcBalance })
-          .eq('id', uid)
-        if (dcErr) {
-          console.error('[users.discount_credits update failed]', dcErr.message)
-          alert('Failed to deduct discount credits: ' + dcErr.message)
-          return
-        }
-        userDiscountCredits.value = newDcBalance
-      }
-    }
-
-    // Decrement stock
+    // Deduct stock now
     for (const ln of lines) {
       try {
         const { data: stockRow, error: stockSelErr } = await supabase
@@ -2559,22 +3058,64 @@ try {
       }
     }
 
-    await supabase.schema('games').from('cart').delete().eq('user_id', uid)
-    for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
-    cartItems.value = []
+    // Ewallet order transaction record (now includes shipping)
+    if (isEwallet) {
+      const firstPurchaseId = pendingPurchases.value[0]?.id || null
+      const { error: txnErr } = await supabase
+        .schema('ewallet')
+        .from('order_transactions')
+        .insert([{
+          reference_number: pendingRefNumber.value,
+          purchase_id: firstPurchaseId,
+          total_amount: Number(totalToDeduct.toFixed(2)),
+        } as any])
+      if (txnErr) {
+        console.error('[order_transactions insert failed]', txnErr.message)
+      }
+    }
 
-    closePlaceOrder()
+    closePlacePending()
+    await loadPendingOrders()
     await fetchProducts()
 
     if (isEwallet) {
-      alert(
-        'Payment successful! Your items are now set **to ship**. You’ll receive a confirmation shortly.',
-      )
+      alert('Payment successful! Your order is now set to ship. You’ll receive a confirmation shortly.')
     } else {
-      alert(
-        'Order placed! Status is **to pay**. Please prepare payment upon delivery or wait for admin approval.',
-      )
+      alert('Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.')
     }
+  } finally {
+    placingOrder.value = false
+  }
+}
+
+/* NEW: Cancel a pending batch (deletes all its pending purchases) */
+async function cancelPendingOrder() {
+  const uid = await ensureUser()
+  if (!uid || !pendingRefNumber.value) return
+  const ref = pendingRefNumber.value
+  if (!confirm(`Cancel request ${ref}? This will remove all pending items for this reference.`)) return
+
+  placingOrder.value = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .delete()
+      .eq('user_id', uid)
+      .eq('reference_number', ref)
+      .eq('status', 'pending')
+
+    if (error) {
+      alert('Failed to cancel: ' + error.message)
+      return
+    }
+
+    // Forget saved prefs for this ref
+    deleteOrderPrefs(ref)
+
+    closePlacePending()
+    await loadPendingOrders()
+    alert('Request cancelled.')
   } finally {
     placingOrder.value = false
   }
@@ -2662,6 +3203,7 @@ function changeSort(key: 'relevance' | 'newest' | 'price_asc' | 'price_desc') {
 let productChannel: ReturnType<typeof supabase.channel> | null = null
 let cartChannel: ReturnType<typeof supabase.channel> | null = null
 let usersChannel: ReturnType<typeof supabase.channel> | null = null
+let purchasesChannel: ReturnType<typeof supabase.channel> | null = null
 
 function bindProductsRealtime() {
   if (productChannel) return
@@ -2719,26 +3261,56 @@ async function bindUsersRealtime() {
     .subscribe()
 }
 
+/** Listen to purchases changes (shipping_fee updates / status) */
+async function bindPurchasesRealtime() {
+  const uid = await ensureUser()
+  if (!uid || purchasesChannel) return
+  purchasesChannel = supabase
+    .channel('rt-purchases-' + uid)
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'games',
+        table: 'purchases',
+        filter: `user_id=eq.${uid}`,
+      },
+      async (_payload) => {
+        await loadPendingOrders()
+        if (showPendingPlace.value && pendingRefNumber.value) {
+          await openPlacePending(pendingRefNumber.value)
+        }
+      },
+    )
+    .subscribe()
+}
+
 onMounted(async () => {
   loadStagedFromLocal()
   await Promise.all([fetchProducts(), loadCart(), loadShipping()])
+  await loadPendingOrders()
   bindProductsRealtime()
   await bindCartRealtime()
   await bindUsersRealtime()
+  await bindPurchasesRealtime()
 })
 
 onUnmounted(() => {
   if (productChannel) supabase.removeChannel(productChannel)
   if (cartChannel) supabase.removeChannel(cartChannel)
   if (usersChannel) supabase.removeChannel(usersChannel)
+  if (purchasesChannel) supabase.removeChannel(purchasesChannel)
 })
 
 watch(pageSize, () => goToPage(1))
 
 // Keep previews in sync when user toggles discount mode
 watch(discountMode, async () => {
-  await loadCartDetails()
-  if (showPlace.value) await fetchShippingQuote()
+  if (showPendingPlace.value) {
+    await buildPendingCartItems()
+  } else if (showCart.value || showPlace.value) {
+    await loadCartDetails()
+  }
 })
 
 // Keep code/dropdown mutually exclusive
@@ -2752,25 +3324,7 @@ watch(resolvedDiscountByCode, (v) => {
   if (v) selectedDiscountId.value = ''
 })
 
-// NEW: re-quote shipping when address or free-shipping context changes (debounced)
-// (Triggers if Place Order modal OR Shipping modal is open)
-watch(
-  () => [shipping.value.postal_code, shipping.value.city, shipping.value.province, shipping.value.address_line1],
-  () => {
-    if (showPlace.value || showShipping.value) scheduleShippingQuote()
-  }
-)
-// Also re-quote when discount mode or selected discount affects free-shipping logic
-watch([discountMode, selectedDiscountId, resolvedDiscountByCode], () => {
-  if (showPlace.value || showShipping.value) scheduleShippingQuote()
-})
-
-// NEW: when shipping modal toggles on, schedule an immediate quote
-watch(showShipping, (isOpen) => {
-  if (isOpen) scheduleShippingQuote()
-})
-
-/* ==== NEW: AfterShip push helper ==== */
+/* ==== AfterShip push helper (now includes shipping_total) ==== */
 async function pushOrderToAfterShip(args: {
   batchReference: string;
   lines: Array<{
@@ -2780,8 +3334,8 @@ async function pushOrderToAfterShip(args: {
     lineBeforeOrder: number; // original unit * quantity
     unitFinal: number;       // final unit price after per-line/order discounts
   }>;
-  finalSubtotal: number;          // items total AFTER discounts, BEFORE shipping
-  shippingFee: number;            // effectiveShippingFee.value
+  finalSubtotal: number;          // items total AFTER discounts
+  shippingFee: number;            // now included
   discountTotal: number;          // full order discount (order-level + credits)
   shipping: ShippingRow;
   isPaid: boolean;                // paymentMethod === 'ewallet'
@@ -2810,9 +3364,9 @@ async function pushOrderToAfterShip(args: {
     financial_status: args.isPaid ? 'paid' : 'unpaid',
     fulfillment_status: 'unfulfilled',
     subtotal:       { currency: cur, amount: args.finalSubtotal.toFixed(2) },
-    shipping_total: { currency: cur, amount: args.shippingFee.toFixed(2) },
+    shipping_total: { currency: cur, amount: Number(args.shippingFee || 0).toFixed(2) },
     discount_total: { currency: cur, amount: Math.max(0, args.discountTotal).toFixed(2) },
-    order_total:    { currency: cur, amount: (args.finalSubtotal + args.shippingFee).toFixed(2) },
+    order_total:    { currency: cur, amount: Number(args.finalSubtotal + (args.shippingFee || 0)).toFixed(2) },
     items,
     shipping_address: {
       name: args.customerName ?? null,
@@ -2821,7 +3375,7 @@ async function pushOrderToAfterShip(args: {
       city: args.shipping.city || null,
       region: args.shipping.province || null,
       postal_code: args.shipping.postal_code || null,
-      country_region: 'PHL', // Philippines ISO-3166 alpha-3
+      country_region: 'PHL',
     },
     customer: {
       name: args.customerName ?? null,
@@ -2844,16 +3398,14 @@ async function pushOrderToAfterShip(args: {
   return data;
 }
 
-/* ===== NEW: Product Details Modal State & Methods ===== */
+/* ===== Product Details Modal State & Methods ===== */
 const showProductModal = ref(false)
 const productModal = ref<Product | null>(null)
 const productModalThumbRef = ref<HTMLElement | null>(null)
 
 function openProductModal(p: Product) {
   productModal.value = p
-  // ensure images are signed/populated
   productImages(p)
-  // reset slide to 0
   slideIdx[p.id] = 0
   showProductModal.value = true
 }
@@ -2864,12 +3416,13 @@ function closeProductModal() {
 async function onAddToCartFromModal(ev: MouseEvent) {
   if (!productModal.value) return
   await onAddToCart(ev, productModal.value)
-  // If original onAddToCart couldn't find a product-card, animate from the modal image
   const el = productModalThumbRef.value
   if (el) flyToCart(el)
 }
 
-/* ==== NEW: Specifications helpers ==== */
+/* ==== Specifications helpers ==== */
+
+
 function parseSpecs(raw: unknown): Record<string, any> {
   if (raw == null) return {}
   if (typeof raw === 'string') {
@@ -2902,11 +3455,11 @@ function hasSpecs(p: Product | null | undefined): boolean {
 .product-thumb.ratio { 
   --bs-aspect-ratio: 75%; 
 }
-/* current is square (100%). Make it shorter on smaller screens */
+/* make it square on smaller screens */
 @media (max-width: 1400px) {
   .product-thumb.ratio { 
     --bs-aspect-ratio: 100%; 
-  } /* ~4:3 */
+  }
 }
 @media (max-width: 1399.98px) {
   .products-div { 
@@ -2926,9 +3479,7 @@ function hasSpecs(p: Product | null | undefined): boolean {
 
 .product-card {
   border-radius: var(--card-radius);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
   font-size: 0.96rem;
 }
 .product-card:hover {
@@ -2964,6 +3515,7 @@ function hasSpecs(p: Product | null | undefined): boolean {
   transform: rotate(180deg);
 }
 
+/* Modal base */
 .modal-backdrop-custom {
   position: fixed;
   inset: 0;
@@ -2980,6 +3532,19 @@ function hasSpecs(p: Product | null | undefined): boolean {
   border-radius: 16px;
 }
 
+/* Clean & aesthetic tweaks for modals */
+.modal-card--aesthetic .card-header {
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+.modal-card--aesthetic .card-body .border {
+  border-color: rgba(0,0,0,.08)!important;
+  background: #fff;
+  backdrop-filter: saturate(120%);
+  border-radius: 14px;
+}
+
+/* Cart pulse & add animations */
 .cart-pulse {
   animation: cartPulse 0.25s ease;
 }
@@ -2998,6 +3563,7 @@ function hasSpecs(p: Product | null | undefined): boolean {
   100% { box-shadow: 0 0 0 0 rgba(25, 135, 84, 0); }
 }
 
+/* Cart thumbs */
 .cart-thumb {
   width: 64px;
   min-width: 64px;
@@ -3009,9 +3575,9 @@ function hasSpecs(p: Product | null | undefined): boolean {
   border-top-right-radius: var(--card-radius);
 }
 
+/* Carousel */
 .carousel-thumb {
-  position: absolute;
-  inset: 0;
+  position: absolute; inset: 0;
   border-top-left-radius: var(--card-radius);
   border-top-right-radius: var(--card-radius);
   overflow: hidden;
@@ -3024,69 +3590,67 @@ function hasSpecs(p: Product | null | undefined): boolean {
   transition: opacity 0.24s ease, transform 0.24s ease;
 }
 .slide-img--active { opacity: 1; transform: scale(1); }
+
 .carousel-thumb .dots {
-  position: absolute; top: 8px; inset-inline: 0;
+  position: absolute; top: 8px; left: 0; right: 0;
   display: flex; justify-content: center; gap: 6px;
 }
 .dot {
   width: 7px; height: 7px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.65);
-  border: 1px solid rgba(0, 0, 0, 0.15);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  cursor: pointer;
+  background: rgba(0,0,0,.2);
+  transition: transform .2s ease, background .2s ease;
 }
-.dot.active { background: #fff; border-color: rgba(0, 0, 0, 0.35); }
+.dot.active { background: rgba(0,0,0,.5); transform: scale(1.15); }
+
 .carousel-thumb .nav {
   position: absolute; top: 50%; transform: translateY(-50%);
-  width: 32px; height: 32px; border-radius: 50%; border: 0;
-  background: rgba(255, 255, 255, 0.85);
-  display: grid; place-items: center; line-height: 1; cursor: pointer; z-index: 2;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  width: 36px; height: 36px; border: 0; border-radius: 50%;
+  display: grid; place-items: center;
+  background: rgba(255,255,255,.8);
+  color: #111; cursor: pointer;
 }
 .carousel-thumb .nav.left { left: 8px; }
 .carousel-thumb .nav.right { right: 8px; }
 .carousel-thumb .nav:hover { background: #fff; }
-@media (hover: none) { .carousel-thumb .nav { display: none; } }
 
-.qty-field.qty-bump { animation: qtyBump 0.22s ease; }
-@keyframes qtyBump {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-  100% { transform: scale(1); }
-}
+/* Qty bump effect */
+.qty-field { transition: transform .15s ease; }
+.qty-bump { transform: scale(1.06); }
 
+/* Little badge pop when adding to cart */
 .cart-added-badge {
-  background: #198754; color: #fff; font-weight: 700;
-  padding: 2px 8px; border-radius: 999px;
-  opacity: 0; transform: translateY(6px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-  z-index: 2200;
+  background: #198754; color: #fff; padding: 2px 8px;
+  font-size: 12px; border-radius: 999px;
+  opacity: 0; transform: translateY(-6px) scale(.9);
+  transition: opacity .2s ease, transform .2s ease;
 }
-.cart-added-badge--show { opacity: 1; transform: translateY(-8px); }
+.cart-added-badge--show {
+  opacity: 1; transform: translateY(-14px) scale(1);
+}
 
-/* === NEW: Product modal visuals === */
-.product-modal-card {
-  width: min(980px, 96vw);
-}
-.product-modal-thumb.ratio {
-  --bs-aspect-ratio: 100%;
-  border-radius: 12px;
+/* Product modal */
+.product-modal-card { width: min(980px, 96vw); }
+.product-modal-thumb.ratio { --bs-aspect-ratio: 75%; }
+
+/* Pending list small thumb + truncated name */
+.pending-thumb {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  border-radius: 8px;
   overflow: hidden;
+  background: #f1f3f5;
 }
-.product-modal-card .carousel-thumb {
-  border-radius: 12px;
-}
-.opacity-50 { opacity: 0.5; }
-.pe-none { pointer-events: none; }
-
-/* NEW: Specifications table styling */
-.specs-table th {
-  width: 40%;
-  font-weight: 600;
+.pending-sample-name {
+  max-width: 180px;
   white-space: nowrap;
-  padding-right: 1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.specs-table td {
-  word-break: break-word;
+@media (min-width: 1400px) {
+  .pending-sample-name { max-width: 220px; }
 }
+
+/* Minor utility */
+.text-monospace { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
 </style>

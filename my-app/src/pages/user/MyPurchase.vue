@@ -130,6 +130,23 @@
                 </div>
               </div>
             </div>
+
+            <!-- ===== NEW: Tracking link if any item is To Receive ===== -->
+            <div
+              v-if="groupToReceiveCount(g) > 0 && trackingLinkFor(g.ref)"
+              class="mt-2"
+              @click.stop
+            >
+              <a
+                :href="trackingLinkFor(g.ref)"
+                target="_blank"
+                rel="noopener"
+                class="small text-primary text-decoration-underline"
+                title="Open tracking in a new tab"
+              >
+                Track your package
+              </a>
+            </div>
             <!-- ========================================================= -->
 
             <!-- Items inside group -->
@@ -167,16 +184,12 @@
 
                     <!-- PRICE (special display for discount_redemptions) -->
                     <div class="text-end ms-2">
-                      <!-- When there is any discount_redemption for this ref:
-                           Show original unit price (no slash) + a separate negative discount line -->
                       <template v-if="refHasRedemption(g.ref)">
                         <div class="fw-semibold">
                           ₱ {{ number(productPrice(it)) }}
                         </div>
-                        
                       </template>
 
-                      <!-- Otherwise, keep your existing discount UI -->
                       <template v-else-if="refHasDiscount(g.ref)">
                         <div class="text-muted text-decoration-line-through">
                           ₱ {{ number(productPrice(it)) }}
@@ -405,6 +418,22 @@
               </div>
             </div>
 
+            <!-- ===== NEW: Tracking link for single-row view ===== -->
+            <div
+              v-if="p.status === STATUS.TO_RECEIVE && (p?.tracking_link || '').toString().trim().length"
+              class="mt-2"
+            >
+              <a
+                :href="p.tracking_link"
+                target="_blank"
+                rel="noopener"
+                class="small text-primary text-decoration-underline"
+                title="Open tracking in a new tab"
+              >
+                Track your package
+              </a>
+            </div>
+
             <div class="mt-3 row g-3">
               <!-- Product tile -->
               <div class="col-12">
@@ -558,7 +587,7 @@
             >
               <div class="event-ticket" :title="eventTitleForRef(rrGroup.ref)">
                 <div class="ticket-left">
-                  <i class="bi bi-trophy me-1"></i>
+                  <i class="bi bi-trophy me-1)"></i>
                   <span class="ticket-title">{{ eventTitleForRef(rrGroup.ref) }}</span>
                 </div>
                 <div class="ticket-divider"></div>
@@ -878,6 +907,22 @@
               </div>
             </div>
           </div>
+
+          <!-- ===== NEW: Tracking link in details modal ===== -->
+          <div
+            v-if="groupToReceiveCount(selectedGroupComputed!) > 0 && trackingLinkFor(selectedGroupComputed!.ref)"
+            class="mt-2"
+          >
+            <a
+              :href="trackingLinkFor(selectedGroupComputed!.ref)"
+              target="_blank"
+              rel="noopener"
+              class="small text-primary text-decoration-underline"
+              title="Open tracking in a new tab"
+            >
+              Track your package
+            </a>
+          </div>
           <!-- ================================================ -->
 
           <!-- Items -->
@@ -915,7 +960,6 @@
                     <template v-if="refHasRedemption(selectedGroupComputed!.ref)">
                       <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
                       <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
-                      <!-- show subtotal ONLY when qty > 1 -->
                       <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
                         Subtotal: ₱ {{ number(subtotalFor(it)) }}
                       </div>
@@ -928,7 +972,6 @@
                       <div class="fw-semibold text-success">
                         ₱ {{ number(discountedUnitPrice(it)) }}
                       </div>
-                      <!-- show subtotal ONLY when qty > 1 -->
                       <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
                         Subtotal: ₱ {{ number(subtotalFor(it)) }}
                       </div>
@@ -936,7 +979,6 @@
 
                     <template v-else>
                       <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
-                      <!-- show subtotal ONLY when qty > 1 -->
                       <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
                         Subtotal: ₱ {{ number(subtotalFor(it)) }}
                       </div>
@@ -1219,11 +1261,10 @@ function ensureSignedUrlForProduct(prod?: Product) {
   if (!prod) return
   const raw = firstUrl(prod.product_url)
   if (!raw) return
-  if (!isStoragePath(raw)) return // already a public https url
+  if (!isStoragePath(raw)) return
   if (signedUrlMap[prod.id] || signingBusy[prod.id]) return
 
   signingBusy[prod.id] = true
-  // TTL 1 hour; adjust if you want longer
   supabase.storage
     .from('prize_product')
     .createSignedUrl(raw, 3600)
@@ -1231,7 +1272,6 @@ function ensureSignedUrlForProduct(prod?: Product) {
       if (!error && data?.signedUrl) {
         signedUrlMap[prod.id] = data.signedUrl
       } else if (error) {
-        // Optional: surface/log signing errors
         console.warn('Signed URL error for', prod.id, raw, error.message)
       }
     })
@@ -1252,7 +1292,6 @@ function productThumb(purchase: AnyRec): string {
   if (!prod) return ''
   const raw = firstUrl(prod.product_url)
 
-  // NEW: kick off signing lazily if this looks like a storage path
   if (raw && isStoragePath(raw) && !signedUrlMap[prod.id] && !signingBusy[prod.id]) {
     ensureSignedUrlForProduct(prod)
   }
@@ -1323,15 +1362,14 @@ async function autocloseOverdue(uid: string) {
   if (Array.isArray(updatedRows) && updatedRows.length) {
     const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
     for (const row of purchases.value) if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
-    // NEW: also create receipts for these auto-closed items (and update monthly purchases)
     await createOrderReceiptForIds(Array.from(updatedIds))
   }
 }
 
 /** ========= DISCOUNT (refund_lock + event.interest_per_player + discounted_price column + redemptions) ========= */
-const refDiscount: Record<string, number> = reactive({}) // event.interest_per_player fallback
-const refRedeemedTotal: Record<string, number> = reactive({}) // NEW: total redeemed_amount per ref
-const refShippingTotal: Record<string, number> = reactive({}) // NEW: total shipping per ref
+const refDiscount: Record<string, number> = reactive({})
+const refRedeemedTotal: Record<string, number> = reactive({})
+const refShippingTotal: Record<string, number> = reactive({}) // kept (unused now) to avoid removing unrelated code
 
 /** ===== NEW: discount metadata (title + %/amount) per ref ===== */
 type Discount = {
@@ -1389,7 +1427,7 @@ function baseGroupTotalByRef(ref: string): number {
 function discountedUnitPrice(purchase: AnyRec): number {
   if (hasItemLevelDiscount(purchase)) {
     return Number(purchase.discounted_price)
-    }
+  }
   const ref = purchase?.reference_number || purchase?.id
   const base = productPrice(purchase)
   const qty = Number(purchase?.qty ?? 1) || 1
@@ -1423,7 +1461,6 @@ function redemptionUnitDiscount(purchase: AnyRec): number {
   const myBaseSubtotal = base * qty
   const myDiscountShare = (redeemed * myBaseSubtotal) / groupBase
   const perUnit = myDiscountShare / qty
-  // Clamp to base (never exceed)
   return perUnit > base ? base : perUnit
 }
 
@@ -1433,7 +1470,7 @@ function groupTotalDiscounted(g: Group): number {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * discountedUnitPrice(it)
   }, 0)
-  return items + (refShippingTotal[g.ref] || 0)
+  return items + shippingFor(g.ref)
 }
 
 /** Load all data (+ event title detection) */
@@ -1458,7 +1495,8 @@ async function loadPurchases() {
       .schema('games')
       .from('purchases')
       .select(
-        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price',
+        // ⬇️ added shipping_fee and tracking_link here
+        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price,shipping_fee,tracking_link',
       )
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
@@ -1497,7 +1535,6 @@ async function loadPurchases() {
             specifications: (pr as any)?.specifications ?? null,
           }
         }
-        // NEW: make sure signed URLs exist for all fetched products
         ensureSignedUrlsForAllProducts()
       }
     }
@@ -1597,7 +1634,6 @@ async function loadPurchases() {
         .in('purchase_id', purchaseIds)
 
       if (!redErr && Array.isArray(redRows)) {
-        // map purchase_id -> ref
         const pidToRef = new Map<string, string>()
         for (const r of purchases.value) {
           pidToRef.set(r.id, r.reference_number || r.id)
@@ -1617,7 +1653,6 @@ async function loadPurchases() {
         }
       }
 
-      // Fetch discount metadata
       if (allDiscountIds.size) {
         const { data: drows, error: derr } = await supabase
           .schema('rewards')
@@ -1637,25 +1672,10 @@ async function loadPurchases() {
       }
     }
 
-    // ===== NEW: Shipping charges per reference_number =====
-    Object.keys(refShippingTotal).forEach((k) => delete refShippingTotal[k])
-    if (refs.length) {
-      const { data: shipRows, error: shipErr } = await supabase
-        .schema('games')
-        .from('shipping_charges')
-        .select('reference_number,amount')
-        .in('reference_number', refs)
+    // ===== REMOVED: shipping_charges table fetch =====
+    // (Shipping now comes from purchases.shipping_fee; see shippingFor(ref))
 
-      if (!shipErr && Array.isArray(shipRows)) {
-        for (const sr of shipRows as Array<{ reference_number: string; amount: any }>) {
-          const ref = sr.reference_number
-          const amt = Number(sr.amount ?? 0) || 0
-          refShippingTotal[ref] = (refShippingTotal[ref] || 0) + amt
-        }
-      }
-    }
-
-    // NEW: sign any newly-seen product images again to be safe
+    // Try signing any new product images
     ensureSignedUrlsForAllProducts()
   } finally {
     busy.value.load = false
@@ -1773,18 +1793,7 @@ const formatDate = (iso?: string) => {
   try {
     const d = new Date(iso)
     const months = [
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
+      'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec',
     ]
     const mon = months[d.getMonth()], day = d.getDate(), year = d.getFullYear()
     let h = d.getHours()
@@ -1884,9 +1893,32 @@ async function goRefundOtherProducts(g: Group) {
   if (found) openReturnRefundGroup(found)
 }
 
-/** Shipping helper (per ref) */
+/** Shipping helper (per ref) - now from purchases.shipping_fee (highest per ref) */
 function shippingFor(ref: string): number {
-  return Number(refShippingTotal[ref] || 0)
+  const rows = purchases.value.filter((p) => (p.reference_number || p.id) === ref)
+  let maxFee = 0
+  for (const r of rows) {
+    const fee = Number(r?.shipping_fee ?? 0) || 0
+    if (fee > maxFee) maxFee = fee
+  }
+  return maxFee
+}
+
+/** Tracking helper (per ref) - show link if any To Receive item has one */
+function trackingLinkFor(ref: string): string {
+  const toReceiveWithLink = purchases.value.find(
+    (p) =>
+      (p.reference_number || p.id) === ref &&
+      p.status === STATUS.TO_RECEIVE &&
+      (p?.tracking_link || '').toString().trim().length > 0,
+  )
+  if (toReceiveWithLink) return (toReceiveWithLink.tracking_link || '').toString()
+  const anyWithLink = purchases.value.find(
+    (p) =>
+      (p.reference_number || p.id) === ref &&
+      (p?.tracking_link || '').toString().trim().length > 0,
+  )
+  return (anyWithLink?.tracking_link || '').toString()
 }
 
 function groupTotal(g: Group): number {
@@ -1894,7 +1926,7 @@ function groupTotal(g: Group): number {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * productPrice(it)
   }, 0)
-  return items + shippingFor(g.ref) // include shipping in subtotal
+  return items + shippingFor(g.ref)
 }
 
 /** ===================== PRICE BREAKDOWN HELPERS ===================== */
@@ -1929,7 +1961,6 @@ function groupAllToReceive(g: Group): boolean {
 /* =============================== */
 /* === NEW: MONTHLY TOTAL HELPER === */
 /* =============================== */
-/** Adds a delta to the current user's users.purchases_per_month (public schema) */
 async function addToUserPurchasesMonthly(delta: number) {
   try {
     const amt = Number(delta || 0)
@@ -1938,7 +1969,6 @@ async function addToUserPurchasesMonthly(delta: number) {
     const uid = auth?.user?.id
     if (!uid) return
 
-    // read current value
     const { data: row, error: readErr } = await supabase
       .from('users')
       .select('purchases_per_month')
@@ -2202,12 +2232,10 @@ async function cancelPurchase(purchaseId: string) {
       return
     }
 
-    // Local update
     const row = purchases.value.find((r) => r.id === purchaseId)
     if (row) {
       row.status = STATUS.CANCELLED
 
-      // ✅ RESTORE STOCK for this cancelled item
       const qty = Number(row?.qty ?? 0) || 0
       const pid = row?.product_id
       if (pid && qty > 0) {
@@ -2237,10 +2265,8 @@ async function cancelGroup(g: Group) {
       return
     }
 
-    // Local update
     for (const r of purchases.value) if (ids.includes(r.id)) r.status = STATUS.CANCELLED
 
-    // ✅ RESTORE STOCK for all items in this cancelled group
     const entries = g.items
       .map((it) => ({ product_id: it.product_id as string, qty: Number(it?.qty ?? 0) || 0 }))
       .filter((e) => e.product_id && e.qty > 0)
@@ -2267,7 +2293,6 @@ async function createOrderReceiptForGroup(g: Group) {
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
 
-    // NEW: add to users.purchases_per_month (using the same amounts as receipts)
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
   } catch (e) {
@@ -2292,7 +2317,6 @@ async function createOrderReceiptForGroupCompleted(g: Group, ids: string[]) {
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
 
-    // NEW: add to users.purchases_per_month
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
   } catch (e) {
@@ -2328,7 +2352,6 @@ async function createOrderReceiptForIds(ids: string[]) {
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
     if (recErr) alert(`Auto-complete succeeded, but creating receipts failed: ${recErr.message}`)
 
-    // NEW: add to users.purchases_per_month
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
   } catch (e) {
@@ -2422,7 +2445,6 @@ async function orderReceivedGroup(g: Group) {
       }
     }
 
-    // Create receipts and update users.purchases_per_month using discounted amounts
     await createOrderReceiptForGroupCompleted(g, updatedIds)
   } finally {
     groupBusy.received[g.ref] = false
@@ -2513,10 +2535,7 @@ watch(
 )
 
 onMounted(async () => {
-  // Load purchases first
   await loadPurchases()
-
-  // lazy sign images for all known products (idempotent; won't re-sign existing)
   ensureSignedUrlsForAllProducts()
 })
 </script>
@@ -2624,8 +2643,8 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: #f8f9fa;            /* blends with site */
-  border: 1px dashed #e9ecef;     /* subtle perforation */
+  background: #f8f9fa;
+  border: 1px dashed #e9ecef;
   border-radius: 12px;
   box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.04);
   color: #212529;
@@ -2640,7 +2659,7 @@ onMounted(async () => {
   top: 50%;
   width: 14px;
   height: 14px;
-  background: #ffffff;            /* card bg */
+  background: #ffffff;
   border: 1px solid #e9ecef;
   border-radius: 50%;
   transform: translateY(-50%);
@@ -2654,7 +2673,6 @@ onMounted(async () => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-weight: 600;
 }
 .ticket-title {
   max-width: 36ch;
@@ -2723,3 +2741,4 @@ onMounted(async () => {
   }
 }
 </style>
+  
