@@ -164,15 +164,26 @@
             </div>
           </div>
 
+          <!-- NEW: Single tracking link shown at top for TO_RECEIVE (per reference) -->
+          <div
+            v-if="statusFilter === STATUS.TO_RECEIVE && refTrackingLink(g.reference_number)"
+            class="mt-2"
+          >
+            <div class="small">
+              <i class="bi bi-truck me-1"></i>
+              <a :href="refTrackingLink(g.reference_number)" target="_blank" rel="noopener">Tracking link</a>
+            </div>
+          </div>
+          <!-- /NEW -->
+
           <!-- NEW: Offer Shipping controls (only show in the Offer Shipping tab) -->
           <div
             v-if="statusFilter === TAB_OFFER_SHIPPING && isGroupPendingShipping(g)"
             class="mt-3 border rounded p-3 bg-body"
           >
-            <div class="small text-muted mb-2">Shipping offer</div>
+            <div class="small text-muted mb-2">Shipping offer (₱)</div>
             <div class="d-flex flex-wrap align-items-end gap-2" style="max-width:600px">
               <div class="flex-grow-1">
-                <label class="form-label small text-muted mb-1">Shipping fee (₱ PHP)</label>
                 <!-- removed .trim; we coerce safely in code -->
                 <input
                   v-model="shippingOfferInputByRef[g.reference_number]"
@@ -182,7 +193,6 @@
                   class="form-control"
                   :placeholder="`₱ ${number(0)}`"
                 />
-                <div class="form-text">Set one shipping fee for the entire reference.</div>
               </div>
               <button
                 class="btn btn-primary"
@@ -273,10 +283,14 @@
                   </span>
                 </div>
 
-                <!-- NEW: Show tracking link when item is To Receive -->
+                <!-- UPDATED: Show per-item tracking link ONLY if no ref-level link -->
                 <div
                   class="mt-1 small"
-                  v-if="purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE && purchaseTrackingLink(g, it.order_id)"
+                  v-if="
+                    purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE &&
+                    !refTrackingLink(g.reference_number) &&
+                    purchaseTrackingLink(g, it.order_id)
+                  "
                 >
                   <a :href="purchaseTrackingLink(g, it.order_id)!" target="_blank" rel="noopener"
                     >Tracking link</a
@@ -314,20 +328,42 @@
                   ₱ {{ number(groupSubtotal(g)) }}
                 </div>
 
-                <div v-else>
+                <!-- ★ CHANGE: When discounted, show original vs discounted subtotal clearly (card body) -->
+                <div v-else class="text-end">
                   <div class="small text-muted text-decoration-line-through">
                     ₱ {{ number(groupSubtotalOriginal(g)) }}
                   </div>
+                   <!-- NEW: explicit item discount line (event/per-purchase) -->
+                <div class="small text-muted" v-if="hasEventDiscount(g.reference_number) && groupItemDiscountAmount(g) > 0">
+                  Item discount: − ₱ {{ number(groupItemDiscountAmount(g)) }}
+                </div>
                   <div class="small text-success fw-semibold">
                     ₱ {{ number(groupSubtotalDiscounted(g)) }}
                   </div>
                 </div>
+                <!-- /★ CHANGE -->
 
+               
+
+                <!-- show discounts line only if we actually subtracted them (avoid double subtract) -->
                 <div class="small text-muted" v-if="(g.discount_total || 0) > 0">
                   Discounts: − ₱ {{ number(g.discount_total) }}
                 </div>
+                <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
+                <div class="small text-muted"
+                  v-else-if="g.allPending && discountSumForRef(g.reference_number) > 0">
+                  Discounts: − ₱ {{ number(discountSumForRef(g.reference_number)) }}
+                </div>
 
-                
+                <!-- NEW: show shipping fee in card body (not on Return/Refund tab) -->
+                <div
+                  class="small text-muted"
+                  v-if="statusFilter !== STATUS.RETURN_REFUND && shippingForRef(g.reference_number) > 0"
+                >
+                  Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
+                </div>
+
+                <!-- Recorded total includes shipping for all tabs except Return/Refund -->
                 <div class="fw-semibold fs-5">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
@@ -364,13 +400,28 @@
                 <span>{{ rr.details }}</span>
               </div>
 
+              <!-- NEW: Return tracking link input (only when PENDING) -->
+              <div v-if="isRRPending(rr)" class="mt-2" style="max-width: 560px;">
+                <div class="input-group input-group-sm">
+                  <span class="input-group-text">Return tracking</span>
+                  <input
+                    v-model.trim="rrTrackById[rr.id]"
+                    type="url"
+                    class="form-control"
+                    placeholder="https://courier.example/track/RETURN123"
+                  />
+                </div>
+                <div class="form-text">Required before approving.</div>
+              </div>
+              <!-- /NEW -->
+
               <div class="text-muted mt-1">Created: {{ formatClean(rr.created_at) }}</div>
 
               <div class="mt-2 d-flex justify-content-end gap-2">
                 <template v-if="isRRPending(rr)">
                   <button
                     class="btn btn-success btn-sm"
-                    :disabled="busy.action[rr.id]"
+                    :disabled="busy.action[rr.id] || !rrTrackingLinkFilled(rr.id)"
                     @click="approveRefund(rr)"
                     title="Approve refund request"
                   >
@@ -391,7 +442,7 @@
                       v-if="busy.action[rr.id]"
                       class="spinner-border spinner-border-sm me-1"
                     ></span>
-                    Reject refund
+                    Reject
                   </button>
                 </template>
 
@@ -537,10 +588,10 @@
                   </template>
                 </div>
 
-                <!-- NEW: Show tracking link for completed sibling that was To Receive before -->
+                <!-- Keep (but won't show in TO_RECEIVE because ref-level link is displayed above) -->
                 <div
                   class="small mt-1"
-                  v-if="purchaseStatusKey(g, s.order_id) === STATUS.TO_RECEIVE && purchaseTrackingLink(g, s.order_id)"
+                  v-if="purchaseStatusKey(g, s.order_id) === STATUS.TO_RECEIVE && purchaseTrackingLink(g, s.order_id) && !refTrackingLink(g.reference_number)"
                 >
                   <a :href="purchaseTrackingLink(g, s.order_id)!" target="_blank" rel="noopener"
                     >Tracking link</a
@@ -731,11 +782,20 @@
                 <div>
                   <span class="text-muted">Payment: </span>{{ selectedGroup.paymentSummaryLabel }}
                 </div>
+                <div v-if="hasEventDiscount(selectedGroup.reference_number) && groupItemDiscountAmount(selectedGroup) > 0">
+                  <span class="text-muted">Item Discount: </span>− ₱
+                  {{ number(groupItemDiscountAmount(selectedGroup)) }}
+                </div>
                 <div v-if="(selectedGroup.discount_total || 0) > 0">
-                  <span class="text-muted">Discounts Applied: </span>₱
+                  <span class="text-muted">Discounts Applied: </span>− ₱
                   {{ number(selectedGroup.discount_total) }}
                 </div>
-                <div>
+                <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
+                <div v-else-if="selectedGroup.allPending && discountSumForRef(selectedGroup.reference_number) > 0">
+                  <span class="text-muted">Discounts: </span>− ₱
+                  {{ number(discountSumForRef(selectedGroup.reference_number)) }}
+                </div>
+                <div v-if="statusFilter !== STATUS.RETURN_REFUND">
                   <span class="text-muted">Shipping Fee: </span>₱
                   {{ number(shippingForRef(selectedGroup.reference_number)) }}
                 </div>
@@ -843,28 +903,7 @@
                     </template>
                   </div>
 
-                  <!-- NEW: Show existing tracking link when To Receive -->
-                  <div
-                    class="mt-1 small"
-                    v-if="String(o.status).toLowerCase() === STATUS.TO_RECEIVE && o.tracking_link"
-                  >
-                    <a :href="o.tracking_link!" target="_blank" rel="noopener">Tracking link</a>
-                  </div>
-
-                  <!-- NOTE: per-item tracking input kept but disabled -->
-                  <div v-if="false && String(o.status).toLowerCase() === STATUS.TO_SHIP" class="mt-2">
-                    <div class="input-group input-group-sm" style="max-width: 520px">
-                      <span class="input-group-text">Tracking link</span>
-                      <input
-                        type="url"
-                        class="form-control"
-                        placeholder="https://courier.example/track/ABC123"
-                      />
-                    </div>
-                    <div class="form-text">Required before marking as shipped.</div>
-                  </div>
-
-                  <!-- Return/Refund rows for this purchase (with buttons) -->
+                  <!-- NEW: Return tracking link per RR (modal) -->
                   <div v-if="(rrByPurchase[o.id] || []).length" class="mt-2">
                     <div
                       v-for="rr in rrByPurchase[o.id]"
@@ -882,13 +921,29 @@
                       <div v-if="rr.details" class="mt-1">
                         <span class="fw-semibold">Details:</span> <span>{{ rr.details }}</span>
                       </div>
+
+                      <!-- NEW: Return tracking link input (only when PENDING) -->
+                      <div v-if="isRRPending(rr)" class="mt-2" style="max-width: 560px;">
+                        <div class="input-group input-group-sm">
+                          <span class="input-group-text">Return tracking</span>
+                          <input
+                            v-model.trim="rrTrackById[rr.id]"
+                            type="url"
+                            class="form-control"
+                            placeholder="https://courier.example/track/RETURN123"
+                          />
+                        </div>
+                        <div class="form-text">Required before approving.</div>
+                      </div>
+                      <!-- /NEW -->
+
                       <div class="text-muted mt-1">Created: {{ formatClean(rr.created_at) }}</div>
 
                       <div class="mt-2 d-flex justify-content-end gap-2">
                         <template v-if="isRRPending(rr)">
                           <button
                             class="btn btn-success btn-sm"
-                            :disabled="busy.action[rr.id]"
+                            :disabled="busy.action[rr.id] || !rrTrackingLinkFilled(rr.id)"
                             @click="approveRefund(rr)"
                           >
                             <span
@@ -948,12 +1003,22 @@
                 </div>
               </div>
 
+              <!-- NEW: explicit item discount line in modal totals -->
+              <div class="small text-muted" v-if="hasEventDiscount(selectedGroup.reference_number) && groupItemDiscountAmount(selectedGroup) > 0">
+                Item discount: − ₱ {{ number(groupItemDiscountAmount(selectedGroup)) }}
+              </div>
+
               <div class="small text-muted" v-if="(selectedGroup.discount_total || 0) > 0">
                 Discounts: − ₱ {{ number(selectedGroup.discount_total) }}
               </div>
+              <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
+              <div class="small text-muted" v-else-if="selectedGroup.allPending && discountSumForRef(selectedGroup.reference_number) > 0">
+                Discounts: − ₱ {{ number(discountSumForRef(selectedGroup.reference_number)) }}
+              </div>
+
               <div
                 class="small text-muted"
-                v-if="shippingForRef(selectedGroup.reference_number) > 0"
+                v-if="statusFilter !== STATUS.RETURN_REFUND && shippingForRef(selectedGroup.reference_number) > 0"
               >
                 Shipping fee: ₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
               </div>
@@ -1098,6 +1163,8 @@ type ReturnRefundRow = {
   status: string
   created_at: string
   updated_at: string
+  /** NEW: store the return tracking link in DB */
+  refund_tracking_link: string | null
 }
 
 type OrderItem = {
@@ -1149,6 +1216,8 @@ type ViewGroup = {
   siblingCompletedItems: Array<OrderItem>
   completedRRItems: Array<OrderItem & { rrStatus: string | null }>
   discount_total?: number
+  /** ★ NEW: true when ALL purchases in the group are status 'pending' */
+  allPending: boolean
 }
 
 type DiscountRow = {
@@ -1182,8 +1251,8 @@ let groupIndex: Record<string, string[]> = Object.create(null)
 const discountedByPurchase: Record<string, number | null> = reactive({})
 
 /* ★ NEW: per-purchase & per-reference discount redemption caches */
-const discountByPurchase: Record<string, number> = reactive({})
-const discountByRef: Record<string, number> = reactive({})
+const discountByPurchase: Record<string, number> = reactive({ })
+const discountByRef: Record<string, number> = reactive({ })
 
 /* ★ NEW: per-reference shipping fee cache (MAX of purchases.shipping_fee) */
 const shippingByRef: Record<string, number> = reactive({})
@@ -1196,6 +1265,13 @@ const purchaseRefIndex: Record<string, string> = reactive({})
 
 /* NEW: per-reference shipping offer input can be string OR number (from number input) */
 const shippingOfferInputByRef: Record<string, string | number> = reactive({})
+
+/* NEW: per-RR return tracking link input cache */
+const rrTrackById: Record<string, string> = reactive({})
+
+function rrTrackingLinkFilled(rrId: string): boolean {
+  return !!(rrTrackById[rrId] && rrTrackById[rrId].trim().length)
+}
 
 busy.value.anyGroup = (k: string): boolean => {
   const ids = groupIndex[k] || []
@@ -1232,6 +1308,17 @@ type EventRow = { id: string; winner_refund_amount: number | string }
 const eventDiscountByRef = reactive<Record<string, number>>({})
 
 /* ---------- Helpers ---------- */
+
+// ★ FIX: detect a *real* per-purchase discount (final each < base each)
+function perPurchaseDiscountApplied(purchaseId: string): boolean {
+  const per = discountedByPurchase[purchaseId]
+  if (per == null) return false
+  const ord = orders.value.find(o => o.id === purchaseId)
+  const base = Number(ord?.items?.[0]?.price_each ?? NaN)
+  const perNum = Number(per)
+  return isFinite(base) && isFinite(perNum) && perNum < base - 1e-6
+}
+
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 
 /* Clean formatter: "Dec 18, 2025 • 3 PM" */
@@ -1358,28 +1445,31 @@ function winnerRefundForRef(ref?: string | null): number {
   return Number(eventDiscountByRef[ref] ?? 0) || 0
 }
 
-/* ★ CHANGED: treat group as “discounted” if either event refund > 0 OR any purchase under ref has discounted_price */
-function hasEventDiscount(ref?: string | null): boolean {
-  const hasEvent = winnerRefundForRef(ref) > 0
-  if (hasEvent) return true
+/* CHANGED: treat group as “discounted” if either event refund > 0 OR any purchase under ref has discounted_price */
+// ★ FIX: only treat as discounted if price actually changed
+function hasPerPurchaseDiscount(ref?: string | null): boolean {
   if (!ref) return false
   const ids = groupIndex[ref] || []
-  return ids.some((id) => {
-    const v = discountedByPurchase[id]
-    return v != null && isFinite(Number(v)) && Number(v) >= 0
-  })
+  return ids.some(perPurchaseDiscountApplied)
 }
 
-/* ★ CHANGED: use per-purchase discounted_price (final each) when present; else fallback to event-based computation */
+// ★ FIX: event OR real per-purchase discount
+function hasEventDiscount(ref?: string | null): boolean {
+  return winnerRefundForRef(ref) > 0 || hasPerPurchaseDiscount(ref)
+}
+
+
+/* use per-purchase discounted_price (final each) when present; else fallback to event-based computation */
+// ★ FIX: only use discounted_price if it's < base; otherwise fall back
 function discountedPriceEachForItem(it: OrderItem, ref?: string | null): number {
-  const per = discountedByPurchase[it.order_id]
-  if (per != null && isFinite(Number(per)) && Number(per) >= 0) {
-    return Number(per)
+  if (perPurchaseDiscountApplied(it.order_id)) {
+    return Number(discountedByPurchase[it.order_id])
   }
   const base = Number(it.price_each || 0)
   const less = winnerRefundForRef(ref)
   return Math.max(0, base - less)
 }
+
 function lineTotalAfterDiscount(it: OrderItem, ref?: string | null): number {
   const each = discountedPriceEachForItem(it, ref)
   const qty = Number(it.qty || 1)
@@ -1395,6 +1485,23 @@ function discountSumForRef(ref?: string | null): number {
   if (!ref) return 0
   return Number(discountByRef[ref] ?? 0) || 0
 }
+
+/* FIX: subtract redemptions ONLY for purchases under this ref that DO NOT already have a per-purchase discounted_price.
+   This prevents double-subtracting when discounted_price is already the final net price. */
+// ★ FIX: exclude vouchers only when a real per-purchase discount was applied
+function effectiveDiscountForRef(ref?: string | null): number {
+  if (!ref) return 0
+  const ids = groupIndex[ref] || []
+  let sum = 0
+  for (const pid of ids) {
+    const redemption = Number(discountByPurchase[pid] || 0) || 0
+    if (redemption > 0 && !perPurchaseDiscountApplied(pid)) {
+      sum += redemption
+    }
+  }
+  return Number(sum.toFixed(2))
+}
+
 
 /* ---------- Subtotals (original vs discounted) ---------- */
 function groupItemsTotalOriginal(g: ViewGroup) {
@@ -1417,8 +1524,22 @@ function groupSubtotal(g: ViewGroup) {
   return groupSubtotalOriginal(g)
 }
 
-function orderSubtotal(o: ViewOrder) {
-  return o.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
+/* NEW: net items after discounts (event/per-purchase + rewards) */
+function groupItemsNet(g: ViewGroup): number {
+  const base = hasEventDiscount(g.reference_number)
+    ? groupSubtotalDiscounted(g)
+    : groupSubtotalOriginal(g)
+  const less = Number(g.discount_total || 0)
+  const net = Math.max(0, Number((base - less).toFixed(2)))
+  return net
+}
+
+/* NEW: explicit item discount amount (original - discounted) */
+function groupItemDiscountAmount(g: ViewGroup): number {
+  if (!hasEventDiscount(g.reference_number)) return 0
+  const orig = groupSubtotalOriginal(g)
+  const disc = groupSubtotalDiscounted(g)
+  return Math.max(0, Number((orig - disc).toFixed(2)))
 }
 
 /* Helper: pull purchase info for badges & links */
@@ -1433,6 +1554,17 @@ function purchasePayment(g: ViewGroup, purchaseId: string): string | null {
 }
 function purchaseTrackingLink(g: ViewGroup, purchaseId: string): string | null | undefined {
   return purchaseFromGroup(g, purchaseId)?.tracking_link
+}
+
+/* NEW: read the single tracking link per reference (fallback to any purchase link) */
+function refTrackingLink(ref?: string | null): string {
+  if (!ref) return ''
+  const fromMap = (trackLinkByRef[ref] || '').trim()
+  if (fromMap) return fromMap
+  const found = orders.value.find(
+    (o) => o.reference_number === ref && String(o.tracking_link || '').trim()
+  )
+  return (found?.tracking_link || '').trim()
 }
 
 /* ---------- GROUPING (by reference_number) ---------- */
@@ -1463,6 +1595,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
     const statuses = Array.from(new Set(arr.map((a) => String(a.status || '').toLowerCase())))
     const allToPay = statuses.length === 1 && statuses[0] === STATUS.TO_PAY
     const allToShip = statuses.length === 1 && statuses[0] === STATUS.TO_SHIP
+    const allPending = statuses.length === 1 && statuses[0] === 'pending' // ★ NEW
     const canGroupCancel = statuses.every((s) => s === STATUS.TO_PAY || s === STATUS.TO_SHIP)
 
     let statusSummaryLabel = 'Mixed'
@@ -1486,11 +1619,26 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const items = arr.flatMap((a) => a.items)
 
-    // Recorded total still includes shipping
+    // Items totals (respect event/per-purchase discount)
     const itemsTotal = hasEventDiscount(ref)
       ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
-    const total_amount = itemsTotal 
+
+    // ★ CHANGE: In Offer Shipping, also subtract redemption discounts when no per-purchase discounted price
+    // (prevents double-subtract if discounted_price is already applied at item level)
+    // ★ FIX: always use the same “effective” logic on every tab
+const discount_total_effective = effectiveDiscountForRef(ref)
+
+
+    const shipFee = shippingForRef(ref)
+
+    // Recorded total includes shipping on all tabs EXCEPT Return/Refund
+    const netAfterDiscounts = Math.max(0, Number((itemsTotal - discount_total_effective).toFixed(2)))
+    const includeShipping = statusFilter.value !== STATUS.RETURN_REFUND
+    const total_amount = Math.max(
+      0,
+      Number(((netAfterDiscounts + (includeShipping ? shipFee : 0))).toFixed(2)),
+    )
 
     const containsRR = arr.some((a) => (rrByPurchase[a.id] || []).length > 0)
 
@@ -1595,8 +1743,6 @@ const orderGroups = computed<ViewGroup[]>(() => {
     }
     /* ===== /NEW ===== */
 
-    const discount_total = discountSumForRef(ref)
-
     groups.push({
       groupKey: ref,
       reference_number: ref,
@@ -1619,7 +1765,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
       siblingRRItems,
       siblingCompletedItems,
       completedRRItems,
-      discount_total,
+      discount_total: discount_total_effective, // expose only the effective discount we subtracted
+      allPending, // ★ NEW
     })
   }
 
@@ -1651,7 +1798,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
         )
 
       for (const pr of allPurchasesForRef) {
-        const st = String(pr.status || '').toLowerCase()
+        const st = String(pr.status).toLowerCase()
         if (st === STATUS.COMPLETED) continue
         if (st === STATUS.RETURN_REFUND) {
           const list = rrByPurchase[pr.id] || []
@@ -1832,7 +1979,7 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    for (const key of Object.keys(rrByPurchase)) delete rrByPurchase[key]
+    for (const k of Object.keys(rrByPurchase)) delete rrByPurchase[k]
 
     const needRR =
       (statusFilter.value === STATUS.RETURN_REFUND ||
@@ -1846,7 +1993,7 @@ async function loadOrders(resetPage = false) {
       let rrQ = supabase
         .schema('games')
         .from('return_refunds')
-        .select('id,user_id,purchase_id,product_id,reason,details,status,created_at,updated_at')
+        .select('id,user_id,purchase_id,product_id,reason,details,status,created_at,updated_at,refund_tracking_link')
         .in('purchase_id', Array.from(purchaseIds))
 
       if (statusFilter.value === STATUS.RETURN_REFUND && rrStatusFilter.value !== 'all') {
@@ -1859,6 +2006,10 @@ async function loadOrders(resetPage = false) {
           const arr = rrByPurchase[r.purchase_id] || []
           arr.push(r)
           rrByPurchase[r.purchase_id] = arr
+          // prime input cache with existing DB value if present
+          if (r.refund_tracking_link && !rrTrackById[r.id]) {
+            rrTrackById[r.id] = r.refund_tracking_link
+          }
         }
       }
     }
@@ -2118,7 +2269,7 @@ async function countCompletedRefundsForRef(ref: string): Promise<number> {
     .select('id,status')
     .in('purchase_id', pids)
   if (!Array.isArray(rrRows)) return 0
-  return rrRows.filter((r) => String(r.status || '').toLowerCase() === 'completed').length
+  return rrRows.filter((r) => String(r.status).toLowerCase() === 'completed').length
 }
 
 /* ---------- NEW: helper to read redeemed discount amount for a purchase ---------- */
@@ -2175,7 +2326,7 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         alert(upErr.message); return
       }
 
-      const itemsSubtotal = orderSubtotal(order!)
+      const itemsSubtotal = order!.items.reduce((s, it) => s + Number(it.line_total || 0), 0)
       const redeemed = await redeemedDiscountAmount(purchaseId)
       const netRefundItems = Math.max(0, Number((itemsSubtotal - redeemed).toFixed(2)))
 
@@ -2309,19 +2460,40 @@ async function approveOrder(order: ViewOrder) {
   }
 }
 
+/* === NEW: helper to increment users.purchases_per_month === */
+async function addToPurchasesPerMonth(userId: string, amount: number) {
+  const safe = Number(amount || 0)
+  if (!userId || !isFinite(safe) || safe <= 0) return
+  const { data: urow, error: uErr } = await supabase
+    .from('users')
+    .select('id,purchases_per_month')
+    .eq('id', userId)
+    .single()
+  if (uErr || !urow) return
+  const current = Number(urow.purchases_per_month || 0)
+  const next = Number((current + safe).toFixed(2))
+  await supabase.from('users').update({ purchases_per_month: next }).eq('id', userId)
+}
+
 /* Approve/Reject/Complete Refund */
 async function approveRefund(rr: ReturnRefundRow) {
   if (!rr) return
   const rrId = rr.id
+  const link = (rrTrackById[rrId] || '').trim()
+  if (!link) {
+    alert('Please enter the return tracking link before approval.')
+    return
+  }
   busy.value.action[rrId] = true
   try {
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
-      .update({ status: 'approved' })
+      .update({ status: 'approved', refund_tracking_link: link })
       .eq('id', rrId)
     if (error) { alert(error.message); return }
     rr.status = 'approved'
+    rr.refund_tracking_link = link
   } finally {
     busy.value.action[rrId] = false
   }
@@ -2332,6 +2504,7 @@ async function rejectRefund(rr: ReturnRefundRow) {
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
+    // 1) Update RR status to rejected
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
@@ -2339,6 +2512,44 @@ async function rejectRefund(rr: ReturnRefundRow) {
       .eq('id', rrId)
     if (error) { alert(error.message); return }
     rr.status = 'rejected'
+
+    // 2) Add item price * qty to users.purchases_per_month
+    const { data: purchase, error: pErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id,user_id,product_id,qty,reference_number')
+      .eq('id', rr.purchase_id)
+      .single()
+    if (!pErr && purchase) {
+      const { data: product, error: prodErr } = await supabase
+        .schema('games')
+        .from('products')
+        .select('id,price')
+        .eq('id', rr.product_id || purchase.product_id)
+        .single()
+      if (!prodErr && product) {
+        const qty = Number(purchase.qty ?? 1) || 1
+const baseEach = Number(product.price || 0)
+
+// Prefer per-purchase discounted price if truly applied; else use event discount; else base
+let effectiveEach =
+  discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
+
+if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+  const ref = purchase.reference_number || purchaseRefIndex[purchase.id]
+  const eventLess = winnerRefundForRef(ref)
+  effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
+}
+
+if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+  effectiveEach = baseEach
+}
+
+const amount = Math.max(0, Number((effectiveEach * qty).toFixed(2)))
+await addToPurchasesPerMonth(purchase.user_id, amount)
+
+      }
+    }
   } finally {
     busy.value.action[rrId] = false
   }
@@ -2554,7 +2765,7 @@ async function offerShipping(g: ViewGroup) {
 }
  /* ===== /NEW ===== */
 
-/* Init */
+ /* Init */
 onMounted(() => { loadOrders(true) })
 </script>
 

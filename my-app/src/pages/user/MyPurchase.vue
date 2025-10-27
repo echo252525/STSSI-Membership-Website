@@ -147,6 +147,23 @@
                 Track your package
               </a>
             </div>
+
+            <!-- ===== NEW: Return tracking link (ONLY on Return/Refund tab & APPROVED) ===== -->
+            <div
+              v-if="activeTab === STATUS.RETURN_REFUND && returnTrackingLinkForApproved(g.ref)"
+              class="mt-2"
+              @click.stop
+            >
+              <a
+                :href="returnTrackingLinkForApproved(g.ref)"
+                target="_blank"
+                rel="noopener"
+                class="small text-primary text-decoration-underline"
+                title="Open return tracking in a new tab"
+              >
+                Return tracking
+              </a>
+            </div>
             <!-- ========================================================= -->
 
             <!-- Items inside group -->
@@ -222,6 +239,22 @@
                       {{ prettyModeOfPayment(it.modeofpayment) }}
                     </span>
                   </div>
+
+                  <!-- NEW: Per-item return tracking (ONLY on RR tab & APPROVED) -->
+                  <div
+                    class="mt-2"
+                    v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
+                  >
+                    <a
+                      :href="rrTrackingLinkApproved(it.id)"
+                      target="_blank"
+                      rel="noopener"
+                      class="small text-primary text-decoration-underline"
+                      title="Open return tracking in a new tab"
+                    >
+                      Return tracking
+                    </a>
+                  </div>
                 </div>
 
                 <!-- View RR details (disabled on RR tab) -->
@@ -272,7 +305,10 @@
             </div>
 
             <!-- Group actions -->
-            <div class="mt-3 d-flex align-items-center justify-content-end">
+            <div
+              class="mt-3 d-flex align-items-center justify-content-end"
+              v-if="activeTab !== STATUS.RETURN_REFUND"
+            >
               <div class="d-flex gap-2 flex-wrap">
                 <!-- to pay: Cancel group -->
                 <button
@@ -293,13 +329,8 @@
                   <!-- intentionally empty -->
                 </template>
 
-                <!-- RETURN/REFUND tab: show 'Refund Other Product' only when there are items still TO_RECEIVE -->
-                <template
-                  v-else-if="
-                    activeTab === STATUS.RETURN_REFUND &&
-                    g.items.some((it) => it.status === STATUS.TO_RECEIVE)
-                  "
-                >
+                <!-- RETURN/REFUND tab: button removed (keep code path inert) -->
+                <template v-else-if="false">
                   <button
                     class="btn btn-outline-warning btn-sm"
                     @click.stop="goRefundOtherProducts(g)"
@@ -307,14 +338,15 @@
                   >
                     Refund Other Product
                   </button>
-                  <!-- No Order Received button in RR tab -->
                 </template>
 
                 <!-- to receive (on any tab EXCEPT RR tab): RR + Order Received group/N -->
                 <template v-else-if="g.items.some((it) => it.status === STATUS.TO_RECEIVE)">
                   <button
+                    v-if="!groupHasAnyRR(g)"
                     class="btn btn-outline-warning btn-sm"
                     @click.stop="openReturnRefundGroup(g)"
+                    title="Return or refund items in this order."
                   >
                     Return/Refund
                   </button>
@@ -344,10 +376,7 @@
               </div>
             </div>
 
-            <!-- Footer (timestamps) -->
-            <div class="mt-3 small text-muted d-flex flex-wrap gap-3">
-              <span>Updated: {{ formatDate(g.updated_at) }}</span>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -385,7 +414,7 @@
                 :title="eventTitleForRef(p.reference_number || p.id)"
               >
                 <div class="ticket-left">
-                  <i class="bi bi-trophy me-1"></i>
+                  <i class="bi bi-trophy me-1)"></i>
                   <span class="ticket-title">{{ eventTitleForRef(p.reference_number || p.id) }}</span>
                 </div>
                 <div class="ticket-divider"></div>
@@ -407,7 +436,7 @@
                 title="Discount applied"
               >
                 <div class="ticket-left">
-                  <i class="bi bi-ticket-perforated me-1"></i>
+                  <i class="bi bi-ticket-perforated me-1)"></i>
                   <span class="ticket-title" :title="d.title">{{ d.title }}</span>
                 </div>
                 <div class="ticket-divider" aria-hidden="true"></div>
@@ -522,7 +551,10 @@
               </div>
 
               <!-- Actions -->
-              <div class="col-12 d-flex align-items-center justify-content-end">
+              <div
+                class="col-12 d-flex align-items-center justify-content-end"
+                v-if="activeTab !== STATUS.RETURN_REFUND"
+              >
                 <div class="d-flex gap-2 flex-wrap">
                   <button
                     v-if="p.status === STATUS.TO_PAY"
@@ -540,7 +572,11 @@
                   <template v-else-if="p.status === STATUS.TO_SHIP"> </template>
 
                   <template v-else-if="p.status === STATUS.TO_RECEIVE">
-                    <button class="btn btn-outline-warning btn-sm" @click="openReturnRefund(p)">
+                    <button
+                      v-if="!refHasAnyRR(p.reference_number || p.id)"
+                      class="btn btn-outline-warning btn-sm"
+                      @click="openReturnRefund(p)"
+                    >
                       Return/Refund
                     </button>
                     <!-- per-item Order Received removed -->
@@ -727,6 +763,22 @@
                       </div>
                     </div>
                   </div>
+
+                  <!-- NEW: Per-item return tracking inside RR modal (ONLY on RR tab & APPROVED) -->
+                  <div
+                    class="mt-2"
+                    v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
+                  >
+                    <a
+                      :href="rrTrackingLinkApproved(it.id)"
+                      target="_blank"
+                      rel="noopener"
+                      class="small text-primary text-decoration-underline"
+                      title="Open return tracking in a new tab"
+                    >
+                      Return tracking
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -908,19 +960,19 @@
             </div>
           </div>
 
-          <!-- ===== NEW: Tracking link in details modal ===== -->
+          <!-- ===== NEW: Return tracking link in details modal (ONLY on RR tab & APPROVED) ===== -->
           <div
-            v-if="groupToReceiveCount(selectedGroupComputed!) > 0 && trackingLinkFor(selectedGroupComputed!.ref)"
+            v-if="activeTab === STATUS.RETURN_REFUND && returnTrackingLinkForApproved(selectedGroupComputed!.ref)"
             class="mt-2"
           >
             <a
-              :href="trackingLinkFor(selectedGroupComputed!.ref)"
+              :href="returnTrackingLinkForApproved(selectedGroupComputed!.ref)"
               target="_blank"
               rel="noopener"
               class="small text-primary text-decoration-underline"
-              title="Open tracking in a new tab"
+              title="Open return tracking in a new tab"
             >
-              Track your package
+              Return tracking
             </a>
           </div>
           <!-- ================================================ -->
@@ -998,22 +1050,21 @@
                   </span>
                 </div>
 
-                <!-- ===== NEW: Product meta (description • warranty • specs) ===== -->
-                <div class="item-meta mt-2">
-                  <div v-if="productDescription(it)" class="meta-item">
-                    <span class="meta-label">Description:</span>
-                    <span class="meta-text">{{ truncatedDescription(it) }}</span>
-                  </div>
-                  <div v-if="productWarranty(it)" class="meta-item">
-                    <span class="meta-label">Warranty:</span>
-                    <span class="meta-text">{{ productWarranty(it) }}</span>
-                  </div>
-                  <div v-if="productSpecsSummary(it)" class="meta-item">
-                    <span class="meta-label">Specifications:</span>
-                    <span class="meta-text">{{ productSpecsSummary(it) }}</span>
-                  </div>
+                <!-- NEW: Per-item return tracking inside details modal (ONLY on RR tab & APPROVED) -->
+                <div
+                  class="mt-2"
+                  v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
+                >
+                  <a
+                    :href="rrTrackingLinkApproved(it.id)"
+                    target="_blank"
+                    rel="noopener"
+                    class="small text-primary text-decoration-underline"
+                    title="Open return tracking in a new tab"
+                  >
+                    Return tracking
+                  </a>
                 </div>
-                <!-- /Product meta -->
               </div>
 
               <div class="text-end">
@@ -1050,14 +1101,15 @@
               <template v-else>
                 <div class="fs-5 fw-bold">₱ {{ number(groupTotal(selectedGroupComputed!)) }}</div>
               </template>
-              <div v-if="shippingFor(selectedGroupComputed!.ref) > 0" class="small text-muted mt-1">
-                (Includes shipping ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }})
-              </div>
+              
             </div>
           </div>
 
           <!-- ==== NEW: Show the same action buttons inside the modal ==== -->
-          <div class="mt-3 d-flex align-items-center justify-content-end">
+          <div
+            class="mt-3 d-flex align-items-center justify-content-end"
+            v-if="activeTab !== STATUS.RETURN_REFUND"
+          >
             <div class="d-flex gap-2 flex-wrap">
               <button
                 v-if="selectedGroupComputed!.status === STATUS.TO_PAY"
@@ -1076,19 +1128,9 @@
                 <!-- intentionally empty -->
               </template>
 
-              <template
-                v-else-if="
-                  activeTab === STATUS.RETURN_REFUND &&
-                  selectedGroupComputed!.items.some((it) => it.status === STATUS.TO_RECEIVE)
-                "
-              >
-                <button
-                  class="btn btn-outline-warning btn-sm"
-                  @click.stop="goRefundOtherProducts(selectedGroupComputed!)"
-                  title="Go to To Receive tab to refund remaining product(s)"
-                >
-                  Refund Other Product
-                </button>
+              <!-- RR tab: nothing displayed (kept inert) -->
+              <template v-else-if="false">
+                <!-- intentionally hidden -->
               </template>
 
               <template
@@ -1098,7 +1140,9 @@
               >
                 <button
                   class="btn btn-outline-warning btn-sm"
+                  v-if="!refHasAnyRR(selectedGroupComputed!.ref)"
                   @click.stop="openReturnRefundGroup(selectedGroupComputed!)"
+                  title="Return or refund items in this order."
                 >
                   Return/Refund
                 </button>
@@ -1333,6 +1377,8 @@ type RRRow = {
   status: RRState
   reason?: string | null
   details?: string | null
+  /** NEW: return tracking URL from games.return_refunds.return_tracking_link */
+  refund_tracking_link?: string | null
   created_at?: string
 }
 const rrByPurchase = reactive<Record<string, RRRow>>({})
@@ -1345,6 +1391,33 @@ function prefillReason(purchaseId: string): string {
 }
 function prefillDetails(purchaseId: string): string {
   return (rrByPurchase[purchaseId]?.details || '') as string
+}
+
+/* ===== NEW: return tracking helpers ===== */
+function rrTrackingLink(purchaseId: string): string {
+  return (rrByPurchase[purchaseId]?.refund_tracking_link || '').toString().trim()
+}
+/* NEW: stricter helper — only if RR is APPROVED */
+function rrTrackingLinkApproved(purchaseId: string): string {
+  return rrStatus(purchaseId) === 'approved' ? rrTrackingLink(purchaseId) : ''
+}
+/* NEW: group-level approved-only helper */
+function returnTrackingLinkFor(ref: string): string {
+  // (kept original functionality if needed elsewhere)
+  const row = purchases.value.find(
+    (p) => (p.reference_number || p.id) === ref && rrTrackingLink(p.id),
+  )
+  return row ? rrTrackingLink(row.id) : ''
+}
+/* NEW: approved-only version used in UI */
+function returnTrackingLinkForApproved(ref: string): string {
+  const row = purchases.value.find(
+    (p) =>
+      (p.reference_number || p.id) === ref &&
+      rrStatus(p.id) === 'approved' &&
+      rrTrackingLink(p.id),
+  )
+  return row ? rrTrackingLink(row.id) : ''
 }
 
 /* ---------------- Auto-complete "to receive" after 7 days ---------------- */
@@ -1546,7 +1619,7 @@ async function loadPurchases() {
       const { data: rrRows, error: rrErr } = await supabase
         .schema('games')
         .from('return_refunds')
-        .select('id,purchase_id,status,reason,details,created_at')
+        .select('id,purchase_id,status,reason,details,refund_tracking_link,created_at')
         .eq('user_id', uid)
         .in('purchase_id', purchaseIds)
         .order('created_at', { ascending: false })
@@ -1559,6 +1632,7 @@ async function loadPurchases() {
               status: (row.status as RRState) || 'pending',
               reason: row.reason ?? null,
               details: row.details ?? null,
+              refund_tracking_link: row.refund_tracking_link ?? null,
               created_at: row.created_at,
             }
           }
@@ -2056,6 +2130,11 @@ function isSelectableForRR(it: AnyRec): boolean {
 }
 
 function openReturnRefundGroup(g: Group) {
+  // Guard: only one RR submission per reference
+  if (groupHasAnyRR(g)) {
+    alert('Return/Refund can only be submitted once for this order.')
+    return
+  }
   rrGroup.value = g
   rrPurchase.value = null
   rrForm.purchase_ids = []
@@ -2078,6 +2157,12 @@ function openReturnRefundGroup(g: Group) {
 }
 
 function openReturnRefund(purchase: AnyRec) {
+  // Guard: only one RR submission per reference
+  const ref = purchase?.reference_number || purchase?.id
+  if (refHasAnyRR(ref)) {
+    alert('Return/Refund can only be submitted once for this order.')
+    return
+  }
   rrGroup.value = null
   rrPurchase.value = purchase
   rrForm.purchase_ids = []
@@ -2534,6 +2619,18 @@ watch(
   () => ensureSignedUrlsForAllProducts(),
 )
 
+/* ====== ONE-TIME RETURN/REFUND HELPERS ====== */
+function refHasAnyRR(ref: string): boolean {
+  return purchases.value.some(
+    (p) =>
+      (p.reference_number || p.id) === ref &&
+      (p.status === STATUS.RETURN_REFUND || !!rrStatus(p.id))
+  )
+}
+function groupHasAnyRR(g: Group): boolean {
+  return g.items.some((it) => it.status === STATUS.RETURN_REFUND || !!rrStatus(it.id))
+}
+
 onMounted(async () => {
   await loadPurchases()
   ensureSignedUrlsForAllProducts()
@@ -2596,7 +2693,8 @@ onMounted(async () => {
 .modal-card2 {
   width: min(640px, 95vw);
   max-height: 90vh;
-  overflow: auto;
+  overflow: auto
+  ;
   border: 0;
   border-radius: 16px;
 }
@@ -2741,4 +2839,3 @@ onMounted(async () => {
   }
 }
 </style>
-  
