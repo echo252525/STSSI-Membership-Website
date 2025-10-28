@@ -998,9 +998,11 @@
               <div class="d-flex align-items-center justify-content-between">
                 <div class="fw-semibold"><i class="bi bi-truck-flatbed me-2"></i>Admin Shipping Fee</div>
                 <div class="fs-5">
-                  <strong v-if="pendingHighestShippingFee>0">₱ {{ number(pendingHighestShippingFee) }}</strong>
-                  <span v-else class="text-warning">awaiting…</span>
-                </div>
+  <strong v-if="pendingHasFreeShipping">Free</strong>
+  <strong v-else-if="pendingHighestShippingFee>0">₱ {{ number(pendingHighestShippingFee) }}</strong>
+  <span v-else class="text-warning">awaiting…</span>
+</div>
+
               </div>
               <div class="small text-muted mt-1">
                 We display the <em>highest</em> shipping fee among items in this reference. This fee is now included in your order total.
@@ -1014,7 +1016,8 @@
             </div>
             <div class="d-flex align-items-center justify-content-between">
               <span class="text-muted">Shipping Fee</span>
-              <span>₱ {{ number(pendingHighestShippingFee) }}</span>
+              <span>₱ {{ number(pendingHasFreeShipping ? 0 : pendingHighestShippingFee) }}</span>
+
             </div>
             <hr class="my-1" />
             <div class="d-flex align-items-center justify-content-between fs-5">
@@ -1035,7 +1038,8 @@
 
               <button
                 class="btn btn-primary"
-                :disabled="placingOrder || pendingHighestShippingFee <= 0 || (paymentMethod==='ewallet' && !enoughBalanceForOrder)"
+                :disabled="placingOrder || (!pendingHasFreeShipping && pendingHighestShippingFee <= 0) || (paymentMethod==='ewallet' && !enoughBalanceForOrder)"
+
                 @click="placePendingOrder"
                 title="Place Order (enabled when admin has set shipping fee)"
               >
@@ -1270,17 +1274,19 @@
   type InsertedPurchase = { id: string }
 
   type PurchaseRow = {
-    id: string
-    user_id: string
-    product_id: string
-    qty: number
-    reference_number: string
-    shipping_fee: number | null
-    status: string
-    modeofpayment: 'cod' | 'ewallet' | string
-    discounted_price: number | null
-    created_at: string
-  }
+  id: string
+  user_id: string
+  product_id: string
+  qty: number
+  reference_number: string
+  shipping_fee: number | null
+  status: string
+  modeofpayment: 'cod' | 'ewallet' | string
+  discounted_price: number | null
+  created_at: string
+  is_free_shipping?: boolean | null
+}
+
 
   /* -------------------- Products state -------------------- */
   const products = ref<Product[]>([])
@@ -1770,7 +1776,10 @@
   /* Wallet gating */
   const enoughBalanceForItems = computed(() => userBalance.value >= finalPayableTotal.value)
   /* NEW: consider shipping fee when in pending placement */
-  const enoughBalanceForOrder = computed(() => userBalance.value >= (finalPayableTotal.value + pendingHighestShippingFee.value))
+  const enoughBalanceForOrder = computed(() =>
+  userBalance.value >= (finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value))
+)
+
 
   /* Place-order helpers */
   const checkingOut = ref(false)
@@ -2501,6 +2510,8 @@
   }
 
   /* -------------------- Pending Orders list & placement -------------------- */
+  const pendingHasFreeShipping = ref(false)
+
   const pendingGroups = ref<Array<{
     ref: string
     created_at: string
@@ -2537,7 +2548,8 @@
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price')
+      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, is_free_shipping')
+
       .eq('user_id', uid)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -2681,7 +2693,8 @@
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment')
+      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment, is_free_shipping')
+
       .eq('user_id', uid)
       .eq('reference_number', refNumber)
       .eq('status', 'pending')
@@ -2691,6 +2704,7 @@
     pendingPurchases.value = data as PurchaseRow[]
     pendingRefNumber.value = refNumber
     pendingHighestShippingFee.value = pendingPurchases.value.reduce((mx, r) => Math.max(mx, Number(r.shipping_fee || 0)), 0)
+pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shipping === true)
 
     // Defaults based on DB
     const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
@@ -2827,7 +2841,10 @@
   }
 
   /* NEW: Order total including shipping for pending review */
-  const orderTotalPending = computed(() => Number((finalPayableTotal.value + pendingHighestShippingFee.value).toFixed(2)))
+  const orderTotalPending = computed(() =>
+  Number((finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value)).toFixed(2))
+)
+
 
   /** Finalize a pending batch */
   async function placePendingOrder() {
@@ -2844,10 +2861,11 @@
       alert('Please complete your delivery details first.')
       return
     }
-    if (pendingHighestShippingFee.value <= 0) {
-      alert('Shipping fee not yet set by admin.')
-      return
-    }
+    if (pendingHighestShippingFee.value <= 0 && !pendingHasFreeShipping.value) {
+  alert('Shipping fee not yet set by admin.')
+  return
+}
+
 
     // When reviewing pending orders, if a redemption was recorded at request time,
     // we respect that recorded amount and DON'T insert another redemption here.
@@ -2917,7 +2935,8 @@
         orderDiscountAmt = 0
       }
 
-      const shippingFee = Number(pendingHighestShippingFee.value || 0)
+      const shippingFee = Number((pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value) || 0)
+
       const itemsTotal = Number(finalItemsTotal.toFixed(2))
       const grandTotalIncludingShipping = Number((itemsTotal + shippingFee).toFixed(2))
 

@@ -181,35 +181,31 @@
             v-if="statusFilter === TAB_OFFER_SHIPPING && isGroupPendingShipping(g)"
             class="mt-3 border rounded p-3 bg-body"
           >
-            <!-- NEW: Membership tier + free shipping eligibility -->
-            <div class="mb-2">
-              <div class="small text-muted">Buyer Membership</div>
-              <div class="d-flex flex-wrap align-items-center gap-2">
-                <span class="badge text-bg-light border">
-                  Tier: <strong class="ms-1">{{ membershipLabelForGroup(g) }}</strong>
-                </span>
-                <span class="badge text-bg-light border" v-if="hasTierFreeShippingPerk(g)">
-                  Free shipping perk: Enabled
-                </span>
-                <span class="badge text-bg-light border" v-else>Free shipping perk: Disabled</span>
+            <!-- ★★ NEW: Tier + eligibility line -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+              <div class="small">
+                <span class="text-muted">Member tier:</span>
+                <strong>{{ g.memberTierName || '—' }}</strong>
+                <span v-if="g.tierIsFreeDelivery" class="badge text-bg-success-subtle border ms-2">Free-delivery perk</span>
+                <span v-else class="badge text-bg-light border ms-2">No free-delivery perk</span>
               </div>
-              <div class="small mt-2">
-                Threshold: ₱ {{ number(tierFreeShipThreshold(g)) }} •
-                Order net (after discounts, excl. shipping): ₱ {{ number(groupItemsNet(g)) }}
-              </div>
-              <div
-                class="small mt-1"
-                :class="freeShippingCandidate(g) ? 'text-success' : 'text-muted'"
-              >
-                <template v-if="freeShippingCandidate(g)">
-                  Candidate for free shipping — admin has the final say to apply free shipping or set a fee.
+              <div class="small">
+                <template v-if="isFreeShippingCandidate(g)">
+                  <span class="badge text-bg-success-subtle border">Candidate for free shipping</span>
                 </template>
                 <template v-else>
-                  Not currently eligible for automatic free shipping based on tier.
+                  <span class="badge text-bg-light border">Not a candidate</span>
                 </template>
+                <span class="text-muted ms-2">
+                  Req: ₱ {{ number(g.tierFreeShipRequirement) }} • Order: ₱ {{ number(groupItemsNet(g)) }}
+                </span>
               </div>
             </div>
-            <!-- /NEW: Membership section -->
+
+            <!-- ★★ NEW: note if free shipping already applied -->
+            <div v-if="groupFreeShipping(g.reference_number)" class="small text-success mb-2">
+              Free shipping already applied for this reference.
+            </div>
 
             <div class="small text-muted mb-2">Shipping offer (₱)</div>
             <div class="d-flex flex-wrap align-items-end gap-2" style="max-width:600px">
@@ -222,11 +218,12 @@
                   step="0.01"
                   class="form-control"
                   :placeholder="`₱ ${number(0)}`"
+                  :disabled="groupFreeShipping(g.reference_number)"
                 />
               </div>
               <button
                 class="btn btn-primary"
-                :disabled="isOffering(g) || !canOfferShipping(g)"
+                :disabled="isOffering(g) || !canOfferShipping(g) || groupFreeShipping(g.reference_number)"
                 @click="offerShipping(g)"
                 title="Save shipping fee for all purchases under this reference"
               >
@@ -234,27 +231,26 @@
                 Offer shipping
               </button>
 
-              <!-- NEW: Make Free Shipping button -->
+              <!-- ★★ NEW: Make Free Shipping button -->
               <button
                 class="btn btn-outline-success"
-                :disabled="isMakingFree(g)"
+                :disabled="isOffering(g) || groupFreeShipping(g.reference_number)"
                 @click="makeFreeShipping(g)"
-                title="Mark this reference as free shipping (sets shipping_fee=0 and is_free_delivery=true)"
+                title="Mark this reference as free shipping (sets is_free_shipping=true and shipping_fee=0)"
               >
-                <span v-if="isMakingFree(g)" class="spinner-border spinner-border-sm me-2"></span>
-                Make free shipping
+                Make Free Shipping
               </button>
 
               <button
                 class="btn btn-outline-danger"
-                :disabled="isOffering(g) || isMakingFree(g)"
+                :disabled="isOffering(g)"
                 @click="cancelGroup(g)"
                 title="Cancel all purchases under this reference"
               >
                 Cancel
               </button>
             </div>
-            <div class="small mt-2" v-if="shippingForRef(g.reference_number) > 0">
+            <div class="small mt-2" v-if="shippingForRef(g.reference_number) > 0 && !groupFreeShipping(g.reference_number)">
               Current saved shipping fee: <strong>₱ {{ number(shippingForRef(g.reference_number)) }}</strong>
             </div>
           </div>
@@ -728,7 +724,7 @@
               Mark as Shipped (all)
             </button>
 
-            <!-- Group Cancel (allowed for TO_PAY and TO_SHIP per your rules; processes per order rules) -->
+            <!-- Group Cancel (allowed for TO_PAY and TO_SHIP per your rules) -->
             <button
               v-if="g.canGroupCancel"
               class="btn btn-outline-danger btn-sm"
@@ -1181,6 +1177,7 @@ type PurchaseRow = {
   discounted_price: number | string | null // ★ ADDED
   shipping_fee: number | string | null     // ★ ADDED
   tracking_link: string | null             // ★ ADDED
+  is_free_shipping: boolean                // ★★ NEW
 }
 type Product = {
   id: string
@@ -1194,7 +1191,13 @@ type Buyer = {
   full_name: string | null // NEW
   phone_number: string | null
   address: string | null
-  membership_id: string | null // ★ NEW
+  membership_id: string | null // ★★ NEW
+}
+type TierRow = {
+  id: string
+  membership_name: string
+  is_free_delivery: boolean
+  purchase_requirements_for_free_delivery: number
 }
 type ReturnRefundRow = {
   id: string
@@ -1208,14 +1211,6 @@ type ReturnRefundRow = {
   updated_at: string
   /** NEW: store the return tracking link in DB */
   refund_tracking_link: string | null
-}
-
-/** ★ NEW: Tier type */
-type Tier = {
-  id: string
-  name: string | null
-  is_free_delivery: boolean | null
-  purchase_requirements_for_free_delivery: number | string | null
 }
 
 type OrderItem = {
@@ -1269,6 +1264,11 @@ type ViewGroup = {
   discount_total?: number
   /** ★ NEW: true when ALL purchases in the group are status 'pending' */
   allPending: boolean
+
+  /** ★★ NEW: membership/tier fields for Offer Shipping */
+  memberTierName?: string | null
+  tierIsFreeDelivery?: boolean
+  tierFreeShipRequirement?: number
 }
 
 type DiscountRow = {
@@ -1308,6 +1308,9 @@ const discountByRef: Record<string, number> = reactive({ })
 /* ★ NEW: per-reference shipping fee cache (MAX of purchases.shipping_fee) */
 const shippingByRef: Record<string, number> = reactive({})
 
+/* ★★ NEW: per-reference "has free shipping applied" flag */
+const freeShipByRef: Record<string, boolean> = reactive({})
+
 /* ★ NEW: single tracking link per reference */
 const trackLinkByRef: Record<string, string> = reactive({})
 
@@ -1320,8 +1323,13 @@ const shippingOfferInputByRef: Record<string, string | number> = reactive({})
 /* NEW: per-RR return tracking link input cache */
 const rrTrackById: Record<string, string> = reactive({})
 
-/* ★ NEW: tiers cache */
-const tiersMap = reactive<Record<string, Tier>>({})
+/* ★★ NEW: maps for membership tiers */
+const tiersMap = reactive<Record<string, TierRow>>({})
+function tierOfUser(userId?: string | null): TierRow | null {
+  if (!userId) return null
+  const tierId = buyersMap[userId]?.membership_id
+  return tierId ? (tiersMap[tierId] || null) : null
+}
 
 function rrTrackingLinkFilled(rrId: string): boolean {
   return !!(rrTrackById[rrId] && rrTrackById[rrId].trim().length)
@@ -1621,6 +1629,20 @@ function refTrackingLink(ref?: string | null): string {
   return (found?.tracking_link || '').trim()
 }
 
+/* ★★ NEW: free shipping helpers */
+function groupFreeShipping(ref?: string | null): boolean {
+  if (!ref) return false
+  return !!freeShipByRef[ref]
+}
+function isFreeShippingCandidate(g: ViewGroup): boolean {
+  const tierOk = !!g.tierIsFreeDelivery
+  const req = Number(g.tierFreeShipRequirement || 0)
+  if (!tierOk) return false
+  if (!isFinite(req) || req <= 0) return false // 0 means NOT a candidate (per your rule)
+  const orderNet = groupItemsNet(g)
+  return orderNet >= req // “order total is above the requirement” → qualifies
+}
+
 /* ---------- GROUPING (by reference_number) ---------- */
 const orderGroups = computed<ViewGroup[]>(() => {
   const byRef: Record<string, ViewOrder[]> = {}
@@ -1671,6 +1693,16 @@ const orderGroups = computed<ViewGroup[]>(() => {
       return buyersMap[uid]?.full_name ?? null
     })()
 
+    const /* ★★ NEW */ tierInfo = (() => {
+      const uid = arr[0]?.user_id
+      const t = uid ? tierOfUser(uid) : null
+      return {
+        name: t?.membership_name || null,
+        perk: !!t?.is_free_delivery,
+        req: Number(t?.purchase_requirements_for_free_delivery || 0) || 0,
+      }
+    })()
+
     const items = arr.flatMap((a) => a.items)
 
     // Items totals (respect event/per-purchase discount)
@@ -1681,8 +1713,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
     // ★ CHANGE: In Offer Shipping, also subtract redemption discounts when no per-purchase discounted price
     // (prevents double-subtract if discounted_price is already applied at item level)
     // ★ FIX: always use the same “effective” logic on every tab
-const discount_total_effective = effectiveDiscountForRef(ref)
-
+    const discount_total_effective = effectiveDiscountForRef(ref)
 
     const shipFee = shippingForRef(ref)
 
@@ -1718,6 +1749,7 @@ const discount_total_effective = effectiveDiscountForRef(ref)
                 discounted_price: null,
                 shipping_fee: null,
                 tracking_link: a.tracking_link ?? null,
+                is_free_shipping: false,
               }) as PurchaseRow,
           )
 
@@ -1763,6 +1795,7 @@ const discount_total_effective = effectiveDiscountForRef(ref)
                 discounted_price: discountedByPurchase[a.id] ?? null,
                 shipping_fee: null,
                 tracking_link: a.tracking_link ?? null,
+                is_free_shipping: false,
               }) as PurchaseRow,
           )
 
@@ -1821,6 +1854,11 @@ const discount_total_effective = effectiveDiscountForRef(ref)
       completedRRItems,
       discount_total: discount_total_effective, // expose only the effective discount we subtracted
       allPending, // ★ NEW
+
+      /** ★★ NEW: tier info for UI */
+      memberTierName: tierInfo.name,
+      tierIsFreeDelivery: tierInfo.perk,
+      tierFreeShipRequirement: tierInfo.req,
     })
   }
 
@@ -1847,6 +1885,7 @@ const discount_total_effective = effectiveDiscountForRef(ref)
                 discounted_price: discountedByPurchase[p.id] ?? null,
                 shipping_fee: null,
                 tracking_link: p.tracking_link ?? null,
+                is_free_shipping: false,
               }) as PurchaseRow,
           ),
         )
@@ -1916,60 +1955,6 @@ function canOfferShipping(g: ViewGroup): boolean {
   return raw !== '' && isFinite(n) && n >= 0
 }
 
-/* ★★★★★ NEW: MEMBERSHIP / FREE SHIPPING EVALUATION HELPERS ★★★★★ */
-function tierForGroup(g: ViewGroup): Tier | null {
-  const uid = g.purchases?.[0]?.user_id
-  if (!uid) return null
-  const memId = buyersMap[uid]?.membership_id || null
-  if (!memId) return null
-  return tiersMap[memId] || null
-}
-function membershipLabelForGroup(g: ViewGroup): string {
-  const t = tierForGroup(g)
-  return (t?.name || t?.id || '—') as string
-}
-function hasTierFreeShippingPerk(g: ViewGroup): boolean {
-  const t = tierForGroup(g)
-  return !!(t && t.is_free_delivery)
-}
-function tierFreeShipThreshold(g: ViewGroup): number {
-  const t = tierForGroup(g)
-  return Number(t?.purchase_requirements_for_free_delivery || 0) || 0
-}
-function freeShippingCandidate(g: ViewGroup): boolean {
-  const t = tierForGroup(g)
-  if (!t) return false
-  if (!t.is_free_delivery) return false
-  const req = Number(t.purchase_requirements_for_free_delivery || 0) || 0
-  const net = groupItemsNet(g) // items total after item discounts and reward redemptions, excluding shipping
-  return net >= req - 1e-6
-}
-function isMakingFree(g: ViewGroup): boolean {
-  return !!busy.value.action[`free:${g.reference_number}`]
-}
-async function makeFreeShipping(g: ViewGroup) {
-  const ref = g.reference_number
-  busy.value.action[`free:${ref}`] = true
-  try {
-    const { error } = await supabase
-      .schema('games')
-      .from('purchases')
-      .update({ is_free_delivery: true, shipping_fee: 0 })
-      .eq('reference_number', ref)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-    shippingByRef[ref] = 0
-    await loadOrders() // refresh totals / state
-    alert('Marked as free shipping for this reference.')
-  } finally {
-    busy.value.action[`free:${ref}`] = false
-  }
-}
-/* ★★★★★ END MEMBERSHIP HELPERS ★★★★★ */
-
 /* ---------- Fetch & build ---------- */
 async function loadOrders(resetPage = false) {
   if (resetPage) page.value = 1
@@ -1982,7 +1967,8 @@ async function loadOrders(resetPage = false) {
       .schema('games')
       .from('purchases')
       .select(
-        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link',
+        // ★★ add is_free_shipping
+        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link,is_free_shipping',
         { count: 'exact' },
       )
 
@@ -2017,6 +2003,10 @@ async function loadOrders(resetPage = false) {
     const userIds = new Set<string>()
     const purchaseIds = new Set<string>()
     const refSet = new Set<string>()
+    const tierIds = new Set<string>() // ★★ NEW
+
+    // reset group-level caches
+    for (const k of Object.keys(freeShipByRef)) delete freeShipByRef[k]
 
     for (const p of purchaseRows) {
       if (p.product_id) productIds.add(p.product_id)
@@ -2025,6 +2015,7 @@ async function loadOrders(resetPage = false) {
       if (p.reference_number) {
         refSet.add(p.reference_number)
         purchaseRefIndex[p.id] = p.reference_number
+        if (p.is_free_shipping) freeShipByRef[p.reference_number] = true // ★★ NEW
       }
       discountedByPurchase[p.id] = p.discounted_price != null ? Number(p.discounted_price) : null
       // seed reference tracking link from any existing purchase link if not set yet
@@ -2043,7 +2034,7 @@ async function loadOrders(resetPage = false) {
         .schema('games')
         .from('purchases')
         .select(
-          'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link',
+          'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link,is_free_shipping',
         )
         .in('reference_number', refs)
 
@@ -2060,6 +2051,7 @@ async function loadOrders(resetPage = false) {
         if (!trackLinkByRef[s.reference_number] && s.tracking_link) {
           trackLinkByRef[s.reference_number] = s.tracking_link
         }
+        if (s.is_free_shipping) freeShipByRef[s.reference_number] = true // ★★ NEW
       }
       for (const r of refs) siblingsByRef[r] = siblingRows.filter((s) => s.reference_number === r)
     } else {
@@ -2077,31 +2069,35 @@ async function loadOrders(resetPage = false) {
       }
     }
 
+    // ★★ pull users with membership_id
     if (userIds.size > 0) {
       const { data: urows } = await supabase
         .from('users')
-        .select('id, full_name, phone_number, address, membership_id') // ★ include membership_id
+        .select('id, full_name, phone_number, address, membership_id')
         .in('id', Array.from(userIds))
       if (Array.isArray(urows)) {
-        for (const u of urows as Buyer[]) buyersMap[u.id] = u
+        for (const u of urows as Buyer[]) {
+          buyersMap[u.id] = u
+          if (u.membership_id) tierIds.add(u.membership_id)
+        }
       }
+    }
 
-      // ★ Fetch tiers for all membership_ids present
-      const memIds = Array.from(
-        new Set(
-          (urows || [])
-            .map((u: any) => u?.membership_id)
-            .filter((v: any) => !!v),
-        ),
-      ) as string[]
-      if (memIds.length) {
-        const { data: trows } = await supabase
-          .schema('membership')
-          .from('tiers')
-          .select('id,name,is_free_delivery,purchase_requirements_for_free_delivery')
-          .in('id', memIds)
-        if (Array.isArray(trows)) {
-          for (const t of trows as Tier[]) tiersMap[t.id] = t
+    // ★★ pull membership tiers once
+    if (tierIds.size > 0) {
+      const { data: trows } = await supabase
+        .schema('membership')
+        .from('tiers')
+        .select('id,membership_name,is_free_delivery,purchase_requirements_for_free_delivery')
+        .in('id', Array.from(tierIds))
+      if (Array.isArray(trows)) {
+        for (const t of trows as TierRow[]) {
+          tiersMap[t.id] = {
+            id: t.id,
+            membership_name: t.membership_name,
+            is_free_delivery: !!t.is_free_delivery,
+            purchase_requirements_for_free_delivery: Number(t.purchase_requirements_for_free_delivery || 0) || 0,
+          }
         }
       }
     }
@@ -2656,24 +2652,24 @@ async function rejectRefund(rr: ReturnRefundRow) {
         .single()
       if (!prodErr && product) {
         const qty = Number(purchase.qty ?? 1) || 1
-const baseEach = Number(product.price || 0)
+        const baseEach = Number(product.price || 0)
 
-// Prefer per-purchase discounted price if truly applied; else use event discount; else base
-let effectiveEach =
-  discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
+        // Prefer per-purchase discounted price if truly applied; else use event discount; else base
+        let effectiveEach =
+          discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
 
-if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
-  const ref = purchase.reference_number || purchaseRefIndex[purchase.id]
-  const eventLess = winnerRefundForRef(ref)
-  effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
-}
+        if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+          const ref = purchase.reference_number || purchaseRefIndex[purchase.id]
+          const eventLess = winnerRefundForRef(ref)
+          effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
+        }
 
-if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
-  effectiveEach = baseEach
-}
+        if (!(isFinite(effectiveEach) && effectiveEach >= 0)) {
+          effectiveEach = baseEach
+        }
 
-const amount = Math.max(0, Number((effectiveEach * qty).toFixed(2)))
-await addToPurchasesPerMonth(purchase.user_id, amount)
+        const amount = Math.max(0, Number((effectiveEach * qty).toFixed(2)))
+        await addToPurchasesPerMonth(purchase.user_id, amount)
 
       }
     }
@@ -2861,7 +2857,7 @@ onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 /* ===== /Modal ===== */
 
-/* ===== NEW: Offer Shipping action ===== */
+/* ===== NEW: Offer Shipping actions ===== */
 async function offerShipping(g: ViewGroup) {
   const ref = g.reference_number
   const raw = getShippingInputRaw(ref) // SAFE
@@ -2875,7 +2871,7 @@ async function offerShipping(g: ViewGroup) {
     const { error } = await supabase
       .schema('games')
       .from('purchases')
-      .update({ shipping_fee: amount })
+      .update({ shipping_fee: amount, is_free_shipping: false }) // ensure not flagged as free ship if fee is set
       .eq('reference_number', ref)
 
     if (error) {
@@ -2884,8 +2880,35 @@ async function offerShipping(g: ViewGroup) {
     }
     // Update local cache & refresh
     shippingByRef[ref] = Number(amount.toFixed(2))
+    freeShipByRef[ref] = false
     await loadOrders() // refresh totals and hide from the tab if not pending anymore
     alert('Shipping fee saved for this reference.')
+  } finally {
+    busy.value.action[`offer:${ref}`] = false
+  }
+}
+
+/** ★★ Make Free Shipping: sets games.purchases.is_free_shipping = true and shipping_fee = 0 for the whole reference */
+async function makeFreeShipping(g: ViewGroup) {
+  const ref = g.reference_number
+  busy.value.action[`offer:${ref}`] = true
+  try {
+    const { error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .update({ is_free_shipping: true, shipping_fee: 0 })
+      .eq('reference_number', ref)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+    // reflect locally
+    freeShipByRef[ref] = true
+    shippingByRef[ref] = 0
+    shippingOfferInputByRef[ref] = '0'
+    await loadOrders()
+    alert('Marked as Free Shipping for this reference.')
   } finally {
     busy.value.action[`offer:${ref}`] = false
   }
