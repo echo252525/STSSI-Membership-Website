@@ -218,19 +218,19 @@
         <div class="sparkle-1"></div>
         <div class="sparkle-2"></div>
 
-        <div class="card-body p-4 text-center">
+        <div class="card-body p-4 text-center tetx-light">
           <div class="pop-title" v-if="outcomeType === 'winner'">🎉 Congratulations!</div>
           <div class="pop-title" v-else>Better luck next time</div>
 
           <p class="mt-2 mb-3" v-if="outcomeType === 'winner'">
             You won this round! <br />
-            <small class="text-muted"
+            <small
               >Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code></small
             >
           </p>
           <p class="mt-2 mb-3" v-else>
             This time wasn’t yours—but your entry is safe. <br />
-            <small class="text-muted"
+            <small
               >Winner · <code>{{ displayNameOrPlaceholder(displayWinnerEntry?.user_id || '') }}</code></small
             >
           </p>
@@ -2369,6 +2369,16 @@ function goToMinigames() {
   color: #e8fbff;
 }
 .players-panel .card-body { padding: 16px 16px; }
+
+.card-body p {
+  color: #fff;
+}
+
+.card-body small {
+  color: #fff;
+}
+
+
 .panel-head .icon-ring {
   width: 28px; height: 28px; border-radius: 50%;
   display: grid; place-items: center; background: #0fd2a0; color: #083143; font-weight: 900;
