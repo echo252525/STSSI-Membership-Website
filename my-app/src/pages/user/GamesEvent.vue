@@ -1291,6 +1291,7 @@ async function createWinnerPurchaseIfNeeded() {
           user_id: winnerUid,
           product_id: productId,
           reference_number: eventId,
+          is_free_shipping: true,
           discounted_price,
         })
         .select('id')

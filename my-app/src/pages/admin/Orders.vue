@@ -234,7 +234,7 @@
               <!-- ★★ NEW: Make Free Shipping button -->
               <button
                 class="btn btn-outline-success"
-                :disabled="isOffering(g) || groupFreeShipping(g.reference_number)"
+                :disabled="isOffering(g)"
                 @click="makeFreeShipping(g)"
                 title="Mark this reference as free shipping (sets is_free_shipping=true and shipping_fee=0)"
               >
@@ -393,15 +393,25 @@
                   Discounts: − ₱ {{ number(discountSumForRef(g.reference_number)) }}
                 </div>
 
-                <!-- NEW: show shipping fee in card body (not on Return/Refund tab) -->
-                <div
-                  class="small text-muted"
-                  v-if="statusFilter !== STATUS.RETURN_REFUND && shippingForRef(g.reference_number) > 0"
-                >
-                  Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
+                <!-- NEW (CHANGED): Shipping line respects free-shipping display rules -->
+                <div v-if="statusFilter !== STATUS.RETURN_REFUND">
+                  <!-- Free shipping applied -->
+                  <template v-if="groupFreeShipping(g.reference_number)">
+                    <!-- If there was an original fee > 0, show it slashed -->
+                    <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
+                      Shipping fee:
+                      <span class="text-decoration-line-through">₱ {{ number(shippingForRef(g.reference_number)) }}</span>
+                    </div>
+                    <!-- Always show Free shipping label -->
+                    <div class="small text-success fw-semibold">Free shipping</div>
+                  </template>
+                  <!-- Not free shipping -->
+                  <div class="small text-muted" v-else-if="shippingForRef(g.reference_number) > 0">
+                    Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
+                  </div>
                 </div>
 
-                <!-- Recorded total includes shipping for all tabs except Return/Refund -->
+                <!-- Recorded total excludes shipping when free-shipping is applied -->
                 <div class="fw-semibold fs-5">Recorded total: ₱ {{ number(g.total_amount) }}</div>
               </div>
             </div>
@@ -833,9 +843,20 @@
                   <span class="text-muted">Discounts: </span>− ₱
                   {{ number(discountSumForRef(selectedGroup.reference_number)) }}
                 </div>
-                <div v-if="statusFilter !== STATUS.RETURN_REFUND">
-                  <span class="text-muted">Shipping Fee: </span>₱
-                  {{ number(shippingForRef(selectedGroup.reference_number)) }}
+
+                <!-- NEW (CHANGED): Shipping display respects free-shipping rules -->
+                <div v-if="statusFilter !== STATUS.RETURN_REFUND" class="mt-1">
+                  <template v-if="groupFreeShipping(selectedGroup.reference_number)">
+                    <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
+                      Shipping fee:
+                      <span class="text-decoration-line-through">₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}</span>
+                    </div>
+                    <div class="small text-success fw-semibold">Free shipping</div>
+                  </template>
+                  <div class="small text-muted" v-else-if="shippingForRef(selectedGroup.reference_number) > 0">
+                    <span class="text-muted">Shipping Fee: </span>₱
+                    {{ number(shippingForRef(selectedGroup.reference_number)) }}
+                  </div>
                 </div>
 
                 <!-- NEW: Single tracking link per reference -->
@@ -1054,12 +1075,20 @@
                 Discounts: − ₱ {{ number(discountSumForRef(selectedGroup.reference_number)) }}
               </div>
 
-              <div
-                class="small text-muted"
-                v-if="statusFilter !== STATUS.RETURN_REFUND && shippingForRef(selectedGroup.reference_number) > 0"
-              >
-                Shipping fee: ₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
+              <!-- NEW (CHANGED): Shipping line respects free-shipping display rules -->
+              <div v-if="statusFilter !== STATUS.RETURN_REFUND" class="w-100 text-end">
+                <template v-if="groupFreeShipping(selectedGroup.reference_number)">
+                  <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
+                    Shipping fee:
+                    <span class="text-decoration-line-through">₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}</span>
+                  </div>
+                  <div class="small text-success fw-semibold">Free shipping</div>
+                </template>
+                <div class="small text-muted" v-else-if="shippingForRef(selectedGroup.reference_number) > 0">
+                  Shipping fee: ₱ {{ number(shippingForRef(selectedGroup.reference_number)) }}
+                </div>
               </div>
+
               <div class="fw-semibold fs-5">
                 Recorded total: ₱ {{ number(selectedGroup.total_amount) }}
               </div>
@@ -1717,9 +1746,10 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const shipFee = shippingForRef(ref)
 
-    // Recorded total includes shipping on all tabs EXCEPT Return/Refund
+    // Recorded total includes shipping on all tabs EXCEPT Return/Refund,
+    // and EXCLUDES it when free shipping is applied.
     const netAfterDiscounts = Math.max(0, Number((itemsTotal - discount_total_effective).toFixed(2)))
-    const includeShipping = statusFilter.value !== STATUS.RETURN_REFUND
+    const includeShipping = statusFilter.value !== STATUS.RETURN_REFUND && !groupFreeShipping(ref)
     const total_amount = Math.max(
       0,
       Number(((netAfterDiscounts + (includeShipping ? shipFee : 0))).toFixed(2)),
