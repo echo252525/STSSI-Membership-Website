@@ -22,6 +22,7 @@ import GamesEvent from '@/pages/user/GamesEvent.vue' // ✅ NEW: add this import
 import DealsRewards from '@/pages/user/DealsRewards.vue' // ✅ NEW: add this import
 import Winner from '@/pages/user/Winner.vue' // ✅ NEW: add this import
 import Loser from '@/pages/user/Loser.vue' // ✅ NEW: add this import
+import Tutorial from '@/pages/user/Tutorial.vue'
 
 // 🆕 Shop
 import Shop from '@/pages/user/Shop.vue'
@@ -95,6 +96,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'minigames', name: 'user.minigames', component: MiniGames },
       { path: 'deals', name: 'user.deals', component: DealsRewards }, // ✅ new route
       { path: 'shop', name: 'user.shop', component: Shop }, // 🆕 Shop
+{ path: 'minigames/tutorial', name: 'user.minigames.tutorial', component: Tutorial },
 
       // 🆕 My Purchases (ADDED)
       { path: 'purchases', name: 'user.mypurchase', component: MyPurchase },
