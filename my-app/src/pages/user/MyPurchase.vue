@@ -133,7 +133,7 @@
 
             <!-- ===== NEW: Tracking link if any item is To Receive ===== -->
             <div
-              v-if="groupToReceiveCount(g) > 0 && trackingLinkFor(g.ref)"
+              v-if="activeTab !== STATUS.RETURN_REFUND && groupToReceiveCount(g) > 0 && trackingLinkFor(g.ref)"
               class="mt-2"
               @click.stop
             >
@@ -283,7 +283,15 @@
                   <div v-if="refHasDiscount(g.ref)">
                     Discount: −₱ {{ number(groupDiscountAmount(g)) }}
                   </div>
-                  <div>Shipping: ₱ {{ number(shippingFor(g.ref)) }}</div>
+                  <!-- Shipping line with FREE SHIPPING handling -->
+                  <div v-if="!isFreeShippingRef(g.ref)">
+                    Shipping: ₱ {{ number(shippingFor(g.ref)) }}
+                  </div>
+                  <div v-else>
+                    Shipping:
+                    <span class="text-decoration-line-through">₱ {{ number(shippingFor(g.ref)) }}</span>
+                    <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+                  </div>
                 </div>
                 <!-- ================================================================ -->
 
@@ -449,7 +457,7 @@
 
             <!-- ===== NEW: Tracking link for single-row view ===== -->
             <div
-              v-if="p.status === STATUS.TO_RECEIVE && (p?.tracking_link || '').toString().trim().length"
+              v-if="activeTab !== STATUS.RETURN_REFUND && p.status === STATUS.TO_RECEIVE && (p?.tracking_link || '').toString().trim().length"
               class="mt-2"
             >
               <a
@@ -1085,7 +1093,15 @@
                 <div v-if="refHasDiscount(selectedGroupComputed!.ref)">
                   Discount: −₱ {{ number(groupDiscountAmount(selectedGroupComputed!)) }}
                 </div>
-                <div>Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</div>
+                <!-- Shipping line with FREE SHIPPING handling (Modal) -->
+                <div v-if="!isFreeShippingRef(selectedGroupComputed!.ref)">
+                  Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}
+                </div>
+                <div v-else>
+                  Shipping:
+                  <span class="text-decoration-line-through">₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</span>
+                  <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+                </div>
               </div>
               <!-- ===================================================================== -->
 
@@ -1543,7 +1559,8 @@ function groupTotalDiscounted(g: Group): number {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * discountedUnitPrice(it)
   }, 0)
-  return items + shippingFor(g.ref)
+  const ship = isFreeShippingRef(g.ref) ? 0 : shippingFor(g.ref)
+  return items + ship
 }
 
 /** Load all data (+ event title detection) */
@@ -1568,8 +1585,8 @@ async function loadPurchases() {
       .schema('games')
       .from('purchases')
       .select(
-        // ⬇️ added shipping_fee and tracking_link here
-        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price,shipping_fee,tracking_link',
+        // ⬇️ added shipping_fee, tracking_link, and is_free_shipping here
+        'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price,shipping_fee,tracking_link,is_free_shipping',
       )
       .eq('user_id', uid)
       .order('created_at', { ascending: false })
@@ -1978,6 +1995,13 @@ function shippingFor(ref: string): number {
   return maxFee
 }
 
+/** FREE SHIPPING helper (per ref) */
+function isFreeShippingRef(ref: string): boolean {
+  return purchases.value.some(
+    (p) => (p.reference_number || p.id) === ref && !!p.is_free_shipping
+  )
+}
+
 /** Tracking helper (per ref) - show link if any To Receive item has one */
 function trackingLinkFor(ref: string): string {
   const toReceiveWithLink = purchases.value.find(
@@ -2000,7 +2024,8 @@ function groupTotal(g: Group): number {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * productPrice(it)
   }, 0)
-  return items + shippingFor(g.ref)
+  const ship = isFreeShippingRef(g.ref) ? 0 : shippingFor(g.ref)
+  return items + ship
 }
 
 /** ===================== PRICE BREAKDOWN HELPERS ===================== */

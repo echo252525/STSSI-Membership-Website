@@ -51,9 +51,19 @@
       </div>
 
       <!-- Profile (hidden when collapsed) -->
-      <div class="text-center mb-4 profile" :title="displayName" v-show="!isRail">
+      <div
+        class="text-center mb-4 profile cursor-pointer profile-card"
+        :title="displayName"
+        v-show="!isRail"
+        role="link"
+        tabindex="0"
+        @click="goSettings"
+        @keydown.enter.prevent="goSettings"
+        @keydown.space.prevent="goSettings"
+        aria-label="Open Settings"
+      >
         <div
-          class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
+          class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2 ring-ambient"
           style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden"
         >
           <!-- ✅ Profile photo (keeps initials as fallback) -->
@@ -61,20 +71,33 @@
           {{ initials }}
         </div>
         <div class="profile-text">
-          <div class="fw-semibold small text-truncate">{{ displayName }}</div>
-          <div class="text-muted small text-truncate">{{ userEmail }}</div>
+          <div class="fw-semibold small text-truncate text-primary name-link">
+            {{ displayName }}
+          </div>
+          <div class="text-muted small text-truncate email-link">
+            {{ userEmail }}
+          </div>
           <div v-if="membershipType" class="text-muted small text-truncate">
             {{ membershipMeta.label }} member
           </div>
         </div>
       </div>
 
-      <!-- ✅ ADDED: Rail-only avatar shown when collapsed (above Dashboard) -->
-      <div class="text-center mb-3" v-show="isRail">
+      <!-- ✅ Rail-only avatar shown when collapsed (above Dashboard) -->
+      <div
+        class="text-center mb-3 cursor-pointer profile-card--rail"
+        v-show="isRail"
+        :title="displayName"
+        role="link"
+        tabindex="0"
+        @click="goSettings"
+        @keydown.enter.prevent="goSettings"
+        @keydown.space.prevent="goSettings"
+        aria-label="Open Settings"
+      >
         <div
-          class="rail-avatar rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white"
+          class="rail-avatar rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
           style="width:35px;height:35px;font-size:32px;"
-          :title="displayName"
         >
           <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
           {{ initials }}
@@ -472,6 +495,17 @@ onUnmounted(() => mqLg.removeEventListener('change', onMqChange))
 // IMPORTANT: "rail" (icon-only) is allowed ONLY on lg+
 // On md and below, the sidebar is always expanded inside the drawer
 const isRail = computed(() => isLgUp.value && isCollapsed.value)
+
+/* ✅ Added: go to Settings (used by clickable profile blocks) */
+function goSettings() {
+  try {
+    router.push({ name: 'user.settings' })
+  } finally {
+    closeMenu()
+    // if offcanvas is open on mobile, close it as well
+    closeOffcanvasIfMobile()
+  }
+}
 </script>
 
 <style scoped>
@@ -569,5 +603,73 @@ const isRail = computed(() => isLgUp.value && isCollapsed.value)
   font-weight: 700;
   position: relative;
   overflow: hidden;
+}
+
+/* ✅ ADDED: hand cursor for clickable profile blocks */
+.cursor-pointer {
+  cursor: pointer;
+}
+
+/* === Aesthetic upgrades (add-only) === */
+
+/* Aesthetic card feel for the profile block */
+.profile-card {
+  border-radius: 16px;
+  padding: 10px 8px;
+  transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
+  background:
+    radial-gradient(400px 200px at 10% -10%, rgba(67,97,238,.06), transparent 50%),
+    radial-gradient(300px 180px at 110% 0%, rgba(124,58,237,.05), transparent 50%);
+}
+.profile-card:hover,
+.profile-card:focus-visible {
+  background:
+    radial-gradient(420px 220px at 10% -10%, rgba(67,97,238,.08), transparent 55%),
+    radial-gradient(320px 200px at 110% 0%, rgba(124,58,237,.07), transparent 55%);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+/* Subtle ring around avatar for depth */
+.ring-ambient {
+  box-shadow:
+    0 0 0 2px rgba(255,255,255,1),
+    0 6px 16px rgba(67, 97, 238, .18);
+}
+
+/* Name & email look like buttons—no underlines */
+.name-link,
+.email-link {
+  cursor: pointer;
+  transition: color .15s ease, opacity .15s ease, transform .15s ease;
+  text-decoration: none; /* ensure no underline */
+}
+.profile-card:hover .name-link,
+.profile-card:focus-visible .name-link {
+  color: #0a58ca; /* slightly deeper primary on hover/focus */
+}
+.profile-card:hover .email-link,
+.profile-card:focus-visible .email-link {
+  opacity: .9;
+}
+
+/* Rail version: tiny hover lift so it feels tappable */
+.profile-card--rail .rail-avatar {
+  transition: transform .15s ease, box-shadow .2s ease;
+}
+.profile-card--rail:hover .rail-avatar,
+.profile-card--rail:focus-visible .rail-avatar {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 6px 16px rgba(67, 97, 238, .22);
+  outline: none;
+}
+
+/* Keyboard focus ring for accessibility (no underline) */
+.profile-card:focus-visible,
+.profile-card--rail:focus-visible {
+  box-shadow:
+    0 0 0 3px rgba(67,97,238,.18),
+    0 8px 24px rgba(16, 24, 40, 0.06);
 }
 </style>
