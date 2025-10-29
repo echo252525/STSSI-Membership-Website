@@ -2444,6 +2444,47 @@ async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
   }
 }
 
+/* ===== E-WALLET RPC helper (REPLACES any direct users.balance updates) ===== */
+async function applyTxPesos(
+  userId: string,
+  amountPeso: number,
+  kind: string,
+  reference?: string | null,
+  idempotency?: string | null,
+): Promise<number | null> {
+  const amt = Number(Number(amountPeso || 0).toFixed(2))
+  if (!userId || !isFinite(amt)) return null
+
+  const args = {
+    p_user_id: userId,
+    p_amount_peso: amt,
+    p_kind: kind,
+    p_reference: reference ?? null,
+    p_idempotency: idempotency ?? null,
+  } as any
+
+  // Try namespaced function first (ewallet.apply_tx_pesos), then fallback to public wrapper (apply_tx_pesos)
+  let { data, error } = await supabase.schema('ewallet').rpc('apply_tx_pesos' as any, args)
+  if (error) {
+    const fallback = await supabase.schema('ewallet').rpc('apply_tx_pesos' as any, args)
+    data = fallback.data
+    error = fallback.error
+  }
+  if (error) {
+    console.error('[apply_tx_pesos] RPC failed:', error.message)
+    alert(error.message)
+    return null
+  }
+  if (Array.isArray(data) && data.length && data[0]?.new_balance != null) {
+    return Number(data[0].new_balance)
+  }
+  if ((data as any)?.new_balance != null) {
+    return Number((data as any).new_balance)
+  }
+  return null
+}
+/* ===== /E-WALLET RPC helper ===== */
+
 /* CANCEL ORDER (kept from previous) */
 async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
@@ -2484,16 +2525,15 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
       const netRefundItems = Math.max(0, Number((itemsSubtotal - redeemed).toFixed(2)))
 
       const userId = order!.user_id
-      const { data: urow, error: uErr } = await supabase
-        .from('users')
-        .select('id,balance')
-        .eq('id', userId)
-        .single()
 
-      if (!uErr && urow) {
-        const newBal = Number(Number(urow.balance || 0) + Number(netRefundItems)).toFixed(2)
-        await supabase.from('users').update({ balance: Number(newBal) }).eq('id', userId)
-      }
+      /* ===== CHANGED: use RPC to credit items refund ===== */
+      await applyTxPesos(
+        userId,
+        netRefundItems,
+        'refund.cancel.items',
+        order!.reference_number || null,
+        `cancel:${purchaseId}`,
+      )
 
       try {
         await supabase
@@ -2512,25 +2552,25 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         if (order!.reference_number && (await allPurchasesCancelledForRef(order!.reference_number))) {
           const ship = shippingForRef(order!.reference_number)
           if (ship > 0) {
-            const { data: urow2 } = await supabase
-              .from('users')
-              .select('id,balance')
-              .eq('id', order!.user_id)
-              .single()
-            if (urow2) {
-              const newBal2 = Number(Number(urow2.balance || 0) + ship).toFixed(2)
-              await supabase.from('users').update({ balance: Number(newBal2) }).eq('id', order!.user_id)
-              try {
-                await supabase
-                  .schema('ewallet')
-                  .from('cancelled_ewallet_receipt')
-                  .insert({
-                    amount: Number(ship.toFixed(2)),
-                    reference_number: order!.reference_number || null,
-                    purchase_id: purchaseId,
-                  })
-              } catch {}
-            }
+            /* ===== CHANGED: use RPC to credit shipping refund when entire ref cancelled ===== */
+            await applyTxPesos(
+              order!.user_id,
+              ship,
+              'refund.cancel.shipping',
+              order!.reference_number || null,
+              `cancelship:${order!.reference_number}`,
+            )
+
+            try {
+              await supabase
+                .schema('ewallet')
+                .from('cancelled_ewallet_receipt')
+                .insert({
+                  amount: Number(ship.toFixed(2)),
+                  reference_number: order!.reference_number || null,
+                  purchase_id: purchaseId,
+                })
+            } catch {}
           }
         }
       } catch {}
@@ -2760,14 +2800,6 @@ async function completeRefund(rr: ReturnRefundRow) {
       .single()
     if (rrUpdateErr) { alert(rrUpdateErr.message); return }
 
-    const { data: urow, error: uErr } = await supabase
-      .from('users')
-      .select('id,balance')
-      .eq('id', purchase.user_id)
-      .single()
-    if (uErr || !urow) { alert(uErr?.message || 'User not found for refund credit.'); return }
-
-    let newBal = Number(urow.balance || 0) + productRefund
     try {
       await supabase.schema('ewallet').from('refund_receipt').insert({
         return_refund_id: rrId,
@@ -2775,16 +2807,19 @@ async function completeRefund(rr: ReturnRefundRow) {
       })
     } catch {}
 
+    /* ===== CHANGED: use RPC to credit product refund ===== */
+    await applyTxPesos(
+      purchase.user_id,
+      productRefund,
+      'refund.rr.completed',
+      ref || null,
+      `rr:${rrId}`,
+    )
+
     // NOTE: Shipping refund is intentionally disabled
     if (includeShipping && ref) {
       /* no-op by design */
     }
-
-    const { error: balErr } = await supabase
-      .from('users')
-      .update({ balance: newBal })
-      .eq('id', purchase.user_id)
-    if (balErr) { alert(balErr.message); return }
 
     await restoreStock(rr.product_id || purchase.product_id, qty)
     rr.status = 'completed'

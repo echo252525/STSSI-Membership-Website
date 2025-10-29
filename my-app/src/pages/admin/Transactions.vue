@@ -5,8 +5,6 @@
       <h1 class="h4 m-0">Transactions</h1>
 
       <div class="d-flex align-items-center gap-3">
-        
-
         <div class="btn-group" role="group" aria-label="Filter by status">
           <button
             type="button"
@@ -97,13 +95,13 @@
                       <i class="bi bi-clipboard-check"></i>
                     </button>
 
-                    <!-- Keep the original buttons but hide them; actions are moved to the modal -->
+                    <!-- Keep original buttons but hidden (actions moved to modal) -->
                     <button
                       v-if="tx.status==='pending'"
                       class="btn btn-outline-success d-none"
                       title="Mark Disbursed"
                       :disabled="updating.has(tx.id)"
-                      @click="markDisbursed(tx)"
+                      @click.stop.prevent="markDisbursed(tx)"
                     >
                       <span v-if="updating.has(tx.id)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       <i v-else class="bi bi-check2-circle"></i>
@@ -201,7 +199,7 @@
                 class="btn btn-outline-success order-2"
                 title="Mark Disbursed"
                 :disabled="updating.has(selectedTx.id)"
-                @click="markDisbursed(selectedTx)"
+                @click.stop.prevent="markDisbursed(selectedTx)"
               >
                 <span v-if="updating.has(selectedTx.id)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                 <i v-else class="bi bi-check2-circle me-1"></i>
@@ -242,20 +240,68 @@ import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
 
+const DEBUG = true
+const log = (...args: any[]) => { if (DEBUG) console.log('[TX]', ...args) }
+const now = () => new Date().toISOString()
+
 const router = useRouter()
 const user = computed(() => currentUser.value)
+
+/** Turn OFF optimistic local status flip to avoid any chance of double effects. */
+const OPTIMISTIC_UPDATE = false
+
+/** Extra guard to ensure we never double-disburse the same tx from the UI. */
+const disburseAck = ref<Set<string>>(new Set())
+
+/** Single-flight registry: guarantees only one in-flight call per tx id (this tab) */
+const singleflight = new Map<string, Promise<void>>()
+
+/** Cross-tab guard */
+let bc: BroadcastChannel | null = null
+const bcName = 'ewallet-disburse'
+const bcStart = (id: string) => bc?.postMessage({ t: now(), kind: 'start', id })
+const bcDone  = (id: string, ok: boolean, msg?: string) => bc?.postMessage({ t: now(), kind: 'done', id, ok, msg })
+
+/** LocalStorage sentinel (guards even if page refreshes super fast) */
+const LS_KEY = (id: string) => `disbursing:${id}`
+const setSentinel = (id: string) => {
+  try { localStorage.setItem(LS_KEY(id), JSON.stringify({ t: Date.now() })) } catch {}
+}
+const clearSentinel = (id: string) => {
+  try { localStorage.removeItem(LS_KEY(id)) } catch {}
+}
+const hasSentinel = (id: string) => {
+  try { return localStorage.getItem(LS_KEY(id)) !== null } catch { return false }
+}
 
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return router.push({ name: 'login' })
   }
+
+  // init cross-tab channel
+  try {
+    bc = new BroadcastChannel(bcName)
+    bc.onmessage = (ev) => {
+      const { kind, id, t, ok, msg } = ev.data || {}
+      if (kind === 'start' && id) {
+        log('BC: another tab started disburse', { id, t })
+        disburseAck.value.add(id) // prevent second click here
+      } else if (kind === 'done' && id) {
+        log('BC: another tab finished disburse', { id, t, ok, msg })
+        if (ok) disburseAck.value.add(id)
+      }
+    }
+  } catch (e) {
+    log('BroadcastChannel unavailable:', e)
+  }
 })
 
 type Status = 'pending' | 'disbursed' | 'rejected'
 type BankName = 'gcash' | 'maya' | 'gotyme'
 type Tx = {
-  id: number
+  id: string
   user_id: string
   user_name: string
   user_email: string
@@ -273,7 +319,7 @@ const errorMsg = ref<string>('')
 
 const filter = ref<'all' | Status>('all')
 const setFilter = (f: 'all' | Status) => {
-  console.log('[UI] setFilter ->', f)
+  log('[UI] setFilter ->', f)
   filter.value = f
 }
 
@@ -304,7 +350,7 @@ const timeSince = (d: Date) => {
 }
 
 watch(transactions, (val) => {
-  console.log('[State] transactions changed. Total:', val.length, {
+  log('[State] transactions changed. Total:', val.length, {
     pending: pendingCount.value,
     disbursed: disbursedCount.value
   })
@@ -334,7 +380,7 @@ const prettyBank = (b?: BankName) => (b === 'gcash' ? 'GCash' : b === 'maya' ? '
 const loadTransactions = async () => {
   loading.value = true
   errorMsg.value = ''
-  console.log('[Load] Fetching transactions…')
+  log('[Load] Fetching transactions…')
   try {
     const { data, error } = await supabase
       .schema('ewallet')
@@ -352,7 +398,7 @@ const loadTransactions = async () => {
       .order('created_at', { ascending: false })
 
     if (error) throw error
-    console.log('[Load] Raw rows:', data?.length ?? 0)
+    log('[Load] Raw rows:', data?.length ?? 0)
 
     let rows = (data || []) as any[]
 
@@ -367,17 +413,17 @@ const loadTransactions = async () => {
       if (!uerr && userRows) {
         const map = new Map(userRows.map(u => [u.id, u]))
         rows = rows.map(r => ({ ...r, users: map.get(r.user_id) || null }))
-        console.log('[Load] Hydrated user info for', userRows.length, 'users')
+        log('[Load] Hydrated user info for', userRows.length, 'users')
       } else {
-        console.warn('[Load] Could not hydrate user info. error:', uerr?.message)
+        log('[Load] Could not hydrate user info. error:', uerr?.message)
       }
     }
 
     transactions.value = rows.map(enrichRowToTx)
-    console.log('[Load] transactions set:', transactions.value.length)
+    log('[Load] transactions set:', transactions.value.length)
   } catch (e: any) {
     errorMsg.value = e?.message || 'Failed to load transactions.'
-    console.error('[Load] Error:', e)
+    console.error('[TX] [Load] Error:', e)
   } finally {
     loading.value = false
   }
@@ -429,7 +475,7 @@ const hideViewModal = () => {
       inst?.hide?.()
     }
   } catch (e) {
-    console.warn('[Modal] hide error:', e)
+    log('[Modal] hide error:', e)
   }
 }
 
@@ -448,83 +494,108 @@ const showInfo = (msg: string) => {
     alert(msg)
   }
 }
-
 const copyRef = async (refno: string) => {
   try {
     await navigator.clipboard.writeText(refno)
     showInfo('Copied to clipboard!')
+    console.log('[Clipboard] Copied ref:', refno)
   } catch (e) {
-    console.error('Clipboard copy failed', e)
+    console.error('[Clipboard] Copy failed:', e)
     showInfo('Failed to copy')
   }
 }
 
-/** ---------- Mark as Disbursed ---------- */
-const updating = ref<Set<number>>(new Set())
+/** ---------- Mark as Disbursed (single-flight + idempotent UX + cross-tab) ---------- */
+const updating = ref<Set<string>>(new Set())
 
 const markDisbursed = async (tx: Tx) => {
-  if (!tx || tx.status === 'disbursed' || updating.value.has(tx.id)) return
-  console.log('[Action] markDisbursed ->', tx.id, tx.reference_number)
-  try {
-    updating.value.add(tx.id)
+  if (!tx) return
+  log('[Click] Disburse', { t: now(), id: tx.id, status: tx.status, hasSentinel: hasSentinel(tx.id), inFlight: singleflight.has(tx.id), ack: disburseAck.value.has(tx.id) })
 
-    // 1) Apply the balance change atomically via RPC (DEBIT for disbursement)
-const idem = `disburse:${tx.reference_number}`
-
-const { data: rpcRes, error: rpcErr } = await supabase.schema('ewallet').rpc('apply_tx_pesos', {
-  p_user_id: tx.user_id,
-  p_amount_peso: -Math.abs(Number(tx.amount ?? 0)),   // debit
-  p_kind: 'withdraw.disburse',
-  p_reference: tx.reference_number,
-  p_idempotency: idem
-})
-if (rpcErr) throw rpcErr
-
-// 2) Mark the transaction as disbursed (status flag only)
-const { data, error } = await supabase
-  .schema('ewallet')
-  .from('transactions')
-  .update({ status: 'disbursed' })
-  .eq('id', tx.id)
-  .select('id, updated_at, status')
-  .single()
-
-
-    if (error) throw error
-    console.log('[Action] markDisbursed OK ->', data)
-
-    // Optimistic update (realtime will also arrive)
-    const idx = transactions.value.findIndex(t => t.id === tx.id)
-    if (idx !== -1) {
-      transactions.value[idx] = {
-        ...transactions.value[idx],
-        status: 'disbursed',
-        updated_at: data?.updated_at ?? transactions.value[idx].updated_at,
-      }
-      transactions.value = [...transactions.value]
-    }
-
-    if (selectedTx.value?.id === tx.id) {
-      selectedTx.value = {
-        ...selectedTx.value,
-        status: 'disbursed',
-        updated_at: data?.updated_at ?? selectedTx.value.updated_at,
-      }
-      // ✅ Auto-close modal when action was from the modal's selected tx
-      hideViewModal()
-      selectedTx.value = null
-    }
-  } catch (e: any) {
-    console.error('Failed to mark disbursed:', e?.message || e)
-    showInfo(e?.message || 'Failed to mark as disbursed.')
-  } finally {
-    updating.value.delete(tx.id)
-    updating.value = new Set(updating.value) // force reactivity
+  if (tx.status !== 'pending') {
+    return showInfo(tx.status === 'disbursed' ? 'Already disbursed.' : 'Cannot disburse this transaction.')
   }
+  // Any prior signal (this tab RT, other tab start/done, or sentinel) → don’t call RPC again
+  if (disburseAck.value.has(tx.id) || hasSentinel(tx.id)) {
+    log('[Gate] Skip RPC (ack/sentinel present)', { id: tx.id })
+    return showInfo('Already processed or in progress.')
+  }
+  if (singleflight.has(tx.id)) {
+    log('[Gate] Skip RPC (singleflight)', { id: tx.id })
+    return showInfo('Disburse already in progress…')
+  }
+
+  // Register: local locks + cross-tab + sentinel
+  const flight = (async () => {
+    updating.value.add(tx.id)
+    setSentinel(tx.id)
+    bcStart(tx.id)
+    log('[RPC] calling ewallet.mark_disbursed', { t: now(), id: tx.id })
+
+    try {
+      const { error: rpcErr } = await supabase
+        .schema('ewallet')
+        .rpc('mark_disbursed', { p_tx_id: tx.id })
+
+      if (rpcErr) {
+        log('[RPC] ERROR', { t: now(), id: tx.id, message: rpcErr.message })
+        throw rpcErr
+      }
+
+      log('[RPC] OK', { t: now(), id: tx.id })
+      disburseAck.value.add(tx.id)
+      bcDone(tx.id, true, 'ok')
+
+      if (OPTIMISTIC_UPDATE) {
+        const idx = transactions.value.findIndex(t => t.id === tx.id)
+        if (idx !== -1) {
+          transactions.value[idx] = {
+            ...transactions.value[idx],
+            status: 'disbursed',
+            updated_at: new Date().toISOString(),
+          }
+          transactions.value = [...transactions.value]
+          log('[UI] Optimistic disbursed', { id: tx.id })
+        }
+        if (selectedTx.value?.id === tx.id) {
+          selectedTx.value = {
+            ...selectedTx.value,
+            status: 'disbursed',
+            updated_at: new Date().toISOString(),
+          }
+          hideViewModal()
+          selectedTx.value = null
+        }
+      } else {
+        // rely on realtime; if RT is down, refresh
+        if (!isRtConnected.value) {
+          log('[UI] RT down → reloading list after RPC', { id: tx.id })
+          await loadTransactions()
+        } else if (selectedTx.value?.id === tx.id) {
+          hideViewModal()
+          selectedTx.value = null
+        }
+      }
+
+      showInfo('Marked as disbursed.')
+    } catch (e: any) {
+      bcDone(tx.id, false, e?.message)
+      console.error('[TX] [RPC] Failed to disburse:', e)
+      showInfo(e?.message || 'Failed to disburse.')
+    } finally {
+      updating.value.delete(tx.id)
+      updating.value = new Set(updating.value) // force reactivity
+      clearSentinel(tx.id)
+      log('[RPC] finished', { t: now(), id: tx.id })
+    }
+  })()
+
+  singleflight.set(tx.id, flight)
+  await flight.finally(() => singleflight.delete(tx.id))
 }
 
 /** ---------- Reject helpers ---------- */
-const rejecting = ref<Set<number>>(new Set())
+const rejecting = ref<Set<string>>(new Set())
 
 const isRejectLocked = (tx: Tx) =>
   // Button only renders for 'pending', so just lock on in-flight
@@ -548,7 +619,7 @@ const handleRejectClick = (tx: Tx) => {
 /** ---------- Mark as Rejected ---------- */
 const markRejected = async (tx: Tx) => {
   if (!tx || tx.status === 'rejected' || rejecting.value.has(tx.id)) return
-  console.log('[Action] markRejected ->', tx.id, tx.reference_number)
+  log('[Action] markRejected ->', tx.id, tx.reference_number)
   try {
     rejecting.value.add(tx.id)
 
@@ -561,7 +632,7 @@ const markRejected = async (tx: Tx) => {
       .single()
 
     if (error) throw error
-    console.log('[Action] markRejected OK ->', data)
+    log('[Action] markRejected OK ->', data)
 
     // Optimistic update
     const idx = transactions.value.findIndex(t => t.id === tx.id)
@@ -580,12 +651,11 @@ const markRejected = async (tx: Tx) => {
         status: 'rejected',
         updated_at: data?.updated_at ?? selectedTx.value.updated_at,
       }
-      // ✅ Auto-close modal when action was from the modal's selected tx
       hideViewModal()
       selectedTx.value = null
     }
   } catch (e: any) {
-    console.error('Failed to reject:', e?.message || e)
+    console.error('[TX] Failed to reject:', e?.message || e)
     showInfo(e?.message || 'Failed to mark as rejected.')
   } finally {
     rejecting.value.delete(tx.id)
@@ -599,66 +669,146 @@ let pollTimer: any = null
 
 const onRtEvent = async (payload: any) => {
   try {
-    console.log('[RT] Payload ->', payload?.eventType, payload)
+    console.log('[TX] [RT] Payload ->', payload?.eventType, {
+      new: payload?.new, old: payload?.old
+    })
     lastRtAt.value = new Date()
     triggerBlink()
+
+    const id = payload?.new?.id ?? payload?.old?.id
+    if (!id) {
+      console.warn('[TX] [RT] Missing id in payload; doing full refresh')
+      await loadTransactions()
+      return
+    }
+
+    // If server says this id is disbursed, record ack (prevents any future local call)
+    if ((payload?.eventType === 'UPDATE' || payload?.eventType === 'INSERT') && payload?.new?.status === 'disbursed') {
+      disburseAck.value.add(id)
+    }
+
+    // When payload is partial/empty, refetch the row by id to avoid 'undefined' issues
+    if (!payload?.new || Object.keys(payload.new).length === 0) {
+      console.log('[TX] [RT] Empty/partial "new"; refetching by id ->', id)
+      await refreshOne(id)
+      return
+    }
 
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
       await upsertOne(payload.new)
     } else if (payload.eventType === 'DELETE') {
-      removeOne(payload.old?.id)
+      removeOne(id)
     }
   } catch (e) {
-    console.error('[RT] Handler error:', e)
+    console.error('[TX] [RT] Handler error:', e)
   }
 }
 
+
 const upsertOne = async (row: any) => {
-  console.log('[RT] upsertOne raw row ->', row)
+  console.log('[TX] [RT] upsertOne raw row ->', row)
+
+  // If we somehow got a partial row without id, refetch by id from payload path
+  if (!row || !row.id) {
+    console.warn('[TX] [RT] upsertOne: missing id; skipping')
+    return
+  }
+
   // Enrich with user details if we don't have them
   if (!row.users) {
     try {
+      if (row.user_id) {
+        const { data: udata, error: uerr } = await supabase
+          .from('users')
+          .select('id, full_name, email')
+          .eq('id', row.user_id)
+          .maybeSingle()
+        if (uerr) {
+          console.warn('[TX] [RT] user hydrate error:', uerr.message)
+        }
+        row = { ...row, users: udata || null }
+      } else {
+        console.warn('[TX] [RT] upsertOne: missing user_id; leaving users = null')
+      }
+    } catch (err) {
+      console.warn('[TX] [RT] user hydrate exception:', err)
+    }
+  }
+
+
+  const tx = enrichRowToTx(row)
+  const idx = transactions.value.findIndex(t => t.id === tx.id)
+  if (idx === -1) {
+    transactions.value = [tx, ...transactions.value] // newest first
+    log('[RT] Inserted tx ->', tx.id)
+  } else {
+    transactions.value[idx] = { ...transactions.value[idx], ...tx }
+    transactions.value = [...transactions.value] // force reactivity
+    log('[RT] Updated tx ->', tx.id)
+  }
+
+  if (selectedTx.value?.id === tx.id) {
+    selectedTx.value = { ...selectedTx.value, ...tx }
+    log('[RT] Refreshed selectedTx in modal ->', tx.id)
+  }
+}
+
+const removeOne = (id: string) => {
+  log('[RT] removeOne id ->', id)
+  const idx = transactions.value.findIndex(t => t.id === id)
+  if (idx !== -1) {
+    transactions.value.splice(idx, 1)
+    transactions.value = [...transactions.value]
+    log('[RT] Removed tx ->', id)
+  }
+  if (selectedTx.value?.id === id) {
+    selectedTx.value = null
+    log('[RT] Cleared selectedTx (was removed) ->', id)
+  }
+}
+/** Fetch the full tx row by id and upsert it (with user hydration) */
+const refreshOne = async (id: string) => {
+  try {
+    console.log('[TX] [RT] refreshOne ->', id)
+    const { data, error } = await supabase
+      .schema('ewallet')
+      .from('transactions')
+      .select(`
+        id,
+        user_id,
+        reference_number,
+        amount,
+        status,
+        bank_name,
+        created_at,
+        updated_at
+      `)
+      .eq('id', id)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!data) {
+      console.warn('[TX] [RT] refreshOne: no row for id', id)
+      return
+    }
+
+    // hydrate user
+    let row: any = data
+    if (!row.users && row.user_id) {
       const { data: udata, error: uerr } = await supabase
         .from('users')
         .select('id, full_name, email')
         .eq('id', row.user_id)
         .maybeSingle()
       if (uerr) {
-        console.warn('[RT] user hydrate error:', uerr.message)
+        console.warn('[TX] [RT] refreshOne user hydrate error:', uerr.message)
       }
       row = { ...row, users: udata || null }
-    } catch (err) {
-      console.warn('[RT] user hydrate exception:', err)
     }
-  }
-  const tx = enrichRowToTx(row)
-  const idx = transactions.value.findIndex(t => t.id === tx.id)
-  if (idx === -1) {
-    transactions.value = [tx, ...transactions.value] // newest first
-    console.log('[RT] Inserted tx ->', tx.id)
-  } else {
-    transactions.value[idx] = { ...transactions.value[idx], ...tx }
-    transactions.value = [...transactions.value] // force reactivity
-    console.log('[RT] Updated tx ->', tx.id)
-  }
 
-  if (selectedTx.value?.id === tx.id) {
-    selectedTx.value = { ...selectedTx.value, ...tx }
-    console.log('[RT] Refreshed selectedTx in modal ->', tx.id)
-  }
-}
-
-const removeOne = (id: number) => {
-  console.log('[RT] removeOne id ->', id)
-  const idx = transactions.value.findIndex(t => t.id === id)
-  if (idx !== -1) {
-    transactions.value.splice(idx, 1)
-    transactions.value = [...transactions.value]
-    console.log('[RT] Removed tx ->', id)
-  }
-  if (selectedTx.value?.id === id) {
-    selectedTx.value = null
-    console.log('[RT] Cleared selectedTx (was removed) ->', id)
+    await upsertOne(row)
+  } catch (e: any) {
+    console.error('[TX] [RT] refreshOne error:', e?.message || e)
   }
 }
 
@@ -667,7 +817,7 @@ const startPollingFallback = () => {
   // Light polling every 20s only if not connected
   pollTimer = setInterval(() => {
     if (!isRtConnected.value) {
-      console.log('[Poll] Realtime not connected. Refreshing list…')
+      log('[Poll] Realtime not connected. Refreshing list…')
       loadTransactions()
     }
   }, 20000)
@@ -690,13 +840,13 @@ onMounted(async () => {
 
   await loadTransactions()
 
-  console.log('[RT] Subscribing to ewallet.transactions…')
+  log('[RT] Subscribing to ewallet.transactions…')
   rtChannel = supabase
     .channel('ewallet-transactions')
     .on('postgres_changes', { event: '*', schema: 'ewallet', table: 'transactions' }, onRtEvent)
     .subscribe((status: any) => {
       // status: 'SUBSCRIBED' | 'TIMED_OUT' | 'CLOSED' | 'CHANNEL_ERROR'
-      console.log('[RT] Channel status ->', status)
+      log('[RT] Channel status ->', status)
       if (status === 'SUBSCRIBED') {
         isRtConnected.value = true
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -711,12 +861,14 @@ onBeforeUnmount(() => {
   if (viewModal?.dispose) viewModal.dispose()
   if (copyToast?.dispose) copyToast.dispose?.()
   if (rtChannel) {
-    console.log('[RT] Removing channel…')
+    log('[RT] Removing channel…')
     supabase.removeChannel(rtChannel)
     rtChannel = null
   }
   clearInterval(pollTimer)
   clearTimeout(blinkTimer)
+
+  try { bc?.close?.() } catch {}
 })
 </script>
 
