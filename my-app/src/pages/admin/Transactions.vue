@@ -468,13 +468,27 @@ const markDisbursed = async (tx: Tx) => {
   try {
     updating.value.add(tx.id)
 
-    const { data, error } = await supabase
-      .schema('ewallet')
-      .from('transactions')
-      .update({ status: 'disbursed' })
-      .eq('id', tx.id)
-      .select('id, updated_at, status')
-      .single()
+    // 1) Apply the balance change atomically via RPC (DEBIT for disbursement)
+const idem = `disburse:${tx.reference_number}`
+
+const { data: rpcRes, error: rpcErr } = await supabase.schema('ewallet').rpc('apply_tx_pesos', {
+  p_user_id: tx.user_id,
+  p_amount_peso: -Math.abs(Number(tx.amount ?? 0)),   // debit
+  p_kind: 'withdraw.disburse',
+  p_reference: tx.reference_number,
+  p_idempotency: idem
+})
+if (rpcErr) throw rpcErr
+
+// 2) Mark the transaction as disbursed (status flag only)
+const { data, error } = await supabase
+  .schema('ewallet')
+  .from('transactions')
+  .update({ status: 'disbursed' })
+  .eq('id', tx.id)
+  .select('id, updated_at, status')
+  .single()
+
 
     if (error) throw error
     console.log('[Action] markDisbursed OK ->', data)

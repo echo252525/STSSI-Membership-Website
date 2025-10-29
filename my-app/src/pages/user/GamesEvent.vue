@@ -325,6 +325,7 @@ import { currentUser } from '@/lib/authState'
 /* ===== Background Music Setup (autoplay, loop, hidden) ===== */
 const bgMusic = ref<HTMLAudioElement | null>(null)
 const isMusicPlaying = ref(false)
+type ApplyTxPesosRow = { tx_id: string; new_balance: string | number }
 
 function initBackgroundMusic() {
   if (bgMusic.value) return
@@ -1324,17 +1325,32 @@ async function createWinnerPurchaseIfNeeded() {
   }
 }
 async function adjustUserBalance(userId: string, delta: number) {
+  // All balance movements go through the wallet RPC (credits = +delta, debits = -delta)
+  // NOTE: Make sure you have a PUBLIC wrapper: public.apply_tx_pesos -> ewallet.apply_tx_pesos
   try {
-    const { data, error } = await supabase.from('users').select('balance').eq('id', userId).single()
+    const kind =
+      delta >= 0 ? 'refund' : 'order.charge' // keep simple & compatible; change if you want a custom label
+    const idem = `games:${eventId || 'unknown'}:${kind}:${userId}:${Math.abs(delta).toFixed(2)}`
+
+    const { data, error } = await supabase.schema('ewallet').rpc('apply_tx_pesos', {
+      p_user_id: userId,
+      p_amount_peso: delta,       // positive = credit; negative = debit
+      p_kind: kind,
+      p_reference: eventId ?? null,
+      p_idempotency: idem,
+    })
+
     if (error) throw error
-    const current = Number(data?.balance ?? 0)
-    const next = Math.round((current + delta) * 100) / 100
-    const { error: uerr } = await supabase.from('users').update({ balance: next }).eq('id', userId)
-    if (uerr) throw uerr
+
+    // If you want the new balance, it's returned here:
+    const row = (data as ApplyTxPesosRow[] | null)?.[0]
+    const newBalance = row ? Number(row.new_balance) : undefined
+    return newBalance
   } catch (e: any) {
-    setErr(e, `update balance for ${shortId(userId)}`)
+    setErr(e, `apply_tx_pesos for ${shortId(userId)}`)
   }
 }
+
 function resolveRefundAmounts() {
   const winnerAmt = Number(eventInfo.value?.winner_refund_amount ?? 0)
   const loserAmt = Number(eventInfo.value?.loser_refund_amount ?? 0)

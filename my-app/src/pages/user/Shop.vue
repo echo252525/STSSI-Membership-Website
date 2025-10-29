@@ -1560,6 +1560,35 @@
   function isItemDiscounted(productId: string): boolean {
     return !!discountedItemMap[productId]
   }
+/* ---- E-Wallet atomic charge helper (uses RPC) ---- */
+async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid: string): Promise<number> {
+  const total = Number(Math.max(0, amountPeso).toFixed(2))
+  if (!(total > 0)) return userBalance.value
+
+  const { data, error } = await supabase
+  .schema('ewallet')
+  .rpc('apply_tx_pesos', {
+    p_user_id: uid,
+    p_amount_peso: -total, // debit (negative)
+    p_kind: 'order.charge',
+    p_reference: batchRef,
+    p_idempotency: `order:${batchRef}:${uid}`,
+  })
+
+  if (error) {
+    const msg = String(error.message || '')
+    if (/insufficient_funds/i.test(msg)) throw new Error('INSUFFICIENT_FUNDS')
+    throw new Error(msg || 'E-Wallet charge failed')
+  }
+
+  const row = Array.isArray(data) ? data[0] : (data as any)
+  const newBal = Number(row?.new_balance ?? NaN)
+  if (!Number.isFinite(newBal)) {
+    const { data: u2 } = await supabase.from('users').select('balance').eq('id', uid).maybeSingle()
+    return Number(u2?.balance ?? userBalance.value)
+  }
+  return newBal
+}
 
   /* payment & balances */
   const paymentMethod = ref<'cod' | 'ewallet'>('cod')
@@ -2529,6 +2558,19 @@
   const pendingPurchases = ref<PurchaseRow[]>([])
 
   /* helper: resolve a single product's first image (signed if needed) */
+  async function getAnyPurchaseIdForRef(ref: string, uid: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .schema('games')
+    .from('purchases')
+    .select('id')
+    .eq('user_id', uid)
+    .eq('reference_number', ref)
+    .limit(1)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { id: string } | null)?.id ?? null;
+}
+
   async function resolveFirstImageUrl(prod: { id: string, product_url: string[] | string | null }): Promise<string | null> {
     const raw = firstUrl(prod.product_url)
     if (!raw) return null
@@ -2948,6 +2990,20 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
         alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
         return
       }
+// 🔐 Atomic wallet charge via RPC (BEFORE status updates to avoid partial success)
+if (isEwallet && totalToDeduct > 0) {
+  try {
+    const newBal = await chargeEwalletAtomically(totalToDeduct, pendingRefNumber.value!, uid)
+    userBalance.value = newBal
+  } catch (e: any) {
+    if (e?.message === 'INSUFFICIENT_FUNDS') {
+      alert('Insufficient funds. Please choose Cash on Delivery or top up.')
+    } else {
+      alert('Failed to charge E-Wallet: ' + (e?.message || 'Unknown error'))
+    }
+    return
+  }
+}
 
       // Build line drafts and update purchases rows
       type LineDraft = {
@@ -3025,19 +3081,7 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
         }
       }
 
-      // Deduct ewallet balance now (items + shipping)
-      if (isEwallet && totalToDeduct > 0) {
-        const newBalance = Number((freshBalance - totalToDeduct).toFixed(2))
-        const { error: balErr } = await supabase
-          .from('users')
-          .update({ balance: newBalance })
-          .eq('id', uid)
-        if (balErr) {
-          alert('Failed to deduct balance: ' + balErr.message)
-          return
-        }
-        userBalance.value = newBalance
-      }
+      
 
       // AfterShip push (shipping_total now included)
       const discountTotalForAftership =
@@ -3146,21 +3190,39 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
         }
       }
 
-      // Ewallet order transaction record (now includes shipping)
-      if (isEwallet) {
-        const firstPurchaseId = pendingPurchases.value[0]?.id || null
-        const { error: txnErr } = await supabase
-          .schema('ewallet')
-          .from('order_transactions')
-          .insert([{
-            reference_number: pendingRefNumber.value,
-            purchase_id: firstPurchaseId,
-            total_amount: Number(totalToDeduct.toFixed(2)),
-          } as any])
-        if (txnErr) {
-          console.error('[order_transactions insert failed]', txnErr.message)
-        }
-      }
+// Ewallet order transaction record (now includes shipping)
+if (isEwallet) {
+  let purchaseIdForTxn = pendingPurchases.value[0]?.id || null;
+
+  // Fallback in case array was cleared/rebuilt: re-query 1 purchase id by ref + user
+  if (!purchaseIdForTxn && pendingRefNumber.value) {
+    purchaseIdForTxn = await getAnyPurchaseIdForRef(pendingRefNumber.value, uid);
+  }
+
+  if (!purchaseIdForTxn) {
+    console.error('[order_transactions] No purchase_id found for', pendingRefNumber.value);
+    alert('Could not tag the payment to a purchase. Please try again.');
+    return; // ensure we don’t write a null-linked transaction
+  }
+
+  const { error: txnErr } = await supabase
+    .schema('ewallet')
+    .from('order_transactions')
+    .insert([{
+      reference_number: pendingRefNumber.value,
+      purchase_id: purchaseIdForTxn,            // ✅ always a real id now
+      total_amount: Number(totalToDeduct.toFixed(2)),
+    } as any]);
+
+  if (txnErr) {
+    console.error('[order_transactions insert failed]', txnErr.message);
+    alert('Failed to record the wallet payment: ' + txnErr.message);
+    return;
+  }
+}
+
+
+
 
       closePlacePending()
       await loadPendingOrders()

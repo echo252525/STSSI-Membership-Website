@@ -509,15 +509,25 @@ async function chargeUserForEntry(userId: string): Promise<boolean> {
       err.value = 'Insufficient balance to join. Please top up.'
       return false
     }
-    const { error: updErr } = await supabase
-      .from('users')
-      .update({ balance: cur - fee })
-      .eq('id', userId)
-    if (updErr) {
-      err.value = 'Could not deduct entry fee.'
-      return false
-    }
-    return true
+    // Atomically deduct via wallet RPC (+ ledger + idempotency)
+const { data: txRows, error: txErr } = await supabase.schema('ewallet').rpc('apply_tx_pesos', {
+  p_user_id: userId,
+  p_amount_peso: -fee, // debit
+  p_kind: 'order.charge',
+  p_reference: `games.entry:${eventId ?? ''}`,
+  p_idempotency: `games.entry:${eventId ?? ''}:${userId}`,
+})
+if (txErr) {
+  if (String(txErr.message || '').includes('insufficient_funds')) {
+    err.value = 'Insufficient balance to join. Please top up.'
+  } else {
+    err.value = 'Could not deduct entry fee.'
+  }
+  return false
+}
+// Optional: updated balance is at txRows?.[0]?.new_balance
+return true
+
   } catch {
     err.value = 'Payment failed unexpectedly.'
     return false
