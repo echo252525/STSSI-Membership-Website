@@ -8,21 +8,19 @@
 
         <h2 class="h4 mb-1 game-title">
           <span class="game-title__glow"></span>
-          Mini Gamessses
+          Mini Games
         </h2>
         <p class="text-secondary mb-1">Join events, spin the wheel, and win purchase discounts.</p>
         <RouterLink
-  :to="{ name: 'user.minigames.tutorial' }"
-  class="text-secondary mb-1 d-inline-block text-decoration-underline"
-  aria-label="Open tutorial: How to Play"
->
-  How to Play?
-</RouterLink>
-
-
+          :to="{ name: 'user.minigames.tutorial' }"
+          class="text-secondary mb-1 d-inline-block text-decoration-underline"
+          aria-label="Open tutorial: How to Play"
+        >
+          How to Play?
+        </RouterLink>
 
         <div class="d-flex align-items-center justify-content-between">
-          <h3 class="h6 mb-0 game-sub">Open Events</h3>
+          <h3 class="h6 mb-0 game-sub mb-3">Open Events</h3>
         </div>
 
         <!-- Loading -->
@@ -100,12 +98,14 @@
                     <div
                       class="spin-wheel__mask"
                       :class="{
-                        'is-clickable': i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id))
+                        'is-clickable': i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)),
                       }"
                       :title="maskTitle(ev, i)"
                       :aria-label="maskTitle(ev, i)"
                       :aria-disabled="!(i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)))"
-                      :tabindex="i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)) ? 0 : -1"
+                      :tabindex="
+                        i === activeIndex && (canJoin(ev) || alreadyJoined(ev.id)) ? 0 : -1
+                      "
                       @click.stop="onWheelClick(ev, i)"
                       @keydown.enter.prevent.stop="onWheelClick(ev, i)"
                       @keydown.space.prevent.stop="onWheelClick(ev, i)"
@@ -395,8 +395,9 @@ function slideStyle(i: number): CSSProperties {
   const minScale = isPhone ? 0.94 : 0.72
   const scale = Math.max(base - distance * perStep, minScale)
 
-  // Wider on phones but still constrained
-  const width = isPhone ? 'min(94vw, 520px)' : isTablet ? '88vw' : 'clamp(320px, 72vw, 620px)'
+  // Use % of the holder so it never exceeds the clipped area
+const width = isPhone ? 'min(96%, 520px)' : isTablet ? '92%' : 'clamp(320px, 70%, 620px)'
+
 
   // Softer dimming on small screens to avoid “washed out” side cards
   const dimFactor = isPhone ? 0.12 : 0.2
@@ -1317,7 +1318,7 @@ onUnmounted(() => {
 @media (max-width: 992px) {
   .slider__holder {
     max-width: 760px;
-    min-height: 520px;
+    min-height: 680px;
   }
 }
 @media (max-width: 600px) {
@@ -1352,7 +1353,9 @@ onUnmounted(() => {
   }
 }
 .slider__item.is-active .spin-card {
-  box-shadow: 0 14px 40px rgba(67, 97, 238, 0.18), 0 0 0 1px rgba(67, 97, 238, 0.12);
+  box-shadow:
+    0 14px 40px rgba(67, 97, 238, 0.18),
+    0 0 0 1px rgba(67, 97, 238, 0.12);
 }
 
 /* Bullets */
@@ -1372,7 +1375,7 @@ onUnmounted(() => {
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.2);
   border: 0;
-  transition: transform .15s ease;
+  transition: transform 0.15s ease;
 }
 .bullets__item:hover {
   background: #fff;
@@ -1460,16 +1463,27 @@ onUnmounted(() => {
   animation: haloFloat 7s ease-in-out infinite;
 }
 @keyframes haloFloat {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-4px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
 }
 
-.spin-card__title { letter-spacing: 0.2px; }
-.spin-card__status { backdrop-filter: saturate(1.2); }
+.spin-card__title {
+  letter-spacing: 0.2px;
+}
+.spin-card__status {
+  backdrop-filter: saturate(1.2);
+}
 
 /* ⭐ Slightly tighter padding on small screens for more breathing room overall */
 @media (max-width: 600px) {
-  .spin-card__body { padding: 0.85rem !important; }
+  .spin-card__body {
+    padding: 0.85rem !important;
+  }
 }
 
 /* --- Wheel --- */
@@ -1488,16 +1502,15 @@ onUnmounted(() => {
   width: 94%;
   height: 94%;
   border-radius: 50%;
-  background:
-    conic-gradient(#7c3aed var(--hud-deg, 0deg), rgba(0,0,0,0.06) 0);
-  -webkit-mask:
-    radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
-  mask:
-    radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
-  filter: drop-shadow(0 2px 8px rgba(124, 58, 237, .25));
+  background: conic-gradient(#7c3aed var(--hud-deg, 0deg), rgba(0, 0, 0, 0.06) 0);
+  -webkit-mask: radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
+  mask: radial-gradient(circle 46% at 50% 50%, transparent 96%, #000 98%);
+  filter: drop-shadow(0 2px 8px rgba(124, 58, 237, 0.25));
   z-index: 0;
 }
-.spin-wheel--paused .spin-wheel__ring { animation-play-state: paused; }
+.spin-wheel--paused .spin-wheel__ring {
+  animation-play-state: paused;
+}
 .spin-wheel__ring {
   position: absolute;
   width: 84%;
@@ -1517,8 +1530,14 @@ onUnmounted(() => {
   transition: filter 0.25s ease;
   z-index: 1;
 }
-.spin-card:hover .spin-wheel__ring { filter: saturate(1.1) brightness(1.02); }
-@keyframes ringSpin { to { transform: rotate(360deg); } }
+.spin-card:hover .spin-wheel__ring {
+  filter: saturate(1.1) brightness(1.02);
+}
+@keyframes ringSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* CLICKABLE MASK micro-interactions */
 .spin-wheel__mask {
@@ -1534,13 +1553,17 @@ onUnmounted(() => {
 }
 .spin-wheel__mask.is-clickable {
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.2s ease;
 }
 .spin-wheel__mask.is-clickable:hover {
   transform: scale(1.025);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
 }
-.spin-wheel__mask.is-clickable:active { transform: scale(0.995); }
+.spin-wheel__mask.is-clickable:active {
+  transform: scale(0.995);
+}
 .spin-wheel__mask.is-clickable:focus {
   outline: 0;
   box-shadow:
@@ -1548,17 +1571,27 @@ onUnmounted(() => {
     0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
-.spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.spin-wheel__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 .spin-wheel__placeholder {
-  width: 100%; height: 100%;
-  display: grid; place-items: center;
-  color: #94a3b8; font-size: 2rem;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  font-size: 2rem;
 }
 
 .spin-wheel__pointer {
   position: absolute;
-  top: 2%; left: 50%;
-  width: 0; height: 0;
+  top: 2%;
+  left: 50%;
+  width: 0;
+  height: 0;
   transform: translateX(-50%);
   border-left: 7px solid transparent;
   border-right: 7px solid transparent;
@@ -1568,13 +1601,23 @@ onUnmounted(() => {
 }
 
 /* --- Stats Row --- */
-.spin-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+.spin-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
 @media (max-width: 480px) {
-  .spin-stats { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .spin-stats {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
 }
 /* ⭐ Ultra-small phones: stack stats for zero squeeze */
 @media (max-width: 420px) {
-  .spin-stats { grid-template-columns: 1fr; gap: 0.45rem; }
+  .spin-stats {
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
 }
 .spin-stat {
   background: #fff;
@@ -1583,73 +1626,130 @@ onUnmounted(() => {
   padding: 0.5rem 0.6rem;
   text-align: center;
 }
-.spin-stat__label { font-size: 0.72rem; color: #6c757d; }
-.spin-stat__value { font-size: 0.9rem; font-weight: 600; }
+.spin-stat__label {
+  font-size: 0.72rem;
+  color: #6c757d;
+}
+.spin-stat__value {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
 
 /* --- Avatars --- */
 .avatar-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
 }
 .avatars {
-  display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;
-  max-height: 44px; overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  max-height: 44px;
+  overflow: hidden;
 }
 .avatar-img,
 .avatar-fallback {
-  width: 32px; height: 32px; border-radius: 50%;
-  display: inline-grid; place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
   border: 1px solid rgba(0, 0, 0, 0.08);
-  background: #fff; overflow: hidden;
-  box-shadow: 0 1px 0 rgba(0,0,0,.04);
+  background: #fff;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
-.avatar-img { object-fit: cover; }
-.avatar-img:hover { box-shadow: 0 0 0 2px rgba(67, 97, 238, .25); }
-.avatar-fallback { color: #94a3b8; font-size: 1rem; background: #f1f5f9; }
+.avatar-img {
+  object-fit: cover;
+}
+.avatar-img:hover {
+  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.25);
+}
+.avatar-fallback {
+  color: #94a3b8;
+  font-size: 1rem;
+  background: #f1f5f9;
+}
 .avatar-more {
-  font-size: 0.8rem; color: #6c757d;
-  background: #fff; border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 999px; padding: 0.2rem 0.5rem;
+  font-size: 0.8rem;
+  color: #6c757d;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
 }
 @media (max-width: 600px) {
-  .avatar-img, .avatar-fallback { width: 28px; height: 28px; }
+  .avatar-img,
+  .avatar-fallback {
+    width: 28px;
+    height: 28px;
+  }
 }
 
 /* --- Slots left indicator --- */
 .dot-pulse {
-  width: 6px; height: 6px; border-radius: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
   background: #20c997;
   box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
   animation: pulse 1.8s infinite;
 }
 @keyframes pulse {
-  0% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6); }
-  70% { box-shadow: 0 0 0 8px rgba(32, 201, 151, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(32, 201, 151, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
+  }
 }
 
 /* --- Join button micro-interactions (kept for compatibility; button removed) --- */
 .join-btn {
   position: relative;
   overflow: hidden;
-  transition: transform 0.15s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.2s ease;
 }
-.join-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25); }
-.join-btn:active { transform: translateY(0); box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2); }
+.join-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(13, 110, 253, 0.25);
+}
+.join-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(13, 110, 253, 0.2);
+}
 .join-btn::after {
   content: '';
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
   background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
-  transform: translateX(-120%); transition: transform 0.6s ease;
+  transform: translateX(-120%);
+  transition: transform 0.6s ease;
 }
-.join-btn:hover::after { transform: translateX(120%); }
-.join-btn--disabled, .join-btn:disabled { opacity: 0.7; box-shadow: none; cursor: not-allowed; }
+.join-btn:hover::after {
+  transform: translateX(120%);
+}
+.join-btn--disabled,
+.join-btn:disabled {
+  opacity: 0.7;
+  box-shadow: none;
+  cursor: not-allowed;
+}
 
 /* ===================== NEW — GAME SURFACE & ARCADE ACCENTS ===================== */
 /* Neon gradient canvas */
 .game-surface {
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(67,97,238,.12), transparent 60%),
-    radial-gradient(800px 500px at 110% 0%, rgba(124,58,237,.12), transparent 60%),
+    radial-gradient(1200px 600px at 10% -10%, rgba(67, 97, 238, 0.12), transparent 60%),
+    radial-gradient(800px 500px at 110% 0%, rgba(124, 58, 237, 0.12), transparent 60%),
     linear-gradient(180deg, #f6f7fb 0%, #eef1f7 100%);
   padding: 24px 12px;
 }
@@ -1660,10 +1760,15 @@ onUnmounted(() => {
 }
 .game-card::before {
   content: '';
-  position: absolute; inset: 0;
-  background:
-    linear-gradient(120deg, rgba(67,97,238,.35), rgba(124,58,237,.28), rgba(16,185,129,.28));
-  opacity: .12;
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    120deg,
+    rgba(67, 97, 238, 0.35),
+    rgba(124, 58, 237, 0.28),
+    rgba(16, 185, 129, 0.28)
+  );
+  opacity: 0.12;
   pointer-events: none;
 }
 .game-card__body {
@@ -1677,20 +1782,33 @@ onUnmounted(() => {
 .game-bg-anim {
   position: absolute;
   inset: 0;
-  z-index: 0;           /* sit behind the content */
+  z-index: 0; /* sit behind the content */
   pointer-events: none; /* never block clicks */
   opacity: 0.45;
   background:
-    radial-gradient(1200px 800px at 10% -10%, rgba(67,97,238,.20), transparent 60%),
-    radial-gradient(900px 600px at 110% 0%, rgba(124,58,237,.18), transparent 60%),
-    conic-gradient(from 0deg, rgba(16,185,129,.12), rgba(67,97,238,.12), rgba(124,58,237,.12), rgba(16,185,129,.12));
+    radial-gradient(1200px 800px at 10% -10%, rgba(67, 97, 238, 0.2), transparent 60%),
+    radial-gradient(900px 600px at 110% 0%, rgba(124, 58, 237, 0.18), transparent 60%),
+    conic-gradient(
+      from 0deg,
+      rgba(16, 185, 129, 0.12),
+      rgba(67, 97, 238, 0.12),
+      rgba(124, 58, 237, 0.12),
+      rgba(16, 185, 129, 0.12)
+    );
   animation: bgSlowSpin 24s linear infinite;
   /* soft vignette to avoid clashing with text */
+  -webkit-mask-image: radial-gradient(85% 85% at 50% 40%, #000 70%, transparent 100%);
   mask-image: radial-gradient(85% 85% at 50% 40%, #000 70%, transparent 100%);
 }
-@keyframes bgSlowSpin { to { transform: rotate(360deg); } }
+@keyframes bgSlowSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 @media (prefers-reduced-motion: reduce) {
-  .game-bg-anim { animation: none; }
+  .game-bg-anim {
+    animation: none;
+  }
 }
 
 /* Glossy title w/ glow underline */
@@ -1700,7 +1818,12 @@ onUnmounted(() => {
   padding-bottom: 4px;
 }
 .game-title__glow {
-  position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; border-radius: 999px;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -3px;
+  height: 3px;
+  border-radius: 999px;
   background: linear-gradient(90deg, #4361ee, #7c3aed, #10b981);
   filter: blur(0.6px);
 }
@@ -1712,44 +1835,75 @@ onUnmounted(() => {
 }
 .game-sub::before {
   content: '';
-  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-  width: 4px; height: 14px; border-radius: 2px;
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
   background: linear-gradient(180deg, #7c3aed, #4361ee);
 }
 
 /* Gradient border accent around spin-card (non-destructive) */
 .spin-card::before {
   content: '';
-  position: absolute; inset: 0;
+  position: absolute;
+  inset: 0;
   border-radius: 16px;
   padding: 1px;
-  background: linear-gradient(135deg, rgba(67,97,238,.32), rgba(124,58,237,.28), rgba(16,185,129,.28));
-  -webkit-mask: 
-    linear-gradient(#000 0 0) content-box, 
+  background: linear-gradient(
+    135deg,
+    rgba(67, 97, 238, 0.32),
+    rgba(124, 58, 237, 0.28),
+    rgba(16, 185, 129, 0.28)
+  );
+
+  /* WebKit + standard (fixes css(vendorPrefix) warning) */
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+
+  /* Safari uses xor; standard equivalent is exclude */
   -webkit-mask-composite: xor;
-          mask-composite: exclude;
+  mask-composite: exclude;
+
   pointer-events: none;
 }
 
+
 /* Success sparkle burst (triggered via data-joined) */
-.spin-card[data-joined="true"]::after {
-  --c: rgba(255, 215, 97, .95);
+.spin-card[data-joined='true']::after {
+  --c: rgba(255, 215, 97, 0.95);
   content: '';
-  position: absolute; inset: -10%;
+  position: absolute;
+  inset: -10%;
   background:
     radial-gradient(10px 10px at 30% 45%, var(--c), transparent 60%),
     radial-gradient(8px 8px at 70% 30%, var(--c), transparent 60%),
     radial-gradient(6px 6px at 55% 75%, var(--c), transparent 60%),
     radial-gradient(7px 7px at 80% 60%, var(--c), transparent 60%),
     radial-gradient(5px 5px at 20% 70%, var(--c), transparent 60%);
-  animation: popSpark .65s ease-out forwards;
+  animation: popSpark 0.65s ease-out forwards;
   pointer-events: none;
 }
 @keyframes popSpark {
-  from { opacity: 0; transform: scale(.85); filter: blur(2px); }
-  30% { opacity: 1; }
-  to { opacity: 0; transform: scale(1.25); filter: blur(6px); }
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+    filter: blur(2px);
+  }
+  30% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.25);
+    filter: blur(6px);
+  }
 }
 
 /* HUD: slot progress underline */
@@ -1758,11 +1912,13 @@ onUnmounted(() => {
 }
 .slots-hud::after {
   content: '';
-  height: 2px; width: 64px;
+  height: 2px;
+  width: 64px;
   margin-left: 8px;
-  background: repeating-linear-gradient(90deg, #10b981 0 6px, rgba(16,185,129,.3) 6px 12px);
-  display: inline-block; border-radius: 999px;
-  opacity: .6;
+  background: repeating-linear-gradient(90deg, #10b981 0 6px, rgba(16, 185, 129, 0.3) 6px 12px);
+  display: inline-block;
+  border-radius: 999px;
+  opacity: 0.6;
 }
 
 /* 3D tilt override (keeps original hover lift intact) */

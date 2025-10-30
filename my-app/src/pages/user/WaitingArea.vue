@@ -21,9 +21,7 @@
     <div v-if="isLoading || imageLoading" class="wa-loader-overlay">
       <div class="wa-loader">
         <div class="wa-loader-core"></div>
-        <div class="wa-orbit">
-          <span></span><span></span><span></span>
-        </div>
+        <div class="wa-orbit"><span></span><span></span><span></span></div>
         <div class="wa-loader-text">Waiting for other players…</div>
       </div>
     </div>
@@ -46,9 +44,7 @@
               Players&nbsp;·&nbsp;<strong>{{ event.player_count }}</strong
               >/<span class="text-light">{{ event.player_cap }}</span>
             </span>
-            <span class="badge rounded-pill wa-pill-soft text-capitalize">{{
-              event.status
-            }}</span>
+            <span class="badge rounded-pill wa-pill-soft text-capitalize">{{ event.status }}</span>
           </div>
 
           <div
@@ -75,7 +71,12 @@
           <div class="wa-users-grid ml-flavor">
             <!-- loading skeletons -->
             <template v-if="loadingJoined">
-              <div v-for="n in 6" :key="'s' + n" class="wa-user-card" :style="{ animationDelay: (n * 0.05) + 's' }">
+              <div
+                v-for="n in 6"
+                :key="'s' + n"
+                class="wa-user-card"
+                :style="{ animationDelay: n * 0.05 + 's' }"
+              >
                 <div class="wa-avatar-skeleton"></div>
                 <div class="wa-username-skeleton"></div>
               </div>
@@ -88,7 +89,7 @@
                 :key="u.id"
                 class="wa-user-card"
                 :title="u.full_name || '—'"
-                :style="{ animationDelay: (i * 0.04) + 's' }"
+                :style="{ animationDelay: i * 0.04 + 's' }"
               >
                 <div class="wa-user-glow"></div>
                 <img
@@ -171,20 +172,28 @@
         <!-- Tip marquee -->
         <div class="wa-tips mt-4" aria-live="polite">
           <div class="wa-tips-track">
-            <span class="wa-tip">Keep this tab open—your slot stays reserved until the round starts.</span>
+            <span class="wa-tip"
+              >Keep this tab open—your slot stays reserved until the round starts.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Rounds start as the lobby fills. Invite a friend to kick it off sooner.</span>
+            <span class="wa-tip"
+              >Rounds start as the lobby fills. Invite a friend to kick it off sooner.</span
+            >
 
             <span class="wa-dot">•</span>
             <span class="wa-tip">Prizes reveal when the round begins—watch the top banner.</span>
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Names stay bright on darker slices so you can spot yours fast.</span>
+            <span class="wa-tip"
+              >Names stay bright on darker slices so you can spot yours fast.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">No pointer here—watch the glowing edge; it locks onto the winner.</span>
-            
+            <span class="wa-tip"
+              >No pointer here—watch the glowing edge; it locks onto the winner.</span
+            >
+
             <span class="wa-dot">•</span>
             <span class="wa-tip">When the countdown hits 0, entries lock for this round.</span>
 
@@ -192,31 +201,45 @@
             <span class="wa-tip"> No need to tap—everyone sees the same synced spin.</span>
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Stay on this tab; backgrounding can delay visuals on some devices.</span>
+            <span class="wa-tip"
+              >Stay on this tab; backgrounding can delay visuals on some devices.</span
+            >
 
             <span class="wa-dot">•</span>
             <span class="wa-tip">If the layout looks off, refresh before the countdown ends.</span>
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Weak connection? Your entry is still counted—result is server-verified.</span>
+            <span class="wa-tip"
+              >Weak connection? Your entry is still counted—result is server-verified.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Make sure your display name and avatar are correct—they’ll show if you win.</span>
+            <span class="wa-tip"
+              >Make sure your display name and avatar are correct—they’ll show if you win.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">The wheel may fake out, then snap to the winning slice—don’t be fooled.</span>
+            <span class="wa-tip"
+              >The wheel may fake out, then snap to the winning slice—don’t be fooled.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">One account per player. Suspicious activity can be disqualified.</span>
+            <span class="wa-tip"
+              >One account per player. Suspicious activity can be disqualified.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Winners go to Purchases to claim. Didn’t win? Back to Games for the next round.</span>
+            <span class="wa-tip"
+              >Winners go to Purchases to claim. Didn’t win? Back to Games for the next round.</span
+            >
 
             <span class="wa-dot">•</span>
-            <span class="wa-tip">Screenshots are welcome—your winning slice and name will be highlighted.</span>
+            <span class="wa-tip"
+              >Screenshots are welcome—your winning slice and name will be highlighted.</span
+            >
           </div>
         </div>
-        
+
         <!-- Back / confirm -->
         <div class="d-flex flex-column align-items-center gap-2 mt-4">
           <button
@@ -1024,7 +1047,14 @@ function onRootClick(e: MouseEvent) {
 }
 
 // Sparkles
-type Sparkle = { left: number; top: number; size: number; duration: number; delay: number; opacity: number }
+type Sparkle = {
+  left: number
+  top: number
+  size: number
+  duration: number
+  delay: number
+  opacity: number
+}
 const sparkles = ref<Sparkle[]>([])
 
 function initSparkles() {
@@ -1137,9 +1167,15 @@ onBeforeUnmount(() => {
   transition: transform 120ms linear;
 }
 @keyframes wa-aurora-shift {
-  0% { filter: blur(28px) brightness(0.9); }
-  50% { filter: blur(32px) brightness(1); }
-  100% { filter: blur(28px) brightness(0.92); }
+  0% {
+    filter: blur(28px) brightness(0.9);
+  }
+  50% {
+    filter: blur(32px) brightness(1);
+  }
+  100% {
+    filter: blur(28px) brightness(0.92);
+  }
 }
 
 .wa-grid {
@@ -1156,8 +1192,16 @@ onBeforeUnmount(() => {
   transition: transform 120ms linear;
 }
 @keyframes wa-grid-drift {
-  from { background-position: 0 0, 0 0; }
-  to { background-position: 256px 128px, 128px 256px; }
+  from {
+    background-position:
+      0 0,
+      0 0;
+  }
+  to {
+    background-position:
+      256px 128px,
+      128px 256px;
+  }
 }
 
 .wa-sparkles {
@@ -1169,16 +1213,32 @@ onBeforeUnmount(() => {
 .wa-sparkle {
   position: absolute;
   border-radius: 999px;
-  background: radial-gradient(circle, rgba(124,156,255,0.8), rgba(124,156,255,0.05) 60%, transparent 70%);
-  box-shadow: 0 0 8px rgba(124,156,255,0.35), 0 0 16px rgba(82,227,182,0.18);
+  background: radial-gradient(
+    circle,
+    rgba(124, 156, 255, 0.8),
+    rgba(124, 156, 255, 0.05) 60%,
+    transparent 70%
+  );
+  box-shadow:
+    0 0 8px rgba(124, 156, 255, 0.35),
+    0 0 16px rgba(82, 227, 182, 0.18);
   animation-name: wa-sparkle-float;
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
 }
 @keyframes wa-sparkle-float {
-  0% { transform: translateY(0) scale(1); opacity: 0.2; }
-  50% { transform: translateY(-12px) scale(1.2); opacity: 0.75; }
-  100% { transform: translateY(0) scale(1); opacity: 0.2; }
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.2;
+  }
+  50% {
+    transform: translateY(-12px) scale(1.2);
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 0.2;
+  }
 }
 
 .wa-card {
@@ -1191,7 +1251,17 @@ onBeforeUnmount(() => {
   z-index: 1;
   animation: wa-float 6s ease-in-out infinite;
   transform: translate3d(calc(var(--mx) * 6px), calc(var(--my) * 6px), 0);
-  transition: transform 120ms linear, box-shadow 200ms ease;
+  transition:
+    transform 120ms linear,
+    box-shadow 200ms ease;
+  
+    max-width: 1000px;
+}
+
+@media (max-width: 450px) {
+  .wa-card {
+    max-width: 500px;
+  }
 }
 .wa-card:hover {
   box-shadow:
@@ -1199,17 +1269,38 @@ onBeforeUnmount(() => {
     0 0 24px rgba(124, 156, 255, 0.12);
 }
 @keyframes wa-float {
-  0%, 100% { transform: translateY(0) }
-  50% { transform: translateY(-6px) }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
-.wa-title { color: #f3f6ff; }
-.wa-subtext { color: #f3f6ff; opacity: 0.8; }
-.wa-title-wrap { display: grid; gap: 2px; }
+.wa-title {
+  color: #f3f6ff;
+}
+.wa-subtext {
+  color: #f3f6ff;
+  opacity: 0.8;
+}
+.wa-title-wrap {
+  display: grid;
+  gap: 2px;
+}
 
 /* Lobby top row */
-.wa-lobby-top { display: grid; gap: 10px; }
-.wa-lobby-row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.wa-lobby-top {
+  display: grid;
+  gap: 10px;
+}
+.wa-lobby-row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
 
 .wa-pill {
   background: var(--wa-chip);
@@ -1219,17 +1310,23 @@ onBeforeUnmount(() => {
   overflow: hidden;
 }
 .wa-pill::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent, rgba(255,255,255,0.07), transparent);
+  background: linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.07), transparent);
   transform: translateX(-100%);
   animation: wa-shine 3.6s ease-in-out infinite;
 }
 @keyframes wa-shine {
-  0% { transform: translateX(-120%); }
-  60% { transform: translateX(120%); }
-  100% { transform: translateX(120%); }
+  0% {
+    transform: translateX(-120%);
+  }
+  60% {
+    transform: translateX(120%);
+  }
+  100% {
+    transform: translateX(120%);
+  }
 }
 .wa-pill-soft {
   background: var(--wa-chip-soft);
@@ -1269,10 +1366,26 @@ onBeforeUnmount(() => {
   gap: 10px;
   text-align: left;
 }
-@media (max-width: 1200px) { .wa-users-grid { grid-template-columns: repeat(5, 1fr); } }
-@media (max-width: 992px)  { .wa-users-grid { grid-template-columns: repeat(4, 1fr); } }
-@media (max-width: 768px)  { .wa-users-grid { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 576px)  { .wa-users-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1200px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+@media (max-width: 992px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 576px) {
+  .wa-users-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
 
 .wa-user-card {
   position: relative;
@@ -1286,18 +1399,27 @@ onBeforeUnmount(() => {
   align-items: center;
   column-gap: 10px;
   overflow: hidden;
-  animation: wa-rise-in 420ms cubic-bezier(.2,.9,.25,1) both;
-  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+  animation: wa-rise-in 420ms cubic-bezier(0.2, 0.9, 0.25, 1) both;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
   will-change: transform;
 }
 .wa-user-card:hover {
   transform: translateY(-4px) scale(1.015);
-  box-shadow: 0 8px 22px rgba(124,156,255,0.12);
+  box-shadow: 0 8px 22px rgba(124, 156, 255, 0.12);
   border-color: #2f4277;
 }
 @keyframes wa-rise-in {
-  from { opacity: 0; transform: translateY(8px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .wa-user-glow {
@@ -1349,8 +1471,14 @@ onBeforeUnmount(() => {
 }
 
 /* Product spotlight */
-.wa-product-spot { display: grid; place-items: center; }
-.wa-product-info { display: grid; gap: 4px; }
+.wa-product-spot {
+  display: grid;
+  place-items: center;
+}
+.wa-product-info {
+  display: grid;
+  gap: 4px;
+}
 .wa-product-title {
   font-weight: 700;
   font-size: 16px;
@@ -1364,7 +1492,12 @@ onBeforeUnmount(() => {
   align-items: baseline;
   justify-content: center;
 }
-.wa-price-old { color: #9fb0d9; text-decoration: line-through; opacity: 0.75; font-size: 14px; }
+.wa-price-old {
+  color: #9fb0d9;
+  text-decoration: line-through;
+  opacity: 0.75;
+  font-size: 14px;
+}
 .wa-price-new {
   font-size: 20px;
   font-weight: 800;
@@ -1373,18 +1506,38 @@ onBeforeUnmount(() => {
 }
 
 /* Circular prize image + slideshow */
-.wa-image-frame { position: relative; display: grid; place-items: center; min-height: 180px; }
-.wa-slideshow { position: relative; width: 164px; height: 164px; }
+.wa-image-frame {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+}
+.wa-slideshow {
+  position: relative;
+  width: 164px;
+  height: 164px;
+}
 .wa-image-circle {
-  width: 164px; height: 164px; border-radius: 50%;
+  width: 164px;
+  height: 164px;
+  border-radius: 50%;
   border: 1px solid var(--wa-border);
   object-fit: cover;
   box-shadow: 0 10px 28px rgba(36, 62, 160, 0.25);
 }
-.wa-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 600ms ease; }
-.wa-slide.active { opacity: 1; }
+.wa-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 600ms ease;
+}
+.wa-slide.active {
+  opacity: 1;
+}
 .wa-img-skeleton-circle {
-  width: 164px; height: 164px; border-radius: 50%;
+  width: 164px;
+  height: 164px;
+  border-radius: 50%;
   border: 1px solid var(--wa-border);
   background: linear-gradient(90deg, #141c36 25%, #0f1a33 37%, #141c36 63%);
   background-size: 400% 100%;
@@ -1392,7 +1545,8 @@ onBeforeUnmount(() => {
 }
 .wa-ring {
   position: absolute;
-  width: 200px; height: 200px;
+  width: 200px;
+  height: 200px;
   border-radius: 50%;
   border: 1px dashed rgba(124, 156, 255, 0.35);
   animation: wa-spin 10s linear infinite;
@@ -1401,99 +1555,267 @@ onBeforeUnmount(() => {
   transform: translate3d(calc(var(--mx) * 4px), calc(var(--my) * 4px), 0);
 }
 .wa-pulse {
-  position: absolute; width: 220px; height: 220px; border-radius: 50%;
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
   z-index: -1;
-  background: radial-gradient(circle, rgba(82,227,182,0.08), transparent 65%);
+  background: radial-gradient(circle, rgba(82, 227, 182, 0.08), transparent 65%);
   animation: wa-pulse 2.6s ease-in-out infinite;
 }
-@keyframes wa-spin { to { transform: rotate(360deg); } }
-@keyframes wa-pulse { 0%,100% { opacity: .35; transform: scale(1); } 50% { opacity: .65; transform: scale(1.05); } }
-@keyframes wa-shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
+@keyframes wa-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes wa-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.65;
+    transform: scale(1.05);
+  }
+}
+@keyframes wa-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
 
 /* Dots */
-.wa-dots { display: inline-flex; gap: 6px; }
+.wa-dots {
+  display: inline-flex;
+  gap: 6px;
+}
 .wa-dots span {
-  width: 6px; height: 6px; background: #7e8cc2; border-radius: 999px; display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #7e8cc2;
+  border-radius: 999px;
+  display: inline-block;
   animation: wa-bounce 1.4s infinite;
 }
-.wa-dots span:nth-child(2) { animation-delay: 0.12s; }
-.wa-dots span:nth-child(3) { animation-delay: 0.24s; }
+.wa-dots span:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.wa-dots span:nth-child(3) {
+  animation-delay: 0.24s;
+}
 @keyframes wa-bounce {
-  0%, 80%, 100% { transform: translateY(0); opacity: 0.85; }
-  40% { transform: translateY(-5px); opacity: 1; }
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.85;
+  }
+  40% {
+    transform: translateY(-5px);
+    opacity: 1;
+  }
 }
 
 /* Tip marquee, buttons, modal */
 .wa-tips {
-  position: relative; height: 28px; overflow: hidden;
-  border-radius: 999px; border: 1px solid #1f2a49; background: #0b1124;
+  position: relative;
+  height: 28px;
+  overflow: hidden;
+  border-radius: 999px;
+  border: 1px solid #1f2a49;
+  background: #0b1124;
 }
 .wa-tips-track {
-  display: inline-flex; align-items: center; gap: 18px; white-space: nowrap;
-  padding: 4px 12px; color: #b6c5ff; font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 18px;
+  white-space: nowrap;
+  padding: 4px 12px;
+  color: #b6c5ff;
+  font-size: 12px;
   animation: wa-marquee 60s linear infinite;
 }
-.wa-dot { opacity: 0.5; padding: 0 8px; }
-@keyframes wa-marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
+.wa-dot {
+  opacity: 0.5;
+  padding: 0 8px;
+}
+@keyframes wa-marquee {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
 .wa-leave-btn {
-  border-width: 2px; color: #dbe5ff; border-color: #263459; background: #0d1530;
-  transition: transform 120ms ease, box-shadow 160ms ease;
+  border-width: 2px;
+  color: #dbe5ff;
+  border-color: #263459;
+  background: #0d1530;
+  transition:
+    transform 120ms ease,
+    box-shadow 160ms ease;
 }
-.wa-leave-btn:hover { border-color: #3b4e86; box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15); transform: translateY(-1px); }
+.wa-leave-btn:hover {
+  border-color: #3b4e86;
+  box-shadow: 0 8px 24px rgba(124, 156, 255, 0.15);
+  transform: translateY(-1px);
+}
 
 .wa-modal-backdrop {
-  position: fixed; inset: 0; background: rgba(11, 16, 32, 0.65); backdrop-filter: blur(4px);
-  display: grid; place-items: center; z-index: 1040;
+  position: fixed;
+  inset: 0;
+  background: rgba(11, 16, 32, 0.65);
+  backdrop-filter: blur(4px);
+  display: grid;
+  place-items: center;
+  z-index: 1040;
 }
 .wa-modal {
-  position: relative; width: min(520px, 92vw); border: 1px solid var(--wa-border);
-  background: linear-gradient(180deg, #0f172e, #0b1225); color: #eaf1ff;
+  position: relative;
+  width: min(520px, 92vw);
+  border: 1px solid var(--wa-border);
+  background: linear-gradient(180deg, #0f172e, #0b1225);
+  color: #eaf1ff;
 }
-.wa-modal-close { position: absolute; top: 8px; right: 10px; border: 0; background: transparent; color: #9aa6b2; cursor: pointer; }
+.wa-modal-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: transparent;
+  color: #9aa6b2;
+  cursor: pointer;
+}
 
 /* Loader overlay */
 .wa-loader-overlay {
-  position: absolute; inset: 0;
-  background: radial-gradient(80% 60% at 50% 40%, rgba(9,14,28,0.65), rgba(9,14,28,0.85));
-  z-index: 2; display: grid; place-items: center; pointer-events: none;
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(80% 60% at 50% 40%, rgba(9, 14, 28, 0.65), rgba(9, 14, 28, 0.85));
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
 }
-.wa-loader { position: relative; width: 140px; height: 140px; display: grid; place-items: center; }
+.wa-loader {
+  position: relative;
+  width: 140px;
+  height: 140px;
+  display: grid;
+  place-items: center;
+}
 .wa-loader-core {
-  width: 64px; height: 64px; border-radius: 50%;
-  background: conic-gradient(from 0deg, rgba(124,156,255,.9), rgba(82,227,182,.9), rgba(143,119,255,.9), rgba(124,156,255,.9));
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    rgba(124, 156, 255, 0.9),
+    rgba(82, 227, 182, 0.9),
+    rgba(143, 119, 255, 0.9),
+    rgba(124, 156, 255, 0.9)
+  );
   -webkit-mask: radial-gradient(circle 22px, transparent 57%, #000 58%);
-          mask: radial-gradient(circle 22px, transparent 57%, #000 58%);
-  animation: wa-rotate 1.2s linear infinite; box-shadow: 0 0 30px rgba(124,156,255,.25);
+  mask: radial-gradient(circle 22px, transparent 57%, #000 58%);
+  animation: wa-rotate 1.2s linear infinite;
+  box-shadow: 0 0 30px rgba(124, 156, 255, 0.25);
 }
-@keyframes wa-rotate { to { transform: rotate(360deg); } }
-.wa-orbit { position: absolute; inset: 0; display: grid; place-items: center; filter: drop-shadow(0 0 8px rgba(124,156,255,.45)); }
+@keyframes wa-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.wa-orbit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 0 8px rgba(124, 156, 255, 0.45));
+}
 .wa-orbit span {
-  position: absolute; width: 8px; height: 8px; border-radius: 50%;
-  background: #7c9cff; animation: wa-orbit 2.4s linear infinite;
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7c9cff;
+  animation: wa-orbit 2.4s linear infinite;
 }
-.wa-orbit span:nth-child(2) { animation-delay: .2s; background: #52e3b6; }
-.wa-orbit span:nth-child(3) { animation-delay: .4s; background: #8f77ff; }
+.wa-orbit span:nth-child(2) {
+  animation-delay: 0.2s;
+  background: #52e3b6;
+}
+.wa-orbit span:nth-child(3) {
+  animation-delay: 0.4s;
+  background: #8f77ff;
+}
 @keyframes wa-orbit {
-  0%   { transform: rotate(0deg) translateX(56px) rotate(0deg); }
-  100% { transform: rotate(360deg) translateX(56px) rotate(-360deg); }
+  0% {
+    transform: rotate(0deg) translateX(56px) rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg) translateX(56px) rotate(-360deg);
+  }
 }
 .wa-loader-text {
-  position: absolute; bottom: -26px; width: 220px; text-align: center;
-  font-size: 12px; color: #cfe3ff; letter-spacing: .3px; text-shadow: 0 2px 6px rgba(0,0,0,.35);
+  position: absolute;
+  bottom: -26px;
+  width: 220px;
+  text-align: center;
+  font-size: 12px;
+  color: #cfe3ff;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
 }
 
 /* Click pulse */
 .wa-click-pulse {
-  position: absolute; width: 12px; height: 12px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(82,227,182,.9), rgba(82,227,182,.1) 60%, transparent 70%);
-  transform: translate(-50%, -50%); animation: wa-click 800ms ease-out forwards;
-  pointer-events: none; z-index: 3;
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(82, 227, 182, 0.9),
+    rgba(82, 227, 182, 0.1) 60%,
+    transparent 70%
+  );
+  transform: translate(-50%, -50%);
+  animation: wa-click 800ms ease-out forwards;
+  pointer-events: none;
+  z-index: 3;
 }
 .wa-click-pulse::after {
-  content: ""; position: absolute; inset: -6px; border: 1px solid rgba(124,156,255,.55);
-  border-radius: 50%; animation: wa-click-ring 800ms ease-out forwards;
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border: 1px solid rgba(124, 156, 255, 0.55);
+  border-radius: 50%;
+  animation: wa-click-ring 800ms ease-out forwards;
 }
-@keyframes wa-click { 0% { opacity: .9; transform: translate(-50%,-50%) scale(.6); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(3.2); } }
-@keyframes wa-click-ring { 0% { opacity: .8; transform: scale(1); } 100% { opacity: 0; transform: scale(2.4); } }
+@keyframes wa-click {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(3.2);
+  }
+}
+@keyframes wa-click-ring {
+  0% {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(2.4);
+  }
+}
 </style>

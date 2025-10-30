@@ -998,11 +998,9 @@
               <div class="d-flex align-items-center justify-content-between">
                 <div class="fw-semibold"><i class="bi bi-truck-flatbed me-2"></i>Admin Shipping Fee</div>
                 <div class="fs-5">
-  <strong v-if="pendingHasFreeShipping">Free</strong>
-  <strong v-else-if="pendingHighestShippingFee>0">₱ {{ number(pendingHighestShippingFee) }}</strong>
-  <span v-else class="text-warning">awaiting…</span>
-</div>
-
+                  <strong v-if="pendingHighestShippingFee>0">₱ {{ number(pendingHighestShippingFee) }}</strong>
+                  <span v-else class="text-warning">awaiting…</span>
+                </div>
               </div>
               <div class="small text-muted mt-1">
                 We display the <em>highest</em> shipping fee among items in this reference. This fee is now included in your order total.
@@ -1016,8 +1014,7 @@
             </div>
             <div class="d-flex align-items-center justify-content-between">
               <span class="text-muted">Shipping Fee</span>
-              <span>₱ {{ number(pendingHasFreeShipping ? 0 : pendingHighestShippingFee) }}</span>
-
+              <span>₱ {{ number(pendingHighestShippingFee) }}</span>
             </div>
             <hr class="my-1" />
             <div class="d-flex align-items-center justify-content-between fs-5">
@@ -1038,8 +1035,7 @@
 
               <button
                 class="btn btn-primary"
-                :disabled="placingOrder || (!pendingHasFreeShipping && pendingHighestShippingFee <= 0) || (paymentMethod==='ewallet' && !enoughBalanceForOrder)"
-
+                :disabled="placingOrder || pendingHighestShippingFee <= 0 || (paymentMethod==='ewallet' && !enoughBalanceForOrder)"
                 @click="placePendingOrder"
                 title="Place Order (enabled when admin has set shipping fee)"
               >
@@ -1274,19 +1270,17 @@
   type InsertedPurchase = { id: string }
 
   type PurchaseRow = {
-  id: string
-  user_id: string
-  product_id: string
-  qty: number
-  reference_number: string
-  shipping_fee: number | null
-  status: string
-  modeofpayment: 'cod' | 'ewallet' | string
-  discounted_price: number | null
-  created_at: string
-  is_free_shipping?: boolean | null
-}
-
+    id: string
+    user_id: string
+    product_id: string
+    qty: number
+    reference_number: string
+    shipping_fee: number | null
+    status: string
+    modeofpayment: 'cod' | 'ewallet' | string
+    discounted_price: number | null
+    created_at: string
+  }
 
   /* -------------------- Products state -------------------- */
   const products = ref<Product[]>([])
@@ -1560,35 +1554,6 @@
   function isItemDiscounted(productId: string): boolean {
     return !!discountedItemMap[productId]
   }
-/* ---- E-Wallet atomic charge helper (uses RPC) ---- */
-async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid: string): Promise<number> {
-  const total = Number(Math.max(0, amountPeso).toFixed(2))
-  if (!(total > 0)) return userBalance.value
-
-  const { data, error } = await supabase
-  .schema('ewallet')
-  .rpc('apply_tx_pesos', {
-    p_user_id: uid,
-    p_amount_peso: -total, // debit (negative)
-    p_kind: 'order.charge',
-    p_reference: batchRef,
-    p_idempotency: `order:${batchRef}:${uid}`,
-  })
-
-  if (error) {
-    const msg = String(error.message || '')
-    if (/insufficient_funds/i.test(msg)) throw new Error('INSUFFICIENT_FUNDS')
-    throw new Error(msg || 'E-Wallet charge failed')
-  }
-
-  const row = Array.isArray(data) ? data[0] : (data as any)
-  const newBal = Number(row?.new_balance ?? NaN)
-  if (!Number.isFinite(newBal)) {
-    const { data: u2 } = await supabase.from('users').select('balance').eq('id', uid).maybeSingle()
-    return Number(u2?.balance ?? userBalance.value)
-  }
-  return newBal
-}
 
   /* payment & balances */
   const paymentMethod = ref<'cod' | 'ewallet'>('cod')
@@ -1805,10 +1770,7 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
   /* Wallet gating */
   const enoughBalanceForItems = computed(() => userBalance.value >= finalPayableTotal.value)
   /* NEW: consider shipping fee when in pending placement */
-  const enoughBalanceForOrder = computed(() =>
-  userBalance.value >= (finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value))
-)
-
+  const enoughBalanceForOrder = computed(() => userBalance.value >= (finalPayableTotal.value + pendingHighestShippingFee.value))
 
   /* Place-order helpers */
   const checkingOut = ref(false)
@@ -2539,8 +2501,6 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
   }
 
   /* -------------------- Pending Orders list & placement -------------------- */
-  const pendingHasFreeShipping = ref(false)
-
   const pendingGroups = ref<Array<{
     ref: string
     created_at: string
@@ -2558,19 +2518,6 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
   const pendingPurchases = ref<PurchaseRow[]>([])
 
   /* helper: resolve a single product's first image (signed if needed) */
-  async function getAnyPurchaseIdForRef(ref: string, uid: string): Promise<string | null> {
-  const { data, error } = await supabase
-    .schema('games')
-    .from('purchases')
-    .select('id')
-    .eq('user_id', uid)
-    .eq('reference_number', ref)
-    .limit(1)
-    .maybeSingle();
-  if (error) return null;
-  return (data as { id: string } | null)?.id ?? null;
-}
-
   async function resolveFirstImageUrl(prod: { id: string, product_url: string[] | string | null }): Promise<string | null> {
     const raw = firstUrl(prod.product_url)
     if (!raw) return null
@@ -2590,8 +2537,7 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, is_free_shipping')
-
+      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price')
       .eq('user_id', uid)
       .eq('status', 'pending')
       .order('created_at', { ascending: false })
@@ -2735,8 +2681,7 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
     const { data, error } = await supabase
       .schema('games')
       .from('purchases')
-      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment, is_free_shipping')
-
+      .select('id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment')
       .eq('user_id', uid)
       .eq('reference_number', refNumber)
       .eq('status', 'pending')
@@ -2746,7 +2691,6 @@ async function chargeEwalletAtomically(amountPeso: number, batchRef: string, uid
     pendingPurchases.value = data as PurchaseRow[]
     pendingRefNumber.value = refNumber
     pendingHighestShippingFee.value = pendingPurchases.value.reduce((mx, r) => Math.max(mx, Number(r.shipping_fee || 0)), 0)
-pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shipping === true)
 
     // Defaults based on DB
     const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
@@ -2883,10 +2827,7 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
   }
 
   /* NEW: Order total including shipping for pending review */
-  const orderTotalPending = computed(() =>
-  Number((finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value)).toFixed(2))
-)
-
+  const orderTotalPending = computed(() => Number((finalPayableTotal.value + pendingHighestShippingFee.value).toFixed(2)))
 
   /** Finalize a pending batch */
   async function placePendingOrder() {
@@ -2903,11 +2844,10 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
       alert('Please complete your delivery details first.')
       return
     }
-    if (pendingHighestShippingFee.value <= 0 && !pendingHasFreeShipping.value) {
-  alert('Shipping fee not yet set by admin.')
-  return
-}
-
+    if (pendingHighestShippingFee.value <= 0) {
+      alert('Shipping fee not yet set by admin.')
+      return
+    }
 
     // When reviewing pending orders, if a redemption was recorded at request time,
     // we respect that recorded amount and DON'T insert another redemption here.
@@ -2977,8 +2917,7 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
         orderDiscountAmt = 0
       }
 
-      const shippingFee = Number((pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value) || 0)
-
+      const shippingFee = Number(pendingHighestShippingFee.value || 0)
       const itemsTotal = Number(finalItemsTotal.toFixed(2))
       const grandTotalIncludingShipping = Number((itemsTotal + shippingFee).toFixed(2))
 
@@ -2990,20 +2929,6 @@ pendingHasFreeShipping.value = pendingPurchases.value.some(r => r.is_free_shippi
         alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
         return
       }
-// 🔐 Atomic wallet charge via RPC (BEFORE status updates to avoid partial success)
-if (isEwallet && totalToDeduct > 0) {
-  try {
-    const newBal = await chargeEwalletAtomically(totalToDeduct, pendingRefNumber.value!, uid)
-    userBalance.value = newBal
-  } catch (e: any) {
-    if (e?.message === 'INSUFFICIENT_FUNDS') {
-      alert('Insufficient funds. Please choose Cash on Delivery or top up.')
-    } else {
-      alert('Failed to charge E-Wallet: ' + (e?.message || 'Unknown error'))
-    }
-    return
-  }
-}
 
       // Build line drafts and update purchases rows
       type LineDraft = {
@@ -3081,7 +3006,19 @@ if (isEwallet && totalToDeduct > 0) {
         }
       }
 
-      
+      // Deduct ewallet balance now (items + shipping)
+      if (isEwallet && totalToDeduct > 0) {
+        const newBalance = Number((freshBalance - totalToDeduct).toFixed(2))
+        const { error: balErr } = await supabase
+          .from('users')
+          .update({ balance: newBalance })
+          .eq('id', uid)
+        if (balErr) {
+          alert('Failed to deduct balance: ' + balErr.message)
+          return
+        }
+        userBalance.value = newBalance
+      }
 
       // AfterShip push (shipping_total now included)
       const discountTotalForAftership =
@@ -3190,39 +3127,21 @@ if (isEwallet && totalToDeduct > 0) {
         }
       }
 
-// Ewallet order transaction record (now includes shipping)
-if (isEwallet) {
-  let purchaseIdForTxn = pendingPurchases.value[0]?.id || null;
-
-  // Fallback in case array was cleared/rebuilt: re-query 1 purchase id by ref + user
-  if (!purchaseIdForTxn && pendingRefNumber.value) {
-    purchaseIdForTxn = await getAnyPurchaseIdForRef(pendingRefNumber.value, uid);
-  }
-
-  if (!purchaseIdForTxn) {
-    console.error('[order_transactions] No purchase_id found for', pendingRefNumber.value);
-    alert('Could not tag the payment to a purchase. Please try again.');
-    return; // ensure we don’t write a null-linked transaction
-  }
-
-  const { error: txnErr } = await supabase
-    .schema('ewallet')
-    .from('order_transactions')
-    .insert([{
-      reference_number: pendingRefNumber.value,
-      purchase_id: purchaseIdForTxn,            // ✅ always a real id now
-      total_amount: Number(totalToDeduct.toFixed(2)),
-    } as any]);
-
-  if (txnErr) {
-    console.error('[order_transactions insert failed]', txnErr.message);
-    alert('Failed to record the wallet payment: ' + txnErr.message);
-    return;
-  }
-}
-
-
-
+      // Ewallet order transaction record (now includes shipping)
+      if (isEwallet) {
+        const firstPurchaseId = pendingPurchases.value[0]?.id || null
+        const { error: txnErr } = await supabase
+          .schema('ewallet')
+          .from('order_transactions')
+          .insert([{
+            reference_number: pendingRefNumber.value,
+            purchase_id: firstPurchaseId,
+            total_amount: Number(totalToDeduct.toFixed(2)),
+          } as any])
+        if (txnErr) {
+          console.error('[order_transactions insert failed]', txnErr.message)
+        }
+      }
 
       closePlacePending()
       await loadPendingOrders()
