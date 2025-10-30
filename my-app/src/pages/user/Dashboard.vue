@@ -181,7 +181,7 @@
         </div>
       </div>
 
-      <!-- ===== Product Preview (fills whole card-body, bg image + floating title/price + hover reveal) ===== -->
+      <!-- ===== Product Preview (Aesthetic slideshow w/ hover, arrows, membership discount) ===== -->
       <div class="panel card border-0 shadow-sm rounded-4" v-reveal style="--i:1">
         <div class="card-body">
           <div class="panel-head">
@@ -206,86 +206,120 @@
           </div>
 
           <!-- Preview content -->
-          <div v-else class="pp-wrap">
-            <!-- Keep original card structure but switch to background mode -->
-            <div class="pp-card glass bg-mode" v-tilt>
-              <!-- Background image layer + scrim -->
-              <div class="pp-bg" :style="ppBgStyle"></div>
-              <div class="pp-scrim"></div>
+          <div
+            v-else
+            class="pp-wrap"
+            @mouseenter="onPPHover"
+            @mouseleave="onPPLeave"
+          >
+            <!-- arrows -->
+            <button
+              type="button"
+              class="pp-nav pp-nav-left"
+              @click="prevPreview"
+              aria-label="Previous product"
+            >
+              <i class="bi bi-chevron-left"></i>
+            </button>
+            <button
+              type="button"
+              class="pp-nav pp-nav-right"
+              @click="nextPreview"
+              aria-label="Next product"
+            >
+              <i class="bi bi-chevron-right"></i>
+            </button>
 
-              <!-- Floating badges (top-left) -->
-              <div class="pp-badges">
-                <span class="pp-chip deal">-{{ number(currentPreview?._discount_pct || 0) }}%</span>
-                <span v-if="isAffordable(currentPreview)" class="pp-chip best">Affordable</span>
-              </div>
+            <!-- Animated card -->
+            <transition name="pp-slide-fade" mode="out-in">
+              <div
+                v-if="currentPreview"
+                :key="currentPreview.id"
+                class="pp-card glass bg-mode"
+              >
+                <!-- Background image layer + scrim -->
+                <div class="pp-bg" :style="ppBgStyle"></div>
+                <div class="pp-scrim"></div>
 
-              <!-- Floating title & price (bottom-left) -->
-              <div class="pp-floating">
-                <h4 class="pp-title-overlay text-truncate" :title="currentPreview?.name">
-                  {{ currentPreview?.name }}
-                </h4>
-                <div class="pp-price-overlay">
-                  <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
-                  <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
-                  <span v-if="currentPreview?._discount_pct" class="pp-h-off">-{{ number(currentPreview?._discount_pct) }}%</span>
-                </div>
-                <router-link
-                  v-if="currentPreview"
-                  :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
-                  class="btn btn-sm btn-primary mt-2"
-                >
-                  View
-                </router-link>
-              </div>
-
-              <!-- ===== KEEP original thumb/body markup, just hidden in bg-mode to honor "don't remove" ===== -->
-              <div class="pp-thumb">
-                <img v-if="currentPreview?.thumbnail_url" :src="currentPreview?.thumbnail_url" :alt="currentPreview?.name" />
-                <div v-else class="pp-fallback"><i class="bi bi-image"></i></div>
-                <div class="pp-chips">
-                  <span class="pp-chip deal">-{{ number(currentPreview?._discount_pct || 0) }}%</span>
+                <!-- Floating badges (top-left) -->
+                <div class="pp-badges">
+                  <span class="pp-chip deal" v-if="currentPreview._discount_pct && currentPreview._discount_pct > 0">
+                    -{{ number(currentPreview._discount_pct) }}%
+                  </span>
                   <span v-if="isAffordable(currentPreview)" class="pp-chip best">Affordable</span>
                 </div>
-              </div>
 
-              <div class="pp-body">
-                <h4 class="pp-title line-1-clamp" :title="currentPreview?.name">
-                  {{ currentPreview?.name }}
-                </h4>
-                <p v-if="currentPreview?.description" class="pp-desc line-2-clamp" :title="currentPreview?.description">
-                  {{ currentPreview?.description }}
-                </p>
-                <div class="pp-price">
-                  <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
-                  <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
-                </div>
-                <div v-if="savings(currentPreview) > 0" class="pp-save">
-                  Save {{ peso(savings(currentPreview)) }}
-                </div>
-                <router-link
-                  v-if="currentPreview"
-                  :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
-                  class="btn btn-sm btn-primary mt-2"
+                <!-- Bottom-left overlay (title + prices + view) -->
+                <div
+                  class="pp-floating"
+                  :class="{ 'pp-floating-up': hoverActive }"
                 >
-                  View
-                </router-link>
-              </div>
-
-              <!-- Hover overlay (unchanged, still reveals full info) -->
-              <div class="pp-hover" aria-hidden="true">
-                <div class="pp-h-content">
-                  <div class="pp-h-title">{{ currentPreview?.name }}</div>
-                  <div v-if="currentPreview?.description" class="pp-h-desc">
-                    {{ currentPreview?.description }}
-                  </div>
-                  <div class="pp-h-prices">
+                  <h4 class="pp-title-overlay text-truncate" :title="currentPreview?.name">
+                    {{ currentPreview?.name }}
+                  </h4>
+                  <div class="pp-price-overlay">
+                    <!-- base price line -->
                     <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
                     <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
                     <span v-if="currentPreview?._discount_pct" class="pp-h-off">-{{ number(currentPreview?._discount_pct) }}%</span>
                   </div>
+                  <!-- membership discount (always show if any) -->
+                  <div
+                    v-if="membershipDiscountPct > 0 && currentPreview"
+                    class="pp-member-inline"
+                  >
+                    <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
+                    <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
+                  </div>
+                  <router-link
+                    v-if="currentPreview"
+                    :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
+                    class="btn btn-sm btn-primary mt-2 floating-view"
+                  >
+                    View
+                  </router-link>
+                </div>
+
+                <!-- Hover overlay (dim, not solid) -->
+                <div class="pp-hover" :class="{ 'show': hoverActive }">
+                  <!-- FLOATING PRICES (top-right) -->
+                  <div class="pp-h-prices">
+                    <div class="pp-h-price-line">
+                      <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
+                      <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
+                      <span v-if="currentPreview?._discount_pct" class="pp-h-off">-{{ number(currentPreview?._discount_pct) }}%</span>
+                    </div>
+
+                    <!-- membership price (optional) -->
+                    <div
+                      v-if="membershipDiscountPct > 0 && currentPreview"
+                      class="pp-h-member-inline"
+                    >
+                      <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
+                      <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
+                    </div>
+                  </div>
+
+                  <div class="pp-h-content">
+                    <div class="pp-h-title">{{ currentPreview?.name }}</div>
+                    <div v-if="currentPreview?.description" class="pp-h-desc">
+                      {{ currentPreview?.description }}
+                    </div>
+                  </div>
+
+                  <!-- View button at bottom when hovered -->
+                  <div class="pp-h-actions">
+                    <router-link
+                      v-if="currentPreview"
+                      :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
+                      class="btn btn-primary btn-sm"
+                    >
+                      View
+                    </router-link>
+                  </div>
                 </div>
               </div>
-            </div>
+            </transition>
 
             <!-- Dot indicators (kept) -->
             <div class="pp-dots">
@@ -295,7 +329,7 @@
                 type="button"
                 class="pp-dot"
                 :class="{ active: i === previewIndex }"
-                @click="previewIndex = i"
+                @click="goToPreview(i)"
                 :aria-label="'Preview ' + p.name"
               >
                 <div v-if="hoveredDot === i" class="pp-bubble">
@@ -308,7 +342,7 @@
                     <div class="pp-b-price">
                       <span class="pp-b-now">{{ peso(p.price_now) }}</span>
                       <span v-if="p.price_was && p.price_was > p.price_now" class="pp-b-was">{{ peso(p.price_was) }}</span>
-                      <span class="pp-b-off">-{{ number(p._discount_pct) }}%</span>
+                      <span class="pp-b-off" v-if="p._discount_pct">-{{ number(p._discount_pct) }}%</span>
                     </div>
                   </div>
                 </div>
@@ -406,6 +440,9 @@ const credits = ref({ balance: 0 })
 /** From public.users.purchases_per_month */
 const purchasesPerMonth = ref(0)
 
+/* ====== Membership discount per purchase (from membership.tiers) ====== */
+const membershipDiscountPct = ref(0)
+
 /* ------- Games (OPEN ONLY) -------- */
 type GameRow = {
   id: string
@@ -439,7 +476,7 @@ function isSelected(id: string) {
   return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
 }
 
-/* ------- Orders updates (kept; panel replaced visually) -------- */
+/* ------- Orders updates (kept) -------- */
 type OrderRow = {
   id: string
   status: string
@@ -449,8 +486,8 @@ type OrderRow = {
   order_no?: string | null
   ref_code?: string | null
 }
-const orderUpdates = ref<OrderRow[]>([]) // kept
-const ordersLoading = ref(true)          // kept
+const orderUpdates = ref<OrderRow[]>([])
+const ordersLoading = ref(true)
 
 /* ------- Product cards (shared shape for preview + discounts) -------- */
 type ProdRow = {
@@ -463,22 +500,61 @@ type ProdRow = {
   description?: string | null
 }
 
-/* ------ Big Discounts (from shop.product/products) ------ */
+/* ------ Big Discounts ------ */
 const bigDiscounts = ref<ProdRow[]>([])
 const productsLoading = ref(true)
 
-/* ------ Published Products for Preview (from public.products) ------ */
+/* ------ Published Products for Preview ------ */
 const publishedPreview = ref<ProdRow[]>([])
 
 /* ------- Product Preview state -------- */
 const previewIndex = ref(0)
-const hoveredDot = ref<number | null>(null) // kept for compatibility; bubble hidden via CSS
+const hoveredDot = ref<number | null>(null)
 /** Prefer published products; fallback to bigDiscounts */
 const previewProducts = computed<ProdRow[]>(() => {
-  return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 7)
+  return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 12)
 })
 const currentPreview = computed<ProdRow | null>(() => previewProducts.value[previewIndex.value] || null)
 watch(previewProducts, () => { previewIndex.value = 0 })
+
+/* ===== Hover / Autoplay for product preview ===== */
+const hoverActive = ref(false)
+let hoverTimer: number | null = null
+
+function clearHoverTimer() {
+  if (hoverTimer) {
+    window.clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+}
+function scheduleNext() {
+  clearHoverTimer()
+  hoverTimer = window.setTimeout(() => {
+    nextPreview()
+    scheduleNext()
+  }, 5000) // 5 seconds
+}
+function onPPHover() {
+  hoverActive.value = true
+  scheduleNext()
+}
+function onPPLeave() {
+  hoverActive.value = false
+  clearHoverTimer()
+}
+
+function goToPreview(i: number) {
+  previewIndex.value = i
+}
+function nextPreview() {
+  if (previewProducts.value.length === 0) return
+  previewIndex.value = (previewIndex.value + 1) % previewProducts.value.length
+}
+function prevPreview() {
+  if (previewProducts.value.length === 0) return
+  previewIndex.value =
+    (previewIndex.value - 1 + previewProducts.value.length) % previewProducts.value.length
+}
 
 /* ------- Utils -------- */
 const peso = (n: number | null | undefined) =>
@@ -502,7 +578,6 @@ const statusClass = (s: string) => {
     default: return 'st-draft'
   }
 }
-/** kept for compatibility */
 const orderStatusClass = (s: string) => {
   switch ((s || '').toLowerCase()) {
     case 'pending': return 'dot-pending'
@@ -531,13 +606,22 @@ function savings(p?: ProdRow | null) {
   if (!p) return 0
   return p.price_was && p.price_was > p.price_now ? (p.price_was - p.price_now) : 0
 }
-/** Simple "affordable" heuristic: high discount OR relatively low now price */
+/** Simple "affordable" heuristic */
 function isAffordable(p?: ProdRow | null) {
   if (!p) return false
   return (p._discount_pct >= 40) || (p.price_now <= 500)
 }
 
-/* ================= IMAGE FETCHING PIPELINE (Prize images) ================= */
+/* membership-based discounted price */
+function memberPrice(p: ProdRow): number {
+  const base = Number(p.price_now ?? 0)
+  const pct = Number(membershipDiscountPct.value ?? 0)
+  if (!pct || pct <= 0) return base
+  const disc = base * (pct / 100)
+  return Math.max(0, Math.round((base - disc) * 100) / 100)
+}
+
+/* ================= IMAGE FETCHING PIPELINE ================= */
 const PRIZE_BUCKET = 'prize_product'
 const PRIZE_ROOT   = 'products'
 
@@ -571,7 +655,6 @@ async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): 
   const url = data?.signedUrl ?? null
   return url ? `${url}&cb=${Date.now()}` : null
 }
-/** Use the same bucket pipeline for product cards (preview + discounts) */
 async function attachProductImages(list: ProdRow[]) {
   if (!list || !list.length) return
   await Promise.all(
@@ -642,7 +725,6 @@ async function fetchProfileAndTier() {
       memberTier.value = tk
     }
 
-    // Keep these as fallbacks; will be overwritten by public.users (below)
     ewallet.value.balance = Number((data as any)?.ewallet_balance ?? 0)
     credits.value.balance = Number((data as any)?.discount_credit_balance ?? 0)
     memberStats.value = {
@@ -794,7 +876,7 @@ async function fetchBigDiscounts() {
 
     if (error) {
       const fb = await supabase
-      .schema('games')
+        .schema('games')
         .from('products')
         .select('id,name,price_now,price_was,discount_pct,thumbnail_url,is_active')
         .eq('is_active', true)
@@ -817,7 +899,6 @@ async function fetchBigDiscounts() {
       } as ProdRow
     })
 
-    // ▼ Ensure preview cards use signed URLs from the prize_product bucket
     await attachProductImages(rows)
 
     bigDiscounts.value = rows.filter(r => r._discount_pct >= 30)
@@ -834,7 +915,7 @@ async function fetchBigDiscounts() {
 async function fetchPublishedProductsForPreview() {
   try {
     const { data, error } = await supabase
-    .schema('games')
+      .schema('games')
       .from('products')
       .select('id,name,description,price,product_url,ispublish,stock,created_at')
       .eq('ispublish', true)
@@ -853,13 +934,12 @@ async function fetchPublishedProductsForPreview() {
         name: String(r.name ?? 'Unnamed Product'),
         price_now: Number.isFinite(priceNum) ? priceNum : 0,
         price_was: null,
-        thumbnail_url: thumb,   // fallback; bucket signed URL will overwrite when available
+        thumbnail_url: thumb,
         _discount_pct: 0,
         description: typeof r.description === 'string' ? r.description : null
       }
     })
 
-    // ▼ Attach signed URLs from the prize_product bucket
     await attachProductImages(mapped)
 
     publishedPreview.value = mapped
@@ -869,7 +949,7 @@ async function fetchPublishedProductsForPreview() {
   }
 }
 
-/* --------- Dynamic Tier: load user's membership + signed icon --------- */
+/* --------- Dynamic Tier: load user's membership + signed icon + discount --------- */
 function nameToKey(name: string): TierKey {
   const k = (name || '').toLowerCase()
   if (k.includes('silver')) return 'silver'
@@ -897,7 +977,7 @@ async function loadLiveTiersAndUser() {
     const { data: tiersData } = await supabase
       .schema('membership')
       .from('tiers')
-      .select('id,membership_name,icon_url')
+      .select('id,membership_name,icon_url,discount_per_purchase')
 
     const byId: Record<string, any> = {}
     for (const r of (tiersData ?? [])) byId[r.id] = r
@@ -918,12 +998,14 @@ async function loadLiveTiersAndUser() {
     const memId = urow?.membership_id
     if (!memId || !byId[memId]) {
       badgeIconSigned.value = null
+      membershipDiscountPct.value = 0
       return
     }
 
     const tierRow = byId[memId]
     memberTier.value = nameToKey(tierRow.membership_name || 'regular')
     badgeIconSigned.value = await signedUrlOrNullTierIcon(tierRow.icon_url)
+    membershipDiscountPct.value = Number(tierRow.discount_per_purchase ?? 0)
   } catch {}
 }
 
@@ -957,14 +1039,12 @@ function startRealtime() {
           const affectedEvents = allGames.value.filter(e => e.product_id === prodId)
           await attachPrizeImages(affectedEvents)
 
-          // Also refresh product preview images in case updated
           const affectedPreview = publishedPreview.value.filter(p => p.id === prodId)
           await attachProductImages(affectedPreview)
         }
       )
       .subscribe()
 
-    // Realtime updates for published preview from public/products mirror
     chPubProducts = supabase
       .channel('rt:games.products')
       .on(
@@ -1124,6 +1204,7 @@ watch([openGames, selectedGameId], async () => {
 })
 
 onBeforeUnmount(() => {
+  clearHoverTimer()
   if (chGames) supabase.removeChannel(chGames)
   if (chOrders) supabase.removeChannel(chOrders)
   if (chProducts) supabase.removeChannel(chProducts)
@@ -1245,8 +1326,6 @@ const ppBgStyle = computed(() => {
   display:flex; flex-direction:column; gap:10px;
   overflow-y:auto; overscroll-behavior:contain;
   padding-right:2px;
-
-  /* HIDE SCROLLBAR */
   -ms-overflow-style: none; scrollbar-width: none;
 }
 .side-list::-webkit-scrollbar{ width:0; height:0; }
@@ -1274,7 +1353,6 @@ const ppBgStyle = computed(() => {
 .side-item .sep{ opacity:.6; margin:0 .35rem; }
 .side-item .caret{ opacity:.8; }
 
-/* Floating scroll hints */
 .side-hint{ display:grid; place-items:center; opacity:.9; pointer-events:none; }
 .side-hint i{ font-size:1.25rem; animation: bob 1.2s infinite; text-shadow: 0 2px 8px rgba(0,0,0,.35); }
 .side-hint.floating{ position:absolute; left:50%; transform: translateX(-50%); bottom:-12px; z-index:2; }
@@ -1288,23 +1366,45 @@ const ppBgStyle = computed(() => {
 .pp-skel-card{ height:210px; border-radius:16px; background:linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9); background-size:200% 100%; animation: sk 1.2s linear infinite; }
 .pp-skel-dots{ display:flex; gap:10px; justify-content:center; }
 .pp-skel-dot{ width:10px; height:10px; border-radius:999px; background:#e2e8f0; }
+@keyframes sk{ 0%{background-position:0% 0} 100%{background-position:200% 0} }
 
 .pp-wrap{ position:relative; display:block; min-height: 320px; }
+
+/* nav arrows */
+.pp-nav{
+  position:absolute;
+  top:50%;
+  transform: translateY(-50%);
+  width:30px; height:30px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.45);
+  background:rgba(15,23,42,.1);
+  backdrop-filter: blur(6px);
+  display:grid; place-items:center;
+  z-index:30;
+  color:#fff;
+  cursor:pointer;
+  transition: opacity .2s ease, transform .2s ease;
+  opacity:.6;
+}
+.pp-nav:hover{ opacity:1; transform: translateY(-50%) scale(1.02); }
+.pp-nav-left{ left:8px; }
+.pp-nav-right{ right:8px; }
 
 /* Base card layout kept */
 .pp-card{
   position: relative;
-  display:grid; grid-template-columns: 1.2fr 1fr; gap:12px;
-  padding:12px; border-radius:16px; border:1px solid #e9eef3;
+  display:block;
+  padding:0;
+  border-radius:16px;
+  border:1px solid rgba(233,238,243,.35);
   background:rgba(255,255,255,.9);
   transition: transform .15s ease, box-shadow .15s ease;
   min-height: 320px;
+  overflow:hidden;
 }
 .pp-card.glass:hover{ transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 28px rgba(0,0,0,.08); }
-@media (max-width: 576px){ .pp-card{ grid-template-columns:1fr; } }
 
-/* ===== NEW: Background mode for the card ===== */
-.pp-card.bg-mode{ display:block; padding:0; overflow:hidden; }
 .pp-card.bg-mode .pp-bg{
   position:absolute; inset:0; background-size:cover; background-position:center;
   background-repeat:no-repeat;
@@ -1319,67 +1419,125 @@ const ppBgStyle = computed(() => {
     rgba(0,0,0,0) 100%);
 }
 .pp-card.bg-mode .pp-badges{
-  position:absolute; top:12px; left:12px; z-index:2; display:flex; gap:6px;
+  position:absolute; top:12px; left:12px; z-index:3; display:flex; gap:6px;
 }
 .pp-card.bg-mode .pp-floating{
   position:absolute; left:12px; right:12px; bottom:12px; z-index:2;
   color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.45);
   display:flex; flex-direction:column; gap:6px;
+  transition: transform .35s ease, opacity .35s ease;
+}
+.pp-floating-up{
+  transform: translateY(-24px);
 }
 .pp-title-overlay{ font-weight:900; font-size:1.15rem; letter-spacing:.2px; }
-.pp-price-overlay{ display:flex; align-items:baseline; gap:8px; }
+.pp-price-overlay{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
 .pp-card.bg-mode .pp-now{ color:#fff; font-weight:900; }
 .pp-card.bg-mode .pp-was{ color:#e2e8f0; opacity:.95; text-decoration: line-through; }
 .pp-card.bg-mode .pp-h-off{ color:#fde047; }
 
-/* Hide original inner layout when in bg-mode (code retained) */
+/* membership mini line (non-hover) */
+.pp-member-inline{
+  background: rgba(15,23,42,.3);
+  border: 1px solid rgba(148,163,184,.45);
+  border-radius: .6rem;
+  padding: .25rem .65rem;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  width: fit-content;
+}
+.pp-h-member-price{ font-weight:700; color:#fef9c3; font-size:.7rem; }
+.pp-h-member-tag{ font-size:.6rem; color:rgba(248,250,252,.7); }
+
+/* Hide original inner layout when in bg-mode */
 .pp-card.bg-mode .pp-thumb,
 .pp-card.bg-mode .pp-body{ display:none !important; }
 
-/* Original thumbnail/body (kept) */
-.pp-thumb{ position:relative; border-radius:12px; overflow:hidden; aspect-ratio: 4/3; background:#f8fafc; border:1px solid #eef2f7; display:grid; place-items:center; }
-.pp-thumb img{ width:100%; height:100%; object-fit:cover; }
-.pp-fallback i{ font-size:1.4rem; color:#94a3b8; }
-
-.pp-chips{ position:absolute; top:8px; left:8px; display:flex; gap:6px; }
-.pp-chip{ font-weight:800; font-size:.8rem; border-radius:999px; padding:.15rem .5rem; color:#fff; text-shadow:0 1px 6px rgba(0,0,0,.18); }
-.pp-chip.deal{ background:#ef4444; }
-.pp-chip.best{ background:#10b981; }
-
-.pp-body{ display:flex; flex-direction:column; gap:6px; min-width: 0; }
-.pp-title{ font-weight:800; }
-.line-1-clamp{ white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.line-2-clamp{
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.pp-desc{ color:#475569; font-size: .95rem; }
-
-.pp-price{ display:flex; align-items:baseline; gap:8px; }
-.pp-now{ font-weight:900; font-size:1.15rem; }
-.pp-was{ color:#94a3b8; text-decoration: line-through; }
-.pp-save{ color:#16a34a; font-weight:700; }
-
-/* Card-hover overlay (kept) */
+/* Hover overlay (dim) */
 .pp-hover{
-  position:absolute; inset:0; border-radius:16px; background: rgba(255,255,255,0.96);
-  border:1px solid #e9eef3;
-  opacity:0; transform: translateY(6px) scale(.98);
-  transition: opacity .2s ease, transform .2s ease;
+  position:absolute; inset:0; border-radius:16px;
+  background: rgba(5,10,12,0.25);
+  border:1px solid rgba(233,238,243,0.12);
+  opacity:0; transform: translateY(6px) scale(.995);
+  transition: opacity .25s ease, transform .25s ease;
   pointer-events:none;
-  display:flex; align-items:stretch; justify-content:stretch;
-  z-index:3;
+  display:flex; flex-direction:column; justify-content:space-between;
+  z-index:5;
+  backdrop-filter: blur(4px);
 }
-.pp-card:hover .pp-hover{ opacity:1; transform: translateY(0) scale(1); }
-.pp-h-content{ padding:14px; overflow:auto; width:100%; }
-.pp-h-title{ font-weight:900; font-size:1.1rem; margin-bottom:.25rem; }
-.pp-h-desc{ color:#475569; margin-bottom:.5rem; }
-.pp-h-prices{ display:flex; align-items:baseline; gap:8px; }
-.pp-h-off{ font-weight:800; color:#ef4444; }
+.pp-hover.show{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
 
-/* Dot indicators */
+/* floating prices (hover) */
+.pp-h-prices {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  z-index: 9;
+}
+.pp-h-price-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(15, 23, 42, .25);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 999px;
+  padding: .25rem .6rem;
+}
+.pp-h-price-line .pp-now {
+  color: #fff;
+  font-weight: 800;
+  font-size: .95rem;
+}
+.pp-h-price-line .pp-was {
+  color: rgba(248, 250, 252, .7);
+  text-decoration: line-through;
+  font-size: .7rem;
+}
+.pp-h-member-inline {
+  background: rgba(7, 16, 26, .35);
+  border: 1px solid rgba(148, 163, 184, .25);
+  border-radius: .6rem;
+  padding: .15rem .5rem .25rem .6rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.pp-h-member-price {
+  font-weight: 700;
+  font-size: .72rem;
+  color: #fef9c3;
+}
+.pp-h-member-tag {
+  font-size: .6rem;
+  color: rgba(248, 250, 252, .6);
+}
+
+/* hover content */
+.pp-h-content{
+  padding: 14px 14px 0 14px;
+  max-height: 65%;
+  overflow: auto;
+  padding-right: 90px; /* so text doesn't go under floating prices */
+}
+.pp-h-title{ font-weight:900; font-size:1.1rem; margin-bottom:.25rem; color:#fff; }
+.pp-h-desc{ color:#e2e8f0; margin-bottom:.5rem; font-size:.85rem; }
+
+/* hover actions bottom */
+.pp-h-actions{
+  padding: 0 14px 14px 14px;
+  display:flex;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+/* dot indicators */
 .pp-dots{
   position:absolute; left:50%; transform: translateX(-50%);
   bottom:8px; display:flex; gap:10px; justify-content:center; z-index:20;
@@ -1387,12 +1545,23 @@ const ppBgStyle = computed(() => {
 .pp-dot{
   position:relative; width:10px; height:10px; border-radius:999px;
   background:#e2e8f0; border:1px solid #cbd5e1;
-  transition: none;
 }
 .pp-dot.active{ background:#0ea5e9; border-color:#0284c7; box-shadow:0 4px 10px rgba(2,132,199,.25); }
-
-/* Hide the old dot-hover bubble (kept in DOM) */
 .pp-bubble{ display:none !important; }
+
+/* slide animation for product switching */
+.pp-slide-fade-enter-active,
+.pp-slide-fade-leave-active{
+  transition: all .35s ease;
+}
+.pp-slide-fade-enter-from{
+  opacity:0;
+  transform: translateX(12px);
+}
+.pp-slide-fade-leave-to{
+  opacity:0;
+  transform: translateX(-12px);
+}
 
 /* ===== Products ===== */
 .products-scroll{ display:grid; gap:10px; grid-auto-flow:column; grid-auto-columns:minmax(210px,260px); overflow-x:auto; padding-bottom:6px; scroll-snap-type:x mandatory; }
@@ -1414,23 +1583,29 @@ const ppBgStyle = computed(() => {
 .games-skeleton .gsk{ background: linear-gradient(90deg,#5a2e2e,#6a3434,#5a2e2e); background-size:200% 100%; animation: sk 1.2s infinite linear; border-radius:18px; opacity:.6; }
 .games-skeleton .gsk-banner{ height:260px; }
 .games-skeleton .gsk-side{ height:80px; margin-bottom:10px; }
-@keyframes sk{ 0%{background-position:0% 0} 100%{background-position:200% 0} }
 
 .reveal-init{ opacity:0; transform: translateY(10px) scale(.98); }
 .reveal-in{ opacity:1; transform: translateY(0) scale(1); transition: opacity .45s ease, transform .45s ease; }
 
-/* --- Hover enlarge wrapper (kept definitions) --- */
-.pp-card-wrap{ position: relative; transform: translateZ(0); transition: transform .28s cubic-bezier(.2,.8,.2,1), filter .28s ease, box-shadow .28s ease; will-change: transform, filter; }
-.pp-card-wrap.hover-zoom:hover{ transform: scale(1.035); filter: saturate(1.02); }
-.pp-card-wrap.hover-zoom:hover .pp-card{ animation: popRise .28s cubic-bezier(.2,.8,.2,1); }
-@keyframes popRise{ from { transform: translateY(4px) scale(.995); opacity:.98; } to { transform: translateY(0) scale(1); opacity:1; } }
+.skeleton-scroll{
+  display:flex; gap:10px; overflow:hidden;
+}
+.skeleton-prod{
+  width:200px; height:220px; border-radius:18px;
+  background:linear-gradient(90deg,#f4f6f8,#e1e7ef,#f4f6f8);
+  background-size:200% 100%; animation: sk 1.25s linear infinite;
+}
 
-/* (Kept alt overlay rules that referenced wrapper) */
-.pp-hover .btn.btn-primary{ box-shadow: 0 8px 20px rgba(37,99,235,.18); }
-.pp-hover .btn.btn-primary:focus{ outline:none; box-shadow:0 0 0 3px rgba(37,99,235,.25); }
+/* floating view button (non-hover) */
+.floating-view{
+  align-self:flex-start;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 10px 20px rgba(15,23,42,.25);
+}
 
-@media (prefers-reduced-motion: reduce){
-  .pp-card-wrap,
-  .pp-hover{ transition: none !important; animation: none !important; }
+@media (max-width: 576px){
+  .pp-nav{ display:none; }
+  .pp-h-prices{ right: 6px; top: 6px; }
+  .pp-h-content{ padding-right: 6px; }
 }
 </style>

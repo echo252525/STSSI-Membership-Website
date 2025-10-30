@@ -2520,7 +2520,28 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         alert(upErr.message); return
       }
 
-      const itemsSubtotal = order!.items.reduce((s, it) => s + Number(it.line_total || 0), 0)
+      // OLD (kept): compute original subtotal
+      let itemsSubtotal = order!.items.reduce((s, it) => s + Number(it.line_total || 0), 0)
+
+      // ★★★ NEW: override subtotal with DISCOUNTED logic for ewallet + to ship
+      {
+        const ref = order!.reference_number || purchaseRefIndex[purchaseId]
+        const firstItem = order!.items?.[0]
+        const qty = Number(firstItem?.qty ?? 1) || 1
+
+        // 1) if purchase has a real discounted_price from DB, refund that × qty
+        const perPurchaseDisc = discountedByPurchase[purchaseId]
+        if (perPurchaseDisc != null && isFinite(Number(perPurchaseDisc))) {
+          itemsSubtotal = Number((Number(perPurchaseDisc) * qty).toFixed(2))
+        } else {
+          // 2) else, check event-based discount for this reference
+          const baseEach = Number(firstItem?.price_each ?? 0)
+          const eventLess = winnerRefundForRef(ref)
+          const effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
+          itemsSubtotal = Number((effectiveEach * qty).toFixed(2))
+        }
+      }
+
       const redeemed = await redeemedDiscountAmount(purchaseId)
       const netRefundItems = Math.max(0, Number((itemsSubtotal - redeemed).toFixed(2)))
 
