@@ -10,32 +10,48 @@
       :style="{ width: isRail ? collapsedWidth : '280px' }"
     >
       <!-- Top: tier icon + toggle -->
-      <div class="d-flex align-items-center justify-content-between mb-3">
-        <div class="d-flex align-items-center gap-2 overflow-hidden">
-          <!-- Dynamic tier icon -->
-          <span
-            v-if="showTier"
-            class="tier-icon rounded-circle d-inline-flex align-items-center justify-content-center"
-            :style="{
-              backgroundColor: membershipMeta.bg,
-              color: membershipMeta.fg,
-              boxShadow: membershipMeta.ring,
-            }"
-            :title="membershipMeta.label + ' Membership'"
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <!-- Profile (hidden when collapsed) -->
+          <div
+            class="profile-card cursor-pointer gap-2 justify-content-start d-flex align-items-center"
+            :title="displayName"
+            v-show="!isRail"
+            role="link"
+            tabindex="0"
+            @click="goSettings"
+            @keydown.enter.prevent="goSettings"
+            @keydown.space.prevent="goSettings"
+            aria-label="Open Settings"
           >
-            <i class="bi" :class="membershipMeta.icon"></i>
-          </span>
-
-          <!-- Tier label -->
-          <span
-            v-if="showTier"
-            class="brand-text fw-semibold text-truncate d-flex align-items-center gap-2"
-          >
-            <span class="badge text-bg-light border small fw-normal">
-              {{ membershipMeta.label }} Membership
-            </span>
-          </span>
+            <div
+              class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
+              style="width: 36px; height: 36px; font-weight: 700; position: relative; overflow: hidden"
+            >
+              <!-- ✅ Profile photo (keeps initials as fallback) -->
+              <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
+              {{ initials }}
+            </div>
+            <div class="profile-text">
+              <!-- user name -->
+              <div class="fw-semibold small text-truncate text-primary name-link">
+                {{ displayName }}
+              </div>
+              <!-- Tier label -->
+              <div class="d-flex overflow-hidden">
+                <span
+                  v-if="showTier"
+                  class="brand-text fw-semibold text-truncate d-flex align-items-center gap-2 mb-2"
+                >
+                  <span class="badge text-bg-light border small fw-normal">
+                    {{ membershipMeta.label }} Membership
+                  </span>
+                </span>
+              </div>
+            </div>
+          </div>
         </div>
+        
 
         <button
           type="button"
@@ -51,57 +67,12 @@
       </div>
 
       <!-- Profile (hidden when collapsed) -->
-      <div
-        class="text-center mb-4 profile cursor-pointer profile-card"
-        :title="displayName"
-        v-show="!isRail"
-        role="link"
-        tabindex="0"
-        @click="goSettings"
-        @keydown.enter.prevent="goSettings"
-        @keydown.space.prevent="goSettings"
-        aria-label="Open Settings"
-      >
-        <div
-          class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2 ring-ambient"
-          style="width: 56px; height: 56px; font-weight: 700; position: relative; overflow: hidden"
-        >
-          <!-- ✅ Profile photo (keeps initials as fallback) -->
-          <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
-          {{ initials }}
-        </div>
-        <div class="profile-text">
-          <div class="fw-semibold small text-truncate text-primary name-link">
-            {{ displayName }}
-          </div>
-          <div class="text-muted small text-truncate email-link">
-            {{ userEmail }}
-          </div>
-          <div v-if="membershipType" class="text-muted small text-truncate">
-            {{ membershipMeta.label }} member
-          </div>
-        </div>
-      </div>
-
-      <!-- ✅ Rail-only avatar shown when collapsed (above Dashboard) -->
-      <div
-        class="text-center mb-3 cursor-pointer profile-card--rail"
-        v-show="isRail"
-        :title="displayName"
-        role="link"
-        tabindex="0"
-        @click="goSettings"
-        @keydown.enter.prevent="goSettings"
-        @keydown.space.prevent="goSettings"
-        aria-label="Open Settings"
-      >
-        <div
-          class="rail-avatar rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
-          style="width:35px;height:35px;font-size:32px;"
-        >
-          <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
-          {{ initials }}
-        </div>
+      <div class="d-flex align-items-center justify-content-center">
+        <img
+          src="/STSSI_logo.png"
+          class="m-5"
+          style="width: 40px">
+        </img>
       </div>
 
       <!-- Nav -->
@@ -150,7 +121,7 @@
           </RouterLink>
         </li>
 
-        <!-- 🆕 Shop -->
+        <!-- Shop -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.shop' }"
@@ -164,7 +135,8 @@
             <span class="link-text" v-show="!isRail">Shop</span>
           </RouterLink>
         </li>
-        <!-- INSERT THIS BLOCK DIRECTLY BELOW THE SHOP NAV ITEM -->
+
+        <!-- my purchases -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.mypurchase' }"
@@ -179,6 +151,7 @@
           </RouterLink>
         </li>
 
+        <!-- mini-games -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.minigames' }"
@@ -208,6 +181,7 @@
           </RouterLink>
         </li>
 
+        <!-- settings -->
         <li class="nav-item">
           <RouterLink
             :to="{ name: 'user.settings' }"
@@ -367,7 +341,7 @@ const initials = computed(() => {
 const displayName = computed(() => fullName.value || 'User')
 
 /** Only show membership tier UI when expanded */
-const showTier = computed(() => !isRail.value && !!membershipType.value)
+const showTier = computed(() => !isRail.value)
 
 /** Dynamic UI metadata for membership tier */
 const membershipMeta = computed(() => {
@@ -615,20 +589,7 @@ function goSettings() {
 /* Aesthetic card feel for the profile block */
 .profile-card {
   border-radius: 16px;
-  padding: 10px 8px;
   transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
-  background:
-    radial-gradient(400px 200px at 10% -10%, rgba(67,97,238,.06), transparent 50%),
-    radial-gradient(300px 180px at 110% 0%, rgba(124,58,237,.05), transparent 50%);
-}
-.profile-card:hover,
-.profile-card:focus-visible {
-  background:
-    radial-gradient(420px 220px at 10% -10%, rgba(67,97,238,.08), transparent 55%),
-    radial-gradient(320px 200px at 110% 0%, rgba(124,58,237,.07), transparent 55%);
-  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.06);
-  transform: translateY(-1px);
-  outline: none;
 }
 
 /* Subtle ring around avatar for depth */
