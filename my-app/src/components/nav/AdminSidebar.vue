@@ -45,17 +45,12 @@
       </div>
 
       <!-- Profile (hidden when collapsed via CSS) -->
-      <div class="text-center mb-4 profile">
-        <div
-          class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white mb-2"
-          style="width: 56px; height: 56px; font-weight: 700"
-        >
-          {{ initials }}
-        </div>
-        <div class="profile-text">
-          <div class="fw-semibold small text-truncate">{{ displayName }}</div>
-          <div class="text-muted small text-truncate">{{ adminEmail }}</div>
-        </div>
+      <div class="d-flex align-items-center justify-content-center">
+        <img
+          src="/STSSI_logo.png"
+          class="m-5"
+          style="width: 40px">
+        </img>
       </div>
 
       <!-- Nav -->
