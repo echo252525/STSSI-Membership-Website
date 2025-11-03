@@ -1,8 +1,11 @@
 <template>
-  <div class="container py-4">
+  <div class="container">
     <!-- Page Header -->
     <div class="d-flex align-items-center justify-content-between mb-3">
-      <h1 class="h4 m-0">Transactions</h1>
+      <h3 class="fw-bold m-0">
+        <i class="bi bi-receipt"></i>
+        Transactions 
+      </h3>
 
       <div class="d-flex align-items-center gap-3">
         <div class="btn-group" role="group" aria-label="Filter by status">

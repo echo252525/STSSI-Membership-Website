@@ -1,12 +1,12 @@
 <template>
-  <div class="container-fluid py-3 discounts-page" :aria-busy="busy.load ? 'true' : 'false'">
+  <div class="container-fluid discounts-page" :aria-busy="busy.load ? 'true' : 'false'">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3 gap-2 flex-wrap">
       <div>
-        <h1 class="h4 m-0 d-flex align-items-center gap-2">
-          <i class="bi bi-ticket-perforated text-primary"></i>
+        <h3 class="fw-bold m-0 d-flex align-items-center gap-2">
+          <i class="bi bi-ticket-perforated"></i>
           Discounts
-        </h1>
+        </h3>
         <p class="text-muted small mb-0">Create, manage, and track discount codes and credits.</p>
       </div>
 

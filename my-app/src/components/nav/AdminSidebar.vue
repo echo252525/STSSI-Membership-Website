@@ -9,11 +9,11 @@
       :style="{ width: isRail ? collapsedWidth : '280px' }"
     >
       <!-- Header: badge + desktop collapse + mobile close (X) -->
-      <div class="d-flex align-items-center justify-content-between mb-3">
+      <div class="d-flex align-items-center justify-content-between">
         <div class="d-flex align-items-center gap-2 overflow-hidden header-meta">
           <span
             class="tier-icon rounded-circle d-inline-flex align-items-center justify-content-center"
-            :style="{ backgroundColor: adminMeta.bg, color: adminMeta.fg, boxShadow: adminMeta.ring }"
+            :style="{ backgroundColor: adminMeta.bg, color: adminMeta.fg }"
             :title="adminMeta.label"
             aria-hidden="true"
           >
@@ -140,7 +140,7 @@
           </RouterLink>
         </li>
 
-        <!-- ⭐️ NEW: Memberships -->
+        <!-- Memberships -->
         <li class="nav-item" v-if="has('admin.memberships')">
           <RouterLink
             :to="{ name: 'admin.memberships' }"
@@ -155,7 +155,7 @@
           </RouterLink>
         </li>
 
-        <!-- ⭐️ NEW: Discounts (added directly below Memberships) -->
+        <!-- Discounts (added directly below Memberships) -->
         <li class="nav-item" v-if="has('admin.discounts')">
           <RouterLink
             :to="{ name: 'admin.discounts' }"
@@ -400,7 +400,6 @@ onBeforeUnmount(() => {
 .tier-icon {
   width: 24px;
   height: 24px;
-  font-size: 14px;
 }
 
 /* Nav links */

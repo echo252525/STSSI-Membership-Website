@@ -1,9 +1,12 @@
 <template>
-  <div class="container py-4">
+  <div class="container">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3">
       <div>
-        <h1 class="h4 m-0">Membership Tiers</h1>
+        <h3 class="fw-bold mb-1">
+          <i class="bi bi-award"></i>
+          Membership Tiers
+        </h3>
         <p class="text-muted small mb-0">
           Manage tier names, order, discounts, and delivery perks.
         </p>

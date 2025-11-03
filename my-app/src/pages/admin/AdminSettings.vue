@@ -1,6 +1,9 @@
 <template>
-  <div class="container-fluid py-3">
-    <h3 class="fw-bold mb-4">Admin Settings</h3>
+  <div class="container-fluid">
+    <h3 class="fw-bold mb-2">
+      <i class="bi bi-gear"></i>
+      Admin Settings
+    </h3>
 
     <div class="row g-4">
       <!-- Profile -->
