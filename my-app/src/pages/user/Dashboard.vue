@@ -17,13 +17,13 @@
           <router-link to="/app/minigames" class="qchip" v-reveal>
             <i class="bi bi-controller"></i> Mini Games
           </router-link>
-          <router-link to="/app/wallet" class="qchip" v-reveal style="--i:1">
+          <router-link to="/app/wallet" class="qchip" v-reveal style="--i: 1">
             <i class="bi bi-wallet2"></i> Wallet
           </router-link>
-          <router-link to="/app/deals" class="qchip" v-reveal style="--i:2">
+          <router-link to="/app/deals" class="qchip" v-reveal style="--i: 2">
             <i class="bi bi-ticket-perforated"></i> Deals
           </router-link>
-          <router-link to="/app/purchases" class="qchip" v-reveal style="--i:3">
+          <router-link to="/app/purchases" class="qchip" v-reveal style="--i: 3">
             <i class="bi bi-receipt"></i> Orders
           </router-link>
         </div>
@@ -36,13 +36,15 @@
       <div class="kpi-card glass" v-reveal v-tilt>
         <div class="kpi-head">
           <span class="label"><i class="bi bi-wallet2 me-1"></i> E-Wallet</span>
-          <router-link to="/app/wallet" class="btn btn-outline-secondary btn-xs">Manage</router-link>
+          <router-link to="/app/wallet" class="btn btn-outline-secondary btn-xs"
+            >Manage</router-link
+          >
         </div>
         <div class="kpi-value">{{ peso(ewallet.balance) }}</div>
         <div class="kpi-subtext text-muted small">Available balance</div>
       </div>
 
-      <div class="kpi-card glass" v-reveal v-tilt style="--i:1">
+      <div class="kpi-card glass" v-reveal v-tilt style="--i: 1">
         <div class="kpi-head">
           <span class="label"><i class="bi bi-ticket-perforated me-1"></i> Discount Credits</span>
           <router-link to="/app/deals" class="btn btn-outline-secondary btn-xs">Use</router-link>
@@ -51,20 +53,24 @@
         <div class="kpi-subtext text-muted small">Credit balance</div>
       </div>
 
-      <div class="kpi-card glass" v-reveal v-tilt style="--i:2">
+      <div class="kpi-card glass" v-reveal v-tilt style="--i: 2">
         <div class="kpi-head">
           <span class="label"><i class="bi bi-bag-check me-1"></i> Purchases</span>
-          <router-link to="/app/purchases" class="btn btn-outline-secondary btn-xs">History</router-link>
+          <router-link to="/app/purchases" class="btn btn-outline-secondary btn-xs"
+            >History</router-link
+          >
         </div>
         <div class="kpi-value">{{ peso(memberStats.lifetimePurchases) }}</div>
         <div class="kpi-subtext text-muted small">Lifetime total</div>
         <div class="kpi-subtext text-muted small">This month: {{ peso(purchasesPerMonth) }}</div>
       </div>
 
-      <div class="kpi-card glass" v-reveal v-tilt style="--i:3">
+      <div class="kpi-card glass" v-reveal v-tilt style="--i: 3">
         <div class="kpi-head">
           <span class="label"><i class="bi bi-people me-1"></i> Referrals</span>
-          <router-link to="/app/referrals" class="btn btn-outline-secondary btn-xs">Details</router-link>
+          <router-link to="/app/referrals" class="btn btn-outline-secondary btn-xs"
+            >Details</router-link
+          >
         </div>
         <div class="kpi-value">{{ number(memberStats.referrals) }}</div>
         <div class="kpi-subtext text-muted small">Successful sign-ups</div>
@@ -76,7 +82,9 @@
       <!-- ===== Games Panel ===== -->
       <div ref="gamesPanelEl" class="panel card border-0 shadow-sm rounded-4 games-panel" v-reveal>
         <div class="card-body p-0">
-          <div class="games-head d-flex align-items-center justify-content-between px-3 px-sm-4 pt-3">
+          <div
+            class="games-head d-flex align-items-center justify-content-between px-3 px-sm-4 pt-3"
+          >
             <h3 class="h6 m-0 d-flex align-items-center gap-2 text-light">
               <i class="bi bi-joystick"></i> Open Mini Games
             </h3>
@@ -113,7 +121,11 @@
 
               <div class="banner-top">
                 <span class="pill"><i class="bi bi-star-fill me-1"></i> Featured</span>
-                <span class="cap"><i class="bi bi-people me-1"></i>{{ number(featureGame.player_count) }}/{{ number(featureGame.player_cap) }}</span>
+                <span class="cap"
+                  ><i class="bi bi-people me-1"></i>{{ number(featureGame.player_count) }}/{{
+                    number(featureGame.player_cap)
+                  }}</span
+                >
               </div>
 
               <h4 class="title text-truncate" :title="featureGame.title">
@@ -122,12 +134,18 @@
               <p class="muted">Spin the wheel, grab rewards, and top the board.</p>
 
               <div class="meta">
-                <span class="chip"><i class="bi bi-trophy me-1"></i>{{ peso(featureGame.winner_price) }}</span>
-                <span class="chip"><i class="bi bi-clock me-1"></i>{{ dateShort(featureGame.created_at) }}</span>
+                <span class="chip"
+                  ><i class="bi bi-trophy me-1"></i>{{ peso(featureGame.winner_price) }}</span
+                >
+                <span class="chip"
+                  ><i class="bi bi-clock me-1"></i>{{ dateShort(featureGame.created_at) }}</span
+                >
               </div>
 
               <div class="progress">
-                <span class="bar"><b class="fill" :style="{width: joinPct(featureGame)+'%'}"></b></span>
+                <span class="bar"
+                  ><b class="fill" :style="{ width: joinPct(featureGame) + '%' }"></b
+                ></span>
                 <span class="pct">{{ Math.round(joinPct(featureGame)) }}%</span>
               </div>
 
@@ -141,7 +159,11 @@
 
             <!-- SCROLLABLE SIDE LIST: ALL OTHER OPEN GAMES -->
             <div class="side-wrap">
-              <div class="side-list scrollable" ref="sideListEl" :style="{ maxHeight: sideListH + 'px' }">
+              <div
+                class="side-list scrollable"
+                ref="sideListEl"
+                :style="{ maxHeight: sideListH + 'px' }"
+              >
                 <button
                   v-for="g in sideListGames"
                   :key="g.id"
@@ -159,7 +181,9 @@
                   <div class="body">
                     <div class="title text-truncate" :title="g.title">{{ g.title }}</div>
                     <div class="tiny">
-                      <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{ number(g.player_cap) }}
+                      <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{
+                        number(g.player_cap)
+                      }}
                       <span class="sep">•</span>
                       <i class="bi bi-trophy me-1"></i>{{ peso(g.winner_price) }}
                     </div>
@@ -182,20 +206,22 @@
       </div>
 
       <!-- ===== Product Preview (Aesthetic slideshow w/ hover, arrows, membership discount) ===== -->
-      <div class="panel card border-0 shadow-sm rounded-4" v-reveal style="--i:1">
+      <div class="panel card border-0 shadow-sm rounded-4" v-reveal style="--i: 1">
         <div class="card-body">
           <div class="panel-head">
             <h3 class="h6 m-0 d-flex align-items-center gap-2">
               <i class="bi bi-eye"></i> Product Preview
             </h3>
-            <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm">Go to Shop</router-link>
+            <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm"
+              >Go to Shop</router-link
+            >
           </div>
 
           <!-- Skeleton state -->
           <div v-if="productsLoading" class="pp-skeleton">
             <div class="pp-skel-card"></div>
             <div class="pp-skel-dots">
-              <span v-for="i in 7" :key="'dsk'+i" class="pp-skel-dot"></span>
+              <span v-for="i in 7" :key="'dsk' + i" class="pp-skel-dot"></span>
             </div>
           </div>
 
@@ -206,12 +232,7 @@
           </div>
 
           <!-- Preview content -->
-          <div
-            v-else
-            class="pp-wrap"
-            @mouseenter="onPPHover"
-            @mouseleave="onPPLeave"
-          >
+          <div v-else class="pp-wrap" @mouseenter="onPPHover" @mouseleave="onPPLeave">
             <!-- arrows -->
             <button
               type="button"
@@ -232,42 +253,39 @@
 
             <!-- Animated card -->
             <transition name="pp-slide-fade" mode="out-in">
-              <div
-                v-if="currentPreview"
-                :key="currentPreview.id"
-                class="pp-card glass bg-mode"
-              >
+              <div v-if="currentPreview" :key="currentPreview.id" class="pp-card glass bg-mode">
                 <!-- Background image layer + scrim -->
                 <div class="pp-bg" :style="ppBgStyle"></div>
                 <div class="pp-scrim"></div>
 
                 <!-- Floating badges (top-left) -->
                 <div class="pp-badges">
-                  <span class="pp-chip deal" v-if="currentPreview._discount_pct && currentPreview._discount_pct > 0">
+                  <span
+                    class="pp-chip deal"
+                    v-if="currentPreview._discount_pct && currentPreview._discount_pct > 0"
+                  >
                     -{{ number(currentPreview._discount_pct) }}%
                   </span>
                   <span v-if="isAffordable(currentPreview)" class="pp-chip best">Affordable</span>
                 </div>
 
                 <!-- Bottom-left overlay (title + prices + view) -->
-                <div
-                  class="pp-floating"
-                  :class="{ 'pp-floating-up': hoverActive }"
-                >
+                <div class="pp-floating" :class="{ 'pp-floating-up': hoverActive }">
                   <h4 class="pp-title-overlay text-truncate" :title="currentPreview?.name">
                     {{ currentPreview?.name }}
                   </h4>
                   <div class="pp-price-overlay">
                     <!-- base price line -->
                     <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
-                    <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
-                    <span v-if="currentPreview?._discount_pct" class="pp-h-off">-{{ number(currentPreview?._discount_pct) }}%</span>
+                    <span v-if="hasWas(currentPreview)" class="pp-was">{{
+                      peso(currentPreview?.price_was || 0)
+                    }}</span>
+                    <span v-if="currentPreview?._discount_pct" class="pp-h-off"
+                      >-{{ number(currentPreview?._discount_pct) }}%</span
+                    >
                   </div>
                   <!-- membership discount (always show if any) -->
-                  <div
-                    v-if="membershipDiscountPct > 0 && currentPreview"
-                    class="pp-member-inline"
-                  >
+                  <div v-if="membershipDiscountPct > 0 && currentPreview" class="pp-member-inline">
                     <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
                     <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
                   </div>
@@ -281,13 +299,17 @@
                 </div>
 
                 <!-- Hover overlay (dim, not solid) -->
-                <div class="pp-hover" :class="{ 'show': hoverActive }">
+                <div class="pp-hover" :class="{ show: hoverActive }">
                   <!-- FLOATING PRICES (top-right) -->
                   <div class="pp-h-prices">
                     <div class="pp-h-price-line">
                       <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
-                      <span v-if="hasWas(currentPreview)" class="pp-was">{{ peso(currentPreview?.price_was || 0) }}</span>
-                      <span v-if="currentPreview?._discount_pct" class="pp-h-off">-{{ number(currentPreview?._discount_pct) }}%</span>
+                      <span v-if="hasWas(currentPreview)" class="pp-was">{{
+                        peso(currentPreview?.price_was || 0)
+                      }}</span>
+                      <span v-if="currentPreview?._discount_pct" class="pp-h-off"
+                        >-{{ number(currentPreview?._discount_pct) }}%</span
+                      >
                     </div>
 
                     <!-- membership price (optional) -->
@@ -341,8 +363,12 @@
                     <div class="pp-b-title text-truncate" :title="p.name">{{ p.name }}</div>
                     <div class="pp-b-price">
                       <span class="pp-b-now">{{ peso(p.price_now) }}</span>
-                      <span v-if="p.price_was && p.price_was > p.price_now" class="pp-b-was">{{ peso(p.price_was) }}</span>
-                      <span class="pp-b-off" v-if="p._discount_pct">-{{ number(p._discount_pct) }}%</span>
+                      <span v-if="p.price_was && p.price_was > p.price_now" class="pp-b-was">{{
+                        peso(p.price_was)
+                      }}</span>
+                      <span class="pp-b-off" v-if="p._discount_pct"
+                        >-{{ number(p._discount_pct) }}%</span
+                      >
                     </div>
                   </div>
                 </div>
@@ -360,11 +386,13 @@
           <h3 class="h6 m-0 d-flex align-items-center gap-2">
             <i class="bi bi-fire"></i> Big Discounts
           </h3>
-          <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm">Go to Shop</router-link>
+          <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm"
+            >Go to Shop</router-link
+          >
         </div>
 
         <div v-if="productsLoading" class="skeleton-scroll">
-          <div class="skeleton-prod" v-for="i in 7" :key="'psk'+i"></div>
+          <div class="skeleton-prod" v-for="i in 7" :key="'psk' + i"></div>
         </div>
 
         <div v-else-if="bigDiscounts.length === 0" class="empty-state">
@@ -382,7 +410,9 @@
             <div class="pname text-truncate" :title="p.name">{{ p.name }}</div>
             <div class="prices">
               <span class="now">{{ peso(p.price_now) }}</span>
-              <span class="was" v-if="p.price_was && p.price_was > p.price_now">{{ peso(p.price_was) }}</span>
+              <span class="was" v-if="p.price_was && p.price_was > p.price_now">{{
+                peso(p.price_was)
+              }}</span>
             </div>
             <router-link
               :to="{ path: '/app/shop', query: { focus: p.id } }"
@@ -418,16 +448,19 @@ const tiers = [
 ] as const
 
 const ICON_BASE = '/img/tiers/'
-const iconFor = (key: TierKey) => ({
-  regular: ICON_BASE + 'regular.png',
-  silver: ICON_BASE + 'silver.png',
-  gold: ICON_BASE + 'gold.png',
-  platinum: ICON_BASE + 'platinum.png',
-  diamond: ICON_BASE + 'diamond.png'
-} as Record<TierKey,string>)[key] || ''
+const iconFor = (key: TierKey) =>
+  (
+    ({
+      regular: ICON_BASE + 'regular.png',
+      silver: ICON_BASE + 'silver.png',
+      gold: ICON_BASE + 'gold.png',
+      platinum: ICON_BASE + 'platinum.png',
+      diamond: ICON_BASE + 'diamond.png',
+    }) as Record<TierKey, string>
+  )[key] || ''
 
 const memberTier = ref<TierKey>('regular')
-const currentTier = computed(() => tiers.find(t => t.key === memberTier.value) ?? tiers[0])
+const currentTier = computed(() => tiers.find((t) => t.key === memberTier.value) ?? tiers[0])
 
 /** dynamic signed icon if available; fallback to static asset */
 const badgeIconSigned = ref<string | null>(null)
@@ -460,17 +493,17 @@ const gamesLoading = ref(true)
 const selectedGameId = ref<string | null>(null)
 
 const openGames = computed(() =>
-  allGames.value.filter(g => (g.status || '').toLowerCase() === 'open')
+  allGames.value.filter((g) => (g.status || '').toLowerCase() === 'open'),
 )
 const featureGame = computed<GameRow | null>(() => {
   const fromSel = selectedGameId.value
-    ? openGames.value.find(g => g.id === selectedGameId.value)
+    ? openGames.value.find((g) => g.id === selectedGameId.value)
     : null
   return fromSel || openGames.value[0] || null
 })
 const sideListGames = computed(() => {
   const fid = featureGame.value?.id
-  return openGames.value.filter(g => g.id !== fid)
+  return openGames.value.filter((g) => g.id !== fid)
 })
 function isSelected(id: string) {
   return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
@@ -514,8 +547,12 @@ const hoveredDot = ref<number | null>(null)
 const previewProducts = computed<ProdRow[]>(() => {
   return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 12)
 })
-const currentPreview = computed<ProdRow | null>(() => previewProducts.value[previewIndex.value] || null)
-watch(previewProducts, () => { previewIndex.value = 0 })
+const currentPreview = computed<ProdRow | null>(
+  () => previewProducts.value[previewIndex.value] || null,
+)
+watch(previewProducts, () => {
+  previewIndex.value = 0
+})
 
 /* ===== Hover / Autoplay for product preview ===== */
 const hoverActive = ref(false)
@@ -566,29 +603,42 @@ const dateShort = (iso?: string) => {
   const d = new Date(iso)
   return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
 }
-const shortId = (o: OrderRow) => o.order_no || o.ref_code || (o.id ? ('#' + String(o.id).slice(0, 6)) : '#—')
+const shortId = (o: OrderRow) =>
+  o.order_no || o.ref_code || (o.id ? '#' + String(o.id).slice(0, 6) : '#—')
 
 const statusClass = (s: string) => {
   switch ((s || '').toLowerCase()) {
-    case 'open': return 'st-open'
-    case 'locked': return 'st-locked'
-    case 'spun': return 'st-spun'
-    case 'settled': return 'st-settled'
-    case 'cancelled': return 'st-cancelled'
-    default: return 'st-draft'
+    case 'open':
+      return 'st-open'
+    case 'locked':
+      return 'st-locked'
+    case 'spun':
+      return 'st-spun'
+    case 'settled':
+      return 'st-settled'
+    case 'cancelled':
+      return 'st-cancelled'
+    default:
+      return 'st-draft'
   }
 }
 const orderStatusClass = (s: string) => {
   switch ((s || '').toLowerCase()) {
-    case 'pending': return 'dot-pending'
+    case 'pending':
+      return 'dot-pending'
     case 'approved':
-    case 'paid': return 'dot-paid'
-    case 'shipped': return 'dot-shipped'
+    case 'paid':
+      return 'dot-paid'
+    case 'shipped':
+      return 'dot-shipped'
     case 'completed':
-    case 'delivered': return 'dot-completed'
+    case 'delivered':
+      return 'dot-completed'
     case 'cancelled':
-    case 'refunded': return 'dot-cancelled'
-    default: return 'dot-default'
+    case 'refunded':
+      return 'dot-cancelled'
+    default:
+      return 'dot-default'
   }
 }
 function joinPct(g: GameRow) {
@@ -604,12 +654,12 @@ function hasWas(p?: ProdRow | null) {
 }
 function savings(p?: ProdRow | null) {
   if (!p) return 0
-  return p.price_was && p.price_was > p.price_now ? (p.price_was - p.price_now) : 0
+  return p.price_was && p.price_was > p.price_now ? p.price_was - p.price_now : 0
 }
 /** Simple "affordable" heuristic */
 function isAffordable(p?: ProdRow | null) {
   if (!p) return false
-  return (p._discount_pct >= 40) || (p.price_now <= 500)
+  return p._discount_pct >= 40 || p.price_now <= 500
 }
 
 /* membership-based discounted price */
@@ -623,7 +673,7 @@ function memberPrice(p: ProdRow): number {
 
 /* ================= IMAGE FETCHING PIPELINE ================= */
 const PRIZE_BUCKET = 'prize_product'
-const PRIZE_ROOT   = 'products'
+const PRIZE_ROOT = 'products'
 
 function isImageByName(name: string | undefined | null) {
   if (!name) return false
@@ -632,8 +682,8 @@ function isImageByName(name: string | undefined | null) {
 async function firstImagePathForProduct(productId: string): Promise<string | null> {
   try {
     const dir = `${PRIZE_ROOT}/${productId}`
-    const { data: files, error: listErr } = await supabase
-      .storage.from(PRIZE_BUCKET)
+    const { data: files, error: listErr } = await supabase.storage
+      .from(PRIZE_BUCKET)
       .list(dir, { limit: 10 })
 
     if (listErr || !files || files.length === 0) return null
@@ -649,7 +699,11 @@ async function firstImagePathForProduct(productId: string): Promise<string | nul
     return null
   }
 }
-async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): Promise<string | null> {
+async function signedUrlWithCB(
+  bucket: string,
+  path: string,
+  expiresIn = 3600,
+): Promise<string | null> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) return null
   const url = data?.signedUrl ?? null
@@ -662,7 +716,7 @@ async function attachProductImages(list: ProdRow[]) {
       const path = await firstImagePathForProduct(p.id)
       const signed = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
       p.thumbnail_url = signed || p.thumbnail_url || null
-    })
+    }),
   )
 }
 async function attachPrizeImages(list: GameRow[]) {
@@ -675,7 +729,7 @@ async function attachPrizeImages(list: GameRow[]) {
       }
       const path = await firstImagePathForProduct(ev.product_id)
       ev.imageUrl = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
-    })
+    }),
   )
 }
 
@@ -706,7 +760,9 @@ async function fetchProfileAndTier() {
     if (error) {
       const fb = await supabase
         .from('member')
-        .select('tier_key, ewallet_balance, discount_credit_balance, referral_count, lifetime_purchases')
+        .select(
+          'tier_key, ewallet_balance, discount_credit_balance, referral_count, lifetime_purchases',
+        )
         .eq('user_id', uid)
         .single()
       if (!fb.error) {
@@ -715,13 +771,13 @@ async function fetchProfileAndTier() {
           ewallet_balance: fb.data?.ewallet_balance,
           discount_credit_balance: fb.data?.discount_credit_balance,
           referrals: fb.data?.referral_count,
-          lifetime_purchases: fb.data?.lifetime_purchases
+          lifetime_purchases: fb.data?.lifetime_purchases,
         } as any
       }
     }
 
     const tk = (data as any)?.tier_key as TierKey | undefined
-    if (tk && ['regular','silver','gold','platinum','diamond'].includes(tk)) {
+    if (tk && ['regular', 'silver', 'gold', 'platinum', 'diamond'].includes(tk)) {
       memberTier.value = tk
     }
 
@@ -729,7 +785,7 @@ async function fetchProfileAndTier() {
     credits.value.balance = Number((data as any)?.discount_credit_balance ?? 0)
     memberStats.value = {
       lifetimePurchases: Number((data as any)?.lifetime_purchases ?? 0),
-      referrals: Number((data as any)?.referrals ?? 0)
+      referrals: Number((data as any)?.referrals ?? 0),
     }
   } catch (e) {
     console.warn('[profile/tier] fallback', e)
@@ -792,7 +848,7 @@ function mapEventRow(row: any): GameRow {
     winner_price: Number(row.winner_refund_amount ?? row.winner_price ?? 0),
     product_id: row.product_id ?? null,
     imageUrl: null,
-    created_at: row.created_at
+    created_at: row.created_at,
   }
 }
 async function fetchOpenGames() {
@@ -809,7 +865,9 @@ async function fetchOpenGames() {
     if (error) {
       const fb = await supabase
         .from('event')
-        .select('id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at')
+        .select(
+          'id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at',
+        )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
         .limit(60)
@@ -831,7 +889,10 @@ async function fetchOrderUpdates() {
   ordersLoading.value = true
   try {
     const uid = user.value?.id
-    if (!uid) { orderUpdates.value = []; return }
+    if (!uid) {
+      orderUpdates.value = []
+      return
+    }
 
     let { data, error } = await supabase
       .from('purchases')
@@ -895,15 +956,16 @@ async function fetchBigDiscounts() {
         price_was: price_was ? Number(price_was) : null,
         thumbnail_url: r.thumbnail_url ?? null,
         _discount_pct: pct,
-        description: null
+        description: null,
       } as ProdRow
     })
 
     await attachProductImages(rows)
 
-    bigDiscounts.value = rows.filter(r => r._discount_pct >= 30)
-                             .sort((a,b) => b._discount_pct - a._discount_pct)
-                             .slice(0, 14)
+    bigDiscounts.value = rows
+      .filter((r) => r._discount_pct >= 30)
+      .sort((a, b) => b._discount_pct - a._discount_pct)
+      .slice(0, 14)
   } catch {
     bigDiscounts.value = []
   } finally {
@@ -928,7 +990,8 @@ async function fetchPublishedProductsForPreview() {
       const priceNum = typeof r.price === 'string' ? parseFloat(r.price) : Number(r.price ?? 0)
       let thumb: string | null = null
       if (Array.isArray(r.product_url)) thumb = r.product_url[0] ?? null
-      else if (typeof r.product_url === 'string' && r.product_url.trim() !== '') thumb = r.product_url
+      else if (typeof r.product_url === 'string' && r.product_url.trim() !== '')
+        thumb = r.product_url
       return {
         id: r.id,
         name: String(r.name ?? 'Unnamed Product'),
@@ -936,7 +999,7 @@ async function fetchPublishedProductsForPreview() {
         price_was: null,
         thumbnail_url: thumb,
         _discount_pct: 0,
-        description: typeof r.description === 'string' ? r.description : null
+        description: typeof r.description === 'string' ? r.description : null,
       }
     })
 
@@ -980,7 +1043,7 @@ async function loadLiveTiersAndUser() {
       .select('id,membership_name,icon_url,discount_per_purchase')
 
     const byId: Record<string, any> = {}
-    for (const r of (tiersData ?? [])) byId[r.id] = r
+    for (const r of tiersData ?? []) byId[r.id] = r
 
     let uid = user.value?.id
     if (!uid) {
@@ -1024,7 +1087,9 @@ function startRealtime() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'games', table: 'event', filter: 'status=eq.open' },
-        async () => { await fetchOpenGames() }
+        async () => {
+          await fetchOpenGames()
+        },
       )
       .subscribe()
 
@@ -1036,21 +1101,19 @@ function startRealtime() {
         async (payload: any) => {
           const prodId = payload?.new?.id as string | undefined
           if (!prodId) return
-          const affectedEvents = allGames.value.filter(e => e.product_id === prodId)
+          const affectedEvents = allGames.value.filter((e) => e.product_id === prodId)
           await attachPrizeImages(affectedEvents)
 
-          const affectedPreview = publishedPreview.value.filter(p => p.id === prodId)
+          const affectedPreview = publishedPreview.value.filter((p) => p.id === prodId)
           await attachProductImages(affectedPreview)
-        }
+        },
       )
       .subscribe()
 
     chPubProducts = supabase
       .channel('rt:games.products')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'games', table: 'products' },
-        () => fetchPublishedProductsForPreview()
+      .on('postgres_changes', { event: '*', schema: 'games', table: 'products' }, () =>
+        fetchPublishedProductsForPreview(),
       )
       .subscribe()
   } catch {}
@@ -1059,17 +1122,39 @@ function startRealtime() {
     if (user.value?.id) {
       chOrders = supabase
         .channel(`rt:purchases:${user.value.id}`)
-        .on('postgres_changes', { event: '*', schema: 'games', table: 'purchases', filter: `user_id=eq.${user.value.id}` }, () => fetchOrderUpdates())
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'games',
+            table: 'purchases',
+            filter: `user_id=eq.${user.value.id}`,
+          },
+          () => fetchOrderUpdates(),
+        )
         .subscribe()
 
       chUser = supabase
         .channel(`rt:users:${user.value.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.value.id}` }, () => fetchUserWalletAndPurchases())
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.value.id}` },
+          () => fetchUserWalletAndPurchases(),
+        )
         .subscribe()
 
       chReferrals = supabase
         .channel(`rt:referrals:${user.value.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'users', filter: `referred_by=eq.${user.value.id}` }, () => fetchReferralCount())
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'users',
+            filter: `referred_by=eq.${user.value.id}`,
+          },
+          () => fetchReferralCount(),
+        )
         .subscribe()
     }
   } catch {}
@@ -1082,7 +1167,7 @@ function selectFeature(id: string) {
   gamesPanelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 watch(openGames, () => {
-  if (!openGames.value.find(g => g.id === selectedGameId.value)) {
+  if (!openGames.value.find((g) => g.id === selectedGameId.value)) {
     selectedGameId.value = openGames.value[0]?.id ?? null
   }
 })
@@ -1104,7 +1189,7 @@ const sideScrollHintUpVisible = ref(false)
 
 function updateSideScrollHint() {
   const el = sideListEl.value
-  if (!el) { 
+  if (!el) {
     sideScrollHintVisible.value = false
     sideScrollHintUpVisible.value = false
     return
@@ -1121,19 +1206,24 @@ function updateSideScrollHint() {
 const vReveal = {
   mounted(el: HTMLElement) {
     el.classList.add('reveal-init')
-    const io = new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (en.isIntersecting) {
-          el.style.transitionDelay = `${(Number(getComputedStyle(el).getPropertyValue('--i') || 0) * 60)}ms`
-          el.classList.add('reveal-in')
-          io.unobserve(el)
-        }
-      })
-    }, { threshold: 0.12 })
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((en) => {
+          if (en.isIntersecting) {
+            el.style.transitionDelay = `${Number(getComputedStyle(el).getPropertyValue('--i') || 0) * 60}ms`
+            el.classList.add('reveal-in')
+            io.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.12 },
+    )
     io.observe(el)
     ;(el as any)._io = io
   },
-  unmounted(el: HTMLElement) { (el as any)._io?.disconnect?.() }
+  unmounted(el: HTMLElement) {
+    ;(el as any)._io?.disconnect?.()
+  },
 }
 const vTilt = {
   mounted(el: HTMLElement) {
@@ -1143,8 +1233,8 @@ const vTilt = {
       const rect = el.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
-      const rx = ((y / rect.height) - 0.5) * -6
-      const ry = ((x / rect.width) - 0.5) * 6
+      const rx = (y / rect.height - 0.5) * -6
+      const ry = (x / rect.width - 0.5) * 6
       el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`
     }
     const onLeave = () => {
@@ -1160,7 +1250,7 @@ const vTilt = {
   unmounted(el: HTMLElement) {
     el.removeEventListener('mousemove', (el as any)._tiltMove)
     el.removeEventListener('mouseleave', (el as any)._tiltLeave)
-  }
+  },
 }
 
 /* ------- Lifecycle ------- */
@@ -1173,13 +1263,10 @@ onMounted(async () => {
     fetchOpenGames(),
     fetchOrderUpdates(),
     fetchBigDiscounts(),
-    fetchPublishedProductsForPreview()
+    fetchPublishedProductsForPreview(),
   ])
 
-  await Promise.all([
-    fetchUserWalletAndPurchases(),
-    fetchReferralCount()
-  ])
+  await Promise.all([fetchUserWalletAndPurchases(), fetchReferralCount()])
 
   await loadLiveTiersAndUser()
   startRealtime()
@@ -1225,248 +1312,693 @@ const ppBgStyle = computed(() => {
 
 <style scoped>
 /* ===== Base ===== */
-.dash { padding: 1.25rem 0 2rem; }
+.dash {
+  padding: 1.25rem 0 2rem;
+}
 
 /* ===== Glass & Neon helpers ===== */
-.glass { background: rgba(255,255,255,0.78); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(230,236,245,0.9); }
-.neon { position: relative; }
-.neon::after{
-  content:""; position:absolute; inset:-1px; border-radius:inherit; pointer-events:none;
-  background: radial-gradient(120px 60px at 15% -10%, rgba(34,197,94,.22), transparent 60%),
-              radial-gradient(140px 70px at 110% 110%, rgba(59,130,246,.22), transparent 60%);
-  filter: saturate(0.9); opacity:.7;
+.glass {
+  background: rgba(255, 255, 255, 0.78);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(230, 236, 245, 0.9);
+}
+.neon {
+  position: relative;
+}
+.neon::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(120px 60px at 15% -10%, rgba(34, 197, 94, 0.22), transparent 60%),
+    radial-gradient(140px 70px at 110% 110%, rgba(59, 130, 246, 0.22), transparent 60%);
+  filter: saturate(0.9);
+  opacity: 0.7;
 }
 
 /* ===== Hero ===== */
-.hero { overflow: hidden; position: relative; }
-.tier-icon{ width:60px; height:60px; border-radius:16px; overflow:hidden; background:linear-gradient(180deg,#f7fafc,#eef2f7); display:grid; place-items:center; border:1px solid #e9eef3; box-shadow:0 8px 30px rgba(0,0,0,.06);}
-.tier-icon img{ width:100%; height:100%; object-fit:contain; }
-.tier-fallback i{ font-size:1.4rem; color:#64748b; }
-.quick-actions{ display:flex; gap:8px; flex-wrap:wrap; }
-.qchip{ display:inline-flex; align-items:center; gap:.5rem; padding:.5rem .8rem; border-radius:999px; border:1px solid #e9eef3; background:#fff; font-weight:600; text-decoration:none; color:#0f172a; transition: transform .1s ease, box-shadow .1s ease, background-color .15s ease; }
-.qchip:hover{ transform: translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,.06); background:#f9fafb; }
-.hero-grid{ position:absolute; inset:0; pointer-events:none; opacity:.8; background:
-  radial-gradient(120% 70% at 15% -10%, rgba(34,197,94,.12), transparent 60%),
-  radial-gradient(120% 70% at 110% 110%, rgba(59,130,246,.12), transparent 60%),
-  linear-gradient(transparent 29px, rgba(15,23,42,.06) 30px),
-  linear-gradient(90deg, transparent 29px, rgba(15,23,42,.06) 30px);
-  background-size:auto,auto,30px 30px,30px 30px; animation:grid-pan 10s linear infinite;}
-@keyframes grid-pan{0%{background-position:0 0,0 0,0 0,0 0;}100%{background-position:0 0,0 0,120px 120px,-120px -120px;}}
+.hero {
+  overflow: hidden;
+  position: relative;
+}
+.tier-icon {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #f7fafc, #eef2f7);
+  display: grid;
+  place-items: center;
+  border: 1px solid #e9eef3;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+}
+.tier-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.tier-fallback i {
+  font-size: 1.4rem;
+  color: #64748b;
+}
+.quick-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.qchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid #e9eef3;
+  background: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  color: #0f172a;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    background-color 0.15s ease;
+}
+.qchip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
+  background: #f9fafb;
+}
+.hero-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.8;
+  background:
+    radial-gradient(120% 70% at 15% -10%, rgba(34, 197, 94, 0.12), transparent 60%),
+    radial-gradient(120% 70% at 110% 110%, rgba(59, 130, 246, 0.12), transparent 60%),
+    linear-gradient(transparent 29px, rgba(15, 23, 42, 0.06) 30px),
+    linear-gradient(90deg, transparent 29px, rgba(15, 23, 42, 0.06) 30px);
+  background-size:
+    auto,
+    auto,
+    30px 30px,
+    30px 30px;
+  animation: grid-pan 10s linear infinite;
+}
+@keyframes grid-pan {
+  0% {
+    background-position:
+      0 0,
+      0 0,
+      0 0,
+      0 0;
+  }
+  100% {
+    background-position:
+      0 0,
+      0 0,
+      120px 120px,
+      -120px -120px;
+  }
+}
 
 /* ===== KPIs ===== */
-.grid-quick{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
-@media (max-width: 992px){ .grid-quick{ grid-template-columns:repeat(2,1fr);} }
-@media (max-width: 576px){ .grid-quick{ grid-template-columns:1fr;} }
-.kpi-card{ border-radius:16px; padding:16px; box-shadow:0 8px 30px rgba(0,0,0,.04); }
-.kpi-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; }
-.kpi-head .label{ font-weight:700; color:#0f172a; letter-spacing:.2px; }
-.kpi-value{ font-size:1.55rem; font-weight:800; letter-spacing:.2px; }
-.kpi-subtext{ margin-top:-2px; }
+.grid-quick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: 992px) {
+  .grid-quick {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 576px) {
+  .grid-quick {
+    grid-template-columns: 1fr;
+  }
+}
+.kpi-card {
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+}
+.kpi-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.kpi-head .label {
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: 0.2px;
+}
+.kpi-value {
+  font-size: 1.55rem;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+}
+.kpi-subtext {
+  margin-top: -2px;
+}
 
 /* ===== Main Split ===== */
-.grid-main{ display:grid; gap:14px; grid-template-columns: 1.35fr .65fr; }
-@media (max-width: 992px){ .grid-main{ grid-template-columns:1fr; } }
-.panel .card-body{ padding:16px; }
-.panel-head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.75rem; }
+.grid-main {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: 1.35fr 0.65fr;
+}
+@media (max-width: 992px) {
+  .grid-main {
+    grid-template-columns: 1fr;
+  }
+}
+.panel .card-body {
+  padding: 16px;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
 
 /* =================================================================== */
 /* =======================  GAMES: PICTURE STYLE  ===================== */
 /* =================================================================== */
-.games-panel{
-  --gp-bg:#3b1f1f; --gp-card:#4a2626; --gp-edge:#5a2e2e; --gp-ink:#fff; --gp-muted:#e9d6d6;
-  background: radial-gradient(120% 100% at 10% 0%, #5a2e2e, #3b1f1f 60%) !important;
+.games-panel {
+  --gp-green: #20a44c;
+  --gp-azure: #20647c;
+  --gp-bg: #20647c;
+  --gp-card: rgba(32, 164, 76, 0.12);
+  --gp-edge: rgba(32, 164, 76, 0.35);
+  --gp-ink: #ffffff;
+  --gp-muted: rgba(255, 255, 255, 0.65);
+
+  background: radial-gradient(120% 100% at 10% 0%, #20a44c 0%, #20647c 55%, #123746 100%) !important;
   color: var(--gp-ink);
 }
-.games-head .btn{ --bs-btn-bg:#ffffff22; --bs-btn-border-color:#ffffff33; color:#fff; }
-.games-layout{
-  display:grid; grid-template-columns: 1.4fr .8fr; gap: 14px; padding: 10px 12px 14px 12px;
+
+.games-head .btn {
+  --bs-btn-bg: #ffffff22;
+  --bs-btn-border-color: #ffffff33;
+  color: #fff;
 }
-@media (max-width: 992px){ .games-layout{ grid-template-columns:1fr; } }
+.games-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 14px;
+  padding: 10px 12px 14px 12px;
+}
+@media (max-width: 992px) {
+  .games-layout {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* Banner */
-.game-banner{
-  position:relative; border-radius:20px; padding:18px; min-height:240px;
-  background: linear-gradient(135deg,#ff6b6b33,#ffb86c33), radial-gradient(120% 120% at 20% 10%, #ff8f8f55, transparent 60%);
-  border:1px solid #ffffff22; box-shadow: 0 18px 40px rgba(0,0,0,.25) inset, 0 10px 30px rgba(0,0,0,.2);
-  overflow:hidden; color:#fff;
+.game-banner {
+  position: relative;
+  border-radius: 20px;
+  padding: 18px;
+  min-height: 240px;
+  background:
+    /* azure wash */
+    linear-gradient(135deg, #20647c33, #20a44c33),
+    /* green glow on the corner */
+    radial-gradient(120% 120% at 20% 10%, #20a44c55, transparent 60%);
+  border: 1px solid #ffffff22;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.25) inset,
+    0 10px 30px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+  color: #fff;
 }
-.game-banner .decor{
-  position:absolute; inset:-4px; background:
+
+.game-banner .decor {
+  position: absolute;
+  inset: -4px;
+  background:
     radial-gradient(220px 120px at 80% 10%, #7c4dff55, transparent 60%),
     radial-gradient(220px 120px at 0% 100%, #22d3ee55, transparent 60%);
-  pointer-events:none;
+  pointer-events: none;
 }
-.banner-art{
-  position:absolute; right:0; bottom:0; top:0; width:48%; mix-blend-mode:normal;
-  mask-image: linear-gradient(to left, rgba(0,0,0,.9), rgba(0,0,0,.2));
+.banner-art {
+  position: absolute;
+  inset: 0;
+  right: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  mask-image: linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0));
 }
-.banner-art img{ width:100%; height:100%; object-fit:cover; filter:saturate(1.05) contrast(1.05); }
-.banner-top{ display:flex; justify-content:space-between; align-items:center; position:relative; z-index:1; }
-.pill{ background:#ffffff1f; border:1px solid #ffffff33; padding:.25rem .6rem; border-radius:999px; font-weight:800; font-size:.8rem; }
-.cap{ font-weight:800; }
-.game-banner .title{ position:relative; z-index:1; font-size:1.6rem; font-weight:900; margin:.5rem 0 0; letter-spacing:.3px; text-shadow:0 2px 12px rgba(0,0,0,.35); }
-.game-banner .muted{ position:relative; z-index:1; margin:.25rem 0 .5rem; opacity:.9; }
-.game-banner .meta{ position:relative; z-index:1; display:flex; gap:.5rem; flex-wrap:wrap; }
-.game-banner .chip{
-  background:#ffffff14; border:1px solid #ffffff2e; color:#fff; padding:.2rem .6rem; border-radius:999px; font-weight:700; font-size:.9rem;
+
+.banner-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.game-banner .progress{ position:relative; z-index:1; display:flex; align-items:center; gap:8px; margin-top:.5rem; }
-.game-banner .bar{ flex:1; height:10px; border-radius:999px; background:#ffffff1a; border:1px solid #ffffff2e; overflow:hidden; }
-.game-banner .fill{ display:block; height:100%; background: linear-gradient(90deg, #34d399, #10b981); }
-.game-banner .pct{ font-weight:900; position:relative; z-index:1; }
-.btn-play{
-  position:relative; z-index:1; margin-top:.7rem; font-weight:900; letter-spacing:.2px; color:#3b1f1f; background:#fff; border:0; border-radius:999px; padding:.5rem 1rem;
-  box-shadow: 0 10px 24px rgba(255,255,255,.2), 0 6px 16px rgba(0,0,0,.25);
+.banner-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.pill {
+  background: #ffffff1f;
+  border: 1px solid #ffffff33;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.8rem;
+}
+.cap {
+  font-weight: 800;
+}
+.game-banner .title {
+  position: relative;
+  z-index: 1;
+  font-size: 1.6rem;
+  font-weight: 900;
+  margin: 0.5rem 0 0;
+  letter-spacing: 0.3px;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+}
+.game-banner .muted {
+  position: relative;
+  z-index: 1;
+  margin: 0.25rem 0 0.5rem;
+  opacity: 0.9;
+}
+.game-banner .meta {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.game-banner .chip {
+  background: #ffffff14;
+  border: 1px solid #ffffff2e;
+  color: #fff;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.game-banner .progress {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 0.5rem;
+}
+.game-banner .bar {
+  flex: 1;
+  height: 10px;
+  border-radius: 999px;
+  background: #ffffff1a;
+  border: 1px solid #ffffff2e;
+  overflow: hidden;
+}
+.game-banner .fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #34d399, #10b981);
+}
+.game-banner .pct {
+  font-weight: 900;
+  position: relative;
+  z-index: 1;
+}
+.btn-play {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.2px;
+  color: #3b1f1f;
+  background: #fff;
+  border: 0;
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  box-shadow:
+    0 10px 24px rgba(255, 255, 255, 0.2),
+    0 6px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* Side list wrapper so hint can float below/above */
-.side-wrap{ position: relative; overflow: visible; }
-
-.side-list{
-  display:flex; flex-direction:column; gap:10px;
-  overflow-y:auto; overscroll-behavior:contain;
-  padding-right:2px;
-  -ms-overflow-style: none; scrollbar-width: none;
+.side-wrap {
+  position: relative;
+  overflow: visible;
 }
-.side-list::-webkit-scrollbar{ width:0; height:0; }
 
-.side-item{
-  appearance:none; border:0; background: var(--gp-card); color:#fff; text-align:left; width:100%;
-  display:grid; grid-template-columns: 42px 1fr 20px; align-items:center; gap:10px;
-  border-radius:16px; padding:10px; box-shadow: 0 12px 28px rgba(0,0,0,.18);
-  border:1px solid #ffffff22; cursor:pointer; transition: transform .08s ease, box-shadow .12s ease, border-color .12s ease;
+.side-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-.side-item:hover{ transform: translateY(-1px); box-shadow: 0 14px 32px rgba(0,0,0,.22); }
-.side-item.active{ border-color:#ffffff66; box-shadow: 0 16px 36px rgba(0,0,0,.25); }
-.icon-slot{
-  width:42px; height:42px; border-radius:12px; display:grid; place-items:center; overflow:hidden;
-  background: linear-gradient(135deg,#ff9f9f33,#c084fc33); border:1px solid #ffffff22;
+.side-list::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
-.icon-slot img{ width:100%; height:100%; object-fit:cover; }
-.icon-slot i{ font-size:1.1rem; color:#fff; }
 
-.side-item .body{ min-width:0; }
-.side-item .title{
-  font-weight:800; white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+.side-item {
+  appearance: none;
+  border: 0;
+  background: var(--gp-card);
+  color: #fff;
+  text-align: left;
+  width: 100%;
+  display: grid;
+  grid-template-columns: 42px 1fr 20px;
+  align-items: center;
+  gap: 10px;
+  border-radius: 16px;
+  padding: 10px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  border: 1px solid #ffffff22;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    box-shadow 0.12s ease,
+    border-color 0.12s ease;
 }
-.side-item .tiny{ font-size:.85rem; opacity:.9; }
-.side-item .sep{ opacity:.6; margin:0 .35rem; }
-.side-item .caret{ opacity:.8; }
+.side-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+}
+.side-item.active {
+  border-color: #ffffff66;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
+}
+.icon-slot {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ff9f9f33, #c084fc33);
+  border: 1px solid #ffffff22;
+}
+.icon-slot img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.icon-slot i {
+  font-size: 1.1rem;
+  color: #fff;
+}
 
-.side-hint{ display:grid; place-items:center; opacity:.9; pointer-events:none; }
-.side-hint i{ font-size:1.25rem; animation: bob 1.2s infinite; text-shadow: 0 2px 8px rgba(0,0,0,.35); }
-.side-hint.floating{ position:absolute; left:50%; transform: translateX(-50%); bottom:-12px; z-index:2; }
-.side-hint.floating.up{ top:-12px; bottom:auto; }
-.side-hint.up i{ animation: bob-up 1.2s infinite; }
-@keyframes bob{ 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(3px); } }
-@keyframes bob-up{ 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(-3px); } }
+.side-item .body {
+  min-width: 0;
+}
+.side-item .title {
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.side-item .tiny {
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+.side-item .sep {
+  opacity: 0.6;
+  margin: 0 0.35rem;
+}
+.side-item .caret {
+  opacity: 0.8;
+}
+
+.side-hint {
+  display: grid;
+  place-items: center;
+  opacity: 0.9;
+  pointer-events: none;
+}
+.side-hint i {
+  font-size: 1.25rem;
+  animation: bob 1.2s infinite;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+.side-hint.floating {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: -12px;
+  z-index: 2;
+}
+.side-hint.floating.up {
+  top: -12px;
+  bottom: auto;
+}
+.side-hint.up i {
+  animation: bob-up 1.2s infinite;
+}
+@keyframes bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+@keyframes bob-up {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
 
 /* ===== Product Preview ===== */
-.pp-skeleton{ display:grid; gap:12px; }
-.pp-skel-card{ height:210px; border-radius:16px; background:linear-gradient(90deg,#f1f5f9,#e2e8f0,#f1f5f9); background-size:200% 100%; animation: sk 1.2s linear infinite; }
-.pp-skel-dots{ display:flex; gap:10px; justify-content:center; }
-.pp-skel-dot{ width:10px; height:10px; border-radius:999px; background:#e2e8f0; }
-@keyframes sk{ 0%{background-position:0% 0} 100%{background-position:200% 0} }
+.pp-skeleton {
+  display: grid;
+  gap: 12px;
+}
+.pp-skel-card {
+  height: 210px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
+  background-size: 200% 100%;
+  animation: sk 1.2s linear infinite;
+}
+.pp-skel-dots {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+.pp-skel-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+@keyframes sk {
+  0% {
+    background-position: 0% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
 
-.pp-wrap{ position:relative; display:block; min-height: 320px; }
+.pp-wrap {
+  position: relative;
+  display: block;
+  min-height: 320px;
+}
 
 /* nav arrows */
-.pp-nav{
-  position:absolute;
-  top:50%;
+.pp-nav {
+  position: absolute;
+  top: 50%;
   transform: translateY(-50%);
-  width:30px; height:30px;
-  border-radius:999px;
-  border:1px solid rgba(255,255,255,.45);
-  background:rgba(15,23,42,.1);
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(15, 23, 42, 0.1);
   backdrop-filter: blur(6px);
-  display:grid; place-items:center;
-  z-index:30;
-  color:#fff;
-  cursor:pointer;
-  transition: opacity .2s ease, transform .2s ease;
-  opacity:.6;
+  display: grid;
+  place-items: center;
+  z-index: 30;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+  opacity: 0.6;
 }
-.pp-nav:hover{ opacity:1; transform: translateY(-50%) scale(1.02); }
-.pp-nav-left{ left:8px; }
-.pp-nav-right{ right:8px; }
+.pp-nav:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.02);
+}
+.pp-nav-left {
+  left: 8px;
+}
+.pp-nav-right {
+  right: 8px;
+}
 
 /* Base card layout kept */
-.pp-card{
+.pp-card {
   position: relative;
-  display:block;
-  padding:0;
-  border-radius:16px;
-  border:1px solid rgba(233,238,243,.35);
-  background:rgba(255,255,255,.9);
-  transition: transform .15s ease, box-shadow .15s ease;
+  display: block;
+  padding: 0;
+  border-radius: 16px;
+  border: 1px solid rgba(233, 238, 243, 0.35);
+  background: rgba(255, 255, 255, 0.9);
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
   min-height: 320px;
-  overflow:hidden;
+  overflow: hidden;
 }
-.pp-card.glass:hover{ transform: translateY(-2px) scale(1.01); box-shadow: 0 12px 28px rgba(0,0,0,.08); }
+.pp-card.glass:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
 
-.pp-card.bg-mode .pp-bg{
-  position:absolute; inset:0; background-size:cover; background-position:center;
-  background-repeat:no-repeat;
-  z-index:0;
+.pp-card.bg-mode .pp-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  z-index: 0;
 }
-.pp-card.bg-mode .pp-scrim{
-  position:absolute; inset:0; z-index:1;
-  background: linear-gradient(to top,
-    rgba(0,0,0,.62) 0%,
-    rgba(0,0,0,.45) 35%,
-    rgba(0,0,0,.22) 60%,
-    rgba(0,0,0,0) 100%);
+.pp-card.bg-mode .pp-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.45) 35%,
+    rgba(0, 0, 0, 0.22) 60%,
+    rgba(0, 0, 0, 0) 100%
+  );
 }
-.pp-card.bg-mode .pp-badges{
-  position:absolute; top:12px; left:12px; z-index:3; display:flex; gap:6px;
+.pp-card.bg-mode .pp-badges {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 3;
+  display: flex;
+  gap: 6px;
 }
-.pp-card.bg-mode .pp-floating{
-  position:absolute; left:12px; right:12px; bottom:12px; z-index:2;
-  color:#fff; text-shadow:0 1px 8px rgba(0,0,0,.45);
-  display:flex; flex-direction:column; gap:6px;
-  transition: transform .35s ease, opacity .35s ease;
+.pp-card.bg-mode .pp-floating {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 2;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition:
+    transform 0.35s ease,
+    opacity 0.35s ease;
 }
-.pp-floating-up{
+.pp-floating-up {
   transform: translateY(-24px);
 }
-.pp-title-overlay{ font-weight:900; font-size:1.15rem; letter-spacing:.2px; }
-.pp-price-overlay{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
-.pp-card.bg-mode .pp-now{ color:#fff; font-weight:900; }
-.pp-card.bg-mode .pp-was{ color:#e2e8f0; opacity:.95; text-decoration: line-through; }
-.pp-card.bg-mode .pp-h-off{ color:#fde047; }
+.pp-title-overlay {
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.2px;
+}
+.pp-price-overlay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.pp-card.bg-mode .pp-now {
+  color: #fff;
+  font-weight: 900;
+}
+.pp-card.bg-mode .pp-was {
+  color: #e2e8f0;
+  opacity: 0.95;
+  text-decoration: line-through;
+}
+.pp-card.bg-mode .pp-h-off {
+  color: #fde047;
+}
 
 /* membership mini line (non-hover) */
-.pp-member-inline{
-  background: rgba(15,23,42,.3);
-  border: 1px solid rgba(148,163,184,.45);
-  border-radius: .6rem;
-  padding: .25rem .65rem;
+.pp-member-inline {
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.6rem;
+  padding: 0.25rem 0.65rem;
   display: inline-flex;
   gap: 6px;
   align-items: center;
   width: fit-content;
 }
-.pp-h-member-price{ font-weight:700; color:#fef9c3; font-size:.7rem; }
-.pp-h-member-tag{ font-size:.6rem; color:rgba(248,250,252,.7); }
+.pp-h-member-price {
+  font-weight: 700;
+  color: #fef9c3;
+  font-size: 0.7rem;
+}
+.pp-h-member-tag {
+  font-size: 0.6rem;
+  color: rgba(248, 250, 252, 0.7);
+}
 
 /* Hide original inner layout when in bg-mode */
 .pp-card.bg-mode .pp-thumb,
-.pp-card.bg-mode .pp-body{ display:none !important; }
+.pp-card.bg-mode .pp-body {
+  display: none !important;
+}
 
 /* Hover overlay (dim) */
-.pp-hover{
-  position:absolute; inset:0; border-radius:16px;
-  background: rgba(5,10,12,0.25);
-  border:1px solid rgba(233,238,243,0.12);
-  opacity:0; transform: translateY(6px) scale(.995);
-  transition: opacity .25s ease, transform .25s ease;
-  pointer-events:none;
-  display:flex; flex-direction:column; justify-content:space-between;
-  z-index:5;
+.pp-hover {
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  background: rgba(5, 10, 12, 0.25);
+  border: 1px solid rgba(233, 238, 243, 0.12);
+  opacity: 0;
+  transform: translateY(6px) scale(0.995);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  z-index: 5;
   backdrop-filter: blur(4px);
 }
-.pp-hover.show{ opacity:1; transform: translateY(0) scale(1); pointer-events:auto; }
+.pp-hover.show {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
 
 /* floating prices (hover) */
 .pp-h-prices {
@@ -1483,27 +2015,27 @@ const ppBgStyle = computed(() => {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: rgba(15, 23, 42, .25);
+  background: rgba(15, 23, 42, 0.25);
   backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 999px;
-  padding: .25rem .6rem;
+  padding: 0.25rem 0.6rem;
 }
 .pp-h-price-line .pp-now {
   color: #fff;
   font-weight: 800;
-  font-size: .95rem;
+  font-size: 0.95rem;
 }
 .pp-h-price-line .pp-was {
-  color: rgba(248, 250, 252, .7);
+  color: rgba(248, 250, 252, 0.7);
   text-decoration: line-through;
-  font-size: .7rem;
+  font-size: 0.7rem;
 }
 .pp-h-member-inline {
-  background: rgba(7, 16, 26, .35);
-  border: 1px solid rgba(148, 163, 184, .25);
-  border-radius: .6rem;
-  padding: .15rem .5rem .25rem .6rem;
+  background: rgba(7, 16, 26, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 0.6rem;
+  padding: 0.15rem 0.5rem 0.25rem 0.6rem;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -1511,101 +2043,233 @@ const ppBgStyle = computed(() => {
 }
 .pp-h-member-price {
   font-weight: 700;
-  font-size: .72rem;
+  font-size: 0.72rem;
   color: #fef9c3;
 }
 .pp-h-member-tag {
-  font-size: .6rem;
-  color: rgba(248, 250, 252, .6);
+  font-size: 0.6rem;
+  color: rgba(248, 250, 252, 0.6);
 }
 
 /* hover content */
-.pp-h-content{
+.pp-h-content {
   padding: 14px 14px 0 14px;
   max-height: 65%;
   overflow: auto;
   padding-right: 90px; /* so text doesn't go under floating prices */
 }
-.pp-h-title{ font-weight:900; font-size:1.1rem; margin-bottom:.25rem; color:#fff; }
-.pp-h-desc{ color:#e2e8f0; margin-bottom:.5rem; font-size:.85rem; }
+.pp-h-title {
+  font-weight: 900;
+  font-size: 1.1rem;
+  margin-bottom: 0.25rem;
+  color: #fff;
+}
+.pp-h-desc {
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
 
 /* hover actions bottom */
-.pp-h-actions{
+.pp-h-actions {
   padding: 0 14px 14px 14px;
-  display:flex;
-  justify-content:flex-end;
-  gap:8px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* dot indicators */
-.pp-dots{
-  position:absolute; left:50%; transform: translateX(-50%);
-  bottom:8px; display:flex; gap:10px; justify-content:center; z-index:20;
+.pp-dots {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 8px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  z-index: 20;
 }
-.pp-dot{
-  position:relative; width:10px; height:10px; border-radius:999px;
-  background:#e2e8f0; border:1px solid #cbd5e1;
+.pp-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  border: 1px solid #cbd5e1;
 }
-.pp-dot.active{ background:#0ea5e9; border-color:#0284c7; box-shadow:0 4px 10px rgba(2,132,199,.25); }
-.pp-bubble{ display:none !important; }
+.pp-dot.active {
+  background: #0ea5e9;
+  border-color: #0284c7;
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+}
+.pp-bubble {
+  display: none !important;
+}
 
 /* slide animation for product switching */
 .pp-slide-fade-enter-active,
-.pp-slide-fade-leave-active{
-  transition: all .35s ease;
+.pp-slide-fade-leave-active {
+  transition: all 0.35s ease;
 }
-.pp-slide-fade-enter-from{
-  opacity:0;
+.pp-slide-fade-enter-from {
+  opacity: 0;
   transform: translateX(12px);
 }
-.pp-slide-fade-leave-to{
-  opacity:0;
+.pp-slide-fade-leave-to {
+  opacity: 0;
   transform: translateX(-12px);
 }
 
 /* ===== Products ===== */
-.products-scroll{ display:grid; gap:10px; grid-auto-flow:column; grid-auto-columns:minmax(210px,260px); overflow-x:auto; padding-bottom:6px; scroll-snap-type:x mandatory; }
-.prod-card{ border-radius:14px; padding:10px; border:1px solid #e9eef3; background:rgba(255,255,255,.9); scroll-snap-align:start; min-height:220px; transition: transform .12s ease, box-shadow .12s ease; }
-.prod-card:hover{ transform: translateY(-2px); box-shadow:0 12px 28px rgba(0,0,0,.08); }
-.thumb{ position:relative; border-radius:10px; overflow:hidden; border:1px solid #eef2f7; aspect-ratio:4/3; background:#f8fafc; display:grid; place-items:center; }
-.thumb img{ width:100%; height:100%; object-fit:cover; }
-.thumb-fallback i{ font-size:1.4rem; color:#94a3b8; }
-.off-pill{ position:absolute; top:8px; left:8px; background:#ef4444; color:#fff; font-weight:800; font-size:.8rem; padding:.1rem .4rem; border-radius:999px; }
-.pname{ font-weight:800; margin-top:8px; letter-spacing:.2px; }
-.prices{ display:flex; align-items:baseline; gap:8px; }
-.now{ font-weight:800; } .was{ color:#94a3b8; text-decoration: line-through; }
+.products-scroll {
+  display: grid;
+  gap: 10px;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(210px, 260px);
+  overflow-x: auto;
+  padding-bottom: 6px;
+  scroll-snap-type: x mandatory;
+}
+.prod-card {
+  border-radius: 14px;
+  padding: 10px;
+  border: 1px solid #e9eef3;
+  background: rgba(255, 255, 255, 0.9);
+  scroll-snap-align: start;
+  min-height: 220px;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.prod-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
+}
+.thumb {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid #eef2f7;
+  aspect-ratio: 4/3;
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+}
+.thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.thumb-fallback i {
+  font-size: 1.4rem;
+  color: #94a3b8;
+}
+.off-pill {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #ef4444;
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.8rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+}
+.pname {
+  font-weight: 800;
+  margin-top: 8px;
+  letter-spacing: 0.2px;
+}
+.prices {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+.now {
+  font-weight: 800;
+}
+.was {
+  color: #94a3b8;
+  text-decoration: line-through;
+}
 
 /* ===== Skeleton / Reveal ===== */
-.empty-state{ display:grid; place-items:center; row-gap:4px; padding:24px 8px; color:#94a3b8; }
-.empty-state i{ font-size:1.2rem; }
-
-.games-skeleton{ position:relative; padding:12px; display:grid; grid-template-columns:1.4fr .8fr; gap:14px; }
-.games-skeleton .gsk{ background: linear-gradient(90deg,#5a2e2e,#6a3434,#5a2e2e); background-size:200% 100%; animation: sk 1.2s infinite linear; border-radius:18px; opacity:.6; }
-.games-skeleton .gsk-banner{ height:260px; }
-.games-skeleton .gsk-side{ height:80px; margin-bottom:10px; }
-
-.reveal-init{ opacity:0; transform: translateY(10px) scale(.98); }
-.reveal-in{ opacity:1; transform: translateY(0) scale(1); transition: opacity .45s ease, transform .45s ease; }
-
-.skeleton-scroll{
-  display:flex; gap:10px; overflow:hidden;
+.empty-state {
+  display: grid;
+  place-items: center;
+  row-gap: 4px;
+  padding: 24px 8px;
+  color: #94a3b8;
 }
-.skeleton-prod{
-  width:200px; height:220px; border-radius:18px;
-  background:linear-gradient(90deg,#f4f6f8,#e1e7ef,#f4f6f8);
-  background-size:200% 100%; animation: sk 1.25s linear infinite;
+.empty-state i {
+  font-size: 1.2rem;
+}
+
+.games-skeleton {
+  position: relative;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 14px;
+}
+.games-skeleton .gsk {
+  background: linear-gradient(90deg, #5a2e2e, #6a3434, #5a2e2e);
+  background-size: 200% 100%;
+  animation: sk 1.2s infinite linear;
+  border-radius: 18px;
+  opacity: 0.6;
+}
+.games-skeleton .gsk-banner {
+  height: 260px;
+}
+.games-skeleton .gsk-side {
+  height: 80px;
+  margin-bottom: 10px;
+}
+
+.reveal-init {
+  opacity: 0;
+  transform: translateY(10px) scale(0.98);
+}
+.reveal-in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
+}
+
+.skeleton-scroll {
+  display: flex;
+  gap: 10px;
+  overflow: hidden;
+}
+.skeleton-prod {
+  width: 200px;
+  height: 220px;
+  border-radius: 18px;
+  background: linear-gradient(90deg, #f4f6f8, #e1e7ef, #f4f6f8);
+  background-size: 200% 100%;
+  animation: sk 1.25s linear infinite;
 }
 
 /* floating view button (non-hover) */
-.floating-view{
-  align-self:flex-start;
+.floating-view {
+  align-self: flex-start;
   backdrop-filter: blur(4px);
-  box-shadow: 0 10px 20px rgba(15,23,42,.25);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
 }
 
-@media (max-width: 576px){
-  .pp-nav{ display:none; }
-  .pp-h-prices{ right: 6px; top: 6px; }
-  .pp-h-content{ padding-right: 6px; }
+@media (max-width: 576px) {
+  .pp-nav {
+    display: none;
+  }
+  .pp-h-prices {
+    right: 6px;
+    top: 6px;
+  }
+  .pp-h-content {
+    padding-right: 6px;
+  }
 }
 </style>

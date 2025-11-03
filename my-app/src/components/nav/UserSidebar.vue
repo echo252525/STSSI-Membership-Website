@@ -9,62 +9,56 @@
       :class="{ collapsed: isRail }"
       :style="{ width: isRail ? collapsedWidth : '280px' }"
     >
-      <!-- Top: tier icon + toggle -->
-      <div class="d-flex align-items-center justify-content-between">
-        <div>
-          <!-- Profile (hidden when collapsed) -->
+      <!-- TOP when EXPANDED -->
+      <div v-if="!isRail" class="d-flex align-items-center justify-content-between mb-3">
+        <div
+          class="profile-card cursor-pointer gap-2 d-flex align-items-center"
+          :title="displayName"
+          role="link"
+          tabindex="0"
+          @click="goSettings"
+          @keydown.enter.prevent="goSettings"
+          @keydown.space.prevent="goSettings"
+        >
           <div
-            class="profile-card cursor-pointer gap-2 justify-content-start d-flex align-items-center"
-            :title="displayName"
-            v-show="!isRail"
-            role="link"
-            tabindex="0"
-            @click="goSettings"
-            @keydown.enter.prevent="goSettings"
-            @keydown.space.prevent="goSettings"
-            aria-label="Open Settings"
+            class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
+            style="width: 36px; height: 36px; font-weight: 700; position: relative; overflow: hidden"
           >
-            <div
-              class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
-              style="width: 36px; height: 36px; font-weight: 700; position: relative; overflow: hidden"
-            >
-              <!-- ✅ Profile photo (keeps initials as fallback) -->
-              <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
-              {{ initials }}
+            <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
+            {{ initials }}
+          </div>
+          <div class="profile-text">
+            <div class="fw-semibold small text-truncate text-primary">
+              {{ displayName }}
             </div>
-            <div class="profile-text">
-              <!-- user name -->
-              <div class="fw-semibold small text-truncate text-primary name-link">
-                {{ displayName }}
-              </div>
-              <!-- Tier label -->
-              <div class="d-flex overflow-hidden">
-                <span
-                  v-if="showTier"
-                  class="brand-text fw-semibold text-truncate d-flex align-items-center gap-2 mb-2"
-                >
-                  <span class="badge text-bg-light border small fw-normal">
-                    {{ membershipMeta.label }} Membership
-                  </span>
-                </span>
-              </div>
+            <div class="text-muted small text-truncate">
+              {{ membershipMeta.label }} member
             </div>
           </div>
         </div>
-        
 
         <button
           type="button"
-          class="btn btn-outline-secondary btn-sm rounded-circle toggle-btn d-none d-lg-inline-flex"
+          class="btn btn-outline-secondary btn-sm rounded-circle d-none d-lg-inline-flex"
           @click="toggle()"
-          :aria-label="isRail ? 'Expand sidebar' : 'Collapse sidebar'"
+          aria-label="Collapse sidebar"
         >
-          <i
-            class="bi"
-            :class="isRail ? 'bi-chevron-double-right' : 'bi-chevron-double-left'"
-          ></i>
+          <i class="bi bi-chevron-double-left"></i>
         </button>
       </div>
+
+      <!-- TOP when COLLAPSED -->
+      <div v-else class="d-flex align-items-center justify-content-end mb-3">
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm rounded-circle d-none d-lg-inline-flex"
+          @click="toggle()"
+          aria-label="Expand sidebar"
+        >
+          <i class="bi bi-chevron-double-right"></i>
+        </button>
+      </div>
+
 
       <!-- Profile (hidden when collapsed) -->
       <div class="d-flex align-items-center justify-content-center">
