@@ -1,261 +1,452 @@
 <template>
   <div class="deals-shell">
-    <!-- ===== Hero / Top bar ===== -->
-    <header class="deals-hero">
-      <div>
-        <p class="hero-eyebrow">Rewards center</p>
-        <h1 class="hero-title">Deals & Rewards</h1>
-        <p class="hero-sub">
-          Your active vouchers, product-specific promos, and referral earnings — all in one clean
-          view.
-        </p>
-      </div>
-      <div class="hero-stats">
-        <div class="hero-pill">
-          <span class="hero-pill-label">Active discounts</span>
-          <span class="hero-pill-value">{{ discounts.length }}</span>
+    <!-- ===== PAGE SKELETON (initial) ===== -->
+    <template v-if="isBooting">
+      <!-- Hero skeleton -->
+      <header class="deals-hero breath-in-once">
+        <div class="w-100">
+          <div class="skel-line w-40 mb-2"></div>
+          <div class="skel-line w-25 mb-2"></div>
+          <div class="skel-line w-60 sm"></div>
         </div>
-        <div class="hero-pill">
-          <span class="hero-pill-label">Product-only</span>
-          <span class="hero-pill-value">{{ productDiscounts.length }}</span>
+        <div class="hero-stats">
+          <div class="skel-pill"></div>
+          <div class="skel-pill"></div>
+          <div class="skel-pill"></div>
         </div>
-        <div class="hero-pill">
-          <span class="hero-pill-label">Referees</span>
-          <span class="hero-pill-value">{{ referees.length }}</span>
-        </div>
-      </div>
-    </header>
+      </header>
 
-    <main class="deals-grid">
-      <!-- ================= LEFT: Discounts ================= -->
-      <section class="deals-left">
-        <!-- ORDER-LEVEL DISCOUNTS -->
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Order / Cart Discounts</h2>
-              <p class="panel-sub">Auto or code-based promos that can apply to most orders.</p>
+      <main class="deals-grid">
+        <!-- LEFT skeleton -->
+        <section class="deals-left">
+          <div class="panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <div class="skel-line w-30 mb-2"></div>
+                <div class="skel-line w-50 sm"></div>
+              </div>
+              <div class="skel-btn"></div>
             </div>
-            <button class="ghost-btn" @click="reload">
-              <i class="bi bi-arrow-repeat me-1"></i>
-              Refresh
-            </button>
-          </div>
 
-          <div v-if="busy" class="empty-state">
-            <div class="spinner-border mb-2"></div>
-            <p class="empty-title">Loading discounts…</p>
-            <p class="empty-text">Please wait while we pull your available rewards.</p>
-          </div>
-
-          <div v-else-if="discounts.length === 0" class="empty-state">
-            <i class="bi bi-ticket-perforated empty-icon"></i>
-            <p class="empty-title">No active order discounts right now.</p>
-            <p class="empty-text">When we drop a store-wide promo, it’ll show up here.</p>
-          </div>
-
-          <div v-else class="discount-list">
-            <article
-              v-for="d in discounts"
-              :key="d.id"
-              class="discount-card"
-              :data-type="d.type || 'percent'"
-            >
-              <div class="discount-main">
-                <div class="discount-badge" :class="d.type">
-                  <i v-if="d.type === 'free_shipping'" class="bi bi-truck"></i>
-                  <i v-else class="bi bi-percent"></i>
+            <div class="discount-list">
+              <div class="discount-card">
+                <div class="discount-main">
+                  <div class="skel-square"></div>
+                  <div>
+                    <div class="skel-line w-35 mb-2"></div>
+                    <div class="skel-line w-60 sm"></div>
+                    <div class="skel-line w-30 xs mt-2"></div>
+                  </div>
                 </div>
-                <div>
-                  <h3 class="discount-title">{{ d.title }}</h3>
-                  <p class="discount-desc">
-                    <span v-if="d.min_spend != null">Min. spend ₱{{ d.min_spend }}</span>
-                    <span v-else-if="d.description">{{ d.description }}</span>
-                    <span v-else>Store-wide offer</span>
-                  </p>
-                  <p class="discount-exp">Valid {{ expiryLabel(d) }}</p>
+                <div class="discount-side">
+                  <div class="skel-chip mb-1"></div>
+                  <div class="skel-line w-25 xs"></div>
                 </div>
               </div>
 
-              <div class="discount-side">
-                <p v-if="d.code" class="discount-code">Code: {{ d.code }}</p>
-                <p
-                  v-if="typeof d.max_uses_per_user === 'number'"
-                  class="discount-usage"
-                  :class="{ 'text-danger': exceededUserLimit(d) }"
-                >
-                  Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
-                </p>
-                <button
-                  class="cta-btn"
-                  @click="goToShop(d)"
-                  :disabled="exceededUserLimit(d)"
-                  :aria-disabled="exceededUserLimit(d)"
-                >
-                  {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
-                </button>
+              <div class="discount-card">
+                <div class="discount-main">
+                  <div class="skel-square"></div>
+                  <div>
+                    <div class="skel-line w-45 mb-2"></div>
+                    <div class="skel-line w-50 sm"></div>
+                    <div class="skel-line w-20 xs mt-2"></div>
+                  </div>
+                </div>
+                <div class="discount-side">
+                  <div class="skel-chip mb-1"></div>
+                  <div class="skel-line w-25 xs"></div>
+                </div>
               </div>
-            </article>
-          </div>
-        </div>
-
-        <!-- PRODUCT-SPECIFIC DISCOUNTS -->
-        <div class="panel" v-if="productDiscounts.length > 0">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Product-Specific Discounts</h2>
-              <p class="panel-sub">
-                Can only be applied to a certain product. Perfect for highlighting key items.
-              </p>
             </div>
           </div>
 
-          <div class="product-discount-grid">
-            <article
-              v-for="d in productDiscounts"
-              :key="d.id"
-              class="product-discount-card"
-              :data-type="d.type || 'percent'"
-            >
-              <div class="pd-top">
-                <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
-                <span class="pd-type" v-else-if="d.type === 'percent'">
-                  {{ Number(d.percent_off ?? 0) }}% OFF
-                </span>
-                <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
-                  ₱{{ money(d.amount_off ?? 0) }} OFF
-                </span>
-                <span class="pd-pill">Product only</span>
+          <div class="panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <div class="skel-line w-36 mb-2"></div>
+                <div class="skel-line w-56 sm"></div>
               </div>
-              <h3 class="pd-title">{{ d.title }}</h3>
-              <p class="pd-product-label">
-                Applies to: <strong>{{ d.product_name || shortProductId(d.product_id) }}</strong>
-              </p>
-              <p class="pd-meta">Valid {{ expiryLabel(d) }}</p>
-
-              <div class="pd-footer">
-                <p v-if="d.code" class="pd-code">Code: {{ d.code }}</p>
-                <p
-                  v-if="typeof d.max_uses_per_user === 'number'"
-                  class="pd-usage"
-                  :class="{ 'text-danger': exceededUserLimit(d) }"
-                >
-                  Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
-                </p>
-                <button
-                  class="mini-btn"
-                  @click="goToShop(d)"
-                  :disabled="exceededUserLimit(d)"
-                  :aria-disabled="exceededUserLimit(d)"
-                >
-                  {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
-                </button>
+            </div>
+            <div class="product-discount-grid">
+              <div class="product-discount-card">
+                <div class="pd-top">
+                  <div class="skel-chip"></div>
+                  <div class="skel-chip"></div>
+                </div>
+                <div class="skel-line w-60 mb-2"></div>
+                <div class="skel-line w-70 sm mb-2"></div>
+                <div class="skel-line w-40 xs"></div>
+                <div class="pd-footer mt-2">
+                  <div class="skel-chip"></div>
+                  <div class="skel-btn small"></div>
+                </div>
               </div>
-            </article>
-          </div>
-        </div>
-      </section>
 
-      <!-- ================= RIGHT: Affiliate & Network ================= -->
-      <section class="deals-right">
-        <!-- Affiliate -->
-        <div class="panel sticky-panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Affiliate & Referrals</h2>
-              <p class="panel-sub">Share your link and earn commission on converted sales.</p>
+              <div class="product-discount-card">
+                <div class="pd-top">
+                  <div class="skel-chip"></div>
+                  <div class="skel-chip"></div>
+                </div>
+                <div class="skel-line w-50 mb-2"></div>
+                <div class="skel-line w-65 sm mb-2"></div>
+                <div class="skel-line w-35 xs"></div>
+                <div class="pd-footer mt-2">
+                  <div class="skel-chip"></div>
+                  <div class="skel-btn small"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- RIGHT skeleton -->
+        <section class="deals-right">
+          <div class="panel sticky-panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <div class="skel-line w-40 mb-2"></div>
+                <div class="skel-line w-55 sm"></div>
+              </div>
+            </div>
+
+            <div class="affiliate-box">
+              <div class="skel-line w-30 sm mb-2"></div>
+              <div class="aff-input-wrap">
+                <div class="skel-line w-100 sm"></div>
+                <div class="skel-btn small"></div>
+              </div>
+              <div class="skel-line w-50 xs mt-2"></div>
+            </div>
+
+            <div class="aff-metrics">
+              <div class="metric-card">
+                <div class="skel-line w-40 xs mb-2"></div>
+                <div class="skel-line w-30"></div>
+              </div>
+              <div class="metric-card">
+                <div class="skel-line w-50 xs mb-2"></div>
+                <div class="skel-line w-30"></div>
+              </div>
+              <div class="metric-card">
+                <div class="skel-line w-45 xs mb-2"></div>
+                <div class="skel-line w-35"></div>
+              </div>
             </div>
           </div>
 
-          <div class="affiliate-box">
-            <label class="aff-label">Your referral link</label>
-            <div class="aff-input-wrap">
-              <input :value="affiliateUrl || 'Unavailable'" readonly class="aff-input" />
-              <button class="mini-btn" @click="copyAffiliate" :disabled="!affiliateUrl">
-                <i class="bi bi-clipboard"></i>
-                Copy
-              </button>
+          <div class="panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <div class="skel-line w-36 mb-2"></div>
+                <div class="skel-line w-45 sm"></div>
+              </div>
+              <div class="skel-chip"></div>
             </div>
-            <p class="aff-hint">
-              New signups through this link will appear in your network list below.
-            </p>
-          </div>
 
-          <div class="aff-metrics">
-            <div class="metric-card">
-              <p class="metric-label">Total Referrals</p>
-              <p class="metric-value">{{ referralStats.total }}</p>
-            </div>
-            <div class="metric-card">
-              <p class="metric-label">Converted Sales</p>
-              <p class="metric-value">{{ referralStats.converted }}</p>
-            </div>
-            <div class="metric-card">
-              <p class="metric-label">Commission</p>
-              <p class="metric-value">₱ {{ money(referralStats.commission) }}</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Referees list -->
-        <div class="panel">
-          <div class="panel-head">
-            <div>
-              <h2 class="panel-title">Your Network</h2>
-              <p class="panel-sub">People who joined using your link.</p>
-            </div>
-            <span class="tag">{{ referees.length }} total</span>
-          </div>
-
-          <div v-if="busyReferees" class="empty-state">
-            <div class="spinner-border mb-2"></div>
-            <p class="empty-title">Loading referees…</p>
-            <p class="empty-text">Give us a second to fetch your network.</p>
-          </div>
-
-          <div v-else-if="referees.length === 0" class="empty-state">
-            <i class="bi bi-person-plus empty-icon"></i>
-            <p class="empty-title">No referees yet.</p>
-            <p class="empty-text">Share your link to start building your downline.</p>
-          </div>
-
-          <ul v-else class="ref-list">
-            <li v-for="r in referees" :key="r.id" class="ref-item">
-              <div class="ref-left">
-                <img
-                  :src="r.avatar_url || defaultAvatar"
-                  class="ref-avatar"
-                  alt=""
-                  referrerpolicy="no-referrer"
-                />
-                <div>
-                  <p class="ref-name">{{ r.full_name || 'Unnamed User' }}</p>
-                  <p class="ref-sub">Joined via your link</p>
-                  <div v-if="goalPerRef != null" class="ref-progress">
-                    <div class="ref-progress-head">
-                      <span>Progress</span>
-                      <span class="ref-progress-val">
-                        ₱{{ r.purchasesThisMonth.count }} / ₱{{ goalPerRef }}
-                      </span>
-                    </div>
-                    <div class="ref-progress-bar">
-                      <div class="ref-progress-fill" :style="{ width: progressPct(r) }"></div>
+            <ul class="ref-list">
+              <li class="ref-item">
+                <div class="ref-left">
+                  <div class="skel-avatar"></div>
+                  <div>
+                    <div class="skel-line w-40 mb-1"></div>
+                    <div class="skel-line w-25 xs"></div>
+                    <div class="ref-progress mt-2">
+                      <div class="ref-progress-bar">
+                        <div class="ref-progress-fill" style="width: 40%; opacity: .25"></div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-              <div class="ref-right">
-                <p class="ref-amount">₱ {{ r.purchasesThisMonth.count }}</p>
-                <p
-                  v-if="r.purchasesThisMonth.totalAmount != null"
-                  class="ref-amount-sub"
-                >₱ {{ money(r.purchasesThisMonth.totalAmount) }} total</p>
-              </div>
-            </li>
-          </ul>
+                <div class="ref-right">
+                  <div class="skel-line w-20 mb-1"></div>
+                  <div class="skel-line w-30 xs"></div>
+                </div>
+              </li>
+
+              <li class="ref-item">
+                <div class="ref-left">
+                  <div class="skel-avatar"></div>
+                  <div>
+                    <div class="skel-line w-50 mb-1"></div>
+                    <div class="skel-line w-30 xs"></div>
+                    <div class="ref-progress mt-2">
+                      <div class="ref-progress-bar">
+                        <div class="ref-progress-fill" style="width: 60%; opacity: .25"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ref-right">
+                  <div class="skel-line w-24 mb-1"></div>
+                  <div class="skel-line w-34 xs"></div>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </template>
+
+    <!-- ===== REAL PAGE ===== -->
+    <template v-else>
+      <!-- ===== Hero / Top bar ===== -->
+      <header class="deals-hero breath-in-once">
+        <div>
+          <p class="hero-eyebrow">Rewards center</p>
+          <h1 class="hero-title">Deals & Rewards</h1>
+          <p class="hero-sub">
+            Your active vouchers, product-specific promos, and referral earnings — all in one clean
+            view.
+          </p>
         </div>
-      </section>
-    </main>
+        <div class="hero-stats">
+          <div class="hero-pill">
+            <span class="hero-pill-label">Active discounts</span>
+            <span class="hero-pill-value">{{ discounts.length }}</span>
+          </div>
+          <div class="hero-pill">
+            <span class="hero-pill-label">Product-only</span>
+            <span class="hero-pill-value">{{ productDiscounts.length }}</span>
+          </div>
+          <div class="hero-pill">
+            <span class="hero-pill-label">Referees</span>
+            <span class="hero-pill-value">{{ referees.length }}</span>
+          </div>
+        </div>
+      </header>
+
+      <main class="deals-grid">
+        <!-- ================= LEFT: Discounts ================= -->
+        <section class="deals-left">
+          <!-- ORDER-LEVEL DISCOUNTS -->
+          <div class="panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Order / Cart Discounts</h2>
+                <p class="panel-sub">Auto or code-based promos that can apply to most orders.</p>
+              </div>
+              <button class="ghost-btn" @click="reload">
+                <i class="bi bi-arrow-repeat me-1"></i>
+                Refresh
+              </button>
+            </div>
+
+            <div v-if="busy" class="empty-state">
+              <div class="spinner-border mb-2"></div>
+              <p class="empty-title">Loading discounts…</p>
+              <p class="empty-text">Please wait while we pull your available rewards.</p>
+            </div>
+
+            <div v-else-if="discounts.length === 0" class="empty-state">
+              <i class="bi bi-ticket-perforated empty-icon"></i>
+              <p class="empty-title">No active order discounts right now.</p>
+              <p class="empty-text">When we drop a store-wide promo, it’ll show up here.</p>
+            </div>
+
+            <div v-else class="discount-list">
+              <article
+                v-for="d in discounts"
+                :key="d.id"
+                class="discount-card"
+                :data-type="d.type || 'percent'"
+              >
+                <div class="discount-main">
+                  <div class="discount-badge" :class="d.type">
+                    <i v-if="d.type === 'free_shipping'" class="bi bi-truck"></i>
+                    <i v-else class="bi bi-percent"></i>
+                  </div>
+                  <div>
+                    <h3 class="discount-title">{{ d.title }}</h3>
+                    <p class="discount-desc">
+                      <span v-if="d.min_spend != null">Min. spend ₱{{ d.min_spend }}</span>
+                      <span v-else-if="d.description">{{ d.description }}</span>
+                      <span v-else>Store-wide offer</span>
+                    </p>
+                    <p class="discount-exp">Valid {{ expiryLabel(d) }}</p>
+                  </div>
+                </div>
+
+                <div class="discount-side">
+                  <p v-if="d.code" class="discount-code">Code: {{ d.code }}</p>
+                  <p
+                    v-if="typeof d.max_uses_per_user === 'number'"
+                    class="discount-usage"
+                    :class="{ 'text-danger': exceededUserLimit(d) }"
+                  >
+                    Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
+                  </p>
+                  <button
+                    class="cta-btn"
+                    @click="goToShop(d)"
+                    :disabled="exceededUserLimit(d)"
+                    :aria-disabled="exceededUserLimit(d)"
+                  >
+                    {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
+                  </button>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- PRODUCT-SPECIFIC DISCOUNTS -->
+          <div class="panel breath-in-once" v-if="productDiscounts.length > 0">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Product-Specific Discounts</h2>
+                <p class="panel-sub">
+                  Can only be applied to a certain product. Perfect for highlighting key items.
+                </p>
+              </div>
+            </div>
+
+            <div class="product-discount-grid">
+              <article
+                v-for="d in productDiscounts"
+                :key="d.id"
+                class="product-discount-card"
+                :data-type="d.type || 'percent'"
+              >
+                <div class="pd-top">
+                  <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
+                  <span class="pd-type" v-else-if="d.type === 'percent'">
+                    {{ Number(d.percent_off ?? 0) }}% OFF
+                  </span>
+                  <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
+                    ₱{{ money(d.amount_off ?? 0) }} OFF
+                  </span>
+                  <span class="pd-pill">Product only</span>
+                </div>
+                <h3 class="pd-title">{{ d.title }}</h3>
+                <p class="pd-product-label">
+                  Applies to: <strong>{{ d.product_name || shortProductId(d.product_id) }}</strong>
+                </p>
+                <p class="pd-meta">Valid {{ expiryLabel(d) }}</p>
+
+                <div class="pd-footer">
+                  <p v-if="d.code" class="pd-code">Code: {{ d.code }}</p>
+                  <p
+                    v-if="typeof d.max_uses_per_user === 'number'"
+                    class="pd-usage"
+                    :class="{ 'text-danger': exceededUserLimit(d) }"
+                  >
+                    Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
+                  </p>
+                  <button
+                    class="mini-btn"
+                    @click="goToShop(d)"
+                    :disabled="exceededUserLimit(d)"
+                    :aria-disabled="exceededUserLimit(d)"
+                  >
+                    {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
+                  </button>
+                </div>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= RIGHT: Affiliate & Network ================= -->
+        <section class="deals-right">
+          <!-- Affiliate -->
+          <div class="panel sticky-panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Affiliate & Referrals</h2>
+                <p class="panel-sub">Share your link and earn commission on converted sales.</p>
+              </div>
+            </div>
+
+            <div class="affiliate-box">
+              <label class="aff-label">Your referral link</label>
+              <div class="aff-input-wrap">
+                <input :value="affiliateUrl || 'Unavailable'" readonly class="aff-input" />
+                <button class="mini-btn" @click="copyAffiliate" :disabled="!affiliateUrl">
+                  <i class="bi bi-clipboard"></i>
+                  Copy
+                </button>
+              </div>
+              <p class="aff-hint">
+                New signups through this link will appear in your network list below.
+              </p>
+            </div>
+
+            <div class="aff-metrics">
+              <div class="metric-card">
+                <p class="metric-label">Total Referrals</p>
+                <p class="metric-value">{{ referralStats.total }}</p>
+              </div>
+              <div class="metric-card">
+                <p class="metric-label">Converted Sales</p>
+                <p class="metric-value">{{ referralStats.converted }}</p>
+              </div>
+              <div class="metric-card">
+                <p class="metric-label">Commission</p>
+                <p class="metric-value">₱ {{ money(referralStats.commission) }}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Referees list -->
+          <div class="panel breath-in-once">
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Your Network</h2>
+                <p class="panel-sub">People who joined using your link.</p>
+              </div>
+              <span class="tag">{{ referees.length }} total</span>
+            </div>
+
+            <div v-if="busyReferees" class="empty-state">
+              <div class="spinner-border mb-2"></div>
+              <p class="empty-title">Loading referees…</p>
+              <p class="empty-text">Give us a second to fetch your network.</p>
+            </div>
+
+            <div v-else-if="referees.length === 0" class="empty-state">
+              <i class="bi bi-person-plus empty-icon"></i>
+              <p class="empty-title">No referees yet.</p>
+              <p class="empty-text">Share your link to start building your downline.</p>
+            </div>
+
+            <ul v-else class="ref-list">
+              <li v-for="r in referees" :key="r.id" class="ref-item">
+                <div class="ref-left">
+                  <img
+                    :src="r.avatar_url || defaultAvatar"
+                    class="ref-avatar"
+                    alt=""
+                    referrerpolicy="no-referrer"
+                  />
+                  <div>
+                    <p class="ref-name">{{ r.full_name || 'Unnamed User' }}</p>
+                    <p class="ref-sub">Joined via your link</p>
+                    <div v-if="goalPerRef != null" class="ref-progress">
+                      <div class="ref-progress-head">
+                        <span>Progress</span>
+                        <span class="ref-progress-val">
+                          ₱{{ r.purchasesThisMonth.count }} / ₱{{ goalPerRef }}
+                        </span>
+                      </div>
+                      <div class="ref-progress-bar">
+                        <div class="ref-progress-fill" :style="{ width: progressPct(r) }"></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="ref-right">
+                  <p class="ref-amount">₱ {{ r.purchasesThisMonth.count }}</p>
+                  <p
+                    v-if="r.purchasesThisMonth.totalAmount != null"
+                    class="ref-amount-sub"
+                  >₱ {{ money(r.purchasesThisMonth.totalAmount) }} total</p>
+                </div>
+              </li>
+            </ul>
+          </div>
+        </section>
+      </main>
+    </template>
   </div>
 </template>
 
@@ -268,11 +459,17 @@ import { currentUser } from '@/lib/authState'
 const router = useRouter()
 const user = computed(() => currentUser.value)
 
+/** NEW: initial page skeleton flag */
+const isBooting = ref(true)
+
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return router.push({ name: 'login' })
   }
+  await loadAll()
+  // keep skeleton just a beat for nicer perception
+  setTimeout(() => (isBooting.value = false), 350)
 })
 
 type Discount = {
@@ -673,10 +870,6 @@ async function copyAffiliate() {
     prompt('Copy your affiliate link:', affiliateUrl.value)
   }
 }
-
-onMounted(() => {
-  loadAll()
-})
 </script>
 
 <style scoped>
@@ -1130,6 +1323,82 @@ onMounted(() => {
 .ref-amount-sub {
   font-size: var(--fs-xs);
   color: #94a3b8;
+}
+
+/* ===== Breath-in intro ===== */
+@keyframes breathInOnce {
+  0% { opacity: 0; transform: scale(0.985); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.breath-in-once {
+  animation: breathInOnce 1000ms cubic-bezier(.2,.7,.1,1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .breath-in-once { animation: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* ===== Skeleton styles ===== */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.skel-line {
+  height: 12px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-line.sm { height: 10px; }
+.skel-line.xs { height: 8px; }
+.w-100 { width: 100%; }
+.w-70 { width: 70%; }
+.w-65 { width: 65%; }
+.w-60 { width: 60%; }
+.w-56 { width: 56%; }
+.w-55 { width: 55%; }
+.w-50 { width: 50%; }
+.w-45 { width: 45%; }
+.w-40 { width: 40%; }
+.w-36 { width: 36%; }
+.w-35 { width: 35%; }
+.w-34 { width: 34%; }
+.w-30 { width: 30%; }
+.w-25 { width: 25%; }
+.w-24 { width: 24%; }
+.mt-2 { margin-top: .5rem; }
+.mb-2 { margin-bottom: .5rem; }
+.mb-1 { margin-bottom: .25rem; }
+
+.skel-pill, .skel-chip {
+  height: 28px;
+  min-width: 110px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-chip { min-width: 70px; height: 22px; }
+
+.skel-btn {
+  width: 90px; height: 30px; border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-btn.small { width: 64px; height: 26px; }
+
+.skel-square {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-avatar {
+  width: 40px; height: 40px; border-radius: 999px;
+  background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
 }
 
 /* RESPONSIVE */

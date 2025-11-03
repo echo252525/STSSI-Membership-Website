@@ -89,6 +89,7 @@
           'mb-4',
           'fade-in-up',
           'delay-2',
+          'breath-in-once',
           'is-' + (currentTier?.key || 'regular'),
         ]"
       >
@@ -128,7 +129,7 @@
           <div class="row g-3 mt-4" v-if="nextTier">
             <!-- Purchase progress -->
             <div class="col-md-6">
-              <div class="progress-card rounded-4 p-3 h-100 fade-in-up delay-3">
+              <div class="progress-card rounded-4 p-3 h-100 fade-in-up delay-3 breath-in-once">
                 <div class="d-flex justify-content-between mb-1">
                   <span class="fw-semibold">Purchases towards {{ nextTier.name }}</span>
                   <span class="fw-semibold">{{ purchasesPct }}%</span>
@@ -148,7 +149,7 @@
 
             <!-- Referral progress -->
             <div class="col-md-6">
-              <div class="progress-card rounded-4 p-3 h-100 fade-in-up delay-4">
+              <div class="progress-card rounded-4 p-3 h-100 fade-in-up delay-4 breath-in-once">
                 <div class="d-flex justify-content-between mb-1">
                   <span class="fw-semibold">Referrals towards {{ nextTier.name }}</span>
                   <span class="fw-semibold">{{ referralsPct }}%</span>
@@ -169,7 +170,7 @@
 
           <!-- At highest tier -->
           <div
-            class="alert alert-success mt-3 mb-0 rounded-3 d-flex align-items-center gap-2 fade-in-up delay-3"
+            class="alert alert-success mt-3 mb-0 rounded-3 d-flex align-items-center gap-2 fade-in-up delay-3 breath-in-once"
             v-else
           >
             <span class="material-symbols-outlined">verified</span>
@@ -182,7 +183,7 @@
       <div class="row g-4">
         <!-- Current tier benefits -->
         <div class="col-lg-6 fade-in-up delay-3">
-          <div class="card border-0 rounded-4 h-100">
+          <div class="card border-0 rounded-4 h-100 breath-in-once">
             <div class="card-body p-4">
               <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
                 <span class="material-symbols-outlined text-azure">redeem</span>
@@ -200,7 +201,7 @@
 
         <!-- Next tier preview -->
         <div class="col-lg-6 fade-in-up delay-4">
-          <div class="card border-0 rounded-4 h-100">
+          <div class="card border-0 rounded-4 h-100 breath-in-once">
             <div class="card-body p-4">
               <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
                 <span class="material-symbols-outlined text-green">trending_up</span>
@@ -244,6 +245,7 @@
               'border-0',
               'rounded-4',
               'tier-modal',
+              'breath-in-once',
               'is-' + (currentTier?.key || 'regular'),
             ]"
           >
@@ -488,7 +490,7 @@ async function loadLiveTiers() {
     .select(
       'id, membership_name, membership_tier_order, purchases_count, referral_count_requirements, discount_credits, discount_per_purchase, is_free_delivery, purchase_requirements_for_free_delivery, icon_url',
     )
-    .order('membership_tier_order', { ascending: true })
+  .order('membership_tier_order', { ascending: true })
 
   if (error || !data) {
     return
@@ -649,6 +651,30 @@ onMounted(async () => {
 }
 .delay-5 {
   animation-delay: 0.45s;
+}
+
+/* ====== NEW: Breath-in intro (subtle scale + fade) ====== */
+@keyframes breathInOnce {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.breath-in-once {
+  animation: breathInOnce 1000ms cubic-bezier(.2,.7,.1,1) both;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-in-up,
+  .breath-in-once {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ====== SKELETONS ====== */

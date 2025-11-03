@@ -175,9 +175,12 @@
             <i class="bi bi-cart3 me-1"></i>
             View Cart
             <span
-              v-if="cartTotalItemsDisplay > 0"
-              class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
-              >{{ cartTotalItemsDisplay }}</span
+  v-if="cartTotalItemsRaw > 0"
+  class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+>
+  {{ cartTotalItemsDisplay }}
+</span>
+
             >
           </button>
         </div>
@@ -1195,18 +1198,32 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import {
+  ref,
+  computed,
+  watch,
+  reactive,
+  onMounted,
+  onUnmounted,
+  nextTick,
+} from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
+
 const routers = useRouter()
 const user = computed(() => currentUser.value)
+
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return routers.push({ name: 'login' })
   }
 })
+
+/* ========================================================================
+   TYPES
+   ======================================================================== */
 type Product = {
   id: string
   name: string
@@ -1251,7 +1268,17 @@ type PurchaseRow = {
   created_at: string
   is_free_shipping?: boolean | null
 }
-/* -------------------- Products state -------------------- */
+type UsersRow = {
+  phone_number: string | null
+  address: string | null
+  balance: number | null
+  membership_id?: string | null
+  discount_credits?: number | null
+}
+
+/* ========================================================================
+   PRODUCTS LIST STATE
+   ======================================================================== */
 const products = ref<Product[]>([])
 const total = ref(0)
 const page = ref(1)
@@ -1262,11 +1289,15 @@ const maxPrice = ref<number | null>(null)
 const inStockOnly = ref<boolean>(true)
 const sortKey = ref<'relevance' | 'newest' | 'price_asc' | 'price_desc'>('relevance')
 const loading = ref(false)
-/* -------------------- Signed URL helpers -------------------- */
+
+/* ========================================================================
+   SIGNED URL HELPERS
+   ======================================================================== */
 const signedUrlMap: Record<string, string> = {}
 const signingBusy: Record<string, boolean> = {}
 const signedListMap: Record<string, string[]> = reactive({})
 const listSigningBusy: Record<string, boolean> = reactive({})
+
 function toArray(u: string[] | string | null): string[] {
   if (!u) return []
   return Array.isArray(u) ? u.filter(Boolean) : [u]
@@ -1324,9 +1355,13 @@ function hasMultipleImages(p: Product): boolean {
   const raws = toArray(p.product_url)
   return raws.length > 1
 }
-/* -------------------- Carousel state & controls -------------------- */
+
+/* ========================================================================
+   PRODUCT CAROUSEL STATE
+   ======================================================================== */
 const slideIdx: Record<string, number> = reactive({})
 const touchStartX: Record<string, number> = reactive({})
+
 function currentSlide(productId: string): number {
   return slideIdx[productId] ?? 0
 }
@@ -1354,7 +1389,10 @@ function onTouchEnd(e: TouchEvent, productId: string) {
   if (dx > threshold) prevSlide(productId)
   else if (dx < -threshold) nextSlide(productId)
 }
-/* -------------------- Numbers / dates -------------------- */
+
+/* ========================================================================
+   NUMBERS / DATES
+   ======================================================================== */
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 const totalPages = computed(() =>
   total.value > 0 ? Math.max(1, Math.ceil(total.value / pageSize.value)) : 1,
@@ -1365,7 +1403,10 @@ function isNew(created_at: string) {
   const days = (now - created) / (1000 * 60 * 60 * 24)
   return days <= 7
 }
-/* -------------------- Auth helpers -------------------- */
+
+/* ========================================================================
+   AUTH HELPERS
+   ======================================================================== */
 const userId = ref<string | null>(null)
 async function ensureUser() {
   const { data } = await supabase.auth.getUser()
@@ -1373,7 +1414,10 @@ async function ensureUser() {
   userId.value = id
   return id
 }
-/* -------------------- DISCOUNT: membership % -------------------- */
+
+/* ========================================================================
+   MEMBER DISCOUNT (CREDITS)
+   ======================================================================== */
 const memberDiscountPct = ref<number>(0)
 const hasMemberDiscount = computed(() => (memberDiscountPct.value || 0) > 0)
 const discountLabel = computed(() => {
@@ -1394,10 +1438,14 @@ function canDiscountProduct(p: Product): boolean {
   const need = unitDiscountAmount(p.price)
   return userDiscountCredits.value >= need && need > 0
 }
-/* -------------------- Cart state -------------------- */
+
+/* ========================================================================
+   CART STATE
+   ======================================================================== */
 const cartByProduct: Record<string, number> = reactive({})
 const dbCartByProduct: Record<string, number> = reactive({})
 const STAGED_QTY_KEY = 'shop_pending_qty'
+
 function saveStagedToLocal() {
   try {
     localStorage.setItem(STAGED_QTY_KEY, JSON.stringify(cartByProduct))
@@ -1411,7 +1459,9 @@ function loadStagedFromLocal() {
     for (const [k, v] of Object.entries(parsed)) cartByProduct[k] = Math.max(1, Number(v) || 1)
   } catch {}
 }
+
 const addToCartBusy: Record<string, boolean> = reactive({})
+
 async function getLatestStock(productId: string): Promise<number> {
   const { data } = await supabase
     .schema('games')
@@ -1466,18 +1516,25 @@ async function loadCart() {
     }
   }
 }
-/* Cart totals + View Cart modal state */
+
+/* ========================================================================
+   CART MODAL STATE
+   ======================================================================== */
 const cartBtnRef = ref<HTMLElement | null>(null)
 const router = useRouter()
 const cartTotalItems = computed(() =>
   Object.values(dbCartByProduct).reduce((a, b) => a + (Number(b) || 0), 0),
 )
-/* Hide the badge while the review & place (pending) modal is open */
-const cartTotalItemsDisplay = computed(() => (showPendingPlace.value ? 0 : cartTotalItems.value))
+const cartTotalItemsRaw = computed(() => (showPendingPlace.value ? 0 : cartTotalItems.value))
+const cartTotalItemsDisplay = computed(() => {
+  const n = cartTotalItemsRaw.value
+  return n > 99 ? '99+' : String(n)
+})
+
 const showCart = ref(false)
-const showPlace = ref(false) // Request Order modal
-const showPendingPlace = ref(false) // Place Pending Order modal
-const inPendingContext = ref(false) // prevents polluting cart count while reviewing pending
+const showPlace = ref(false)
+const showPendingPlace = ref(false)
+const inPendingContext = ref(false)
 const placingOrder = ref(false)
 const cartItems = ref<
   Array<{
@@ -1493,7 +1550,10 @@ const discountedItemMap: Record<string, boolean> = reactive({})
 function isItemDiscounted(productId: string): boolean {
   return !!discountedItemMap[productId]
 }
-/* ---- E-Wallet atomic charge helper (uses RPC) ---- */
+
+/* ========================================================================
+   E-WALLET ATOMIC CHARGE HELPER
+   ======================================================================== */
 async function chargeEwalletAtomically(
   amountPeso: number,
   batchRef: string,
@@ -1503,7 +1563,7 @@ async function chargeEwalletAtomically(
   if (!(total > 0)) return userBalance.value
   const { data, error } = await supabase.schema('ewallet').rpc('apply_tx_pesos', {
     p_user_id: uid,
-    p_amount_peso: -total, // debit (negative)
+    p_amount_peso: -total,
     p_kind: 'order.charge',
     p_reference: batchRef,
     p_idempotency: `order:${batchRef}:${uid}`,
@@ -1521,11 +1581,17 @@ async function chargeEwalletAtomically(
   }
   return newBal
 }
-/* payment & balances */
+
+/* ========================================================================
+   PAYMENT & BALANCES
+   ======================================================================== */
 const paymentMethod = ref<'cod' | 'ewallet'>('cod')
 const userBalance = ref<number>(0)
-/* discount credits balance */
 const userDiscountCredits = ref<number>(0)
+
+/* ========================================================================
+   DISCOUNT CREDITS (if credits mode) - TALLY
+   ======================================================================== */
 const totalCreditsNeededIfAll = computed(() => {
   if (!hasMemberDiscount.value) return 0
   let sum = 0
@@ -1549,7 +1615,10 @@ const totalDiscountCreditsUsed = computed(() => {
   }
   return Number(sum.toFixed(2))
 })
-/* ==== Discount Mode & order discount state ==== */
+
+/* ========================================================================
+   ORDER DISCOUNT STATE
+   ======================================================================== */
 type DiscountType = 'percent' | 'fixed_amount' | 'free_shipping'
 type Discount = {
   id: string
@@ -1565,31 +1634,46 @@ type Discount = {
   expires_at: string | null
   status: string
   max_uses_per_user: number | null
+  product_id: string | null
+  max_discount_amount: number | null
 }
 const discountMode = ref<'credits' | 'discount' | 'none'>('credits')
 const discounts = ref<Discount[]>([])
+const discountCodeInput = ref('')
+const selectedDiscountId = ref<string>('')
+const resolvingCode = ref(false)
+const resolvedDiscountByCode = ref<Discount | null>(null)
+
+/* Load active discounts, but filter out product-specific ones not in cart */
 async function loadActiveDiscounts() {
   const nowIso = new Date().toISOString()
   const { data, error } = await supabase
     .schema('rewards')
     .from('discounts')
     .select(
-      'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user',
+      'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user,product_id,max_discount_amount',
     )
     .eq('is_public', true)
     .eq('status', 'active')
     .lte('starts_at', nowIso)
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order('starts_at', { ascending: false })
+
   if (error) {
     console.warn('loadActiveDiscounts error:', error)
     discounts.value = []
     return
   }
-  discounts.value = (data || []) as Discount[]
+
+  const cartProductIds = new Set(cartItems.value.map((it) => it.product.id))
+  const filtered = (data || []).filter((d: any) => {
+    if (!d.product_id) return true
+    return cartProductIds.has(d.product_id)
+  })
+
+  discounts.value = filtered as Discount[]
 }
-const discountCodeInput = ref('')
-const selectedDiscountId = ref<string>('')
+
 const pickedDiscount = computed<Discount | null>(() => {
   if (resolvedDiscountByCode.value) return resolvedDiscountByCode.value
   if (selectedDiscountId.value) {
@@ -1597,6 +1681,7 @@ const pickedDiscount = computed<Discount | null>(() => {
   }
   return null
 })
+
 const codeStatusText = computed(() => {
   if (discountMode.value !== 'discount') return ''
   if (resolvingCode.value) return 'Checking code…'
@@ -1613,8 +1698,7 @@ const codeStatusClass = computed(() => {
   if (discountCodeInput.value && !resolvedDiscountByCode.value) return 'text-danger'
   return 'text-muted'
 })
-const resolvingCode = ref(false)
-const resolvedDiscountByCode = ref<Discount | null>(null)
+
 async function applyCode() {
   resolvedDiscountByCode.value = null
   const raw = (discountCodeInput.value || '').trim()
@@ -1626,7 +1710,7 @@ async function applyCode() {
       .schema('rewards')
       .from('discounts')
       .select(
-        'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user',
+        'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user,product_id,max_discount_amount',
       )
       .eq('status', 'active')
       .eq('is_public', true)
@@ -1636,7 +1720,15 @@ async function applyCode() {
       .limit(1)
       .maybeSingle()
     if (!error && data) {
-      resolvedDiscountByCode.value = data as Discount
+      const disc = data as Discount
+      if (disc.product_id) {
+        const has = cartItems.value.some((it) => it.product.id === disc.product_id)
+        if (!has) {
+          resolvedDiscountByCode.value = null
+          return
+        }
+      }
+      resolvedDiscountByCode.value = disc
       selectedDiscountId.value = ''
     } else {
       resolvedDiscountByCode.value = null
@@ -1645,7 +1737,53 @@ async function applyCode() {
     resolvingCode.value = false
   }
 }
-/* ---- Totals and discount math ---- */
+
+/* ========================================================================
+   ORDER DISCOUNT COMPUTATION (WITH PRODUCT-SPECIFIC BASE + MAX CAP)
+   ======================================================================== */
+function computeOrderDiscountAmount(base: number, d: Discount | null): number {
+  if (!d) return 0
+
+  let eligibleBase = base
+
+  if (d.product_id) {
+    let sum = 0
+    for (const it of cartItems.value) {
+      if (it.product.id === d.product_id) {
+        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+        sum += Number(it.originalUnit) * qty
+      }
+    }
+    eligibleBase = Number(sum.toFixed(2))
+  }
+
+  if (eligibleBase <= 0) return 0
+  if (Number(d.min_subtotal || 0) > 0 && eligibleBase < Number(d.min_subtotal)) return 0
+
+  let amt = 0
+  if (d.type === 'percent') {
+    const pct = Math.max(0, Math.min(100, Number(d.percent_off || 0)))
+    amt = Number((eligibleBase * (pct / 100)).toFixed(2))
+  } else if (d.type === 'fixed_amount') {
+    const rawAmt = Math.max(0, Number(d.amount_off || 0))
+    amt = Number(Math.min(rawAmt, eligibleBase).toFixed(2))
+  } else {
+    return 0
+  }
+
+  if (d.max_discount_amount != null) {
+    const cap = Number(d.max_discount_amount || 0)
+    if (cap >= 0) {
+      amt = Number(Math.min(amt, cap).toFixed(2))
+    }
+  }
+
+  return amt
+}
+
+/* If we are re-opening a pending order, we re-use the recorded redeemed_amount */
+const recordedOrderDiscountAmount = ref<number | null>(null)
+
 const cartGrandTotal = computed(() => cartItems.value.reduce((sum, it) => sum + it.lineTotal, 0))
 const cartGrandTotalIgnoringCredits = computed(() => {
   let sum = 0
@@ -1661,23 +1799,7 @@ const cartGrandTotalCreditsOff = computed(() =>
 const totalDiscountCreditsUsedIfCreditsMode = computed(() =>
   discountMode.value === 'credits' ? totalDiscountCreditsUsed.value : 0,
 )
-function computeOrderDiscountAmount(base: number, d: Discount | null): number {
-  if (!d) return 0
-  if (base <= 0) return 0
-  if (Number(d.min_subtotal || 0) > 0 && base < Number(d.min_subtotal)) return 0
-  if (d.type === 'percent') {
-    const pct = Math.max(0, Math.min(100, Number(d.percent_off || 0)))
-    return Number((base * (pct / 100)).toFixed(2))
-  }
-  if (d.type === 'fixed_amount') {
-    const amt = Math.max(0, Number(d.amount_off || 0))
-    return Number(Math.min(amt, base).toFixed(2))
-  }
-  // free_shipping ignored for items
-  return 0
-}
-/** NEW: when reviewing a pending order, use the recorded redeemed_amount (from DB) if present */
-const recordedOrderDiscountAmount = ref<number | null>(null)
+
 const orderLevelDiscountAmount = computed(() => {
   if (discountMode.value !== 'discount') return 0
   if (showPendingPlace.value && recordedOrderDiscountAmount.value != null) {
@@ -1688,41 +1810,461 @@ const orderLevelDiscountAmount = computed(() => {
   const amt = computeOrderDiscountAmount(base, d)
   return Number(amt.toFixed(2))
 })
+
 const orderDiscountIneligibleReason = computed(() => {
   if (discountMode.value !== 'discount') return ''
-  // when reviewing pending with recorded amount, just display; don't block
   if (showPendingPlace.value && recordedOrderDiscountAmount.value != null) return ''
   const base = cartGrandTotalCreditsOff.value
   const d = pickedDiscount.value
   if (!d) return 'Pick a discount or apply a valid code.'
-  if (Number(d.min_subtotal || 0) > 0 && base < Number(d.min_subtotal)) {
+  let eligibleBase = base
+  if (d.product_id) {
+    let sum = 0
+    for (const it of cartItems.value) {
+      if (it.product.id === d.product_id) {
+        const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+        sum += Number(it.originalUnit) * qty
+      }
+    }
+    eligibleBase = Number(sum.toFixed(2))
+  }
+  if (Number(d.min_subtotal || 0) > 0 && eligibleBase < Number(d.min_subtotal)) {
     return `Minimum subtotal ₱ ${number(d.min_subtotal)} is required.`
   }
   if (d.type === 'percent' && !(Number(d.percent_off) > 0)) return 'Percent is zero.'
   if (d.type === 'fixed_amount' && !(Number(d.amount_off) > 0)) return 'Amount is zero.'
   return ''
 })
+
 const cartTotalAfterOrderDiscount = computed(() => {
   if (discountMode.value !== 'discount') return cartGrandTotal.value
   const base = cartGrandTotalCreditsOff.value
   const less = orderLevelDiscountAmount.value
   return Number(Math.max(0, base - less).toFixed(2))
 })
+
 const finalPayableTotal = computed(() => {
   if (discountMode.value === 'discount') return cartTotalAfterOrderDiscount.value
   return cartGrandTotal.value
 })
-/* Wallet gating */
+
 const enoughBalanceForItems = computed(() => userBalance.value >= finalPayableTotal.value)
-/* NEW: consider shipping fee when in pending placement */
+
+/* ========================================================================
+   SHIPPING / DELIVERY STATE
+   ======================================================================== */
+const showShipping = ref(false)
+const savingShipping = ref(false)
+const shippingLoaded = ref(false)
+const shipping = ref<ShippingRow>({
+  user_id: '',
+  phone: '',
+  address_line1: '',
+  barangay: '',
+  city: '',
+  province: '',
+  postal_code: '',
+  updated_at: '',
+})
+const hasShipping = computed(() => {
+  const s = shipping.value
+  return !!(s.phone && s.address_line1 && s.barangay && s.city && s.province && s.postal_code)
+})
+const shippingSummary = computed(() => {
+  const s = shipping.value
+  const parts = [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean)
+  return `${s.phone} • ${parts.join(', ')}`
+})
+
+/* Handy string to show the full address inside your Edit modal if you want */
+const displayAddressForEdit = computed(() => {
+  return buildAddressString(shipping.value)
+})
+
+/* ========================================================================
+   PH ADDRESS LOOKUP (PSGC) FOR DELIVERY MODAL
+   (region / city / barangay with search dropdowns)
+   ======================================================================== */
+type Region = { code: string; name: string }
+type Province = { code: string; name: string; regionCode: string }
+type LGU = { code: string; name: string; isCity: boolean; provinceCode: string }
+type Barangay = { code: string; name: string }
+
+/* ⚙️ NEW: Toggle to control external address lookups (disabled for editing) */
+const addressLookupEnabled = ref(false) // keep external source OFF when editing
+
+const regions = ref<Region[]>([])
+const provinces = ref<Province[]>([])
+const lguAll = ref<LGU[]>([])
+const lguScoped = ref<LGU[]>([])
+const barangays = ref<Barangay[]>([])
+
+const regionNameByCode: Record<string, string> = {}
+const provinceByCode: Record<string, Province> = {}
+
+/* typed address fields (connected to shipping modal) */
+const addrRegion = ref('') // to map -> shipping.value.province
+const addrCity = ref('') // -> shipping.value.city
+const addrBarangay = ref('') // -> shipping.value.barangay
+const addrZip = ref('') // -> shipping.value.postal_code
+const addrLine1 = ref('') // -> shipping.value.address_line1
+
+/* typeahead visibility */
+const showRegionSuggest = ref(false)
+const showCitySuggest = ref(false)
+const showBarangaySuggest = ref(false)
+
+/* doc click to close dropdowns */
+function onDocClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.position-relative')) {
+    showRegionSuggest.value = false
+    showCitySuggest.value = false
+    showBarangaySuggest.value = false
+  }
+}
+
+/* fetch helper */
+async function fetchJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function loadRegionsPSGC() {
+  const data = await fetchJSON<any[]>('https://psgc.cloud/api/regions')
+  regions.value = data
+    .map((r) => ({ code: r.code, name: r.regionName || r.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  regions.value.forEach((r) => (regionNameByCode[r.code] = r.name))
+}
+
+async function loadProvincesPSGC() {
+  const data = await fetchJSON<any[]>('https://psgc.cloud/api/provinces')
+  provinces.value = data
+    .map((p) => ({
+      code: p.code,
+      name: p.name,
+      regionCode: p.region_code || p.regionCode,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  provinces.value.forEach((p) => (provinceByCode[p.code] = p))
+}
+
+async function loadAllLGUsPSGC() {
+  const [cities, municipalities] = await Promise.all([
+    fetchJSON<any[]>('https://psgc.cloud/api/cities'),
+    fetchJSON<any[]>('https://psgc.cloud/api/municipalities'),
+  ])
+  const cityList: LGU[] = cities.map((c) => ({
+    code: c.code,
+    name: c.name,
+    isCity: true,
+    provinceCode: c.province_code || c.provinceCode || '',
+  }))
+  const muniList: LGU[] = municipalities.map((m) => ({
+    code: m.code,
+    name: m.name,
+    isCity: false,
+    provinceCode: m.province_code || m.provinceCode || '',
+  }))
+  lguAll.value = [...cityList, ...muniList].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+async function loadBarangaysForLGU(lguCode: string, isCity: boolean) {
+  barangays.value = []
+  if (!lguCode) return
+  const url = isCity
+    ? `https://psgc.cloud/api/barangays?city_code=${encodeURIComponent(lguCode)}`
+    : `https://psgc.cloud/api/barangays?municipality_code=${encodeURIComponent(lguCode)}`
+  const data = await fetchJSON<any[]>(url)
+  barangays.value = data.map((b) => ({ code: b.code, name: b.name }))
+  barangays.value.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/* computed options */
+const filteredRegions = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const q = addrRegion.value.trim().toLowerCase()
+  if (!q) return regions.value.slice(0, 10)
+  const starts = regions.value.filter((r) => r.name.toLowerCase().startsWith(q))
+  const contains = regions.value.filter(
+    (r) => !r.name.toLowerCase().startsWith(q) && r.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+const filteredLGUs = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
+  const q = addrCity.value.trim().toLowerCase()
+  if (!q) return pool.slice(0, 10)
+  const starts = pool.filter((l) => l.name.toLowerCase().startsWith(q))
+  const contains = pool.filter(
+    (l) => !l.name.toLowerCase().startsWith(q) && l.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+const filteredBarangays = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const q = addrBarangay.value.trim().toLowerCase()
+  if (!q) return barangays.value.slice(0, 10)
+  const starts = barangays.value.filter((b) => b.name.toLowerCase().startsWith(q))
+  const contains = barangays.value.filter(
+    (b) => !b.name.toLowerCase().startsWith(q) && b.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+
+/* input handlers - to be used in template */
+const onRegionInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showRegionSuggest.value = true
+}
+const onCityInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showCitySuggest.value = true
+}
+const onBarangayInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showBarangaySuggest.value = true
+}
+
+/* watchers for chain Region -> City -> Brgy */
+watch(addrRegion, (val) => {
+  if (!addressLookupEnabled.value) {
+    // When disabled, we don't compute scoped LGUs and don't hit external APIs
+    lguScoped.value = []
+    addrCity.value = ''
+    addrBarangay.value = ''
+    barangays.value = []
+    return
+  }
+  const picked = regions.value.find((r) => r.name.toLowerCase() === val.trim().toLowerCase())
+  if (picked) {
+    const provinceCodesInRegion = new Set(
+      provinces.value.filter((p) => p.regionCode === picked.code).map((p) => p.code),
+    )
+    lguScoped.value = lguAll.value.filter((l) => provinceCodesInRegion.has(l.provinceCode))
+  } else {
+    lguScoped.value = []
+  }
+  addrCity.value = ''
+  addrBarangay.value = ''
+  barangays.value = []
+})
+
+watch(addrCity, async (val) => {
+  if (!addressLookupEnabled.value) {
+    barangays.value = [] // 🔒 don't fetch
+    return
+  }
+  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
+  const l = pool.find((x) => x.name.toLowerCase() === val.trim().toLowerCase())
+  if (l) {
+    const p = provinceByCode[l.provinceCode]
+    if (p && regionNameByCode[p.regionCode]) {
+      addrRegion.value = regionNameByCode[p.regionCode]
+    }
+    await loadBarangaysForLGU(l.code, l.isCity)
+    addrBarangay.value = ''
+  } else {
+    barangays.value = []
+  }
+})
+
+/* pick handlers */
+function pickRegion(r: Region) {
+  addrRegion.value = r.name
+  showRegionSuggest.value = false
+}
+async function pickLGU(l: LGU) {
+  addrCity.value = l.name
+  showCitySuggest.value = false
+  const p = provinceByCode[l.provinceCode]
+  if (p && regionNameByCode[p.regionCode]) {
+    addrRegion.value = regionNameByCode[p.regionCode]
+  }
+  await loadBarangaysForLGU(l.code, l.isCity)
+  addrBarangay.value = ''
+}
+function pickBarangay(b: Barangay) {
+  addrBarangay.value = b.name
+  showBarangaySuggest.value = false
+}
+
+/* helper to sync shipping -> PSGC form when editing */
+function syncShippingToAddressFields() {
+  addrLine1.value = shipping.value.address_line1 || ''
+  addrBarangay.value = shipping.value.barangay || ''
+  addrCity.value = shipping.value.city || ''
+  addrRegion.value = shipping.value.province || '' // we store region/province in same field
+  addrZip.value = shipping.value.postal_code || ''
+}
+
+/* helper to sync PSGC form -> shipping */
+function syncAddressFieldsToShipping() {
+  shipping.value.address_line1 = addrLine1.value || ''
+  shipping.value.barangay = addrBarangay.value || ''
+  shipping.value.city = addrCity.value || ''
+  shipping.value.province = addrRegion.value || ''
+  shipping.value.postal_code = addrZip.value || ''
+}
+
+/* Optional toggles if you ever want to re-enable the lookup elsewhere */
+async function enablePSGCLookup() {
+  if (!addressLookupEnabled.value) {
+    addressLookupEnabled.value = true
+    if (!regions.value.length || !provinces.value.length || !lguAll.value.length) {
+      await Promise.all([loadRegionsPSGC(), loadProvincesPSGC(), loadAllLGUsPSGC()])
+    }
+  }
+}
+function disablePSGCLookup() {
+  addressLookupEnabled.value = false
+  showRegionSuggest.value = false
+  showCitySuggest.value = false
+  showBarangaySuggest.value = false
+}
+
+/* ========================================================================
+   LOAD SHIPPING (FROM DB) + MEMBERSHIP DISCOUNT
+   ======================================================================== */
+function buildAddressString(s: ShippingRow): string {
+  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code]
+    .filter(Boolean)
+    .join(', ')
+}
+function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
+  if (!addr) return {}
+  const rawParts = addr
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const out: Partial<ShippingRow> = {}
+  if (rawParts.length === 0) return out
+  let parts = [...rawParts]
+  const last = parts[parts.length - 1] || ''
+  const zipMatch = last.match(/^\d{4}$/)
+  if (zipMatch) {
+    out.postal_code = zipMatch[0]
+    parts.pop()
+  }
+  if (parts.length >= 4) {
+    out.province = parts.pop() as string
+    out.city = parts.pop() as string
+    out.barangay = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 3) {
+    out.province = parts.pop() as string
+    out.city = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 2) {
+    out.city = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 1) {
+    out.address_line1 = parts[0]
+  }
+  return out
+}
+
+async function loadShipping() {
+  const uid = await ensureUser()
+  if (!uid) {
+    shippingLoaded.value = true
+    return
+  }
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('phone_number, address, balance, membership_id, discount_credits')
+    .eq('id', uid)
+    .maybeSingle()
+  const u = (userRow ?? null) as UsersRow | null
+  shipping.value.user_id = uid
+  shipping.value.phone = u?.phone_number || ''
+  userBalance.value = Number(u?.balance ?? 0)
+  userDiscountCredits.value = Number(u?.discount_credits ?? 0)
+
+  memberDiscountPct.value = 0
+  const tierId = u?.membership_id
+  if (tierId) {
+    const { data: tierRow } = await supabase
+      .schema('membership')
+      .from('tiers')
+      .select('discount_per_purchase')
+      .eq('id', tierId)
+      .maybeSingle()
+    if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
+      memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
+    }
+  }
+
+  const parsed = parseAddressToParts(u?.address ?? null)
+  shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
+  shipping.value.barangay = parsed.barangay || shipping.value.barangay
+  shipping.value.city = parsed.city || shipping.value.city
+  shipping.value.province = parsed.province || shipping.value.province
+  shipping.value.postal_code = parsed.postal_code || shipping.value.postal_code
+
+  // also sync to typeahead fields so modal shows current data
+  syncShippingToAddressFields()
+
+  shippingLoaded.value = true
+  if (showCart.value || showPlace.value) await loadCartDetails()
+}
+
+function openShippingModal() {
+  // ensure current shipping is reflected in PSGC fields
+  syncShippingToAddressFields()
+  // 🔒 Keep external lookup disabled while editing
+  disablePSGCLookup()
+  showShipping.value = true
+}
+function closeShippingModal() {
+  showShipping.value = false
+}
+async function saveShipping() {
+  const uid = await ensureUser()
+  if (!uid) {
+    alert('Please log in to save your delivery details.')
+    return
+  }
+
+  // bring PSGC form back to shipping.value
+  syncAddressFieldsToShipping()
+
+  savingShipping.value = true
+  try {
+    const payload = {
+      phone_number: shipping.value.phone || null,
+      address: buildAddressString(shipping.value) || null,
+    }
+    const { error } = await supabase.from('users').update(payload).eq('id', uid)
+    if (error) {
+      console.error('saveShipping error', error.message)
+      alert(error.message)
+      return
+    }
+    await loadShipping()
+  } finally {
+    savingShipping.value = false
+  }
+}
+
+/* ========================================================================
+   DISABLE ORDER BUTTON IF NEEDED
+   ======================================================================== */
 const enoughBalanceForOrder = computed(
   () =>
     userBalance.value >=
     finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value),
 )
-/* Place-order helpers */
-const checkingOut = ref(false)
-const clearingCart = ref(false)
+const disableRequestOrder = computed(() => {
+  return placingOrder.value || (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value)
+})
+
+/* ========================================================================
+   CART DETAILS LOADING
+   ======================================================================== */
 async function openCartModal() {
   await loadCartDetails()
   showCart.value = true
@@ -1730,6 +2272,7 @@ async function openCartModal() {
 function closeCartModal() {
   showCart.value = false
 }
+
 async function assertPerUserEligible(
   usedDiscountId: string,
   uid: string,
@@ -1774,6 +2317,7 @@ async function assertPerUserEligible(
   }
   return { ok: true, used, max }
 }
+
 async function loadCartDetails() {
   const uid = await ensureUser()
   cartItems.value = []
@@ -1848,6 +2392,10 @@ async function loadCartDetails() {
   }
   cartItems.value = list
 }
+
+/* ========================================================================
+   CART ANIMATIONS
+   ======================================================================== */
 function flyToCart(fromContainerEl: HTMLElement | null) {
   const cartEl = cartBtnRef.value
   if (!fromContainerEl || !cartEl) return
@@ -1896,6 +2444,7 @@ function flyToCart(fromContainerEl: HTMLElement | null) {
     setTimeout(() => cartEl.classList.remove('cart-pulse'), 300)
   }, 650)
 }
+
 function popCartAddBadge(n: number) {
   const cartEl = cartBtnRef.value
   if (!cartEl || n <= 0) return
@@ -1912,6 +2461,10 @@ function popCartAddBadge(n: number) {
   })
   setTimeout(() => badge.remove(), 900)
 }
+
+/* ========================================================================
+   CART OPERATIONS
+   ======================================================================== */
 async function onAddToCart(ev: MouseEvent, p: Product) {
   const uid = await ensureUser()
   if (!uid) {
@@ -1943,10 +2496,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
       const { error: upErr } = await supabase
         .schema('games')
         .from('cart')
-        .upsert(
-          { user_id: uid, product_id: p.id, qty: stockCap },
-          { onConflict: 'user_id,product_id' },
-        )
+        .upsert({ user_id: uid, product_id: p.id, qty: stockCap }, { onConflict: 'user_id,product_id' })
       if (!upErr) {
         dbCartByProduct[p.id] = stockCap
         cartByProduct[p.id] = 1
@@ -1983,6 +2533,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
     addToCartBusy[p.id] = false
   }
 }
+
 async function updateCartQty(productId: string, newQty: number, product?: Product) {
   const uid = await ensureUser()
   if (!uid) return
@@ -2010,10 +2561,7 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
     const { error } = await supabase
       .schema('games')
       .from('cart')
-      .upsert(
-        { user_id: uid, product_id: productId, qty: capped },
-        { onConflict: 'user_id,product_id' },
-      )
+      .upsert({ user_id: uid, product_id: productId, qty: capped }, { onConflict: 'user_id,product_id' })
     if (error) {
       alert(error.message)
       return
@@ -2030,7 +2578,8 @@ async function incrementCartProduct(productId: string, product: Product) {
   const current = dbCartByProduct[productId] ?? 0
   await updateCartQty(productId, current + 1, product)
 }
-/* -------------------- Delete & Clear -------------------- */
+
+/* Delete / clear cart */
 async function removeCartProduct(productId: string) {
   const uid = await ensureUser()
   if (!uid) return
@@ -2064,140 +2613,12 @@ async function clearCart() {
     clearingCart.value = false
   }
 }
-/* -------------------- Shipping state (address only, no fees at request time) -------------------- */
-const showShipping = ref(false)
-const savingShipping = ref(false)
-const shippingLoaded = ref(false)
-const shipping = ref<ShippingRow>({
-  user_id: '',
-  phone: '',
-  address_line1: '',
-  barangay: '',
-  city: '',
-  province: '',
-  postal_code: '',
-  updated_at: '',
-})
-const hasShipping = computed(() => {
-  const s = shipping.value
-  return !!(s.phone && s.address_line1 && s.barangay && s.city && s.province && s.postal_code)
-})
-const shippingSummary = computed(() => {
-  const s = shipping.value
-  const parts = [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean)
-  return `${s.phone} • ${parts.join(', ')}`
-})
-type UsersRow = {
-  phone_number: string | null
-  address: string | null
-  balance: number | null
-  membership_id?: string | null
-  discount_credits?: number | null
-}
-function buildAddressString(s: ShippingRow): string {
-  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean).join(', ')
-}
-function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
-  if (!addr) return {}
-  const rawParts = addr
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean)
-  const out: Partial<ShippingRow> = {}
-  if (rawParts.length === 0) return out
-  let parts = [...rawParts]
-  const last = parts[parts.length - 1] || ''
-  const zipMatch = last.match(/^\d{4}$/)
-  if (zipMatch) {
-    out.postal_code = zipMatch[0]
-    parts.pop()
-  }
-  if (parts.length >= 4) {
-    out.province = parts.pop() as string
-    out.city = parts.pop() as string
-    out.barangay = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 3) {
-    out.province = parts.pop() as string
-    out.city = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 2) {
-    out.city = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 1) {
-    out.address_line1 = parts[0]
-  }
-  return out
-}
-async function loadShipping() {
-  const uid = await ensureUser()
-  if (!uid) {
-    shippingLoaded.value = true
-    return
-  }
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('phone_number, address, balance, membership_id, discount_credits')
-    .eq('id', uid)
-    .maybeSingle()
-  const u = (userRow ?? null) as UsersRow | null
-  shipping.value.user_id = uid
-  shipping.value.phone = u?.phone_number || ''
-  userBalance.value = Number(u?.balance ?? 0)
-  userDiscountCredits.value = Number(u?.discount_credits ?? 0)
-  memberDiscountPct.value = 0
-  const tierId = u?.membership_id
-  if (tierId) {
-    const { data: tierRow } = await supabase
-      .schema('membership')
-      .from('tiers')
-      .select('discount_per_purchase')
-      .eq('id', tierId)
-      .maybeSingle()
-    if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
-      memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
-    }
-  }
-  const parsed = parseAddressToParts(u?.address ?? null)
-  shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
-  shipping.value.barangay = parsed.barangay || shipping.value.barangay
-  shipping.value.city = parsed.city || shipping.value.city
-  shipping.value.province = parsed.province || shipping.value.province
-  shipping.value.postal_code = parsed.postal_code || shipping.value.postal_code
-  shippingLoaded.value = true
-  if (showCart.value || showPlace.value) await loadCartDetails()
-}
-/* Shipping modal toggles */
-function openShippingModal() {
-  showShipping.value = true
-}
-function closeShippingModal() {
-  showShipping.value = false
-}
-async function saveShipping() {
-  const uid = await ensureUser()
-  if (!uid) {
-    alert('Please log in to save your delivery details.')
-    return
-  }
-  savingShipping.value = true
-  try {
-    const payload = {
-      phone_number: shipping.value.phone || null,
-      address: buildAddressString(shipping.value) || null,
-    }
-    const { error } = await supabase.from('users').update(payload).eq('id', uid)
-    if (error) {
-      console.error('saveShipping error', error.message)
-      alert(error.message)
-      return
-    }
-    await loadShipping()
-  } finally {
-    savingShipping.value = false
-  }
-}
-/* -------------------- Request Order (PENDING creation) -------------------- */
+const checkingOut = ref(false)
+const clearingCart = ref(false)
+
+/* ========================================================================
+   PLACE ORDER (PENDING CREATION)
+   ======================================================================== */
 function genReference(prefix = 'REF'): string {
   const ts = new Date()
     .toISOString()
@@ -2214,7 +2635,7 @@ function openPlaceOrder() {
 function closePlaceOrder() {
   showPlace.value = false
 }
-/** Place Order: create PENDING purchases; if order-discount picked, record redemption NOW */
+
 async function placeOrder() {
   const uid = await ensureUser()
   if (!uid) {
@@ -2229,7 +2650,11 @@ async function placeOrder() {
     alert('Please complete your delivery details first.')
     return
   }
-  // If user chose order-level discount, validate and pre-compute discount amount
+  if (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value) {
+    alert('Insufficient wallet balance.')
+    return
+  }
+
   let usedDiscountId: string | null = null
   let orderDiscountAmtAtRequest = 0
   if (discountMode.value === 'discount') {
@@ -2244,7 +2669,6 @@ async function placeOrder() {
       alert(message || 'You have reached the maximum number of uses for this discount.')
       return
     }
-    // Base excludes credits; order-level discount applies on original units
     const base = cartGrandTotalCreditsOff.value
     orderDiscountAmtAtRequest = computeOrderDiscountAmount(base, disc)
     if (orderDiscountAmtAtRequest <= 0) {
@@ -2252,11 +2676,11 @@ async function placeOrder() {
       return
     }
   }
+
   placingOrder.value = true
   const insertedIds: string[] = []
   try {
     await saveShipping()
-    // Refresh balances
     const { data: freshUser } = await supabase
       .from('users')
       .select('balance, discount_credits, membership_id')
@@ -2266,7 +2690,7 @@ async function placeOrder() {
     userDiscountCredits.value = Number(freshUser?.discount_credits ?? 0)
     await loadCartDetails()
     const batchReference = genReference('REQ')
-    // Build lines with credits-applied unit pricing right now (if mode === 'credits')
+
     type RequestLine = {
       p: Product
       quantity: number
@@ -2283,10 +2707,9 @@ async function placeOrder() {
       const unitOriginal = Number(it.originalUnit || 0)
       let unitFinal = unitOriginal
       if (discountMode.value === 'credits' && hasMemberDiscount.value) {
-        const memberUnit = discountedPrice(unitOriginal) // applies % off
+        const memberUnit = discountedPrice(unitOriginal)
         const needPerUnit = Math.max(0, unitOriginal - memberUnit)
         const needForItem = Number((needPerUnit * qty).toFixed(2))
-        // Only apply member discounted unit if credits can fully cover this item's discount need
         if (needPerUnit > 0 && remainingCreditsAtRequest >= needForItem) {
           unitFinal = memberUnit
           remainingCreditsAtRequest = Number((remainingCreditsAtRequest - needForItem).toFixed(2))
@@ -2294,6 +2717,7 @@ async function placeOrder() {
       }
       lines.push({ p: it.product, quantity: qty, unitOriginal, unitFinal })
     }
+
     let firstPurchaseId: string | null = null
     for (const ln of lines) {
       const { data: inserted, error: insErr } = await supabase
@@ -2307,8 +2731,6 @@ async function placeOrder() {
             qty: ln.quantity,
             modeofpayment: paymentMethod.value,
             status: 'pending',
-            // IMPORTANT: store the credits-adjusted unit NOW if we're in credits mode
-            // (otherwise this equals unitOriginal)
             discounted_price: Number(ln.unitFinal.toFixed(2)),
             shipping_fee: 0,
           } as any,
@@ -2324,7 +2746,7 @@ async function placeOrder() {
       insertedIds.push(purchaseId)
       if (!firstPurchaseId) firstPurchaseId = purchaseId
     }
-    // If order-level discount picked, create redemption record now
+
     if (discountMode.value === 'discount' && usedDiscountId && firstPurchaseId) {
       const { error: redInsErr } = await supabase
         .schema('rewards')
@@ -2340,12 +2762,10 @@ async function placeOrder() {
         ])
       if (redInsErr) {
         console.error('[discount_redemptions insert failed at request time]', redInsErr.message)
-        // cleanup: remove the just-inserted pending purchases for this batch
         await supabase.schema('games').from('purchases').delete().in('id', insertedIds)
         alert('Failed to apply discount to your request: ' + redInsErr.message)
         return
       }
-      // Try to increment redemption counter (best-effort)
       const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
         p_discount_id: usedDiscountId,
       })
@@ -2366,7 +2786,7 @@ async function placeOrder() {
         }
       }
     }
-    // clear cart
+
     await supabase.schema('games').from('cart').delete().eq('user_id', uid)
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
     cartItems.value = []
@@ -2380,7 +2800,10 @@ async function placeOrder() {
     placingOrder.value = false
   }
 }
-/* -------------------- Pending Orders list & placement -------------------- */
+
+/* ========================================================================
+   PENDING ORDERS
+   ======================================================================== */
 const pendingHasFreeShipping = ref(false)
 const pendingGroups = ref<
   Array<{
@@ -2398,7 +2821,7 @@ const pendingGroups = ref<
 const pendingRefNumber = ref<string | null>(null)
 const pendingHighestShippingFee = ref<number>(0)
 const pendingPurchases = ref<PurchaseRow[]>([])
-/* helper: resolve a single product's first image (signed if needed) */
+
 async function getAnyPurchaseIdForRef(ref: string, uid: string): Promise<string | null> {
   const { data, error } = await supabase
     .schema('games')
@@ -2425,6 +2848,7 @@ async function resolveFirstImageUrl(prod: {
     return null
   }
 }
+
 async function loadPendingOrders() {
   const uid = await ensureUser()
   if (!uid) return
@@ -2443,7 +2867,6 @@ async function loadPendingOrders() {
     return
   }
   const rows = (data || []) as PurchaseRow[]
-  // Map by reference and also map purchaseId->ref for redemption lookup
   const rowsByRef = new Map<string, PurchaseRow[]>()
   const purchaseIdToRef = new Map<string, string>()
   const aggregate = new Map<
@@ -2472,7 +2895,7 @@ async function loadPendingOrders() {
     g.totalQty += Number(r.qty || 0)
     const sf = Number(r.shipping_fee ?? 0)
     if (sf > g.highestShippingFee) g.highestShippingFee = sf
-    const unit = Number(r.discounted_price ?? 0) // snapshot original unit at request time
+    const unit = Number(r.discounted_price ?? 0)
     g.itemsTotal += unit * Number(r.qty || 0)
     aggregate.set(r.reference_number, g)
     const bucket = rowsByRef.get(r.reference_number) ?? []
@@ -2480,7 +2903,6 @@ async function loadPendingOrders() {
     rowsByRef.set(r.reference_number, bucket)
     purchaseIdToRef.set(r.id, r.reference_number)
   }
-  // fetch sample products for thumbnails/names
   const sampleIds = Array.from(
     new Set(
       Array.from(aggregate.values())
@@ -2503,7 +2925,6 @@ async function loadPendingOrders() {
       prodMap.set(p.id, { name: p.name, product_url: p.product_url })
     }
   }
-  // Build base groups first
   const groups: Array<{
     ref: string
     created_at: string
@@ -2535,7 +2956,6 @@ async function loadPendingOrders() {
       sampleImageUrl,
     })
   }
-  // Fetch any recorded redemptions for these purchases, group by ref
   const allPurchaseIds = rows.map((r) => r.id)
   const redemptionSumByRef = new Map<string, number>()
   if (allPurchaseIds.length > 0) {
@@ -2554,7 +2974,6 @@ async function loadPendingOrders() {
       }
     }
   }
-  // Hydrate displayTotal using recorded redemption (if any) + shipping
   for (const grp of groups) {
     const red = redemptionSumByRef.get(grp.ref) ?? 0
     const fee = Number(grp.highestShippingFee || 0)
@@ -2564,11 +2983,11 @@ async function loadPendingOrders() {
   }
   pendingGroups.value = groups
 }
+
 async function openPlacePending(refNumber: string) {
   const uid = await ensureUser()
   if (!uid) return
-  // Load purchases for this reference
-  const { data, error } = await supabase
+  const { data } = await supabase
     .schema('games')
     .from('purchases')
     .select(
@@ -2586,10 +3005,10 @@ async function openPlacePending(refNumber: string) {
     0,
   )
   pendingHasFreeShipping.value = pendingPurchases.value.some((r) => r.is_free_shipping === true)
-  // Defaults based on DB
+
   const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
   paymentMethod.value = dbPayment
-  // Reflect order-level discount choice from DB (discount_redemptions)
+
   recordedOrderDiscountAmount.value = null
   let foundDiscountId: string | null = null
   if (pendingPurchases.value.length > 0) {
@@ -2601,7 +3020,6 @@ async function openPlacePending(refNumber: string) {
       .eq('user_id', uid)
       .in('purchase_id', ids)
     if (reds && (reds as any[]).length > 0) {
-      // Sum all redeemed_amounts for safety; keep first discount_id
       let sum = 0
       for (const r of reds as Array<{
         purchase_id: string
@@ -2614,7 +3032,7 @@ async function openPlacePending(refNumber: string) {
       recordedOrderDiscountAmount.value = Number(sum.toFixed(2))
     }
   }
-  // Load discounts list (for title display)
+
   await loadActiveDiscounts()
   if (recordedOrderDiscountAmount.value != null && foundDiscountId) {
     discountMode.value = 'discount'
@@ -2622,13 +3040,11 @@ async function openPlacePending(refNumber: string) {
     discountCodeInput.value = ''
     resolvedDiscountByCode.value = null
   } else {
-    // no DB redemption recorded → treat as credits preview by default
     discountMode.value = 'credits'
     selectedDiscountId.value = ''
     discountCodeInput.value = ''
     resolvedDiscountByCode.value = null
   }
-  // Build items list from pending + selected discount mode (credits app)
   await buildPendingCartItems()
   showPendingPlace.value = true
 }
@@ -2640,7 +3056,7 @@ function closePlacePending() {
   pendingHighestShippingFee.value = 0
   recordedOrderDiscountAmount.value = null
 }
-/** Rebuild pending cart items when discount mode changes (credits app) */
+
 async function buildPendingCartItems() {
   if (pendingPurchases.value.length === 0) return
   const ids = Array.from(new Set(pendingPurchases.value.map((p) => p.product_id)))
@@ -2698,14 +3114,13 @@ async function buildPendingCartItems() {
       discountedItemMap[p.id] = false
     }
     list.push({ product: p, qty, imageUrl: img, lineTotal, unit: unitToUse, originalUnit })
-    // IMPORTANT: do NOT mutate dbCartByProduct while in pending context
     if (!inPendingContext.value) {
       dbCartByProduct[p.id] = qty
     }
   }
   cartItems.value = list
 }
-/* NEW: Order total including shipping for pending review */
+
 const orderTotalPending = computed(() =>
   Number(
     (
@@ -2713,7 +3128,7 @@ const orderTotalPending = computed(() =>
     ).toFixed(2),
   ),
 )
-/** Finalize a pending batch */
+
 async function placePendingOrder() {
   const uid = await ensureUser()
   if (!uid || !pendingRefNumber.value) {
@@ -2732,10 +3147,8 @@ async function placePendingOrder() {
     alert('Shipping fee not yet set by admin.')
     return
   }
-  // When reviewing pending orders, if a redemption was recorded at request time,
-  // we respect that recorded amount and DON'T insert another redemption here.
+
   if (discountMode.value === 'discount' && recordedOrderDiscountAmount.value == null) {
-    // In rare case no recorded redemption, fall back to validation before finalize
     const usedId =
       resolvedDiscountByCode.value?.id?.trim() || selectedDiscountId.value?.trim() || ''
     if (!usedId || orderDiscountIneligibleReason.value) {
@@ -2751,10 +3164,10 @@ async function placePendingOrder() {
       return
     }
   }
+
   placingOrder.value = true
   try {
     await saveShipping()
-    // Fresh balance/credits + membership %
     const { data: freshUser } = await supabase
       .from('users')
       .select('balance, discount_credits, membership_id')
@@ -2776,11 +3189,10 @@ async function placePendingOrder() {
     }
     userBalance.value = freshBalance
     userDiscountCredits.value = freshDiscountCredits
-    // Build lines for final pricing
+
     let finalItemsTotal = 0
     let orderDiscountAmt = 0
     if (discountMode.value === 'discount') {
-      // Prefer recorded DB amount if available
       if (recordedOrderDiscountAmount.value != null) {
         const base = cartGrandTotalIgnoringCredits.value
         orderDiscountAmt = Math.min(base, Number(recordedOrderDiscountAmount.value || 0))
@@ -2808,7 +3220,7 @@ async function placePendingOrder() {
       alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
       return
     }
-    // 🔐 Atomic wallet charge via RPC (BEFORE status updates to avoid partial success)
+
     if (isEwallet && totalToDeduct > 0) {
       try {
         const newBal = await chargeEwalletAtomically(totalToDeduct, pendingRefNumber.value!, uid)
@@ -2822,7 +3234,7 @@ async function placePendingOrder() {
         return
       }
     }
-    // Build line drafts and update purchases rows
+
     type LineDraft = {
       p: Product
       quantity: number
@@ -2859,7 +3271,6 @@ async function placePendingOrder() {
         }
       }
     } else {
-      // credits or none — unit already computed into cartItems
       const byProductPurchase = new Map<string, PurchaseRow>()
       pendingPurchases.value.forEach((r) => byProductPurchase.set(r.product_id, r))
       for (const it of cartItems.value) {
@@ -2874,7 +3285,6 @@ async function placePendingOrder() {
         })
       }
     }
-    // Update purchases rows with final unit + status + payment method
     for (const ln of lines) {
       if (!ln.purchaseId) continue
       const { error: updErr } = await supabase
@@ -2891,7 +3301,8 @@ async function placePendingOrder() {
         alert('Failed to finalize order items: ' + updErr.message)
         return
       }
-    } // AfterShip push (shipping_total now included)
+    }
+
     const discountTotalForAftership =
       (discountMode.value === 'discount' ? orderDiscountAmt : 0) +
       (discountMode.value === 'credits' ? totalDiscountCreditsUsed.value : 0)
@@ -2913,7 +3324,7 @@ async function placePendingOrder() {
       customerName: null,
       customerEmail: null,
     }).catch((e) => console.warn('[AfterShip push failed]', e))
-    // Discount credits deduction (if credits mode)
+
     if (discountMode.value === 'credits') {
       let totalDiscountCreditsToDeduct = 0
       for (const ln of lines) {
@@ -2922,7 +3333,6 @@ async function placePendingOrder() {
       }
       totalDiscountCreditsToDeduct = Number(totalDiscountCreditsToDeduct.toFixed(2))
       if (totalDiscountCreditsToDeduct > 0) {
-        // receipts per purchase
         const receiptsPayload = lines
           .map((ln) => {
             const perUnitDiff = Math.max(0, ln.unitBeforeOrder - ln.unitFinal)
@@ -2950,7 +3360,6 @@ async function placePendingOrder() {
             return
           }
         }
-        // deduct from user credits
         const { data: reUser } = await supabase
           .from('users')
           .select('discount_credits')
@@ -2973,8 +3382,7 @@ async function placePendingOrder() {
         userDiscountCredits.value = newDcBalance
       }
     }
-    // (REMOVED) No new redemption insert here – it was already recorded at request time.
-    // Deduct stock now
+
     for (const ln of lines) {
       try {
         const { data: stockRow, error: stockSelErr } = await supabase
@@ -3004,17 +3412,15 @@ async function placePendingOrder() {
       }
     }
 
-    // Ewallet order transaction record (now includes shipping)
     if (isEwallet) {
       let purchaseIdForTxn = pendingPurchases.value[0]?.id || null
-      // Fallback in case array was cleared/rebuilt: re-query 1 purchase id by ref + user
       if (!purchaseIdForTxn && pendingRefNumber.value) {
         purchaseIdForTxn = await getAnyPurchaseIdForRef(pendingRefNumber.value, uid)
       }
       if (!purchaseIdForTxn) {
         console.error('[order_transactions] No purchase_id found for', pendingRefNumber.value)
         alert('Could not tag the payment to a purchase. Please try again.')
-        return // ensure we don’t write a null-linked transaction
+        return
       }
       const { error: txnErr } = await supabase
         .schema('ewallet')
@@ -3022,7 +3428,7 @@ async function placePendingOrder() {
         .insert([
           {
             reference_number: pendingRefNumber.value,
-            purchase_id: purchaseIdForTxn, // ✅ always a real id now
+            purchase_id: purchaseIdForTxn,
             total_amount: Number(totalToDeduct.toFixed(2)),
           } as any,
         ])
@@ -3032,6 +3438,7 @@ async function placePendingOrder() {
         return
       }
     }
+
     closePlacePending()
     await loadPendingOrders()
     await fetchProducts()
@@ -3048,7 +3455,7 @@ async function placePendingOrder() {
     placingOrder.value = false
   }
 }
-/* NEW: Cancel a pending batch (deletes all its pending purchases) */
+
 async function cancelPendingOrder() {
   const uid = await ensureUser()
   if (!uid || !pendingRefNumber.value) return
@@ -3068,7 +3475,6 @@ async function cancelPendingOrder() {
       alert('Failed to cancel: ' + error.message)
       return
     }
-    // discount_redemptions referencing purchase_id will be cascade-deleted by FK
     closePlacePending()
     await loadPendingOrders()
     alert('Request cancelled.')
@@ -3076,7 +3482,10 @@ async function cancelPendingOrder() {
     placingOrder.value = false
   }
 }
-/* -------------------- Fetch products -------------------- */
+
+/* ========================================================================
+   FETCH PRODUCTS (LIST VIEW)
+   ======================================================================== */
 async function fetchProducts() {
   loading.value = true
   const from = (page.value - 1) * pageSize.value
@@ -3145,11 +3554,15 @@ function changeSort(key: 'relevance' | 'newest' | 'price_asc' | 'price_desc') {
     applyAndFetch()
   }
 }
-/* -------------------- Realtime bindings -------------------- */
+
+/* ========================================================================
+   REALTIME BINDINGS
+   ======================================================================== */
 let productChannel: ReturnType<typeof supabase.channel> | null = null
 let cartChannel: ReturnType<typeof supabase.channel> | null = null
 let usersChannel: ReturnType<typeof supabase.channel> | null = null
 let purchasesChannel: ReturnType<typeof supabase.channel> | null = null
+
 function bindProductsRealtime() {
   if (productChannel) return
   productChannel = supabase
@@ -3203,7 +3616,6 @@ async function bindUsersRealtime() {
     )
     .subscribe()
 }
-/** Listen to purchases changes (shipping_fee updates / status) */
 async function bindPurchasesRealtime() {
   const uid = await ensureUser()
   if (!uid || purchasesChannel) return
@@ -3226,58 +3638,27 @@ async function bindPurchasesRealtime() {
     )
     .subscribe()
 }
-onMounted(async () => {
-  loadStagedFromLocal()
-  await Promise.all([fetchProducts(), loadCart(), loadShipping()])
-  await loadPendingOrders()
-  bindProductsRealtime()
-  await bindCartRealtime()
-  await bindUsersRealtime()
-  await bindPurchasesRealtime()
-})
-onUnmounted(() => {
-  if (productChannel) supabase.removeChannel(productChannel)
-  if (cartChannel) supabase.removeChannel(cartChannel)
-  if (usersChannel) supabase.removeChannel(usersChannel)
-  if (purchasesChannel) supabase.removeChannel(purchasesChannel)
-})
-watch(pageSize, () => goToPage(1))
-// Keep previews in sync when user toggles discount mode
-watch(discountMode, async () => {
-  if (showPendingPlace.value) {
-    await buildPendingCartItems()
-  } else if (showCart.value || showPlace.value) {
-    await loadCartDetails()
-  }
-})
-// Keep code/dropdown mutually exclusive
-watch(selectedDiscountId, (v) => {
-  if (v) {
-    discountCodeInput.value = ''
-    resolvedDiscountByCode.value = null
-  }
-})
-watch(resolvedDiscountByCode, (v) => {
-  if (v) selectedDiscountId.value = ''
-})
-/* ==== AfterShip push helper (now includes shipping_total) ==== */
+
+/* ========================================================================
+   AFTERSHIP PUSH
+   ======================================================================== */
 async function pushOrderToAfterShip(args: {
   batchReference: string
   lines: Array<{
     p: Product
     quantity: number
-    unitBeforeOrder: number // original unit price
-    lineBeforeOrder: number // original unit * quantity
-    unitFinal: number // final unit price after per-line/order discounts
+    unitBeforeOrder: number
+    lineBeforeOrder: number
+    unitFinal: number
   }>
-  finalSubtotal: number // items total AFTER discounts
-  shippingFee: number // now included
-  discountTotal: number // full order discount (order-level + credits)
+  finalSubtotal: number
+  shippingFee: number
+  discountTotal: number
   shipping: ShippingRow
-  isPaid: boolean // paymentMethod === 'ewallet'
-  currency?: string // default 'PHP'
-  customerName?: string | null // optional
-  customerEmail?: string | null // optional
+  isPaid: boolean
+  currency?: string
+  customerName?: string | null
+  customerEmail?: string | null
 }) {
   const cur = args.currency || 'PHP'
   const items = args.lines.map((ln, idx) => {
@@ -3332,7 +3713,10 @@ async function pushOrderToAfterShip(args: {
   }
   return data
 }
-/* ===== Product Details Modal State & Methods ===== */
+
+/* ========================================================================
+   PRODUCT DETAILS MODAL STATE
+   ======================================================================== */
 const showProductModal = ref(false)
 const productModal = ref<Product | null>(null)
 const productModalThumbRef = ref<HTMLElement | null>(null)
@@ -3352,7 +3736,10 @@ async function onAddToCartFromModal(ev: MouseEvent) {
   const el = productModalThumbRef.value
   if (el) flyToCart(el)
 }
-/* ==== Specifications helpers ==== */
+
+/* ========================================================================
+   SPECIFICATIONS HELPERS
+   ======================================================================== */
 function parseSpecs(raw: unknown): Record<string, any> {
   if (raw == null) return {}
   if (typeof raw === 'string') {
@@ -3380,9 +3767,72 @@ function getSpecs(p: Product | null | undefined): Array<[string, string]> {
 function hasSpecs(p: Product | null | undefined): boolean {
   return getSpecs(p).length > 0
 }
+
+/* ========================================================================
+   LIFECYCLE
+   ======================================================================== */
+onMounted(async () => {
+  // for dropdown closing
+  document.addEventListener('click', onDocClick, { capture: true })
+
+  loadStagedFromLocal()
+
+  // Load products, cart, shipping, pending
+  await Promise.all([fetchProducts(), loadCart(), loadShipping()])
+  await loadPendingOrders()
+
+  // Load PSGC datasets ONLY if external lookup is enabled (kept OFF for editing)
+  if (addressLookupEnabled.value) {
+    await Promise.all([loadRegionsPSGC(), loadProvincesPSGC(), loadAllLGUsPSGC()])
+  }
+
+  // realtime
+  bindProductsRealtime()
+  await bindCartRealtime()
+  await bindUsersRealtime()
+  await bindPurchasesRealtime()
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', onDocClick, { capture: true })
+  if (productChannel) supabase.removeChannel(productChannel)
+  if (cartChannel) supabase.removeChannel(cartChannel)
+  if (usersChannel) supabase.removeChannel(usersChannel)
+  if (purchasesChannel) supabase.removeChannel(purchasesChannel)
+})
+
+/* Re-fetch on page size change */
+watch(pageSize, () => goToPage(1))
+
+/* Rebuild cart view when discount mode changes (so credits mode re-applies) */
+watch(discountMode, async () => {
+  if (showPendingPlace.value) {
+    await buildPendingCartItems()
+  } else if (showCart.value || showPlace.value) {
+    await loadCartDetails()
+  }
+})
+
+watch(selectedDiscountId, (v) => {
+  if (v) {
+    discountCodeInput.value = ''
+    resolvedDiscountByCode.value = null
+  }
+})
+watch(resolvedDiscountByCode, (v) => {
+  if (v) selectedDiscountId.value = ''
+})
 </script>
 
+
+
+
+
 <style scoped>
+/* ================================
+   ORIGINAL STYLES (UNCHANGED)
+   ================================ */
+
 /* Base ratio for cards */
 .product-thumb.ratio {
   --bs-aspect-ratio: 75%;
@@ -3753,4 +4203,226 @@ function hasSpecs(p: Product | null | undefined): boolean {
     transform: scale(1);
   }
 }
+
+/* ================================
+   NEW: SKELETON LOADERS + BREATH-IN
+   ================================ */
+
+/* Add variables without touching your originals */
+.shop-page {
+  --skeleton-base: #eef1f5;
+  --skeleton-highlight: #f8fafc;
+  --skeleton-radius: 12px;
+  --breath-duration: 0.5s; /* requested 500ms */
+}
+
+/* --- Breath-in animation (apply per section) --- */
+@keyframes breathIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.985);
+    filter: saturate(90%);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: saturate(100%);
+  }
+}
+
+/* Utility you can add to any block/section */
+.breath-in {
+  animation: breathIn var(--breath-duration) ease both;
+}
+
+/* Auto-apply a soft breath-in to common sections */
+.shop-page :where(.card, .product-card, .modal-card, .products-div) {
+  animation: breathIn var(--breath-duration) ease both;
+}
+
+/* Stagger helper (wrap children in .breath-stagger to cascade) */
+.breath-stagger > * {
+  animation: breathIn var(--breath-duration) ease both;
+}
+.breath-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.breath-stagger > *:nth-child(2) { animation-delay: 60ms; }
+.breath-stagger > *:nth-child(3) { animation-delay: 120ms; }
+.breath-stagger > *:nth-child(4) { animation-delay: 180ms; }
+.breath-stagger > *:nth-child(5) { animation-delay: 240ms; }
+.breath-stagger > *:nth-child(6) { animation-delay: 300ms; }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .breath-in,
+  .shop-page :where(.card, .product-card, .modal-card, .products-div),
+  .breath-stagger > * {
+    animation: none !important;
+  }
+}
+
+/* --- Skeleton shimmer core --- */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  position: relative;
+  display: block;
+  border-radius: var(--skeleton-radius);
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* Sub-variants */
+.skeleton--text { height: 0.9rem; border-radius: 8px; }
+.skeleton--title { height: 1.05rem; border-radius: 8px; }
+.skeleton--badge { height: 1.1rem; border-radius: 999px; }
+.skeleton--btn   { height: 2.25rem; border-radius: 10px; }
+.skeleton--thumb { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--card-radius); }
+.skeleton--square { aspect-ratio: 1 / 1; }
+.skeleton--circle { border-radius: 999px; }
+
+/* Width helpers (avoid Tailwind name collisions) */
+.sk-w-25 { width: 25%; }
+.sk-w-35 { width: 35%; }
+.sk-w-50 { width: 50%; }
+.sk-w-65 { width: 65%; }
+.sk-w-75 { width: 75%; }
+.sk-w-100 { width: 100%; }
+
+/* Height helpers */
+.sk-h-8 { height: 8px; }
+.sk-h-10 { height: 10px; }
+.sk-h-12 { height: 12px; }
+.sk-h-16 { height: 16px; }
+.sk-h-24 { height: 24px; }
+
+/* Stack helper for spacing groups of skeleton lines */
+.sk-stack > * + * { margin-top: 8px; }
+
+/* Show/Hide helpers for loading state:
+   Add .is-loading to a container to reveal placeholders */
+.show-when-loading { display: none; }
+.is-loading .show-when-loading { display: block !important; }
+.is-loading .hide-when-loading { visibility: hidden !important; }
+
+/* --- Product card specific skeletons --- */
+
+/* If you add .is-loading to .product-card, these kick in */
+.product-card.is-loading .card-body,
+.product-card.is-loading .card-footer {
+  visibility: hidden; /* keep layout but hide content */
+}
+
+.product-card.is-loading .product-thumb::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top-left-radius: var(--card-radius);
+  border-top-right-radius: var(--card-radius);
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* Optional placeholders inside card-body (if you add elements) */
+.product-card .sk-title { height: 14px; border-radius: 8px; }
+.product-card .sk-price { height: 16px; border-radius: 8px; width: 40%; }
+
+/* --- Modal specific skeletons --- */
+.modal-card.is-loading .card-header,
+.modal-card.is-loading .card-body,
+.modal-card.is-loading .card-footer {
+  position: relative;
+}
+.modal-card.is-loading .card-body > * {
+  visibility: hidden;
+}
+.modal-card.is-loading .card-body::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* --- Pending list skeletons --- */
+.pending-thumb.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* --- Carousel thumb skeleton (when images are not ready) --- */
+.carousel-thumb.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top-left-radius: var(--card-radius);
+  border-top-right-radius: var(--card-radius);
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* --- Quantity / small UI skeletons --- */
+.qty-field.is-loading::after,
+.pending-icon.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background:
+    linear-gradient(90deg,
+      var(--skeleton-base) 0%,
+      var(--skeleton-highlight) 45%,
+      var(--skeleton-base) 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s linear infinite;
+}
+
+/* Small helper so you can absolutely position the shimmer on inline blocks */
+.is-loading,
+.pending-icon,
+.qty-field,
+.pending-thumb {
+  position: relative;
+}
+
+/* Optional darker theme tweak if your page is dark */
+:where(.dark, [data-theme="dark"]) .skeleton {
+  --skeleton-base: #1f2937;
+  --skeleton-highlight: #374151;
+}
+
+/* End of new additions */
 </style>
+

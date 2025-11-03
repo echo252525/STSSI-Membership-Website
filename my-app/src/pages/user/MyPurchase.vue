@@ -1,12 +1,13 @@
 <template>
-  <div class="container py-4">
-    <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
-      <div>
+  <div class="container py-4 purchases-shell">
+    <!-- ===== Page Header ===== -->
+    <header class="page-header">
+      <div class="page-header__titles">
         <h1 class="h4 m-0">My Purchases</h1>
         <p class="text-muted small mb-0">Track your orders and delivery status.</p>
       </div>
-      <div class="d-flex align-items-center gap-2">
+
+      <div class="page-header__actions">
         <button
           class="btn btn-outline-secondary btn-sm"
           :disabled="busy.load"
@@ -16,23 +17,25 @@
           Refresh
         </button>
       </div>
+    </header>
+
+    <!-- ===== Sticky Tabs (compact, scrollable) ===== -->
+    <div class="tabbar sticky-top">
+      <ul class="nav nav-pills tabbar__scroll">
+        <li v-for="t in tabs" :key="t.value" class="nav-item">
+          <button
+            class="nav-link tabbar__pill d-inline-flex align-items-center gap-2"
+            :class="{ active: activeTab === t.value }"
+            @click="activeTab = t.value"
+          >
+            <span class="tabbar__label">{{ t.label }}</span>
+            <span class="badge tabbar__count">{{ counts[t.value] || 0 }}</span>
+          </button>
+        </li>
+      </ul>
     </div>
 
-    <!-- Tabs (Shopee-like) -->
-    <ul class="nav nav-pills mb-3 flex-wrap gap-2">
-      <li v-for="t in tabs" :key="t.value" class="nav-item">
-        <button
-          class="nav-link d-flex align-items-center gap-2"
-          :class="{ active: activeTab === t.value }"
-          @click="activeTab = t.value"
-        >
-          <span>{{ t.label }}</span>
-          <span class="badge text-bg-light border">{{ counts[t.value] || 0 }}</span>
-        </button>
-      </li>
-    </ul>
-
-    <!-- Return/Refund Subtabs (hidden but kept) -->
+    <!-- ===== Return/Refund Subtabs (kept hidden) ===== -->
     <div v-if="false && activeTab === STATUS.RETURN_REFUND" class="mb-3">
       <ul class="nav nav-pills flex-wrap gap-2">
         <li v-for="st in rrSubtabs" :key="st.value" class="nav-item">
@@ -48,73 +51,484 @@
       </ul>
     </div>
 
-    <!-- Loading -->
-    <div v-if="busy.load" class="text-center text-muted py-5">
+    <!-- ===== Loading State ===== -->
+    <section v-if="busy.load" class="state state--loading">
       <div class="spinner-border mb-3"></div>
       <div>Loading your purchases…</div>
-    </div>
+    </section>
 
-    <!-- Empty -->
-    <div v-else-if="groupedFiltered.length === 0" class="text-center text-muted py-5">
-      <i class="bi bi-bag-x" style="font-size: 1.6rem"></i>
+    <!-- ===== Empty State ===== -->
+    <section v-else-if="groupedFiltered.length === 0" class="state state--empty">
+      <i class="bi bi-bag-x state__icon"></i>
       <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”.</div>
       <RouterLink :to="{ name: 'user.shop' }" class="btn btn-primary btn-sm mt-3">
         Go to Shop
       </RouterLink>
-    </div>
+    </section>
 
-    <!-- ====== Grouped Purchases list ====== -->
-    <div v-else-if="showGrouped" class="row g-3">
-      <div v-for="g in groupedFiltered" :key="g.ref" class="col-12">
+    <!-- ===== Grouped View (Primary) ===== -->
+    <section v-else-if="showGrouped" class="stack gap-3">
+      <article
+        v-for="g in groupedFiltered"
+        :key="g.ref"
+        class="order-card clickable-card"
+        :class="{ 'order-card--highlight': g.ref === highlightRef }"
+        @click="openGroupDetails(g)"
+      >
+        <!-- Card header -->
+        <header class="order-card__header" @click.stop>
+          <div class="order-card__id">
+            <span class="text-muted">Ref#</span>
+            <span class="fw-semibold ms-1">{{ g.ref }}</span>
+            <small class="text-muted d-block">Updated: {{ formatDate(g.updated_at) }}</small>
+          </div>
+          <div class="order-card__status">
+            <span class="badge" :class="statusClass(g.status)">
+              {{ prettyStatusWithRR(g.status, undefined, g) }}
+            </span>
+          </div>
+        </header>
+
+        <!-- Event Winner ticket -->
         <div
-          class="card shadow-sm rounded-4 clickable-card"
-          :class="{ 'border-warning': g.ref === highlightRef }"
-          @click="openGroupDetails(g)"
+          v-if="eventTitleForRef(g.ref)"
+          class="tickets-row"
+          @click.stop
         >
-          <div class="card-body">
-            <!-- Group header -->
-            <div class="d-flex flex-wrap align-items-center justify-content-between">
-              <div class="d-flex flex-column">
-                <div class="fw-semibold">
-                  <span class="text-muted">Ref#</span>
-                  <span class="ms-1">{{ g.ref }}</span>
-                </div>
-                <div class="small text-muted">Updated: {{ formatDate(g.updated_at) }}</div>
-              </div>
+          <div class="event-ticket" :title="eventTitleForRef(g.ref)">
+            <div class="ticket-left">
+              <i class="bi bi-trophy me-1"></i>
+              <span class="ticket-title">{{ eventTitleForRef(g.ref) }}</span>
+            </div>
+            <div class="ticket-divider" aria-hidden="true"></div>
+            <div class="ticket-right">
+              <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+            </div>
+          </div>
+        </div>
 
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge" :class="statusClass(g.status)">
-                  {{ prettyStatusWithRR(g.status, undefined, g) }}
-                </span>
+        <!-- Discount ticket(s) -->
+        <div
+          v-if="discountsForRef(g.ref).length"
+          class="tickets-row"
+          @click.stop
+        >
+          <div
+            v-for="d in discountsForRef(g.ref)"
+            :key="d.id"
+            class="discount-ticket"
+            title="Discount applied"
+          >
+            <div class="ticket-left">
+              <i class="bi bi-ticket-perforated me-1"></i>
+              <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+            </div>
+            <div class="ticket-divider" aria-hidden="true"></div>
+            <div class="ticket-right">
+              <span class="ticket-value">{{ discountLabel(d) }}</span>
+              <span class="ticket-tag">APPLIED</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tracking link (To Receive) -->
+        <div
+          v-if="activeTab !== STATUS.RETURN_REFUND && groupToReceiveCount(g) > 0 && trackingLinkFor(g.ref)"
+          class="order-card__track"
+          @click.stop
+        >
+          <a
+            :href="trackingLinkFor(g.ref)"
+            target="_blank"
+            rel="noopener"
+            class="link-underline"
+            title="Open tracking in a new tab"
+          >
+            Track your package
+          </a>
+        </div>
+
+        <!-- Return tracking (RR tab & Approved) -->
+        <div
+          v-if="activeTab === STATUS.RETURN_REFUND && returnTrackingLinkForApproved(g.ref)"
+          class="order-card__track"
+          @click.stop
+        >
+          <a
+            :href="returnTrackingLinkForApproved(g.ref)"
+            target="_blank"
+            rel="noopener"
+            class="link-underline"
+            title="Open return tracking in a new tab"
+          >
+            Return tracking
+          </a>
+        </div>
+
+        <!-- Items -->
+        <div class="order-card__items">
+          <div
+            v-for="it in g.items"
+            :key="it.id"
+            class="item-row"
+            @click.stop="openGroupDetails(g, it.id)"
+          >
+            <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+              <img
+                v-if="productThumb(it)"
+                :src="productThumb(it)"
+                :alt="productName(it)"
+                class="w-100 h-100 object-fit-cover rounded"
+              />
+              <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                <i class="bi bi-image"></i>
               </div>
             </div>
 
-            <!-- ===== NEW: Event Winner ticket (if ref is an event id) ===== -->
-            <div
-              v-if="eventTitleForRef(g.ref)"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-              @click.stop
-            >
-              <div class="event-ticket" :title="eventTitleForRef(g.ref)">
+            <div class="item-row__main">
+              <div class="item-row__title fw-semibold title-ellipsis" :title="productName(it)" :class="{ 'text-danger': !!rrStatus(it.id) }">
+                {{ productName(it) }}
+              </div>
+
+              <div class="item-row__meta">
+                <span class="badge" :class="statusClass(it.status)">
+                  {{ prettyStatusWithRR(it.status, it.id) }}
+                </span>
+                <span class="badge text-bg-secondary-subtle border">
+                  {{ prettyModeOfPayment(it.modeofpayment) }}
+                </span>
+                <span v-if="(Number(it?.qty ?? 1) || 1) > 1" class="badge text-bg-light border"> Qty: {{ Number(it?.qty ?? 1) }} </span>
+              </div>
+
+              <!-- Per-item return tracking (RR tab & Approved) -->
+              <div class="mt-1" v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)">
+                <a
+                  :href="rrTrackingLinkApproved(it.id)"
+                  target="_blank"
+                  rel="noopener"
+                  class="small link-underline"
+                  title="Open return tracking in a new tab"
+                >
+                  Return tracking
+                </a>
+              </div>
+            </div>
+
+            <!-- Price block -->
+            <div class="item-row__price text-end">
+              <template v-if="refHasRedemption(g.ref)">
+                <div class="fw-semibold">₱ {{ number(productPrice(it)) }}</div>
+              </template>
+
+              <template v-else-if="refHasDiscount(g.ref)">
+                <div class="text-muted text-decoration-line-through">₱ {{ number(productPrice(it)) }}</div>
+                <div class="fw-semibold text-success">₱ {{ number(discountedUnitPrice(it)) }}</div>
+              </template>
+
+              <template v-else>
+                <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">₱ {{ number(productPrice(it)) }}</div>
+              </template>
+
+              <div class="small text-muted mt-1" v-if="(Number(it?.qty ?? 1) || 1) > 1">
+                Subtotal: <span class="fw-semibold">₱ {{ number(subtotalFor(it)) }}</span>
+              </div>
+            </div>
+
+            <!-- RR shortcut (non-RR tab) -->
+            <div class="item-row__cta text-end" v-if="rrStatus(it.id) && activeTab !== STATUS.RETURN_REFUND">
+              <button class="btn btn-outline-danger btn-sm" @click.stop="goToReturnTab(g.ref)">
+                View return details
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Totals -->
+        <footer class="order-card__footer">
+          <div class="order-card__sum text-end">
+            <!-- Breakdown -->
+            <div class="small text-muted price-breakdown">
+              <div>Items: ₱ {{ number(groupItemsBaseTotal(g)) }}</div>
+              <div v-if="refHasDiscount(g.ref)">Discount: −₱ {{ number(groupDiscountAmount(g)) }}</div>
+
+              <div v-if="!isFreeShippingRef(g.ref)">Shipping: ₱ {{ number(shippingFor(g.ref)) }}</div>
+              <div v-else>
+                Shipping:
+                <span class="text-decoration-line-through">₱ {{ number(shippingFor(g.ref)) }}</span>
+                <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+              </div>
+            </div>
+
+            <div class="small text-muted">Subtotal</div>
+            <template v-if="refHasDiscount(g.ref)">
+              <div class="text-muted text-decoration-line-through">₱ {{ number(groupTotal(g)) }}</div>
+              <div class="fs-5 fw-bold text-success">₱ {{ number(groupTotalDiscounted(g)) }}</div>
+            </template>
+            <template v-else>
+              <div class="fs-5 fw-bold">₱ {{ number(groupTotal(g)) }}</div>
+            </template>
+          </div>
+
+          <!-- Actions (right-aligned) -->
+          <div class="order-card__actions" v-if="activeTab !== STATUS.RETURN_REFUND" @click.stop>
+            <div class="d-flex gap-2 flex-wrap justify-content-end">
+              <button
+                v-if="g.status === STATUS.TO_PAY"
+                class="btn btn-outline-danger btn-sm"
+                :disabled="groupBusy.cancel[g.ref]"
+                @click.stop="cancelGroup(g)"
+              >
+                <span v-if="groupBusy.cancel[g.ref]" class="spinner-border spinner-border-sm me-1"></span>
+                Cancel
+              </button>
+
+              <template v-else-if="g.status === STATUS.TO_SHIP"></template>
+
+              <template v-else-if="g.items.some((it) => it.status === STATUS.TO_RECEIVE)">
+                <button
+                  v-if="!groupHasAnyRR(g)"
+                  class="btn btn-outline-warning btn-sm"
+                  @click.stop="openReturnRefundGroup(g)"
+                  title="Return or refund items in this order."
+                >
+                  Return/Refund
+                </button>
+                <button
+                  class="btn btn-success btn-sm"
+                  :disabled="groupBusy.received[g.ref] || groupToReceiveCount(g) === 0"
+                  @click.stop="orderReceivedGroup(g)"
+                  :title="groupAllToReceive(g) ? 'Mark all as received' : 'Mark remaining To Receive as received'"
+                >
+                  <span v-if="groupBusy.received[g.ref]" class="spinner-border spinner-border-sm me-1"></span>
+                  {{
+                    groupAllToReceive(g)
+                      ? 'Order Received (All)'
+                      : 'Order Received (' + groupToReceiveCount(g) + ')'
+                  }}
+                </button>
+              </template>
+            </div>
+          </div>
+        </footer>
+      </article>
+    </section>
+
+    <!-- ===== Fallback (single list; kept) ===== -->
+    <section v-else class="stack gap-3">
+      <article v-for="p in filtered" :key="p.id" class="order-card">
+        <header class="order-card__header">
+          <div class="order-card__id">
+            <span class="text-muted">Ref#</span>
+            <span class="fw-semibold ms-1">{{ p.reference_number || shortId(p.id) }}</span>
+            <small class="text-muted d-block">Updated: {{ formatDate(p.updated_at) }}</small>
+          </div>
+          <div class="order-card__status">
+            <span class="badge" :class="statusClass(p.status)">
+              {{ prettyStatusWithRR(p.status, p.id) }}
+            </span>
+          </div>
+        </header>
+
+        <div v-if="eventTitleForRef(p.reference_number || p.id)" class="tickets-row">
+          <div class="event-ticket" :title="eventTitleForRef(p.reference_number || p.id)">
+            <div class="ticket-left">
+              <i class="bi bi-trophy me-1"></i>
+              <span class="ticket-title">{{ eventTitleForRef(p.reference_number || p.id) }}</span>
+            </div>
+            <div class="ticket-divider"></div>
+            <div class="ticket-right">
+              <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="discountsForRef(p.reference_number || p.id).length" class="tickets-row">
+          <div
+            v-for="d in discountsForRef(p.reference_number || p.id)"
+            :key="d.id"
+            class="discount-ticket"
+            title="Discount applied"
+          >
+            <div class="ticket-left">
+              <i class="bi bi-ticket-perforated me-1"></i>
+              <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+            </div>
+            <div class="ticket-divider" aria-hidden="true"></div>
+            <div class="ticket-right">
+              <span class="ticket-value">{{ discountLabel(d) }}</span>
+              <span class="ticket-tag">APPLIED</span>
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="activeTab !== STATUS.RETURN_REFUND && p.status === STATUS.TO_RECEIVE && (p?.tracking_link || '').toString().trim().length"
+          class="order-card__track"
+        >
+          <a
+            :href="p.tracking_link"
+            target="_blank"
+            rel="noopener"
+            class="link-underline"
+            title="Open tracking in a new tab"
+          >
+            Track your package
+          </a>
+        </div>
+
+        <div class="order-card__items">
+          <div class="item-row">
+            <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
+              <img
+                v-if="productThumb(p)"
+                :src="productThumb(p)"
+                :alt="productName(p)"
+                class="w-100 h-100 object-fit-cover rounded"
+              />
+              <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+                <i class="bi bi-image"></i>
+              </div>
+            </div>
+
+            <div class="item-row__main">
+              <div class="item-row__title fw-semibold title-ellipsis" :title="productName(p)" :class="{ 'text-danger': !!rrStatus(p.id) }">
+                {{ productName(p) }}
+              </div>
+
+              <div class="item-row__meta">
+                <span class="badge" :class="statusClass(p.status)">
+                  {{ prettyStatusWithRR(p.status, p.id) }}
+                </span>
+                <span class="badge text-bg-secondary-subtle border">
+                  {{ prettyModeOfPayment(p.modeofpayment) }}
+                </span>
+                <span v-if="(Number(p?.qty ?? 1) || 1) > 1" class="badge text-bg-light border">
+                  Qty: {{ Number(p?.qty ?? 1) }}
+                </span>
+              </div>
+
+              <div class="mt-1" v-if="rrStatus(p.id) && activeTab !== STATUS.RETURN_REFUND">
+                <button class="btn btn-outline-danger btn-sm" @click="goToReturnTab(p.reference_number || p.id)">
+                  View return details
+                </button>
+              </div>
+            </div>
+
+            <div class="item-row__price text-end">
+              <template v-if="refHasRedemption(p.reference_number || p.id)">
+                <div class="fw-semibold">₱ {{ number(productPrice(p)) }}</div>
+                <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(p)) }}</div>
+              </template>
+
+              <template v-else-if="refHasDiscount(p.reference_number || p.id)">
+                <div class="text-muted text-decoration-line-through">₱ {{ number(productPrice(p)) }}</div>
+                <div class="fw-semibold text-success">₱ {{ number(discountedUnitPrice(p)) }}</div>
+              </template>
+
+              <template v-else>
+                <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">₱ {{ number(productPrice(p)) }}</div>
+              </template>
+
+              <div class="small text-muted mt-1" v-if="(Number(p?.qty ?? 1) || 1) > 1">
+                Subtotal: <span class="fw-semibold">₱ {{ number(subtotalFor(p)) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <footer class="order-card__footer">
+          <div class="order-card__sum text-end">
+            <div class="small text-muted price-breakdown">
+              <div>Items: ₱ {{ number(groupItemsBaseTotal({ ref: p.reference_number || p.id, items: [p] } as any)) }}</div>
+              <div v-if="refHasDiscount(p.reference_number || p.id)">
+                Discount: −₱ {{ number(groupDiscountAmount({ ref: p.reference_number || p.id, items: [p] } as any)) }}
+              </div>
+
+              <div v-if="!isFreeShippingRef(p.reference_number || p.id)">
+                Shipping: ₱ {{ number(shippingFor(p.reference_number || p.id)) }}
+              </div>
+              <div v-else>
+                Shipping:
+                <span class="text-decoration-line-through">₱ {{ number(shippingFor(p.reference_number || p.id)) }}</span>
+                <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+              </div>
+            </div>
+
+            <div class="small text-muted">Subtotal</div>
+            <template v-if="refHasDiscount(p.reference_number || p.id)">
+              <div class="text-muted text-decoration-line-through">
+                ₱ {{ number(groupTotal({ ref: p.reference_number || p.id, items: [p] } as any)) }}
+              </div>
+              <div class="fs-5 fw-bold text-success">
+                ₱ {{ number(groupTotalDiscounted({ ref: p.reference_number || p.id, items: [p] } as any)) }}
+              </div>
+            </template>
+            <template v-else>
+              <div class="fs-5 fw-bold">₱ {{ number(groupTotal({ ref: p.reference_number || p.id, items: [p] } as any)) }}</div>
+            </template>
+          </div>
+
+          <div class="order-card__actions" v-if="activeTab !== STATUS.RETURN_REFUND">
+            <div class="d-flex gap-2 flex-wrap justify-content-end">
+              <button
+                v-if="p.status === STATUS.TO_PAY"
+                class="btn btn-outline-danger btn-sm"
+                :disabled="busy.cancel[p.id]"
+                @click="cancelPurchase(p.id)"
+              >
+                <span v-if="busy.cancel[p.id]" class="spinner-border spinner-border-sm me-1"></span>
+                Cancel
+              </button>
+
+              <template v-else-if="p.status === STATUS.TO_SHIP"></template>
+
+              <template v-else-if="p.status === STATUS.TO_RECEIVE">
+                <button
+                  v-if="!refHasAnyRR(p.reference_number || p.id)"
+                  class="btn btn-outline-warning btn-sm"
+                  @click="openReturnRefund(p)"
+                >
+                  Return/Refund
+                </button>
+              </template>
+            </div>
+          </div>
+        </footer>
+      </article>
+    </section>
+
+    <!-- ===== Return/Refund Modal (unchanged logic) ===== -->
+    <div v-if="showRR" class="modal-backdrop-custom2">
+      <div class="modal-card2 card shadow-lg">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <strong>Return / Refund Request</strong>
+          <button class="btn btn-sm btn-outline-secondary" @click="closeReturnRefund">✕</button>
+        </div>
+
+        <div class="card-body">
+          <!-- Group preview -->
+          <div v-if="rrGroup" class="mb-3">
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold">Ref# {{ rrGroup.ref }}</div>
+              <div class="small text-muted">Updated: {{ formatDate(rrGroup.updated_at) }}</div>
+            </div>
+
+            <div v-if="eventTitleForRef(rrGroup.ref)" class="tickets-row">
+              <div class="event-ticket" :title="eventTitleForRef(rrGroup.ref)">
                 <div class="ticket-left">
                   <i class="bi bi-trophy me-1"></i>
-                  <span class="ticket-title">{{ eventTitleForRef(g.ref) }}</span>
+                  <span class="ticket-title">{{ eventTitleForRef(rrGroup.ref) }}</span>
                 </div>
-                <div class="ticket-divider" aria-hidden="true"></div>
+                <div class="ticket-divider"></div>
                 <div class="ticket-right">
                   <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
                 </div>
               </div>
             </div>
 
-            <!-- ===== NEW: Discount ticket(s) for this group (if any) ===== -->
-            <div
-              v-if="discountsForRef(g.ref).length"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-              @click.stop
-            >
+            <div v-if="discountsForRef(rrGroup.ref).length" class="tickets-row">
               <div
-                v-for="d in discountsForRef(g.ref)"
+                v-for="d in discountsForRef(rrGroup.ref)"
                 :key="d.id"
                 class="discount-ticket"
                 title="Discount applied"
@@ -131,541 +545,8 @@
               </div>
             </div>
 
-            <!-- ===== NEW: Tracking link if any item is To Receive ===== -->
-            <div
-              v-if="activeTab !== STATUS.RETURN_REFUND && groupToReceiveCount(g) > 0 && trackingLinkFor(g.ref)"
-              class="mt-2"
-              @click.stop
-            >
-              <a
-                :href="trackingLinkFor(g.ref)"
-                target="_blank"
-                rel="noopener"
-                class="small text-primary text-decoration-underline"
-                title="Open tracking in a new tab"
-              >
-                Track your package
-              </a>
-            </div>
-
-            <!-- ===== NEW: Return tracking link (ONLY on Return/Refund tab & APPROVED) ===== -->
-            <div
-              v-if="activeTab === STATUS.RETURN_REFUND && returnTrackingLinkForApproved(g.ref)"
-              class="mt-2"
-              @click.stop
-            >
-              <a
-                :href="returnTrackingLinkForApproved(g.ref)"
-                target="_blank"
-                rel="noopener"
-                class="small text-primary text-decoration-underline"
-                title="Open return tracking in a new tab"
-              >
-                Return tracking
-              </a>
-            </div>
-            <!-- ========================================================= -->
-
-            <!-- Items inside group -->
-            <div class="mt-3 vstack gap-2">
-              <div
-                v-for="it in g.items"
-                :key="it.id"
-                class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle"
-                @click.stop="openGroupDetails(g, it.id)"
-              >
-                <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
-                  <img
-                    v-if="productThumb(it)"
-                    :src="productThumb(it)"
-                    :alt="productName(it)"
-                    class="w-100 h-100 object-fit-cover rounded"
-                  />
-                  <div
-                    v-else
-                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                  >
-                    <i class="bi bi-image"></i>
-                  </div>
-                </div>
-
-                <div class="flex-grow-1">
-                  <div class="d-flex align-items-center justify-content-between gap-2">
-                    <div
-                      class="fw-semibold title-ellipsis"
-                      :title="productName(it)"
-                      :class="{ 'text-danger': !!rrStatus(it.id) }"
-                    >
-                      {{ productName(it) }}
-                    </div>
-
-                    <!-- PRICE (special display for discount_redemptions) -->
-                    <div class="text-end ms-2">
-                      <template v-if="refHasRedemption(g.ref)">
-                        <div class="fw-semibold">
-                          ₱ {{ number(productPrice(it)) }}
-                        </div>
-                      </template>
-
-                      <template v-else-if="refHasDiscount(g.ref)">
-                        <div class="text-muted text-decoration-line-through">
-                          ₱ {{ number(productPrice(it)) }}
-                        </div>
-                        <div class="fw-semibold text-success">
-                          ₱ {{ number(discountedUnitPrice(it)) }}
-                        </div>
-                      </template>
-
-                      <template v-else>
-                        <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">
-                          ₱ {{ number(productPrice(it)) }}
-                        </div>
-                      </template>
-
-                      <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
-                      <div class="small text-muted mt-1" v-if="(Number(it?.qty ?? 1) || 1) > 1">
-                        Qty: {{ Number(it?.qty ?? 1) }} • Subtotal:
-                        <span class="fw-semibold"> ₱ {{ number(subtotalFor(it)) }} </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Two badges: status + mode of payment -->
-                  <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
-                    <span class="badge" :class="statusClass(it.status)">
-                      {{ prettyStatusWithRR(it.status, it.id) }}
-                    </span>
-                    <span class="badge text-bg-secondary-subtle border">
-                      {{ prettyModeOfPayment(it.modeofpayment) }}
-                    </span>
-                  </div>
-
-                  <!-- NEW: Per-item return tracking (ONLY on RR tab & APPROVED) -->
-                  <div
-                    class="mt-2"
-                    v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
-                  >
-                    <a
-                      :href="rrTrackingLinkApproved(it.id)"
-                      target="_blank"
-                      rel="noopener"
-                      class="small text-primary text-decoration-underline"
-                      title="Open return tracking in a new tab"
-                    >
-                      Return tracking
-                    </a>
-                  </div>
-                </div>
-
-                <!-- View RR details (disabled on RR tab) -->
-                <div class="text-end">
-                  <div class="mt-2" v-if="rrStatus(it.id) && activeTab !== STATUS.RETURN_REFUND">
-                    <button
-                      class="btn btn-outline-danger btn-sm"
-                      @click.stop="goToReturnTab(g.ref)"
-                      title="View return details for this reference"
-                    >
-                      View return details
-                    </button>
-                  </div>
-                </div>
-                <!-- NOTE: per-item Order Received button removed -->
-              </div>
-            </div>
-
-            <!-- Group totals -->
-            <div class="mt-3 d-flex align-items-center justify-content-end">
-              <div class="text-end">
-
-                <!-- ================= NEW: Price breakdown ABOVE Subtotal ================= -->
-                <div class="small text-muted mb-1">
-                  <div>Items: ₱ {{ number(groupItemsBaseTotal(g)) }}</div>
-                  <div v-if="refHasDiscount(g.ref)">
-                    Discount: −₱ {{ number(groupDiscountAmount(g)) }}
-                  </div>
-                  <!-- Shipping line with FREE SHIPPING handling -->
-                  <div v-if="!isFreeShippingRef(g.ref)">
-                    Shipping: ₱ {{ number(shippingFor(g.ref)) }}
-                  </div>
-                  <div v-else>
-                    Shipping:
-                    <span class="text-decoration-line-through">₱ {{ number(shippingFor(g.ref)) }}</span>
-                    <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
-                  </div>
-                </div>
-                <!-- ================================================================ -->
-
-                <div class="small text-muted">Subtotal</div>
-
-                <!-- SUBTOTAL (now shows slash + discounted when applicable) -->
-                <template v-if="refHasDiscount(g.ref)">
-                  <div class="text-muted text-decoration-line-through">
-                    ₱ {{ number(groupTotal(g)) }}
-                  </div>
-                  <div class="fs-5 fw-bold text-success">
-                    ₱ {{ number(groupTotalDiscounted(g)) }}
-                  </div>
-                </template>
-                <template v-else>
-                  <div class="fs-5 fw-bold">₱ {{ number(groupTotal(g)) }}</div>
-                </template>
-              </div>
-            </div>
-
-            <!-- Group actions -->
-            <div
-              class="mt-3 d-flex align-items-center justify-content-end"
-              v-if="activeTab !== STATUS.RETURN_REFUND"
-            >
-              <div class="d-flex gap-2 flex-wrap">
-                <!-- to pay: Cancel group -->
-                <button
-                  v-if="g.status === STATUS.TO_PAY"
-                  class="btn btn-outline-danger btn-sm"
-                  :disabled="groupBusy.cancel[g.ref]"
-                  @click.stop="cancelGroup(g)"
-                >
-                  <span
-                    v-if="groupBusy.cancel[g.ref]"
-                    class="spinner-border spinner-border-sm me-1"
-                  ></span>
-                  Cancel
-                </button>
-
-                <!-- to ship: NO BUTTONS -->
-                <template v-else-if="g.status === STATUS.TO_SHIP">
-                  <!-- intentionally empty -->
-                </template>
-
-                <!-- RETURN/REFUND tab: button removed (keep code path inert) -->
-                <template v-else-if="false">
-                  <button
-                    class="btn btn-outline-warning btn-sm"
-                    @click.stop="goRefundOtherProducts(g)"
-                    title="Go to To Receive tab to refund remaining product(s)"
-                  >
-                    Refund Other Product
-                  </button>
-                </template>
-
-                <!-- to receive (on any tab EXCEPT RR tab): RR + Order Received group/N -->
-                <template v-else-if="g.items.some((it) => it.status === STATUS.TO_RECEIVE)">
-                  <button
-                    v-if="!groupHasAnyRR(g)"
-                    class="btn btn-outline-warning btn-sm"
-                    @click.stop="openReturnRefundGroup(g)"
-                    title="Return or refund items in this order."
-                  >
-                    Return/Refund
-                  </button>
-                  <button
-                    class="btn btn-success btn-sm"
-                    :disabled="groupBusy.received[g.ref] || groupToReceiveCount(g) === 0"
-                    @click.stop="orderReceivedGroup(g)"
-                    :title="
-                      groupAllToReceive(g)
-                        ? 'Mark all as received'
-                        : 'Mark remaining To Receive as received'
-                    "
-                  >
-                    <span
-                      v-if="groupBusy.received[g.ref]"
-                      class="spinner-border spinner-border-sm me-1"
-                    ></span>
-                    {{
-                      groupAllToReceive(g)
-                        ? 'Order Received (All)'
-                        : 'Order Received (' + groupToReceiveCount(g) + ')'
-                    }}
-                  </button>
-                </template>
-
-                <!-- completed / cancelled: no extra buttons -->
-              </div>
-            </div>
-
-            
-          </div>
-        </div>
-      </div>
-      <!-- /group cards -->
-    </div>
-
-    <!-- ====== Fallback list (kept); per-item Order Received removed ====== -->
-    <div v-else class="row g-3">
-      <div v-for="p in filtered" :key="p.id" class="col-12">
-        <div class="card shadow-sm rounded-4">
-          <div class="card-body">
-            <div class="d-flex flex-wrap align-items-center justify-content-between">
-              <div class="d-flex flex-column">
-                <div class="fw-semibold">
-                  <span class="text-muted">Ref#</span>
-                  <span class="ms-1">{{ p.reference_number || shortId(p.id) }}</span>
-                </div>
-                <div class="small text-muted">Updated: {{ formatDate(p.updated_at) }}</div>
-              </div>
-
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge" :class="statusClass(p.status)">
-                  {{ prettyStatusWithRR(p.status, p.id) }}
-                </span>
-              </div>
-            </div>
-
-            <!-- NEW: Event ticket in fallback view -->
-            <div
-              v-if="eventTitleForRef(p.reference_number || p.id)"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-            >
-              <div
-                class="event-ticket"
-                :title="eventTitleForRef(p.reference_number || p.id)"
-              >
-                <div class="ticket-left">
-                  <i class="bi bi-trophy me-1)"></i>
-                  <span class="ticket-title">{{ eventTitleForRef(p.reference_number || p.id) }}</span>
-                </div>
-                <div class="ticket-divider"></div>
-                <div class="ticket-right">
-                  <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- (Optional) discount ticket in fallback view -->
-            <div
-              v-if="discountsForRef(p.reference_number || p.id).length"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-            >
-              <div
-                v-for="d in discountsForRef(p.reference_number || p.id)"
-                :key="d.id"
-                class="discount-ticket"
-                title="Discount applied"
-              >
-                <div class="ticket-left">
-                  <i class="bi bi-ticket-perforated me-1)"></i>
-                  <span class="ticket-title" :title="d.title">{{ d.title }}</span>
-                </div>
-                <div class="ticket-divider" aria-hidden="true"></div>
-                <div class="ticket-right">
-                  <span class="ticket-value">{{ discountLabel(d) }}</span>
-                  <span class="ticket-tag">APPLIED</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- ===== NEW: Tracking link for single-row view ===== -->
-            <div
-              v-if="activeTab !== STATUS.RETURN_REFUND && p.status === STATUS.TO_RECEIVE && (p?.tracking_link || '').toString().trim().length"
-              class="mt-2"
-            >
-              <a
-                :href="p.tracking_link"
-                target="_blank"
-                rel="noopener"
-                class="small text-primary text-decoration-underline"
-                title="Open tracking in a new tab"
-              >
-                Track your package
-              </a>
-            </div>
-
-            <div class="mt-3 row g-3">
-              <!-- Product tile -->
-              <div class="col-12">
-                <div class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle">
-                  <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
-                    <img
-                      v-if="productThumb(p)"
-                      :src="productThumb(p)"
-                      :alt="productName(p)"
-                      class="w-100 h-100 object-fit-cover rounded"
-                    />
-                    <div
-                      v-else
-                      class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                    >
-                      <i class="bi bi-image"></i>
-                    </div>
-                  </div>
-                  <div class="flex-grow-1">
-                    <div class="d-flex align-items-center justify-content-between gap-2">
-                      <div
-                        class="fw-semibold title-ellipsis"
-                        :title="productName(p)"
-                        :class="{ 'text-danger': !!rrStatus(p.id) }"
-                      >
-                        {{ productName(p) }}
-                      </div>
-
-                      <!-- PRICE (special display for discount_redemptions) -->
-                      <div class="text-end ms-2">
-                        <template v-if="refHasRedemption(p.reference_number || p.id)">
-                          <div class="fw-semibold">
-                            ₱ {{ number(productPrice(p)) }}
-                          </div>
-                          <div class="small text-danger">
-                            − ₱ {{ number(redemptionUnitDiscount(p)) }}
-                          </div>
-                        </template>
-
-                        <template v-else-if="refHasDiscount(p.reference_number || p.id)">
-                          <div class="text-muted text-decoration-line-through">
-                            ₱ {{ number(productPrice(p)) }}
-                          </div>
-                          <div class="fw-semibold text-success">
-                            ₱ {{ number(discountedUnitPrice(p)) }}
-                          </div>
-                        </template>
-
-                        <template v-else>
-                          <div :class="['fw-semibold', { 'text-danger': !!rrStatus(p.id) }]">
-                            ₱ {{ number(productPrice(p)) }}
-                          </div>
-                        </template>
-
-                        <!-- NEW: Qty + per-product subtotal (only when qty > 1) -->
-                        <div class="small text-muted mt-1" v-if="(Number(p?.qty ?? 1) || 1) > 1">
-                          Qty: {{ Number(p?.qty ?? 1) }} • Subtotal:
-                          <span class="fw-semibold"> ₱ {{ number(subtotalFor(p)) }} </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- Two badges -->
-                    <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
-                      <span class="badge" :class="statusClass(p.status)">
-                        {{ prettyStatusWithRR(p.status, p.id) }}
-                      </span>
-                      <span class="badge text-bg-secondary-subtle border">
-                        {{ prettyModeOfPayment(p.modeofpayment) }}
-                      </span>
-                    </div>
-                  </div>
-
-                  <!-- View return details -->
-                  <div class="text-end">
-                    <div class="mt-2" v-if="rrStatus(p.id) && activeTab !== STATUS.RETURN_REFUND">
-                      <button
-                        class="btn btn-outline-danger btn-sm"
-                        @click="goToReturnTab(p.reference_number || p.id)"
-                      >
-                        View return details
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Actions -->
-              <div
-                class="col-12 d-flex align-items-center justify-content-end"
-                v-if="activeTab !== STATUS.RETURN_REFUND"
-              >
-                <div class="d-flex gap-2 flex-wrap">
-                  <button
-                    v-if="p.status === STATUS.TO_PAY"
-                    class="btn btn-outline-danger btn-sm"
-                    :disabled="busy.cancel[p.id]"
-                    @click="cancelPurchase(p.id)"
-                  >
-                    <span
-                      v-if="busy.cancel[p.id]"
-                      class="spinner-border spinner-border-sm me-1"
-                    ></span>
-                    Cancel
-                  </button>
-
-                  <template v-else-if="p.status === STATUS.TO_SHIP"> </template>
-
-                  <template v-else-if="p.status === STATUS.TO_RECEIVE">
-                    <button
-                      v-if="!refHasAnyRR(p.reference_number || p.id)"
-                      class="btn btn-outline-warning btn-sm"
-                      @click="openReturnRefund(p)"
-                    >
-                      Return/Refund
-                    </button>
-                    <!-- per-item Order Received removed -->
-                  </template>
-
-                  <template v-else-if="p.status === STATUS.COMPLETED"> </template>
-
-                  <template v-else-if="p.status === STATUS.RETURN_REFUND"> </template>
-
-                  <template v-else-if="p.status === STATUS.CANCELLED"> </template>
-                </div>
-              </div>
-            </div>
-
-            <div class="mt-3 small text-muted d-flex flex-wrap gap-3">
-              <span>Updated: {{ formatDate(p.updated_at) }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- (Optional pagination spot) -->
-    </div>
-
-    <!-- Return/Refund Modal -->
-    <div v-if="showRR" class="modal-backdrop-custom2">
-      <div class="modal-card2 card shadow-lg">
-        <div class="card-header d-flex align-items-center justify-content-between">
-          <strong>Return / Refund Request</strong>
-          <button class="btn btn-sm btn-outline-secondary" @click="closeReturnRefund">✕</button>
-        </div>
-
-        <div class="card-body">
-          <!-- Group preview -->
-          <div v-if="rrGroup" class="mb-3">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">Ref# {{ rrGroup.ref }}</div>
-              <div class="small text-muted">Updated: {{ formatDate(rrGroup.updated_at) }}</div>
-            </div>
-
-            <!-- Event ticket in RR modal -->
-            <div
-              v-if="eventTitleForRef(rrGroup.ref)"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-            >
-              <div class="event-ticket" :title="eventTitleForRef(rrGroup.ref)">
-                <div class="ticket-left">
-                  <i class="bi bi-trophy me-1)"></i>
-                  <span class="ticket-title">{{ eventTitleForRef(rrGroup.ref) }}</span>
-                </div>
-                <div class="ticket-divider"></div>
-                <div class="ticket-right">
-                  <span class="ticket-tag ticket-tag--event">EVENT WINNER</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Discount ticket(s) in RR modal -->
-            <div
-              v-if="discountsForRef(rrGroup.ref).length"
-              class="mt-2 d-flex flex-wrap align-items-center gap-2"
-            >
-              <div
-                v-for="d in discountsForRef(rrGroup.ref)"
-                :key="d.id"
-                class="discount-ticket"
-                title="Discount applied"
-              >
-                <div class="ticket-left">
-                  <i class="bi bi-ticket-perforated me-1)"></i>
-                  <span class="ticket-title" :title="d.title">{{ d.title }}</span>
-                </div>
-                <div class="ticket-divider" aria-hidden="true"></div>
-                <div class="ticket-right">
-                  <span class="ticket-value">{{ discountLabel(d) }}</span>
-                  <span class="ticket-tag">APPLIED</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Select items inside this group -->
-            <div class="mt-2 border rounded p-2">
+            <!-- Select items -->
+            <div class="rr-select border rounded p-2">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <div class="fw-semibold">Select item(s) to return/refund</div>
                 <div class="form-check">
@@ -696,6 +577,7 @@
                       @change="onToggleRRItem(it.id)"
                     />
                     <input v-else class="form-check-input" type="checkbox" checked disabled />
+
                     <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
                       <img
                         v-if="productThumb(it)"
@@ -703,13 +585,11 @@
                         :alt="productName(it)"
                         class="w-100 h-100 object-fit-cover rounded"
                       />
-                      <div
-                        v-else
-                        class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                      >
+                      <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                         <i class="bi bi-image"></i>
                       </div>
                     </div>
+
                     <div class="flex-grow-1">
                       <div class="fw-semibold title-ellipsis" :title="productName(it)">
                         {{ productName(it) }}
@@ -718,70 +598,50 @@
                         Already submitted • {{ capitalize(rrStatus(it.id)!) }}
                       </div>
                     </div>
+
                     <div class="text-end">
                       <div class="small fw-semibold">₱ {{ number(productPrice(it)) }}</div>
                     </div>
                   </label>
 
-                  <!-- Locked, prefilled -->
+                  <!-- Locked -->
                   <div v-if="!!rrStatus(it.id)" class="mt-2">
                     <div class="row g-2">
                       <div class="col-12 col-md-5">
                         <label class="form-label small mb-1">Reason</label>
-                        <input
-                          class="form-control form-control-sm"
-                          :value="prefillReason(it.id)"
-                          disabled
-                        />
+                        <input class="form-control form-control-sm" :value="prefillReason(it.id)" disabled />
                       </div>
                       <div class="col-12 col-md-7">
                         <label class="form-label small mb-1">Details</label>
-                        <textarea
-                          class="form-control form-control-sm"
-                          rows="2"
-                          :value="prefillDetails(it.id)"
-                          disabled
-                        ></textarea>
+                        <textarea class="form-control form-control-sm" rows="2" :value="prefillDetails(it.id)" disabled></textarea>
                       </div>
                     </div>
                   </div>
 
-                  <!-- Editable for newly selected -->
+                  <!-- Editable -->
                   <div v-else-if="rrForm.purchase_ids.includes(it.id)" class="mt-2">
                     <div class="row g-2">
                       <div class="col-12 col-md-5">
                         <label class="form-label small mb-1">Reason</label>
-                        <select
-                          class="form-select form-select-sm"
-                          v-model.trim="rrItemForms[it.id].reason"
-                          required
-                        >
+                        <select class="form-select form-select-sm" v-model.trim="rrItemForms[it.id].reason" required>
                           <option value="" disabled>Select a reason</option>
                           <option v-for="r in rrReasons" :key="r" :value="r">{{ r }}</option>
                         </select>
                       </div>
                       <div class="col-12 col-md-7">
                         <label class="form-label small mb-1">Details</label>
-                        <textarea
-                          class="form-control form-control-sm"
-                          rows="2"
-                          v-model.trim="rrItemForms[it.id].details"
-                          placeholder="Describe the issue…"
-                        ></textarea>
+                        <textarea class="form-control form-control-sm" rows="2" v-model.trim="rrItemForms[it.id].details" placeholder="Describe the issue…"></textarea>
                       </div>
                     </div>
                   </div>
 
-                  <!-- NEW: Per-item return tracking inside RR modal (ONLY on RR tab & APPROVED) -->
-                  <div
-                    class="mt-2"
-                    v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
-                  >
+                  <!-- Per-item return tracking (RR tab & Approved) -->
+                  <div class="mt-2" v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)">
                     <a
                       :href="rrTrackingLinkApproved(it.id)"
                       target="_blank"
                       rel="noopener"
-                      class="small text-primary text-decoration-underline"
+                      class="small link-underline"
                       title="Open return tracking in a new tab"
                     >
                       Return tracking
@@ -792,7 +652,7 @@
             </div>
           </div>
 
-          <!-- Single purchase RR (kept) -->
+          <!-- Single purchase path -->
           <div v-else-if="rrPurchase" class="d-flex align-items-center gap-3 mb-3">
             <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
               <img
@@ -801,18 +661,13 @@
                 :alt="productName(rrPurchase)"
                 class="w-100 h-100 object-fit-cover rounded"
               />
-              <div
-                v-else
-                class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-              >
+              <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                 <i class="bi bi-image"></i>
               </div>
             </div>
             <div class="flex-grow-1">
               <div class="fw-semibold title-ellipsis">{{ productName(rrPurchase) }}</div>
-              <div class="text-muted small">
-                Ref# {{ rrPurchase.reference_number || shortId(rrPurchase.id) }}
-              </div>
+              <div class="text-muted small">Ref# {{ rrPurchase.reference_number || shortId(rrPurchase.id) }}</div>
             </div>
             <div class="text-end">
               <div class="fw-semibold">₱ {{ number(productPrice(rrPurchase)) }}</div>
@@ -821,40 +676,20 @@
 
           <form @submit.prevent="submitReturnRefund">
             <div class="row g-3">
-              <!-- Pickup / Return Date -->
               <div class="col-12">
                 <label class="form-label">Pickup Date</label>
                 <div class="d-flex gap-2 flex-wrap">
-                  <select
-                    v-model="rrQuickDate"
-                    class="form-select"
-                    style="max-width: 220px"
-                    @change="applyQuickDate"
-                  >
+                  <select v-model="rrQuickDate" class="form-select" style="max-width: 220px" @change="applyQuickDate">
                     <option value="">Choose a quick date…</option>
-                    <option :value="quickDates.tomorrow">
-                      {{ labelFor(quickDates.tomorrow) }} (Tomorrow)
-                    </option>
-                    <option :value="quickDates.plus2">
-                      {{ labelFor(quickDates.plus2) }} (+2 days)
-                    </option>
-                    <option :value="quickDates.plus3">
-                      {{ labelFor(quickDates.plus3) }} (+3 days)
-                    </option>
+                    <option :value="quickDates.tomorrow">{{ labelFor(quickDates.tomorrow) }} (Tomorrow)</option>
+                    <option :value="quickDates.plus2">{{ labelFor(quickDates.plus2) }} (+2 days)</option>
+                    <option :value="quickDates.plus3">{{ labelFor(quickDates.plus3) }} (+3 days)</option>
                   </select>
-                  <input
-                    v-model="rrForm.pickup_date"
-                    type="date"
-                    class="form-control"
-                    style="max-width: 180px"
-                    :min="todayYMD"
-                    required
-                  />
+                  <input v-model="rrForm.pickup_date" type="date" class="form-control" style="max-width: 180px" :min="todayYMD" required />
                 </div>
                 <div class="form-text">Select a quick option or pick an exact date.</div>
               </div>
 
-              <!-- Single path -->
               <template v-if="rrPurchase">
                 <div class="col-12">
                   <label class="form-label">Reason</label>
@@ -877,17 +712,15 @@
             </div>
 
             <div class="d-flex justify-content-end gap-2 mt-4">
-              <button type="button" class="btn btn-outline-secondary" @click="closeReturnRefund">
-                Cancel
-              </button>
+              <button type="button" class="btn btn-outline-secondary" @click="closeReturnRefund">Cancel</button>
               <button
                 type="submit"
                 class="btn btn-warning"
                 :disabled="
                   Boolean(
                     rrBusy ||
-                      !rrForm.pickup_date ||
-                      (!!rrGroup && (rrForm.purchase_ids.length === 0 || !allSelectedHaveReasons)),
+                    !rrForm.pickup_date ||
+                    (!!rrGroup && (rrForm.purchase_ids.length === 0 || !allSelectedHaveReasons)),
                   )
                 "
               >
@@ -899,9 +732,8 @@
         </div>
       </div>
     </div>
-    <!-- /Return/Refund Modal -->
 
-    <!-- ===== NEW: Group Details Modal (deep-linkable via ?ref=...&pid=...) ===== -->
+    <!-- ===== Group Details Modal (unchanged logic) ===== -->
     <div
       v-if="showGroupDetails && selectedGroupComputed"
       class="modal-backdrop-custom2"
@@ -915,27 +747,16 @@
 
         <div class="card-body">
           <div class="d-flex align-items-center justify-content-between">
-            <div class="small text-muted">
-              Updated: {{ formatDate(selectedGroupComputed!.updated_at) }}
-            </div>
+            <div class="small text-muted">Updated: {{ formatDate(selectedGroupComputed!.updated_at) }}</div>
             <span class="badge" :class="statusClass(selectedGroupComputed!.status)">
-              {{
-                prettyStatusWithRR(selectedGroupComputed!.status, undefined, selectedGroupComputed!)
-              }}
+              {{ prettyStatusWithRR(selectedGroupComputed!.status, undefined, selectedGroupComputed!) }}
             </span>
           </div>
 
-          <!-- Event ticket in details modal -->
-          <div
-            v-if="eventTitleForRef(selectedGroupComputed!.ref)"
-            class="mt-2 d-flex flex-wrap align-items-center gap-2"
-          >
-            <div
-              class="event-ticket"
-              :title="eventTitleForRef(selectedGroupComputed!.ref)"
-            >
+          <div v-if="eventTitleForRef(selectedGroupComputed!.ref)" class="tickets-row mt-2">
+            <div class="event-ticket" :title="eventTitleForRef(selectedGroupComputed!.ref)">
               <div class="ticket-left">
-                <i class="bi bi-trophy me-1)"></i>
+                <i class="bi bi-trophy me-1"></i>
                 <span class="ticket-title">{{ eventTitleForRef(selectedGroupComputed!.ref) }}</span>
               </div>
               <div class="ticket-divider"></div>
@@ -945,11 +766,7 @@
             </div>
           </div>
 
-          <!-- Discount ticket(s) in details modal -->
-          <div
-            v-if="discountsForRef(selectedGroupComputed!.ref).length"
-            class="mt-2 d-flex flex-wrap align-items-center gap-2"
-          >
+          <div v-if="discountsForRef(selectedGroupComputed!.ref).length" class="tickets-row mt-2">
             <div
               v-for="d in discountsForRef(selectedGroupComputed!.ref)"
               :key="d.id"
@@ -968,30 +785,27 @@
             </div>
           </div>
 
-          <!-- ===== NEW: Return tracking link in details modal (ONLY on RR tab & APPROVED) ===== -->
           <div
             v-if="activeTab === STATUS.RETURN_REFUND && returnTrackingLinkForApproved(selectedGroupComputed!.ref)"
-            class="mt-2"
+            class="order-card__track mt-2"
           >
             <a
               :href="returnTrackingLinkForApproved(selectedGroupComputed!.ref)"
               target="_blank"
               rel="noopener"
-              class="small text-primary text-decoration-underline"
+              class="small link-underline"
               title="Open return tracking in a new tab"
             >
               Return tracking
             </a>
           </div>
-          <!-- ================================================ -->
 
-          <!-- Items -->
-          <div class="mt-3 vstack gap-2">
+          <div class="order-card__items mt-3">
             <div
               v-for="it in selectedGroupComputed!.items"
               :key="it.id"
-              class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle"
-              :class="{ 'border-primary': highlightPid === it.id }"
+              class="item-row"
+              :class="{ 'item-row--highlight': highlightPid === it.id }"
               :id="'pid-' + it.id"
             >
               <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
@@ -1001,52 +815,17 @@
                   :alt="productName(it)"
                   class="w-100 h-100 object-fit-cover rounded"
                 />
-                <div
-                  v-else
-                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                >
+                <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
                   <i class="bi bi-image"></i>
                 </div>
               </div>
 
-              <div class="flex-grow-1">
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                  <div class="fw-semibold title-ellipsis" :title="productName(it)">
-                    {{ productName(it) }}
-                  </div>
-
-                  <!-- Unit + subtotal (special for discount_redemptions) -->
-                  <div class="text-end ms-2">
-                    <template v-if="refHasRedemption(selectedGroupComputed!.ref)">
-                      <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
-                      <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
-                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
-                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
-                      </div>
-                    </template>
-
-                    <template v-else-if="refHasDiscount(selectedGroupComputed!.ref)">
-                      <div class="text-muted text-decoration-line-through">
-                        ₱ {{ number(productPrice(it)) }}
-                      </div>
-                      <div class="fw-semibold text-success">
-                        ₱ {{ number(discountedUnitPrice(it)) }}
-                      </div>
-                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
-                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
-                      </div>
-                    </template>
-
-                    <template v-else>
-                      <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
-                      <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">
-                        Subtotal: ₱ {{ number(subtotalFor(it)) }}
-                      </div>
-                    </template>
-                  </div>
+              <div class="item-row__main">
+                <div class="item-row__title fw-semibold title-ellipsis" :title="productName(it)">
+                  {{ productName(it) }}
                 </div>
 
-                <div class="mt-1 d-flex flex-wrap align-items-center gap-2">
+                <div class="item-row__meta">
                   <span class="badge" :class="statusClass(it.status)">
                     {{ prettyStatusWithRR(it.status, it.id, selectedGroupComputed!) }}
                   </span>
@@ -1058,16 +837,12 @@
                   </span>
                 </div>
 
-                <!-- NEW: Per-item return tracking inside details modal (ONLY on RR tab & APPROVED) -->
-                <div
-                  class="mt-2"
-                  v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)"
-                >
+                <div class="mt-1" v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)">
                   <a
                     :href="rrTrackingLinkApproved(it.id)"
                     target="_blank"
                     rel="noopener"
-                    class="small text-primary text-decoration-underline"
+                    class="small link-underline"
                     title="Open return tracking in a new tab"
                   >
                     Return tracking
@@ -1075,35 +850,47 @@
                 </div>
               </div>
 
-              <div class="text-end">
-                <div v-if="rrStatus(it.id)" class="small text-muted">
-                  RR • {{ capitalize(rrStatus(it.id)!) }}
-                </div>
+              <div class="item-row__price text-end">
+                <template v-if="refHasRedemption(selectedGroupComputed!.ref)">
+                  <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
+                  <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
+                  <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
+                </template>
+
+                <template v-else-if="refHasDiscount(selectedGroupComputed!.ref)">
+                  <div class="text-muted text-decoration-line-through">₱ {{ number(productPrice(it)) }}</div>
+                  <div class="fw-semibold text-success">₱ {{ number(discountedUnitPrice(it)) }}</div>
+                  <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
+                </template>
+
+                <template v-else>
+                  <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
+                  <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
+                </template>
+              </div>
+
+              <div class="item-row__cta text-end" v-if="rrStatus(it.id)">
+                <div class="small text-muted">RR • {{ capitalize(rrStatus(it.id)!) }}</div>
               </div>
             </div>
           </div>
 
-          <!-- Totals (now shows slash when discounted) -->
-          <div class="mt-3 d-flex align-items-center justify-content-end">
-            <div class="text-end">
-
-              <!-- ================= NEW: Price breakdown ABOVE Subtotal (Modal) ================= -->
-              <div class="small text-muted mb-1">
+          <div class="order-card__footer mt-3">
+            <div class="order-card__sum text-end">
+              <div class="small text-muted price-breakdown">
                 <div>Items: ₱ {{ number(groupItemsBaseTotal(selectedGroupComputed!)) }}</div>
                 <div v-if="refHasDiscount(selectedGroupComputed!.ref)">
                   Discount: −₱ {{ number(groupDiscountAmount(selectedGroupComputed!)) }}
                 </div>
-                <!-- Shipping line with FREE SHIPPING handling (Modal) -->
+
                 <div v-if="!isFreeShippingRef(selectedGroupComputed!.ref)">
-                  Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}
-                </div>
+                  Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</div>
                 <div v-else>
                   Shipping:
                   <span class="text-decoration-line-through">₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</span>
                   <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
                 </div>
               </div>
-              <!-- ===================================================================== -->
 
               <div class="small text-muted">Subtotal</div>
               <template v-if="refHasDiscount(selectedGroupComputed!.ref)">
@@ -1117,82 +904,54 @@
               <template v-else>
                 <div class="fs-5 fw-bold">₱ {{ number(groupTotal(selectedGroupComputed!)) }}</div>
               </template>
-              
+            </div>
+
+            <div class="order-card__actions" v-if="activeTab !== STATUS.RETURN_REFUND">
+              <div class="d-flex gap-2 flex-wrap justify-content-end">
+                <button
+                  v-if="selectedGroupComputed!.status === STATUS.TO_PAY"
+                  class="btn btn-outline-danger btn-sm"
+                  :disabled="groupBusy.cancel[selectedGroupComputed!.ref]"
+                  @click.stop="cancelGroup(selectedGroupComputed!)"
+                >
+                  <span v-if="groupBusy.cancel[selectedGroupComputed!.ref]" class="spinner-border spinner-border-sm me-1"></span>
+                  Cancel
+                </button>
+
+                <template v-else-if="selectedGroupComputed!.status === STATUS.TO_SHIP"></template>
+
+                <template v-else-if="selectedGroupComputed!.items.some((it) => it.status === STATUS.TO_RECEIVE)">
+                  <button
+                    class="btn btn-outline-warning btn-sm"
+                    v-if="!refHasAnyRR(selectedGroupComputed!.ref)"
+                    @click.stop="openReturnRefundGroup(selectedGroupComputed!)"
+                    title="Return or refund items in this order."
+                  >
+                    Return/Refund
+                  </button>
+                  <button
+                    class="btn btn-success btn-sm"
+                    :disabled="
+                      groupBusy.received[selectedGroupComputed!.ref] ||
+                      groupToReceiveCount(selectedGroupComputed!) === 0
+                    "
+                    @click.stop="orderReceivedGroup(selectedGroupComputed!)"
+                    :title=" groupAllToReceive(selectedGroupComputed!) ? 'Mark all as received' : 'Mark remaining To Receive as received' "
+                  >
+                    <span v-if="groupBusy.received[selectedGroupComputed!.ref]" class="spinner-border spinner-border-sm me-1"></span>
+                    {{
+                      groupAllToReceive(selectedGroupComputed!)
+                        ? 'Order Received (All)'
+                        : 'Order Received (' + groupToReceiveCount(selectedGroupComputed!) + ')'
+                    }}
+                  </button>
+                </template>
+              </div>
             </div>
           </div>
-
-          <!-- ==== NEW: Show the same action buttons inside the modal ==== -->
-          <div
-            class="mt-3 d-flex align-items-center justify-content-end"
-            v-if="activeTab !== STATUS.RETURN_REFUND"
-          >
-            <div class="d-flex gap-2 flex-wrap">
-              <button
-                v-if="selectedGroupComputed!.status === STATUS.TO_PAY"
-                class="btn btn-outline-danger btn-sm"
-                :disabled="groupBusy.cancel[selectedGroupComputed!.ref]"
-                @click.stop="cancelGroup(selectedGroupComputed!)"
-              >
-                <span
-                  v-if="groupBusy.cancel[selectedGroupComputed!.ref]"
-                  class="spinner-border spinner-border-sm me-1"
-                ></span>
-                Cancel
-              </button>
-
-              <template v-else-if="selectedGroupComputed!.status === STATUS.TO_SHIP">
-                <!-- intentionally empty -->
-              </template>
-
-              <!-- RR tab: nothing displayed (kept inert) -->
-              <template v-else-if="false">
-                <!-- intentionally hidden -->
-              </template>
-
-              <template
-                v-else-if="
-                  selectedGroupComputed!.items.some((it) => it.status === STATUS.TO_RECEIVE)
-                "
-              >
-                <button
-                  class="btn btn-outline-warning btn-sm"
-                  v-if="!refHasAnyRR(selectedGroupComputed!.ref)"
-                  @click.stop="openReturnRefundGroup(selectedGroupComputed!)"
-                  title="Return or refund items in this order."
-                >
-                  Return/Refund
-                </button>
-                <button
-                  class="btn btn-success btn-sm"
-                  :disabled="
-                    groupBusy.received[selectedGroupComputed!.ref] ||
-                    groupToReceiveCount(selectedGroupComputed!) === 0
-                  "
-                  @click.stop="orderReceivedGroup(selectedGroupComputed!)"
-                  :title="
-                    groupAllToReceive(selectedGroupComputed!)
-                      ? 'Mark all as received'
-                      : 'Mark remaining To Receive as received'
-                  "
-                >
-                  <span
-                    v-if="groupBusy.received[selectedGroupComputed!.ref]"
-                    class="spinner-border spinner-border-sm me-1"
-                  ></span>
-                  {{
-                    groupAllToReceive(selectedGroupComputed!)
-                      ? 'Order Received (All)'
-                      : 'Order Received (' + groupToReceiveCount(selectedGroupComputed!) + ')'
-                  }}
-                </button>
-              </template>
-            </div>
-          </div>
-          <!-- /modal actions -->
-        </div>
+        </div> <!-- /card-body -->
       </div>
     </div>
-    <!-- /Group Details Modal -->
   </div>
 </template>
 
@@ -1413,19 +1172,15 @@ function prefillDetails(purchaseId: string): string {
 function rrTrackingLink(purchaseId: string): string {
   return (rrByPurchase[purchaseId]?.refund_tracking_link || '').toString().trim()
 }
-/* NEW: stricter helper — only if RR is APPROVED */
 function rrTrackingLinkApproved(purchaseId: string): string {
   return rrStatus(purchaseId) === 'approved' ? rrTrackingLink(purchaseId) : ''
 }
-/* NEW: group-level approved-only helper */
 function returnTrackingLinkFor(ref: string): string {
-  // (kept original functionality if needed elsewhere)
   const row = purchases.value.find(
     (p) => (p.reference_number || p.id) === ref && rrTrackingLink(p.id),
   )
   return row ? rrTrackingLink(row.id) : ''
 }
-/* NEW: approved-only version used in UI */
 function returnTrackingLinkForApproved(ref: string): string {
   const row = purchases.value.find(
     (p) =>
@@ -1458,7 +1213,7 @@ async function autocloseOverdue(uid: string) {
 /** ========= DISCOUNT (refund_lock + event.interest_per_player + discounted_price column + redemptions) ========= */
 const refDiscount: Record<string, number> = reactive({})
 const refRedeemedTotal: Record<string, number> = reactive({})
-const refShippingTotal: Record<string, number> = reactive({}) // kept (unused now) to avoid removing unrelated code
+const refShippingTotal: Record<string, number> = reactive({})
 
 /** ===== NEW: discount metadata (title + %/amount) per ref ===== */
 type Discount = {
@@ -1473,19 +1228,16 @@ const refDiscountIds = reactive<Record<string, string[]>>({})
 /** ===== NEW: Event meta (title) per ref ===== */
 const refEventTitle: Record<string, string> = reactive({})
 
-/** Simple UUID check to avoid querying invalid refs */
+/** Simple UUID check */
 function isUuidLike(s: string): boolean {
   return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)
 }
 
-/** New: helper to detect if an item has its own discounted_price */
 function hasItemLevelDiscount(purchase: AnyRec): boolean {
   const dp = Number(purchase?.discounted_price)
   const base = productPrice(purchase)
   return Number.isFinite(dp) && dp >= 0 && dp < base
 }
-
-/** NEW: check if a ref is discounted either via per-item dp, redemption total, or event offset */
 function refHasDiscount(ref?: string): boolean {
   if (!ref) return false
   if (
@@ -1496,14 +1248,10 @@ function refHasDiscount(ref?: string): boolean {
   if ((refRedeemedTotal[ref] || 0) > 0) return true
   return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
 }
-
-/** NEW (for display): does this ref specifically have discount_redemptions? */
 function refHasRedemption(ref?: string): boolean {
   if (!ref) return false
   return (refRedeemedTotal[ref] || 0) > 0
 }
-
-/** Base group total WITHOUT shipping; helper for proportional redemption calc */
 function baseGroupTotalByRef(ref: string): number {
   const rows = purchases.value.filter((p) => (p.reference_number || p.id) === ref)
   return rows.reduce((sum, it) => {
@@ -1511,8 +1259,6 @@ function baseGroupTotalByRef(ref: string): number {
     return sum + q * productPrice(it)
   }, 0)
 }
-
-/** Unit price when discounted */
 function discountedUnitPrice(purchase: AnyRec): number {
   if (hasItemLevelDiscount(purchase)) {
     return Number(purchase.discounted_price)
@@ -1537,8 +1283,6 @@ function discountedUnitPrice(purchase: AnyRec): number {
   const out = base - off
   return out > 0 ? out : 0
 }
-
-/** NEW (for display): per-unit discount amount when using discount_redemptions */
 function redemptionUnitDiscount(purchase: AnyRec): number {
   const ref = purchase?.reference_number || purchase?.id
   const redeemed = refRedeemedTotal[ref] || 0
@@ -1552,10 +1296,8 @@ function redemptionUnitDiscount(purchase: AnyRec): number {
   const perUnit = myDiscountShare / qty
   return perUnit > base ? base : perUnit
 }
-
-/** Group discounted total (adds shipping if any) */
-function groupTotalDiscounted(g: Group): number {
-  const items = g.items.reduce((sum, it) => {
+function groupTotalDiscounted(g: any): number {
+  const items = g.items.reduce((sum: number, it: AnyRec) => {
     const q = Number(it?.qty ?? 1) || 1
     return sum + q * discountedUnitPrice(it)
   }, 0)
@@ -1585,7 +1327,6 @@ async function loadPurchases() {
       .schema('games')
       .from('purchases')
       .select(
-        // ⬇️ added shipping_fee, tracking_link, and is_free_shipping here
         'id,user_id,product_id,reference_number,status,qty,modeofpayment,created_at,updated_at,discounted_price,shipping_fee,tracking_link,is_free_shipping',
       )
       .eq('user_id', uid)
@@ -1605,7 +1346,7 @@ async function loadPurchases() {
 
     await autocloseOverdue(uid)
 
-    // ----- Products -----
+    // Products
     const ids = Array.from(new Set(purchases.value.map((r) => r.product_id).filter(Boolean)))
     if (ids.length) {
       const { data: prows, error: perr } = await supabase
@@ -1629,7 +1370,7 @@ async function loadPurchases() {
       }
     }
 
-    // ----- RR rows -----
+    // RR rows
     const purchaseIds = purchases.value.map((r) => r.id)
     Object.keys(rrByPurchase).forEach((k) => delete rrByPurchase[k])
     if (purchaseIds.length) {
@@ -1657,7 +1398,7 @@ async function loadPurchases() {
       }
     }
 
-    // ----- Discounts: refund_lock + event.interest_per_player (kept for fallback) -----
+    // Discounts from event/refund_lock
     const refs = Array.from(
       new Set(
         purchases.value
@@ -1693,7 +1434,7 @@ async function loadPurchases() {
         }
       }
 
-      // ===== NEW: Direct event lookup by ref to capture event titles (and fallback discount amount) =====
+      // Direct event lookup for titles
       const { data: eventsByRef, error: evMetaErr } = await supabase
         .schema('games')
         .from('event')
@@ -1711,7 +1452,7 @@ async function loadPurchases() {
       }
     }
 
-    // ===== NEW: Discount Redemptions (per user, per purchase) -> aggregate by reference_number =====
+    // Discount redemptions (aggregate by ref)
     Object.keys(refRedeemedTotal).forEach((k) => delete refRedeemedTotal[k])
     Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
     const allDiscountIds = new Set<string>()
@@ -1763,10 +1504,6 @@ async function loadPurchases() {
       }
     }
 
-    // ===== REMOVED: shipping_charges table fetch =====
-    // (Shipping now comes from purchases.shipping_fee; see shippingFor(ref))
-
-    // Try signing any new product images
     ensureSignedUrlsForAllProducts()
   } finally {
     busy.value.load = false
@@ -1974,8 +1711,6 @@ async function goToReturnTab(refNo?: string) {
     if (highlightRef.value === refNo) highlightRef.value = ''
   }, 3000)
 }
-
-/** New: from RR tab, send user to To Receive and open the RR modal for this group */
 async function goRefundOtherProducts(g: Group) {
   activeTab.value = STATUS.TO_RECEIVE
   await nextTick()
@@ -1994,15 +1729,11 @@ function shippingFor(ref: string): number {
   }
   return maxFee
 }
-
-/** FREE SHIPPING helper (per ref) */
 function isFreeShippingRef(ref: string): boolean {
   return purchases.value.some(
     (p) => (p.reference_number || p.id) === ref && !!p.is_free_shipping
   )
 }
-
-/** Tracking helper (per ref) - show link if any To Receive item has one */
 function trackingLinkFor(ref: string): string {
   const toReceiveWithLink = purchases.value.find(
     (p) =>
@@ -2059,7 +1790,6 @@ function groupAllToReceive(g: Group): boolean {
 
 /* =============================== */
 /* === NEW: MONTHLY TOTAL HELPER === */
-/* =============================== */
 async function addToUserPurchasesMonthly(delta: number) {
   try {
     const amt = Number(delta || 0)
@@ -2098,7 +1828,6 @@ async function addToUserPurchasesMonthly(delta: number) {
 
 /* =============================== */
 /* === RR modal + submit ======== */
-/* =============================== */
 const showRR = ref(false)
 const rrBusy = ref(false)
 const rrPurchase = ref<AnyRec | null>(null)
@@ -2155,7 +1884,6 @@ function isSelectableForRR(it: AnyRec): boolean {
 }
 
 function openReturnRefundGroup(g: Group) {
-  // Guard: only one RR submission per reference
   if (groupHasAnyRR(g)) {
     alert('Return/Refund can only be submitted once for this order.')
     return
@@ -2182,7 +1910,6 @@ function openReturnRefundGroup(g: Group) {
 }
 
 function openReturnRefund(purchase: AnyRec) {
-  // Guard: only one RR submission per reference
   const ref = purchase?.reference_number || purchase?.id
   if (refHasAnyRR(ref)) {
     alert('Return/Refund can only be submitted once for this order.')
@@ -2471,7 +2198,6 @@ async function createOrderReceiptForIds(ids: string[]) {
 
 /* =============================== */
 /* === NEW: STOCK RESTORATION  === */
-/* =============================== */
 function aggregateByProduct(entries: Array<{ product_id: string; qty: number }>) {
   const map = new Map<string, number>()
   for (const e of entries) {
@@ -2529,7 +2255,6 @@ async function restoreStock(entries: Array<{ product_id: string; qty: number }>)
 
 /* =============================== */
 /* === NEW: ORDER RECEIVED BTN === */
-/* =============================== */
 async function orderReceivedGroup(g: Group) {
   const toReceiveIds = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
   if (!toReceiveIds.length) return
@@ -2563,7 +2288,6 @@ async function orderReceivedGroup(g: Group) {
 
 /* =============================== */
 /* === NEW: QTY/SUBTOTAL HELPERS === */
-/* =============================== */
 function unitPriceFor(purchase: AnyRec): number {
   const ref = purchase?.reference_number || purchase?.id
   return refHasDiscount(ref) ? discountedUnitPrice(purchase) : productPrice(purchase)
@@ -2575,7 +2299,6 @@ function subtotalFor(purchase: AnyRec): number {
 
 /* =============================== */
 /* === GROUP DETAILS MODAL NAV  === */
-/* =============================== */
 const showGroupDetails = ref(false)
 const selectedRef = ref<string>('')
 const highlightPid = ref<string>('')
@@ -2663,32 +2386,159 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.card {
-  border: 1px solid #edf0f3;
-}
-.bg-light-subtle {
-  background: #f8f9fa;
-}
-
-.nav-pills .nav-link {
-  border-radius: 999px;
-}
-.nav-pills .nav-link:not(.active) {
-  background: #f8f9fa;
-  color: #212529;
-}
-.badge {
-  color: #212529;
-}
-.nav-pills .nav-link .badge.border {
-  border-color: #e9ecef !important;
+/* ===== Design tokens ===== */
+:root {
+  --surface: #ffffff;
+  --surface-2: #f8f9fb;
+  --text: #212529;
+  --muted: #6c757d;
+  --border: #e9ecef;
+  --radius: 14px;
+  --radius-sm: 10px;
+  --shadow: 0 8px 24px rgba(16, 24, 40, .06);
 }
 
-.text-monospace {
-  font-family:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #161a1f;
+    --surface-2: #0f141a;
+    --text: #e9ecef;
+    --muted: #adb5bd;
+    --border: #343a40;
+    --shadow: 0 8px 24px rgba(0,0,0,.45);
+  }
 }
+
+/* ===== Page layout ===== */
+.purchases-shell {
+  color: var(--text);
+}
+
+/* Header */
+.page-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.page-header__titles > p { color: var(--muted); }
+
+/* Sticky tabbar */
+.tabbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.tabbar__scroll {
+  display: flex;
+  gap: .5rem;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+}
+.tabbar__pill {
+  border-radius: 999px !important;
+  padding: .4rem .9rem;
+  font-weight: 600;
+}
+.tabbar__pill:not(.active) {
+  background: var(--surface-2) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border);
+}
+.tabbar__pill.active {
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+.tabbar__count {
+  border: 1px solid var(--border) !important;
+  background: transparent;
+  color: var(--muted);
+}
+
+/* Stacks */
+.stack { display: grid; }
+.stack.gap-3 { gap: 1rem; }
+
+/* States */
+.state {
+  text-align: center;
+  color: var(--muted);
+  padding: 3.25rem 0;
+}
+.state__icon {
+  font-size: 1.6rem;
+}
+
+/* ===== Order card ===== */
+.order-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 14px 10px;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+.order-card:hover {
+  transform: translateY(-1px);
+  border-color: #d7dbe0;
+}
+.order-card--highlight {
+  border-color: #f0ad4e;
+}
+
+/* Header area */
+.order-card__header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: start;
+  gap: 8px;
+}
+.order-card__id small { color: var(--muted); }
+.order-card__status .badge { color: var(--text); }
+
+/* Tickets row (event/discount) */
+.tickets-row {
+  margin-top: .5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+
+/* Tracking link */
+.order-card__track {
+  margin-top: .25rem;
+}
+.link-underline {
+  color: #0d6efd;
+  text-decoration: underline;
+}
+
+/* Items list (segmented) */
+.order-card__items {
+  margin-top: .75rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  padding: 6px;
+}
+.item-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.item-row + .item-row { margin-top: 6px; }
+.item-row--highlight { border-color: #0d6efd; }
 
 .purchase-thumb {
   width: 64px;
@@ -2696,17 +2546,25 @@ onMounted(async () => {
   border-radius: 10px;
   overflow: hidden;
 }
-.object-fit-cover {
-  object-fit: cover;
-}
+.object-fit-cover { object-fit: cover; }
 
-.title-ellipsis {
-  max-width: clamp(140px, 48vw, 380px);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+.item-row__main { min-width: 0; }
+.item-row__title { max-width: 42ch; }
+.item-row__meta { margin-top: 4px; display: flex; flex-wrap: wrap; gap: 6px; }
+.item-row__price { min-width: 140px; }
+.item-row__cta { min-width: 160px; }
 
+/* Footer / totals */
+.order-card__footer {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-top: .75rem;
+}
+.order-card__actions { margin-top: .25rem; }
+.price-breakdown > div + div { margin-top: 2px; }
+
+/* ===== Modal ===== */
 .modal-backdrop-custom2 {
   position: fixed;
   inset: 0;
@@ -2716,49 +2574,14 @@ onMounted(async () => {
   z-index: 1055;
 }
 .modal-card2 {
-  width: min(640px, 95vw);
+  width: min(720px, 95vw);
   max-height: 90vh;
-  overflow: auto
-  ;
+  overflow: auto;
   border: 0;
   border-radius: 16px;
 }
 
-/* NEW: make group cards feel clickable */
-.clickable-card {
-  cursor: pointer;
-}
-.clickable-card:hover {
-  border-color: #d7dbe0;
-  box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.06);
-}
-
-/* ===== NEW: Meta grid inside modal items ===== */
-.item-meta {
-  display: grid;
-  gap: 0.25rem 0.75rem;
-  grid-template-columns: 1fr;
-}
-@media (min-width: 768px) {
-  .item-meta {
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-.meta-item {
-  min-width: 0;
-}
-.meta-label {
-  font-weight: 600;
-  font-size: 0.85rem;
-  margin-right: 0.25rem;
-}
-.meta-text {
-  font-size: 0.85rem;
-  color: #6c757d;
-  word-break: break-word;
-}
-
-/* ===== TICKET SHAPES (blended with Bootstrap) ===== */
+/* ===== Tickets (kept; restyled lightly) ===== */
 .discount-ticket,
 .event-ticket {
   position: relative;
@@ -2766,13 +2589,11 @@ onMounted(async () => {
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: #f8f9fa;
-  border: 1px dashed #e9ecef;
+  background: var(--surface-2);
+  border: 1px dashed var(--border);
   border-radius: 12px;
-  box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.04);
-  color: #212529;
+  color: var(--text);
 }
-
 .discount-ticket::before,
 .discount-ticket::after,
 .event-ticket::before,
@@ -2782,8 +2603,8 @@ onMounted(async () => {
   top: 50%;
   width: 14px;
   height: 14px;
-  background: #ffffff;
-  border: 1px solid #e9ecef;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 50%;
   transform: translateY(-50%);
 }
@@ -2792,40 +2613,23 @@ onMounted(async () => {
 .discount-ticket::after,
 .event-ticket::after { right: -7px; }
 
-.ticket-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
+.ticket-left { display: inline-flex; align-items: center; gap: 6px; }
 .ticket-title {
   max-width: 36ch;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ticket-divider {
-  height: 20px;
-  width: 0;
-  border-left: 1px dashed #e9ecef;
-}
-.ticket-right {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-}
-.ticket-value {
-  font-weight: 800;
-  letter-spacing: 0.2px;
-}
-
-/* Subtle tags tuned to Bootstrap palette */
+.ticket-divider { height: 20px; width: 0; border-left: 1px dashed var(--border); }
+.ticket-right { display: inline-flex; align-items: baseline; gap: 8px; }
+.ticket-value { font-weight: 800; letter-spacing: .2px; }
 .ticket-tag {
-  font-size: 0.7rem;
+  font-size: .7rem;
   padding: 2px 6px;
   border-radius: 999px;
-  border: 1px solid #e9ecef;
-  background: #ffffff;
-  color: #6c757d;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
 }
 .ticket-tag--event {
   border-color: #cfe2ff;
@@ -2833,13 +2637,12 @@ onMounted(async () => {
   color: #0d6efd;
 }
 
-/* Dark mode */
+/* Dark-mode ticket tweaks */
 @media (prefers-color-scheme: dark) {
   .discount-ticket,
   .event-ticket {
-    background: #212529;
-    color: #e9ecef;
-    border-color: #343a40;
+    background: var(--surface-2);
+    border-color: var(--border);
     box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.3);
   }
   .discount-ticket::before,
@@ -2847,20 +2650,58 @@ onMounted(async () => {
   .event-ticket::before,
   .event-ticket::after {
     background: #0f141a;
-    border-color: #343a40;
+    border-color: var(--border);
   }
-  .ticket-divider {
-    border-left-color: #343a40;
-  }
+  .ticket-divider { border-left-color: var(--border); }
   .ticket-tag {
-    border-color: #343a40;
+    border-color: var(--border);
     background: #0f141a;
-    color: #adb5bd;
+    color: var(--muted);
   }
   .ticket-tag--event {
     border-color: #1d3b64;
     background: #0f1d33;
     color: #9ec5fe;
   }
+}
+
+/* Keep Bootstrap harmonies */
+.badge { color: var(--text); }
+.title-ellipsis {
+  max-width: clamp(140px, 48vw, 380px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.text-monospace {
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+}
+
+/* Subtle hover affordance */
+.clickable-card { cursor: pointer; }
+.clickable-card:hover {
+  border-color: #d7dbe0;
+  box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.06);
+}
+
+/* Responsive refinement */
+@media (max-width: 576px) {
+  .item-row {
+    grid-template-columns: 56px 1fr auto;
+    grid-auto-rows: auto;
+  }
+  .item-row__cta { grid-column: 1 / -1; }
+  .item-row__price { min-width: 120px; }
+}
+
+/* Gentle fade-in for sections/cards */
+.order-card, .state, .page-header, .tabbar {
+  animation: fadeUp .28s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 </style>
