@@ -271,7 +271,7 @@
 
                 <!-- Bottom-left overlay (title + prices + view) -->
                 <div class="pp-floating" :class="{ 'pp-floating-up': hoverActive }">
-                  <h4 class="pp-title-overlay text-truncate" :title="currentPreview?.name">
+                  <h4 class="pp-title-overlay text-wrap mb-0" :title="currentPreview?.name">
                     {{ currentPreview?.name }}
                   </h4>
                   <div class="pp-price-overlay">
@@ -289,13 +289,6 @@
                     <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
                     <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
                   </div>
-                  <router-link
-                    v-if="currentPreview"
-                    :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
-                    class="btn btn-sm btn-primary mt-2 floating-view"
-                  >
-                    View
-                  </router-link>
                 </div>
 
                 <!-- Hover overlay (dim, not solid) -->
@@ -1910,7 +1903,7 @@ const ppBgStyle = computed(() => {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: 12px;
+  bottom: 40px;
   z-index: 2;
   color: #fff;
   text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
@@ -2076,6 +2069,7 @@ const ppBgStyle = computed(() => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-bottom: 1.5rem;
 }
 
 /* dot indicators */
@@ -2251,13 +2245,6 @@ const ppBgStyle = computed(() => {
   background: linear-gradient(90deg, #f4f6f8, #e1e7ef, #f4f6f8);
   background-size: 200% 100%;
   animation: sk 1.25s linear infinite;
-}
-
-/* floating view button (non-hover) */
-.floating-view {
-  align-self: flex-start;
-  backdrop-filter: blur(4px);
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.25);
 }
 
 @media (max-width: 576px) {
