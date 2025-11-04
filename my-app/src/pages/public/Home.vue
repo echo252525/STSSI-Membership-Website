@@ -7,28 +7,26 @@
           class="navbar-brand fw-bold d-flex align-items-center gap-2"
           :to="{ name: 'home' }"
         >
-          <img
-            src="/STSSI_logo.png"
-            alt="STSSI Logo"
-            class="simp-logo img-fluid"
-          />
+          <img src="/STSSI_logo.png" alt="STSSI Logo" class="simp-logo img-fluid" />
           <span class="logoText h5 m-0">STSSI Member Incentive Program</span>
         </router-link>
 
+        <!-- Toggler: menu icon ⇄ X, Vue-driven -->
         <button
           class="navbar-toggler"
           type="button"
-          data-bs-toggle="collapse"
-          data-bs-target="#mainNav"
+          @click="toggleNav"
+          :aria-expanded="navOpen"
           aria-controls="mainNav"
-          aria-expanded="false"
-          aria-label="Toggle navigation"
+          :aria-label="navOpen ? 'Close navigation' : 'Open navigation'"
         >
-          <span class="navbar-toggler-icon"></span>
+          <span v-if="!navOpen" class="navbar-toggler-icon"></span>
+          <i v-else class="bi bi-x-lg fs-2"></i>
         </button>
 
-        <div id="mainNav" class="collapse navbar-collapse">
-          <ul class="navbar-nav me-auto my-3 my-lg-0 gap-lg-2">
+        <!-- Keep .collapse .navbar-collapse; toggle .show via Vue -->
+        <div id="mainNav" class="collapse navbar-collapse" :class="{ show: navOpen }">
+          <ul class="navbar-nav me-auto my-3 my-lg-0 gap-lg-2" @click="navOpen = false">
             <li class="nav-item"><a class="nav-link modern-link" href="#features">Features</a></li>
             <li class="nav-item"><a class="nav-link modern-link" href="#pricing">Pricing</a></li>
             <li class="nav-item">
@@ -53,6 +51,7 @@
               class="admin-icon-btn"
               aria-label="Admin login"
               title="Admin"
+              @click="navOpen = false"
             >
               <i class="bi bi-shield-lock-fill"></i>
             </router-link>
@@ -78,6 +77,7 @@
               <router-link
                 class="btn btn-primary btn-lg btn-modern --lift"
                 :to="{ name: 'signup' }"
+                @click="navOpen = false"
               >
                 Get Started
               </router-link>
@@ -302,7 +302,7 @@
       <div class="container-xl">
         <div class="section-head">
           <h2 class="fw-bold">Frequently Asked Questions</h2>
-        <p class="text-secondary mb-0">Quick answers about membership &amp; features.</p>
+          <p class="text-secondary mb-0">Quick answers about membership &amp; features.</p>
         </div>
 
         <div class="accordion modern-acc" id="faqAcc">
@@ -315,7 +315,7 @@
                 type="button"
                 aria-expanded="false"
                 aria-controls="a1"
-                 @click="toggle('a1')"
+                @click="toggle('a1')"
               >
                 How do I create an account?
               </button>
@@ -323,7 +323,7 @@
             <div
               id="a1"
               class="accordion-collapse collapse"
-               :class="{ show: open === 'a1' }"
+              :class="{ show: open === 'a1' }"
               aria-labelledby="q1"
             >
               <div class="accordion-body">
@@ -440,8 +440,7 @@
               id="a5"
               class="accordion-collapse collapse"
               :class="{ show: open === 'a5' }"
-              aria-labelledby="q5
-"
+              aria-labelledby="q5"
             >
               <div class="accordion-body">
                 Yes, your tier discount applies first, then eligible <strong>vouchers</strong> and
@@ -481,15 +480,17 @@
     </section>
 
     <!-- ====================== CTA (Gradient) ====================== -->
-    <section class="section-pad text-center cta-grad d-flex justify-content-center align-items-center">
+    <section
+      class="section-pad text-center cta-grad d-flex justify-content-center align-items-center"
+    >
       <div class="container-xl">
         <h1 class="fw-bold mb-3 fs-3">Ready to join?</h1>
         <p class="text-secondary mb-5">
           Create your account and start exploring member perks today.
         </p>
-        <router-link class="btn btn-primary btn-lg btn-modern --lift fs-6" :to="{ name: 'signup' }"
-          >Create Account</router-link
-        >
+        <router-link class="btn btn-primary btn-lg btn-modern --lift fs-6" :to="{ name: 'signup' }">
+          Create Account
+        </router-link>
       </div>
     </section>
 
@@ -508,13 +509,27 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 const has = (name: string) => router.hasRoute(name as any)
 
-// which panel is open; null means all closed
+/* ======================
+   Navbar open/close state
+   ====================== */
+   const navOpen = ref<boolean>(false)
+const toggleNav = () => {
+  navOpen.value = !navOpen.value
+}
+
+// Close on route change
+watch(
+  () => router.currentRoute.value.fullPath,
+  () => (navOpen.value = false),
+)
+
+// which FAQ panel is open; null means all closed
 const open = ref<string | null>(null)
 const toggle = (id: string) => {
   open.value = open.value === id ? null : id
@@ -523,7 +538,7 @@ const toggle = (id: string) => {
 /** Hidden admin icon logic */
 const showAdminIcon = ref(false)
 
-// Secret keyboard combo: Alt + Shift + A to toggle; Esc to hide
+// Secret keyboard combo: Alt + Shift + A to toggle; Esc to hide & close nav
 function onKeydown(e: KeyboardEvent) {
   const key = e.key.toLowerCase()
   if (e.altKey && e.shiftKey && key === 'a') {
@@ -531,6 +546,7 @@ function onKeydown(e: KeyboardEvent) {
   }
   if (key === 'escape') {
     showAdminIcon.value = false
+    navOpen.value = false
   }
 }
 
@@ -554,13 +570,13 @@ onBeforeUnmount(() => {
 html {
   scroll-behavior: smooth;
 }
-/* Respect motion preferences */
 @media (prefers-reduced-motion: reduce) {
   * {
     animation: none !important;
     transition: none !important;
   }
 }
+
 /* 🔐 Admin icon button */
 .admin-icon-btn {
   width: 52px;
@@ -588,15 +604,20 @@ html {
   transform: translateY(-1px);
   box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
 }
+
 /* ---------- Navbar (glassy) ---------- */
 .glassy-nav {
   backdrop-filter: saturate(1.3) blur(10px);
   background: var(--glass-bg) !important;
   border-bottom: 1px solid var(--glass-bd) !important;
 }
-.navbar-toggler-icon {
-  background-image: var(--bs-navbar-toggler-icon-bg) !important;
+.navbar-toggler .bi {
+  line-height: 1;
 }
+.navbar-toggler:focus {
+  box-shadow: 0 0 0 0.1rem rgba(13, 110, 253, 0.25);
+}
+
 .modern-link {
   position: relative;
   transition: color 0.15s ease;
@@ -617,6 +638,7 @@ html {
 .modern-link:hover::after {
   transform: scaleX(1);
 }
+
 .simp-logo {
   height: 45px;
   cursor: default;
