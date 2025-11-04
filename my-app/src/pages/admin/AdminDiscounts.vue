@@ -545,579 +545,506 @@
     </div>
 
     <!-- Editor Modal (unchanged container; unified inside) -->
-    <div class="modal fade" id="discountEditor" tabindex="-1" ref="editorEl">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content editor-modal">
-          <div class="modal-header border-0 pb-0">
-            <div>
-              <h5 class="modal-title fw-semibold d-flex align-items-center gap-2">
-                <i class="bi bi-magic text-primary fs-5"></i>
-                <template v-if="form.id">Edit Discount</template>
-                <template v-else>
-                  New Discount
-                  <span v-if="form.insert_kind === 'scheduled'">— Scheduled</span>
-                  <span v-else>— Draft / Active</span>
-                </template>
-              </h5>
-              <p class="text-muted small mb-0">
-                Only percent and fixed amount discounts. Description is required.
-              </p>
-            </div>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" />
-          </div>
-
-          <div class="modal-body pt-3">
-            <!-- Section: Basic Info -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold breath">Basic Information</p>
-            <div class="row g-3 mb-3 breath">
-              <div class="col-12">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-type text-primary"></i>
-                  Title <span class="text-danger">*</span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-megaphone"></i></span>
-                  <input
-                    v-model.trim="form.title"
-                    type="text"
-                    class="form-control"
-                    placeholder="E.g., Payday Sale 10%"
-                    :class="errors.title && 'is-invalid'"
-                    :required="true"
-                  />
-                </div>
-                <div v-if="errors.title" class="invalid-feedback d-block">{{ errors.title }}</div>
+    <!-- NEW: Teleport the modal to body so it’s never blocked by local stacking contexts -->
+    <teleport to="body">
+      <div class="modal fade" id="discountEditor" tabindex="-1" ref="editorEl">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content editor-modal">
+            <div class="modal-header border-0 pb-0">
+              <div>
+                <h5 class="modal-title fw-semibold d-flex align-items-center gap-2">
+                  <i class="bi bi-magic text-primary fs-5"></i>
+                  <template v-if="form.id">Edit Discount</template>
+                  <template v-else>
+                    New Discount
+                    <span v-if="form.insert_kind === 'scheduled'">— Scheduled</span>
+                    <span v-else>— Draft / Active</span>
+                  </template>
+                </h5>
+                <p class="text-muted small mb-0">
+                  Only percent and fixed amount discounts. Description is required.
+                </p>
               </div>
-
-              <div class="col-12">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-textarea-t text-primary"></i>
-                  Description <span class="text-danger">*</span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-card-text"></i></span>
-                  <textarea
-                    v-model.trim="form.description"
-                    class="form-control"
-                    rows="2"
-                    placeholder="Describe what this discount is for…"
-                  ></textarea>
-                </div>
-              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" />
             </div>
 
-            <!-- Section: Discount Rule -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
-              Discount Rule
-            </p>
-            <div class="row g-3 mb-3 breath">
-              <!-- Type -->
-              <div class="col-12 col-md-4">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-tags text-primary"></i>
-                  Type <span v-if="!form.id" class="text-danger">*</span>
-                </label>
+            <div class="modal-body pt-3">
+              <!-- Section: Basic Info -->
+              <p class="text-uppercase small text-muted mb-2 fw-semibold breath">Basic Information</p>
+              <div class="row g-3 mb-3 breath">
+                <div class="col-12">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-type text-primary"></i>
+                    Title <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light"><i class="bi bi-megaphone"></i></span>
+                    <input
+                      v-model.trim="form.title"
+                      type="text"
+                      class="form-control"
+                      placeholder="E.g., Payday Sale 10%"
+                      :class="errors.title && 'is-invalid'"
+                      :required="true"
+                    />
+                  </div>
+                  <div v-if="errors.title" class="invalid-feedback d-block">{{ errors.title }}</div>
+                </div>
 
-                <!-- insert -->
-                <div class="input-group" v-if="!form.id">
-                  <span class="input-group-text bg-light"><i class="bi bi-tags"></i></span>
-                  <select
-                    v-model="form.type"
-                    class="form-select"
-                    :class="errors.type && 'is-invalid'"
-                    :required="true"
+                <div class="col-12">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-textarea-t text-primary"></i>
+                    Description <span class="text-danger">*</span>
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light"><i class="bi bi-card-text"></i></span>
+                    <textarea
+                      v-model.trim="form.description"
+                      class="form-control"
+                      rows="2"
+                      placeholder="Describe what this discount is for…"
+                    ></textarea>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Section: Discount Rule -->
+              <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Discount Rule</p>
+              <div class="row g-3 mb-3 breath">
+                <!-- Type -->
+                <div class="col-12 col-md-4">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-tags text-primary"></i>
+                    Type <span v-if="!form.id" class="text-danger">*</span>
+                  </label>
+
+                  <!-- insert -->
+                  <div class="input-group" v-if="!form.id">
+                    <span class="input-group-text bg-light"><i class="bi bi-tags"></i></span>
+                    <select v-model="form.type" class="form-select" :class="errors.type && 'is-invalid'" :required="true">
+                      <option value="percent">% Percentage</option>
+                      <option value="fixed_amount">₱ Fixed Amount</option>
+                    </select>
+                  </div>
+
+                  <!-- edit: display-only -->
+                  <div v-else class="display-field">
+                    <i class="bi bi-lock text-muted me-1"></i>
+                    <span class="badge rounded-pill bg-soft">{{ uiTypeLabel(form.type || 'percent') }}</span>
+                  </div>
+                  <div v-if="errors.type" class="invalid-feedback d-block">{{ errors.type }}</div>
+                </div>
+
+                <!-- Value -->
+                <div class="col-12 col-md-4">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-123 text-primary"></i>
+                    Value <span v-if="!form.id" class="text-danger">*</span>
+                  </label>
+
+                  <!-- insert -->
+                  <div class="input-group" v-if="!form.id">
+                    <span class="input-group-text bg-light" v-if="form.type === 'fixed_amount'">₱</span>
+                    <span class="input-group-text bg-light" v-else><i class="bi bi-percent"></i></span>
+                    <input
+                      v-model.number="form.value"
+                      :type="'number'"
+                      :min="form.type === 'percent' ? 0.01 : 0"
+                      :max="form.type === 'percent' ? 100 : undefined"
+                      step="0.01"
+                      class="form-control no-spinner"
+                      :class="errors.value && 'is-invalid'"
+                      :placeholder="form.type === 'percent' ? 'e.g. 10 for 10%' : 'e.g. 250.00'"
+                      :required="true"
+                    />
+                  </div>
+
+                  <!-- edit: display-only -->
+                  <div v-else class="display-field">
+                    <i class="bi bi-lock text-muted me-1"></i>
+                    <template v-if="(originalDiscount && originalDiscount.type === 'percent') || form.type === 'percent'">
+                      {{ formatNumber(originalDiscount?.percent_off ?? form.value ?? 0) }}%
+                    </template>
+                    <template v-else>
+                      ₱{{ formatNumber(originalDiscount?.amount_off ?? form.value ?? 0) }}
+                    </template>
+                  </div>
+                  <div v-if="form.id" class="form-text text-muted small">
+                    Discount value can’t be changed after creation.
+                  </div>
+                  <div v-if="errors.value" class="invalid-feedback d-block">{{ errors.value }}</div>
+                </div>
+
+                <!-- Code -->
+                <div class="col-12 col-md-4">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-upc-scan text-primary"></i>
+                    Code (optional)
+                  </label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light"><i class="bi bi-upc"></i></span>
+                    <input v-model.trim="form.code" type="text" class="form-control" placeholder="E.g., PAYDAY10" />
+                  </div>
+                  <div class="form-text">Unique (case-insensitive) if provided.</div>
+                </div>
+              </div>
+
+              <!-- Section: Applicability -->
+              <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Applicability</p>
+              <div class="row g-3 mb-3 breath">
+                <!-- insert: choose product -->
+                <div class="col-12 col-md-6 position-relative" ref="pickerEl" v-if="!form.id">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-box-seam text-primary"></i>
+                    Applicable Product
+                    <span class="badge bg-body-secondary text-secondary border small">Optional</span>
+                  </label>
+
+                  <div class="input-group product-picker-trigger" @click.stop="toggleProductDropdown">
+                    <span class="input-group-text bg-light"><i class="bi bi-box2"></i></span>
+                    <button type="button" class="form-control d-flex align-items-center justify-content-between gap-2">
+                      <div class="d-flex align-items-center gap-2 text-start">
+                        <div class="picker-thumb">
+                          <img v-if="selectedProduct?.signed_url" :src="selectedProduct.signed_url" alt="product" />
+                          <img v-else-if="selectedProduct?.product_url && selectedProduct.product_url.length" :src="selectedProduct.product_url[0]" alt="product" />
+                          <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+                        </div>
+                        <div class="picker-label">
+                          <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
+                          <span v-else class="text-muted">All products</span>
+                        </div>
+                      </div>
+                      <i class="bi" :class="productDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    </button>
+                    <button v-if="selectedProduct" type="button" class="btn btn-outline-secondary btn-sm" @click.stop="clearProduct">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+
+                  <!-- ORIGINAL in-modal dropdown kept; hidden when portal is active -->
+                  <div
+                    v-if="productDropdownOpen"
+                    :class="['product-dropdown','shadow-sm','rounded-3', portalReady ? 'd-none' : '']"
                   >
-                    <option value="percent">% Percentage</option>
-                    <option value="fixed_amount">₱ Fixed Amount</option>
+                    <div class="product-dropdown-item" @click="selectProduct(null)">
+                      <div class="picker-thumb"><div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">All products</div>
+                        <div class="text-muted small">Discount will apply to any product</div>
+                      </div>
+                    </div>
+
+                    <div v-for="p in products" :key="p.id" class="product-dropdown-item" @click="selectProduct(p)">
+                      <div class="picker-thumb">
+                        <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
+                        <img v-else-if="p.product_url && p.product_url.length" :src="p.product_url[0]" alt="p" />
+                        <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+                      </div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">{{ p.name }}</div>
+                        <div class="text-muted small">Stock: {{ p.stock }} <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <select v-model="form.product_id" class="d-none">
+                    <option :value="null">All</option>
+                    <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
                   </select>
                 </div>
 
                 <!-- edit: display-only -->
-                <div v-else class="display-field">
-                  <i class="bi bi-lock text-muted me-1"></i>
-                  <span class="badge rounded-pill bg-soft">{{
-                    uiTypeLabel(form.type || 'percent')
-                  }}</span>
-                </div>
-                <div v-if="errors.type" class="invalid-feedback d-block">{{ errors.type }}</div>
-              </div>
-
-              <!-- Value -->
-              <div class="col-12 col-md-4">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-123 text-primary"></i>
-                  Value <span v-if="!form.id" class="text-danger">*</span>
-                </label>
-
-                <!-- insert -->
-                <div class="input-group" v-if="!form.id">
-                  <span class="input-group-text bg-light" v-if="form.type === 'fixed_amount'"
-                    >₱</span
-                  >
-                  <span class="input-group-text bg-light" v-else
-                    ><i class="bi bi-percent"></i
-                  ></span>
-                  <input
-                    v-model.number="form.value"
-                    :type="'number'"
-                    :min="form.type === 'percent' ? 0.01 : 0"
-                    :max="form.type === 'percent' ? 100 : undefined"
-                    step="0.01"
-                    class="form-control no-spinner"
-                    :class="errors.value && 'is-invalid'"
-                    :placeholder="form.type === 'percent' ? 'e.g. 10 for 10%' : 'e.g. 250.00'"
-                    :required="true"
-                  />
-                </div>
-
-                <!-- edit: display-only -->
-                <div v-else class="display-field">
-                  <i class="bi bi-lock text-muted me-1"></i>
-                  <template
-                    v-if="
-                      (originalDiscount && originalDiscount.type === 'percent') ||
-                      form.type === 'percent'
-                    "
-                  >
-                    {{ formatNumber(originalDiscount?.percent_off ?? form.value ?? 0) }}%
-                  </template>
-                  <template v-else>
-                    ₱{{ formatNumber(originalDiscount?.amount_off ?? form.value ?? 0) }}
-                  </template>
-                </div>
-                <div v-if="form.id" class="form-text text-muted small">
-                  Discount value can’t be changed after creation.
-                </div>
-                <div v-if="errors.value" class="invalid-feedback d-block">{{ errors.value }}</div>
-              </div>
-
-              <!-- Code -->
-              <div class="col-12 col-md-4">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-upc-scan text-primary"></i>
-                  Code (optional)
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light"><i class="bi bi-upc"></i></span>
-                  <input
-                    v-model.trim="form.code"
-                    type="text"
-                    class="form-control"
-                    placeholder="E.g., PAYDAY10"
-                  />
-                </div>
-                <div class="form-text">Unique (case-insensitive) if provided.</div>
-              </div>
-            </div>
-
-            <!-- Section: Applicability -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
-              Applicability
-            </p>
-            <div class="row g-3 mb-3 breath">
-              <!-- insert: choose product -->
-              <div class="col-12 col-md-6 position-relative" ref="pickerEl" v-if="!form.id">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-box-seam text-primary"></i>
-                  Applicable Product
-                  <span class="badge bg-body-secondary text-secondary border small">Optional</span>
-                </label>
-
-                <div class="input-group product-picker-trigger" @click.stop="toggleProductDropdown">
-                  <span class="input-group-text bg-light"><i class="bi bi-box2"></i></span>
-                  <button
-                    type="button"
-                    class="form-control d-flex align-items-center justify-content-between gap-2"
-                  >
-                    <div class="d-flex align-items-center gap-2 text-start">
-                      <div class="picker-thumb">
-                        <img
-                          v-if="selectedProduct?.signed_url"
-                          :src="selectedProduct.signed_url"
-                          alt="product"
-                        />
-                        <img
-                          v-else-if="
-                            selectedProduct?.product_url && selectedProduct.product_url.length
-                          "
-                          :src="selectedProduct.product_url[0]"
-                          alt="product"
-                        />
-                        <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
-                      </div>
-                      <div class="picker-label">
-                        <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
-                        <span v-else class="text-muted">All products</span>
-                      </div>
-                    </div>
-                    <i
-                      class="bi"
-                      :class="productDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
-                    ></i>
-                  </button>
-                  <button
-                    v-if="selectedProduct"
-                    type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    @click.stop="clearProduct"
-                  >
-                    <i class="bi bi-x-lg"></i>
-                  </button>
-                </div>
-
-                <div v-if="productDropdownOpen" class="product-dropdown shadow-sm rounded-3">
-                  <div class="product-dropdown-item" @click="selectProduct(null)">
-                    <div class="picker-thumb">
-                      <div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div>
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="fw-semibold">All products</div>
-                      <div class="text-muted small">Discount will apply to any product</div>
-                    </div>
-                  </div>
-
-                  <div
-                    v-for="p in products"
-                    :key="p.id"
-                    class="product-dropdown-item"
-                    @click="selectProduct(p)"
-                  >
-                    <div class="picker-thumb">
-                      <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
-                      <img
-                        v-else-if="p.product_url && p.product_url.length"
-                        :src="p.product_url[0]"
-                        alt="p"
-                      />
-                      <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
-                    </div>
-                    <div class="flex-grow-1">
-                      <div class="fw-semibold">{{ p.name }}</div>
-                      <div class="text-muted small">
-                        Stock: {{ p.stock }}
-                        <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <select v-model="form.product_id" class="d-none">
-                  <option :value="null">All</option>
-                  <option v-for="p in products" :key="p.id" :value="p.id">{{ p.name }}</option>
-                </select>
-              </div>
-
-              <!-- edit: display-only -->
-              <div class="col-12 col-md-6" v-else>
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-box-seam text-primary"></i>
-                  Applicable Product
-                </label>
-                <div class="display-field">
-                  <i class="bi bi-lock text-muted me-1"></i>
-                  <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
-                  <span v-else class="text-muted">All products</span>
-                </div>
-                <div class="form-text small text-muted">
-                  Product applicability can’t be changed after creation.
-                </div>
-              </div>
-            </div>
-
-            <!-- Section: Availability & Limits -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
-              Availability & Limits
-            </p>
-
-            <!-- INSERT or EDIT(DRAFT/EXPIRED/SCHEDULED): Launch mode toggle (unified) -->
-            <div class="row g-3 breath" v-if="showCreateModeOptions">
-              <div class="col-12">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-rocket-takeoff text-primary"></i>
-                  Launch Mode
-                </label>
-                <div class="btn-group btn-group-sm" role="group" aria-label="Launch mode">
-                  <input
-                    class="btn-check"
-                    type="radio"
-                    id="lm-now"
-                    value="draftactive"
-                    v-model="form.insert_kind"
-                  />
-                  <label class="btn btn-outline-secondary" for="lm-now">
-                    <i class="bi bi-bolt"></i> Now / Draft
-                  </label>
-
-                  <input
-                    class="btn-check"
-                    type="radio"
-                    id="lm-sched"
-                    value="scheduled"
-                    v-model="form.insert_kind"
-                  />
-                  <label class="btn btn-outline-secondary" for="lm-sched">
-                    <i class="bi bi-calendar-event"></i> Schedule
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <div class="row g-3">
-              <!-- DRAFT/ACTIVE mode (insert OR edit draft/expired/scheduled choosing now) -->
-              <template v-if="showCreateModeOptions && form.insert_kind === 'draftactive'">
-                <div class="col-12 col-md-4 breath">
+                <div class="col-12 col-md-6" v-else>
                   <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-toggle-on text-primary"></i>
-                    Activate on Save?
+                    <i class="bi bi-box-seam text-primary"></i>
+                    Applicable Product
                   </label>
-                  <div class="form-check form-switch">
-                    <input
-                      class="form-check-input"
-                      type="checkbox"
-                      id="activateNow"
-                      v-model="form.activate_now"
-                    />
-                    <label class="form-check-label" for="activateNow">
-                      <span v-if="form.activate_now"
-                        >Will be <strong>Active</strong> immediately</span
-                      >
-                      <span v-else>Will be <strong>Draft</strong> (you can activate later)</span>
+                  <div class="display-field">
+                    <i class="bi bi-lock text-muted me-1"></i>
+                    <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
+                    <span v-else class="text-muted">All products</span>
+                  </div>
+                  <div class="form-text small text-muted">Product applicability can’t be changed after creation.</div>
+                </div>
+              </div>
+
+              <!-- Section: Availability & Limits -->
+              <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Availability & Limits</p>
+
+              <!-- INSERT or EDIT(DRAFT/EXPIRED/SCHEDULED): Launch mode toggle (unified) -->
+              <div class="row g-3 breath" v-if="showCreateModeOptions">
+                <div class="col-12">
+                  <label class="form-label d-flex align-items-center gap-1">
+                    <i class="bi bi-rocket-takeoff text-primary"></i>
+                    Launch Mode
+                  </label>
+                  <div class="btn-group btn-group-sm" role="group" aria-label="Launch mode">
+                    <input class="btn-check" type="radio" id="lm-now" value="draftactive" v-model="form.insert_kind" />
+                    <label class="btn btn-outline-secondary" for="lm-now">
+                      <i class="bi bi-bolt"></i> Now / Draft
+                    </label>
+
+                    <input class="btn-check" type="radio" id="lm-sched" value="scheduled" v-model="form.insert_kind" />
+                    <label class="btn btn-outline-secondary" for="lm-sched">
+                      <i class="bi bi-calendar-event"></i> Schedule
                     </label>
                   </div>
-                  <div class="form-text small">Start time will be set to <strong>now</strong>.</div>
                 </div>
+              </div>
 
-                <div class="col-12 col-md-4 breath">
-                  <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-calendar-event text-primary"></i>
-                    Starts At
-                  </label>
-                  <div class="display-field">Will start now on save.</div>
-                </div>
-              </template>
+              <div class="row g-3">
+                <!-- DRAFT/ACTIVE mode (insert OR edit draft/expired/scheduled choosing now) -->
+                <template v-if="showCreateModeOptions && form.insert_kind === 'draftactive'">
+                  <div class="col-12 col-md-4 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-toggle-on text-primary"></i>
+                      Activate on Save?
+                    </label>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" id="activateNow" v-model="form.activate_now" />
+                      <label class="form-check-label" for="activateNow">
+                        <span v-if="form.activate_now">Will be <strong>Active</strong> immediately</span>
+                        <span v-else>Will be <strong>Draft</strong> (you can activate later)</span>
+                      </label>
+                    </div>
+                    <div class="form-text small">Start time will be set to <strong>now</strong>.</div>
+                  </div>
 
-              <!-- SCHEDULED mode (insert OR edit choosing schedule) -->
-              <template v-if="showCreateModeOptions && form.insert_kind === 'scheduled'">
+                  <div class="col-12 col-md-4 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-calendar-event text-primary"></i>
+                      Starts At
+                    </label>
+                    <div class="display-field">Will start now on save.</div>
+                  </div>
+                </template>
+
+                <!-- SCHEDULED mode (insert OR edit choosing schedule) -->
+                <template v-if="showCreateModeOptions && form.insert_kind === 'scheduled'">
+                  <div class="col-12 col-md-6 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-calendar-event text-primary"></i>
+                      Starts At <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group datetime-aesthetic">
+                      <span class="input-group-text bg-light"><i class="bi bi-clock"></i></span>
+                      <input
+                        ref="startInputRef"
+                        v-model="form.starts_at"
+                        type="datetime-local"
+                        class="form-control"
+                        :class="errors.starts_at && 'is-invalid'"
+                        :min="minStart"
+                        :required="true"
+                      />
+                    </div>
+                    <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
+                    <div class="form-text text-warning small">Must be a future date and time.</div>
+                  </div>
+                </template>
+
+                <!-- EDITING (kept): only when not in create-mode options -->
+                <template v-if="form.id && !showCreateModeOptions">
+                  <div class="col-12 col-md-6 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-calendar-event text-primary"></i>
+                      Starts At
+                    </label>
+
+                    <div v-if="originalStatus === 'scheduled'" class="input-group datetime-aesthetic">
+                      <span class="input-group-text bg-light"><i class="bi bi-clock"></i></span>
+                      <input
+                        ref="startInputRef"
+                        v-model="form.starts_at"
+                        type="datetime-local"
+                        class="form-control"
+                        :class="errors.starts_at && 'is-invalid'"
+                        :min="minStart"
+                        :required="true"
+                      />
+                    </div>
+                    <div v-else class="display-field">
+                      <i class="bi bi-lock text-muted me-1"></i>
+                      {{ form.starts_at ? fmtDate(form.starts_at) : '—' }}
+                    </div>
+
+                    <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
+                    <div class="form-text small" :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'">
+                      <template v-if="originalStatus === 'scheduled'">
+                        Start time can be changed while the discount is scheduled (must be in the future).
+                      </template>
+                      <template v-else>
+                        Start time can’t be changed for non-scheduled discounts.
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Expires At (INSERT + EDIT) -->
                 <div class="col-12 col-md-6 breath">
                   <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-calendar-event text-primary"></i>
-                    Starts At <span class="text-danger">*</span>
+                    <i class="bi bi-calendar2-x text-primary"></i>
+                    Expires At <span class="text-danger">*</span>
                   </label>
                   <div class="input-group datetime-aesthetic">
-                    <span class="input-group-text bg-light"><i class="bi bi-clock"></i></span>
+                    <span class="input-group-text bg-light"><i class="bi bi-hourglass-split"></i></span>
                     <input
-                      ref="startInputRef"
-                      v-model="form.starts_at"
+                      ref="expiresInputRef"
+                      v-model="form.expires_at"
                       type="datetime-local"
                       class="form-control"
-                      :class="errors.starts_at && 'is-invalid'"
-                      :min="minStart"
+                      :class="errors.expires_at && 'is-invalid'"
+                      :min="expiresMin"
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.starts_at" class="invalid-feedback d-block">
-                    {{ errors.starts_at }}
-                  </div>
-                  <div class="form-text text-warning small">Must be a future date and time.</div>
+                  <div v-if="errors.expires_at" class="invalid-feedback d-block">{{ errors.expires_at }}</div>
+                  <div class="form-text small text-muted">Must be after the start time (or now).</div>
                 </div>
-              </template>
 
-              <!-- EDITING (kept): only when not in create-mode options -->
-              <template v-if="form.id && !showCreateModeOptions">
+                <!-- === Limits === -->
+
+                <!-- INSERT: per-user only (no global display) -->
+                <template v-if="!form.id">
+                  <div class="col-12 col-md-6 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-person-check text-primary"></i>
+                      Max Uses per User <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                      <input
+                        v-model.number="form.max_uses_per_user"
+                        type="number"
+                        min="1"
+                        step="1"
+                        class="form-control no-spinner"
+                        :class="errors.max_uses_per_user && 'is-invalid'"
+                        :required="true"
+                      />
+                    </div>
+                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                    <div class="form-text small text-muted">
+                      We’ll auto-calculate Global uses as <b>per-user × total users</b> on the server.
+                    </div>
+                  </div>
+                </template>
+
+                <!-- EDIT: only per-user (no global input) -->
+                <template v-else>
+                  <div class="col-12 col-md-6 breath">
+                    <label class="form-label d-flex align-items-center gap-1">
+                      <i class="bi bi-person-check text-primary"></i>
+                      Max Uses per User <span class="text-danger">*</span>
+                    </label>
+                    <div class="input-group">
+                      <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                      <input
+                        v-model.number="form.max_uses_per_user"
+                        type="number"
+                        min="1"
+                        step="1"
+                        class="form-control no-spinner"
+                        :class="errors.max_uses_per_user && 'is-invalid'"
+                        :required="true"
+                      />
+                    </div>
+                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                    <div class="form-text small text-muted">
+                      Global uses stays managed server-side; you can adjust per-user here.
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Min Subtotal + Max Cap -->
                 <div class="col-12 col-md-6 breath">
                   <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-calendar-event text-primary"></i>
-                    Starts At
-                  </label>
-
-                  <div v-if="originalStatus === 'scheduled'" class="input-group datetime-aesthetic">
-                    <span class="input-group-text bg-light"><i class="bi bi-clock"></i></span>
-                    <input
-                      ref="startInputRef"
-                      v-model="form.starts_at"
-                      type="datetime-local"
-                      class="form-control"
-                      :class="errors.starts_at && 'is-invalid'"
-                      :min="minStart"
-                      :required="true"
-                    />
-                  </div>
-                  <div v-else class="display-field">
-                    <i class="bi bi-lock text-muted me-1"></i>
-                    {{ form.starts_at ? fmtDate(form.starts_at) : '—' }}
-                  </div>
-
-                  <div v-if="errors.starts_at" class="invalid-feedback d-block">
-                    {{ errors.starts_at }}
-                  </div>
-                  <div
-                    class="form-text small"
-                    :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'"
-                  >
-                    <template v-if="originalStatus === 'scheduled'">
-                      Start time can be changed while the discount is scheduled (must be in the
-                      future).
-                    </template>
-                    <template v-else>
-                      Start time can’t be changed for non-scheduled discounts.
-                    </template>
-                  </div>
-                </div>
-              </template>
-
-              <!-- Expires At (INSERT + EDIT) -->
-              <div class="col-12 col-md-6 breath">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-calendar2-x text-primary"></i>
-                  Expires At <span class="text-danger">*</span>
-                </label>
-                <div class="input-group datetime-aesthetic">
-                  <span class="input-group-text bg-light"
-                    ><i class="bi bi-hourglass-split"></i
-                  ></span>
-                  <input
-                    ref="expiresInputRef"
-                    v-model="form.expires_at"
-                    type="datetime-local"
-                    class="form-control"
-                    :class="errors.expires_at && 'is-invalid'"
-                    :min="expiresMin"
-                    :required="true"
-                  />
-                </div>
-                <div v-if="errors.expires_at" class="invalid-feedback d-block">
-                  {{ errors.expires_at }}
-                </div>
-                <div class="form-text small text-muted">Must be after the start time (or now).</div>
-              </div>
-
-              <!-- === Limits === -->
-
-              <!-- INSERT: per-user only (no global display) -->
-              <template v-if="!form.id">
-                <div class="col-12 col-md-6 breath">
-                  <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-person-check text-primary"></i>
-                    Max Uses per User <span class="text-danger">*</span>
+                    <i class="bi bi-cash-coin text-primary"></i>
+                    Min Subtotal <span class="text-danger">*</span>
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text bg-light"
-                      ><i class="bi bi-person-badge"></i
-                    ></span>
+                    <span class="input-group-text bg-light">₱</span>
                     <input
-                      v-model.number="form.max_uses_per_user"
+                      v-model.number="form.min_subtotal"
                       type="number"
-                      min="1"
-                      step="1"
+                      min="0"
+                      step="0.01"
                       class="form-control no-spinner"
-                      :class="errors.max_uses_per_user && 'is-invalid'"
+                      :class="errors.min_subtotal && 'is-invalid'"
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
-                    {{ errors.max_uses_per_user }}
-                  </div>
-                  <div class="form-text small text-muted">
-                    We’ll auto-calculate Global uses as <b>per-user × total users</b> on the server.
-                  </div>
+                  <div v-if="errors.min_subtotal" class="invalid-feedback d-block">{{ errors.min_subtotal }}</div>
                 </div>
-              </template>
 
-              <!-- EDIT: only per-user (no global input) -->
-              <template v-else>
-                <div class="col-12 col-md-6 breath">
+                <div class="col-12 col-md-6 breath" v-if="(form.type === 'percent') || (originalDiscount && originalDiscount.type === 'percent')">
                   <label class="form-label d-flex align-items-center gap-1">
-                    <i class="bi bi-person-check text-primary"></i>
-                    Max Uses per User <span class="text-danger">*</span>
+                    <i class="bi bi-shield-check text-primary"></i>
+                    Max Discount Cap
+                    <span class="badge bg-body-secondary text-secondary border small">Optional</span>
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text bg-light"
-                      ><i class="bi bi-person-badge"></i
-                    ></span>
+                    <span class="input-group-text bg-light">₱</span>
                     <input
-                      v-model.number="form.max_uses_per_user"
+                      v-model.number="form.max_discount_amount"
                       type="number"
-                      min="1"
-                      step="1"
+                      :min="0"
+                      step="0.01"
                       class="form-control no-spinner"
-                      :class="errors.max_uses_per_user && 'is-invalid'"
-                      :required="true"
+                      :class="errors.max_discount_amount && 'is-invalid'"
+                      placeholder="e.g. 150.00"
                     />
                   </div>
-                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
-                    {{ errors.max_uses_per_user }}
-                  </div>
-                  <div class="form-text small text-muted">
-                    Global uses stays managed server-side; you can adjust per-user here.
+                  <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">{{ errors.max_discount_amount }}</div>
+                  <div class="form-text">
+                    Optional cap (₱0 or higher). Leave blank for no cap.
                   </div>
                 </div>
-              </template>
-
-              <!-- Min Subtotal + Max Cap -->
-              <div class="col-12 col-md-6 breath">
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-cash-coin text-primary"></i>
-                  Min Subtotal <span class="text-danger">*</span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light">₱</span>
-                  <input
-                    v-model.number="form.min_subtotal"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="form-control no-spinner"
-                    :class="errors.min_subtotal && 'is-invalid'"
-                    :required="true"
-                  />
-                </div>
-                <div v-if="errors.min_subtotal" class="invalid-feedback d-block">
-                  {{ errors.min_subtotal }}
-                </div>
-              </div>
-
-              <div
-                class="col-12 col-md-6 breath"
-                v-if="
-                  form.type === 'percent' ||
-                  (originalDiscount && originalDiscount.type === 'percent')
-                "
-              >
-                <label class="form-label d-flex align-items-center gap-1">
-                  <i class="bi bi-shield-check text-primary"></i>
-                  Max Discount Cap
-                  <span class="badge bg-body-secondary text-secondary border small">Optional</span>
-                </label>
-                <div class="input-group">
-                  <span class="input-group-text bg-light">₱</span>
-                  <input
-                    v-model.number="form.max_discount_amount"
-                    type="number"
-                    :min="0"
-                    step="0.01"
-                    class="form-control no-spinner"
-                    :class="errors.max_discount_amount && 'is-invalid'"
-                    placeholder="e.g. 150.00"
-                  />
-                </div>
-                <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">
-                  {{ errors.max_discount_amount }}
-                </div>
-                <div class="form-text">Optional cap (₱0 or higher). Leave blank for no cap.</div>
               </div>
             </div>
-          </div>
 
-          <div class="modal-footer border-0 pt-0">
-            <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button class="btn btn-primary" :disabled="busy.save || !canSave" @click="save">
-              <span v-if="busy.save" class="spinner-border spinner-border-sm me-2"></span>
-              Save
-            </button>
+            <div class="modal-footer border-0 pt-0">
+              <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+              <button class="btn btn-primary" :disabled="busy.save || !canSave" @click="save">
+                <span v-if="busy.save" class="spinner-border spinner-border-sm me-2"></span>
+                Save
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </teleport>
+
+    <!-- NEW: Portalized product dropdown (never underlaps; positioned under trigger) -->
+    <teleport to="body">
+      <div
+        v-if="productDropdownOpen && portalReady"
+        ref="portalDropdownEl"
+        class="product-dropdown portal-product-dropdown shadow-sm rounded-3"
+        :style="portalStyle"
+        @click.stop
+      >
+        <div class="product-dropdown-item" @click="selectProduct(null)">
+          <div class="picker-thumb"><div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div></div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">All products</div>
+            <div class="text-muted small">Discount will apply to any product</div>
+          </div>
+        </div>
+
+        <div v-for="p in products" :key="p.id" class="product-dropdown-item" @click="selectProduct(p)">
+          <div class="picker-thumb">
+            <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
+            <img v-else-if="p.product_url && p.product_url.length" :src="p.product_url[0]" alt="p" />
+            <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-semibold">{{ p.name }}</div>
+            <div class="text-muted small">Stock: {{ p.stock }} <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span></div>
+          </div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
@@ -1405,17 +1332,17 @@ const selectedProduct = computed(() => {
 })
 
 const productDropdownOpen = ref(false)
+
 function toggleProductDropdown() {
   productDropdownOpen.value = !productDropdownOpen.value
+  if (productDropdownOpen.value) nextTick(() => positionPortalDropdown())
 }
+
 function selectProduct(p: GameProduct | null) {
   form.value.product_id = p ? p.id : null
   productDropdownOpen.value = false
 }
-function clearProduct() {
-  form.value.product_id = null
-  productDropdownOpen.value = false
-}
+function clearProduct() { form.value.product_id = null; productDropdownOpen.value = false }
 
 function formatNumber(n: number | undefined | null) {
   if (n == null || Number.isNaN(n)) return '0'
@@ -1430,10 +1357,19 @@ function uiTypeLabel(t: DbDiscount['type']) {
   return t === 'percent' ? 'Percent' : 'Fixed amount'
 }
 
+// FIXED: Respect explicit statuses first so archived/paused/draft don't get overridden by expiry
 function computedStatusRaw(d: DbDiscount) {
+  // Highest priority: explicit states that should not be remapped
+  if (d.status === 'archived') return 'archived'
+  if (d.status === 'paused') return 'paused'
+  if (d.status === 'draft') return 'draft'
+  if (d.status === 'scheduled') return 'scheduled'
   if (d.status === 'expired') return 'expired'
-  const nowIso = new Date().toISOString()
-  if (d.expires_at && d.expires_at < nowIso) return 'expired'
+  if (d.status === 'active') {
+    const nowIso = new Date().toISOString()
+    if (d.expires_at && d.expires_at < nowIso) return 'expired'
+    return 'active'
+  }
   return d.status
 }
 function cardStatus(d: DbDiscount) {
@@ -1918,11 +1854,16 @@ async function remove(d: DbDiscount) {
   }
 }
 
+// ====== Outside click handler (now respects portal dropdown too) ======
+const portalDropdownEl = ref<HTMLElement | null>(null)
 function onWindowClick(e: Event) {
   const target = e.target as HTMLElement
   const el = pickerEl.value
+  const portal = portalDropdownEl.value
   if (!el) return
-  if (!el.contains(target)) productDropdownOpen.value = false
+  const clickedInsidePicker = el.contains(target)
+  const clickedInsidePortal = portal ? portal.contains(target) : false
+  if (!clickedInsidePicker && !clickedInsidePortal) productDropdownOpen.value = false
 }
 
 /* Optional Flatpickr enhancement — only runs if window.flatpickr exists */
@@ -2143,6 +2084,9 @@ function openEditor(d?: DbDiscount) {
 }
 
 function showEditor() {
+  // Ensure any local dropdown isn’t sitting above the modal
+  productDropdownOpen.value = false
+
   // @ts-ignore
   const bs = (window as any).bootstrap
   if (bs && editorEl.value) {
@@ -2152,15 +2096,52 @@ function showEditor() {
   nextTick(() => setupFlatpickr())
 }
 
+/* ====== PORTAL DROPDOWN POSITIONING ====== */
+const portalReady = ref(true) // enable portalized dropdown
+const portalRect = ref<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 0 })
+const portalStyle = computed(() => ({
+  top: `${portalRect.value.top}px`,
+  left: `${portalRect.value.left}px`,
+  width: `${portalRect.value.width}px`,
+}))
+
+function positionPortalDropdown() {
+  try {
+    const container = pickerEl.value
+    if (!container) return
+    const trigger = container.querySelector('.product-picker-trigger') as HTMLElement | null
+    if (!trigger) return
+    const r = trigger.getBoundingClientRect()
+    const scrollX = window.scrollX || window.pageXOffset
+    const scrollY = window.scrollY || window.pageYOffset
+    const GAP = 4
+    portalRect.value = {
+      top: r.bottom + scrollY + GAP,
+      left: r.left + scrollX,
+      width: r.width,
+    }
+  } catch (e) {
+    console.warn('positionPortalDropdown failed', e)
+  }
+}
+
+function onAnyScrollOrResize() {
+  if (productDropdownOpen.value && portalReady.value) positionPortalDropdown()
+}
+
 onMounted(async () => {
   await Promise.all([load(), loadProducts(), loadUserCount()])
   minStart.value = createLocalInputFromDate(new Date())
   validateRealtime()
   window.addEventListener('click', onWindowClick, true)
+  window.addEventListener('scroll', onAnyScrollOrResize, true)
+  window.addEventListener('resize', onAnyScrollOrResize, { passive: true })
   nextTick(() => setupFlatpickr())
 })
 onBeforeUnmount(() => {
   window.removeEventListener('click', onWindowClick, true)
+  window.removeEventListener('scroll', onAnyScrollOrResize, true)
+  window.removeEventListener('resize', onAnyScrollOrResize as any)
 })
 </script>
 
@@ -2189,7 +2170,6 @@ onBeforeUnmount(() => {
     transform: translateY(0) scale(1);
   }
 }
-/* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .discounts-page,
   .breath,
@@ -2199,19 +2179,10 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Utility to make ANY section breathe (1000ms) */
-.breath {
-  animation: breath-in 500ms ease-out both;
-}
-.breath-delay-1 {
-  animation-delay: 0.05s;
-}
-.breath-delay-2 {
-  animation-delay: 0.1s;
-}
-.breath-delay-3 {
-  animation-delay: 0.15s;
-}
+.breath { animation: breath-in 500ms ease-out both; }
+.breath-delay-1 { animation-delay: .05s; }
+.breath-delay-2 { animation-delay: .1s; }
+.breath-delay-3 { animation-delay: .15s; }
 
 .filters-card,
 .list-card {
@@ -2312,14 +2283,8 @@ onBeforeUnmount(() => {
   box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
 }
 
-/* UPDATED: Slight "breath" on cards as they render in (1000ms) */
-.modern-card {
-  border-radius: 1.1rem;
-  animation: breath-in 500ms ease-out both;
-}
-.modern-card .badge {
-  text-transform: lowercase;
-}
+.modern-card{ border-radius: 1.1rem; animation: breath-in 500ms ease-out both; }
+.modern-card .badge{ text-transform: lowercase; }
 
 .value-bubble {
   width: 70px;
@@ -2424,15 +2389,13 @@ onBeforeUnmount(() => {
 }
 
 /* Skeleton */
-.skeleton {
-  background: linear-gradient(120deg, #edf2f7 25%, #e2e8f0 37%, #edf2f7 63%);
-  background-size: 400% 100%;
-  animation:
-    shimmer 1.6s ease infinite,
-    breath-in 500ms ease-out both; /* UPDATED: breath-in 1000ms */
-  border-radius: 1.25rem;
-  min-height: 10rem;
-  padding: 1rem;
+.skeleton { 
+  background: linear-gradient(120deg, #edf2f7 25%, #e2e8f0 37%, #edf2f7 63%); 
+  background-size: 400% 100%; 
+  animation: shimmer 1.6s ease infinite, breath-in 500ms ease-out both;
+  border-radius: 1.25rem; 
+  min-height: 10rem; 
+  padding: 1rem; 
 }
 .skeleton-line {
   height: 8px;
@@ -2453,7 +2416,6 @@ onBeforeUnmount(() => {
   }
 }
 
-/* number input arrows */
 input[type='number'].no-spinner::-webkit-outer-spin-button,
 input[type='number'].no-spinner::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -2463,13 +2425,7 @@ input[type='number'].no-spinner {
   appearance: textfield;
 }
 
-/* clamp */
-.line-clamp-2 {
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
 .tiny-text {
   font-size: 0.625rem;
@@ -2575,9 +2531,22 @@ input[type='time']::-webkit-calendar-picker-indicator {
 }
 
 /* responsive tweak */
-@media (max-width: 575.98px) {
-  .title-text {
-    max-width: 10rem;
-  }
+@media (max-width: 575.98px) { .title-text { max-width: 10rem; } }
+</style>
+
+<!-- EXTRA: global (non-scoped) z-index guard so modal/backdrop always sit above sticky/blurred parents -->
+<style>
+.modal-backdrop { z-index: 1080 !important; }
+.modal { z-index: 1090 !important; }
+
+/* NEW: Portal dropdown must sit above the modal and not be clipped */
+.portal-product-dropdown {
+  position: fixed !important;
+  z-index: 1200 !important;
+  max-height: 260px;
+  overflow-y: auto;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  background: #fff;
+  margin-top: 0; /* already spaced via JS */
 }
 </style>

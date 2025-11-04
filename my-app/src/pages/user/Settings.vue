@@ -83,12 +83,121 @@
           </div>
         </form>
 
+        <!-- Address section (NEW) -->
+        <hr class="my-4" />
+        <div class="d-flex flex-wrap align-items-center gap-3">
+          <div class="flex-grow-1">
+            <div class="fw-semibold">Delivery Address</div>
+            <div class="text-secondary small" v-if="addressSummary">
+              {{ addressSummary }}
+            </div>
+            <div class="text-secondary small" v-else>
+              No address yet. Add your phone and address details.
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline-primary btn-sm" @click="openAddressModal">
+            <i class="bi bi-pencil-square me-1"></i>Edit Address
+          </button>
+        </div>
+
         <!-- Status / errors -->
         <p v-if="message.text" class="mt-3" :class="message.ok ? 'text-success' : 'text-danger'">
           {{ message.text }}
         </p>
       </div>
     </div>
+
+    <!-- Edit Address Modal (NEW) -->
+    <div v-if="showAddressModal" class="modal d-block" tabindex="-1" role="dialog" aria-modal="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 shadow">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Address</h5>
+            <button type="button" class="btn-close" @click="closeAddressModal" aria-label="Close"></button>
+          </div>
+          <form @submit.prevent="saveAddress">
+            <div class="modal-body">
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label">Phone</label>
+                  <input
+                    type="tel"
+                    class="form-control"
+                    v-model.trim="addrForm.phone"
+                    placeholder="09xxxxxxxxx"
+                    :disabled="busyAddressSave"
+                  />
+                </div>
+                <div class="col-12">
+                  <label class="form-label">Address line 1</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model.trim="addrForm.address_line1"
+                    placeholder="House/Unit/Street"
+                    :disabled="busyAddressSave"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Barangay</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model.trim="addrForm.barangay"
+                    placeholder="Barangay"
+                    :disabled="busyAddressSave"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">City / Municipality</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model.trim="addrForm.city"
+                    placeholder="City / Municipality"
+                    :disabled="busyAddressSave"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Province / Region</label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    v-model.trim="addrForm.province"
+                    placeholder="Province / Region"
+                    :disabled="busyAddressSave"
+                  />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Postal Code</label>
+                  <input
+  type="text"
+  inputmode="numeric"
+  maxlength="4"
+  class="form-control"
+  v-model.trim="addrForm.postal_code"
+  placeholder="4-digit ZIP"
+  @input="onZipInput"
+  :disabled="busyAddressSave"
+/>
+
+                </div>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-link text-secondary" @click="closeAddressModal" :disabled="busyAddressSave">
+                Cancel
+              </button>
+              <button type="submit" class="btn btn-primary" :disabled="busyAddressSave">
+                <span v-if="busyAddressSave" class="spinner-border spinner-border-sm me-1" role="status"></span>
+                Save Address
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    <div v-if="showAddressModal" class="modal-backdrop fade show"></div>
   </div>
 </template>
 
@@ -100,6 +209,14 @@ import { currentUser } from '@/lib/authState'
 
 const routers = useRouter()
 const users = computed(() => currentUser.value)
+function onZipInput(e: Event) {
+  const el = e.target as HTMLInputElement
+  const cleaned = (el.value || '').replace(/\D/g, '').slice(0, 4)
+  if (cleaned !== el.value) {
+    console.log('[ZIP sanitize] from:', el.value, '->', cleaned)
+  }
+  addrForm.value.postal_code = cleaned
+}
 
 onMounted(async () => {
   if (!users.value) {
@@ -118,7 +235,14 @@ const router = useRouter()
 
 // --- State ---
 const user = ref<User | null>(null)
-const dbRow = ref<{ id: string; full_name: string; email: string; profile_url: string | null } | null>(null)
+const dbRow = ref<{
+  id: string
+  full_name: string
+  email: string
+  profile_url: string | null
+  phone_number: string | null
+  address: string | null
+} | null>(null)
 
 const form = ref({
   full_name: '',
@@ -128,6 +252,38 @@ const form = ref({
 const avatarUrl = ref<string | null>(null)   // signed URL for display
 const busy = ref({ save: false, remove: false, delete: false })
 const message = ref<{ ok: boolean; text: string }>({ ok: true, text: '' })
+
+// === Address state (NEW) ===
+const addrCurrent = ref({
+  phone: '',
+  address_line1: '',
+  barangay: '',
+  city: '',
+  province: '',
+  postal_code: ''
+})
+const addrForm = ref({
+  phone: '',
+  address_line1: '',
+  barangay: '',
+  city: '',
+  province: '',
+  postal_code: ''
+})
+const showAddressModal = ref(false)
+const busyAddressSave = ref(false)
+
+const addressSummary = computed(() => {
+  const parts = [
+    addrCurrent.value.address_line1,
+    addrCurrent.value.barangay,
+    addrCurrent.value.city,
+    addrCurrent.value.province,
+    addrCurrent.value.postal_code
+  ].filter(Boolean)
+  const phone = addrCurrent.value.phone ? `${addrCurrent.value.phone} • ` : ''
+  return parts.length ? `${phone}${parts.join(', ')}` : ''
+})
 
 // --- Helpers ---
 const initials = computed(() => {
@@ -155,6 +311,63 @@ async function fetchSignedUrlIfAny() {
   }
 }
 
+// Parse "address" string into parts (Address Line 1, Brgy, City, Province, ZIP)
+function parseAddressToParts(addr: string | null) {
+  const out = {
+    address_line1: '',
+    barangay: '',
+    city: '',
+    province: '',
+    postal_code: ''
+  }
+  if (!addr) return out
+  const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
+  if (!parts.length) return out
+
+  // If last part is 4-digit zip
+  const last = parts[parts.length - 1] || ''
+  if (/^\d{4}$/.test(last)) {
+    out.postal_code = last
+    parts.pop()
+  }
+
+  // Remaining parts from end: province, city, barangay, then rest is line1
+  if (parts.length >= 3) {
+    out.province = parts.pop() as string
+    out.city = parts.pop() as string
+    out.barangay = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 2) {
+    out.city = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else {
+    out.address_line1 = parts.join(', ')
+  }
+  return out
+}
+
+// Build single-line address from parts
+function buildAddressString(x: {
+  address_line1?: string
+  barangay?: string
+  city?: string
+  province?: string
+  postal_code?: string
+}) {
+  return [
+    x.address_line1 || '',
+    x.barangay || '',
+    x.city || '',
+    x.province || '',
+    x.postal_code || ''
+  ].filter(Boolean).join(', ')
+}
+
+function coalesceNonEmpty(current: string, incoming: string) {
+  const v = (incoming ?? '').trim()
+  return v.length ? v : (current ?? '')
+}
+
 async function loadMe() {
   const { data: ures } = await supabase.auth.getUser()
   user.value = ures.user ?? null
@@ -165,7 +378,7 @@ async function loadMe() {
 
   const { data, error } = await supabase
     .from('users')
-    .select('id, full_name, email, profile_url')
+    .select('id, full_name, email, profile_url, phone_number, address')
     .eq('id', user.value.id)
     .maybeSingle()
 
@@ -177,6 +390,17 @@ async function loadMe() {
   dbRow.value = data
   form.value.full_name = data?.full_name ?? ''
   form.value.email = data?.email ?? ''
+
+  // seed current address state
+  const parsed = parseAddressToParts(data?.address ?? null)
+  addrCurrent.value = {
+    phone: data?.phone_number ?? '',
+    address_line1: parsed.address_line1,
+    barangay: parsed.barangay,
+    city: parsed.city,
+    province: parsed.province,
+    postal_code: parsed.postal_code
+  }
 
   await fetchSignedUrlIfAny()
 }
@@ -310,16 +534,46 @@ async function deleteAccount() {
       // ignore storage deletion errors here; server-side cleanup may also run
     }
 
-    const { data, error } = await supabase.functions.invoke('delete-account-user', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${session.access_token}`,
-        'Content-Type': 'application/json',
-      },
-      body: {}, // optional
-    })
+  const { data, error } = await supabase.functions.invoke('delete-account-user', {
+  method: 'POST',
+  headers: {
+    Authorization: `Bearer ${session.access_token}`,
+    'Content-Type': 'application/json',
+  },
+  body: {},
+})
 
-    if (error) throw error
+if (error) {
+  // Supabase v2: error.context is a Response
+  let server: any = null
+  try {
+    const resp = (error as any).context
+    server = resp && typeof resp.json === 'function'
+      ? await resp.json()
+      : (data ?? null)
+  } catch {
+    server = data ?? null
+  }
+
+  const step = server?.step ? ` [step: ${server.step}]` : ''
+  const reason = server?.error || (error as any).message || 'Unknown'
+  console.error('delete-account-user failed:', { server, error })
+  setMessage(false, `Delete failed${step}: ${reason}`)
+  busy.value.delete = false
+  return
+}
+
+// success
+setMessage(true, 'Your account has been deleted.')
+await supabase.auth.signOut()
+try {
+  await router.replace({ name: 'home' })
+} catch {
+  window.location.href = '/'
+}
+
+
+
 
     await supabase.auth.signOut()
 
@@ -335,6 +589,60 @@ async function deleteAccount() {
     setMessage(false, e?.message || 'Failed to delete account.')
   } finally {
     busy.value.delete = false
+  }
+}
+
+/* === Address modal handlers (NEW) === */
+function openAddressModal() {
+  // prefill form from current state
+  addrForm.value = { ...addrCurrent.value }
+  showAddressModal.value = true
+}
+function closeAddressModal() {
+  showAddressModal.value = false
+}
+
+async function saveAddress() {
+  if (!user.value?.id) return
+  busyAddressSave.value = true
+  setMessage(true, '')
+
+  try {
+    // Merge only non-empty fields to avoid wiping existing details by accident
+    const merged = {
+      phone: coalesceNonEmpty(addrCurrent.value.phone, addrForm.value.phone),
+      address_line1: coalesceNonEmpty(addrCurrent.value.address_line1, addrForm.value.address_line1),
+      barangay: coalesceNonEmpty(addrCurrent.value.barangay, addrForm.value.barangay),
+      city: coalesceNonEmpty(addrCurrent.value.city, addrForm.value.city),
+      province: coalesceNonEmpty(addrCurrent.value.province, addrForm.value.province),
+      postal_code: coalesceNonEmpty(addrCurrent.value.postal_code, addrForm.value.postal_code)
+    }
+
+    const addressString = buildAddressString(merged)
+
+    const { error } = await supabase
+      .from('users')
+      .update({
+        phone_number: merged.phone || null,
+        address: addressString || null
+      })
+      .eq('id', user.value.id)
+
+    if (error) throw error
+
+    // reflect locally
+    addrCurrent.value = { ...merged }
+    if (dbRow.value) {
+      dbRow.value.phone_number = merged.phone
+      dbRow.value.address = addressString
+    }
+
+    setMessage(true, 'Address saved.')
+    closeAddressModal()
+  } catch (e: any) {
+    setMessage(false, e?.message || 'Failed to save address.')
+  } finally {
+    busyAddressSave.value = false
   }
 }
 
@@ -366,5 +674,16 @@ onMounted(loadMe)
   place-items: center;
   font-weight: 700;
   color: #1c2430;
+}
+
+/* Modal helpers (no Bootstrap JS required) */
+.modal.d-block {
+  background: transparent;
+}
+.modal-backdrop {
+  z-index: 1040;
+}
+.modal {
+  z-index: 1050;
 }
 </style>

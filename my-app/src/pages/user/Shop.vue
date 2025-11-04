@@ -9,6 +9,13 @@
             Delivery details
             <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
           </div>
+
+          <!-- ADDED: shipping skeleton -->
+          <div v-if="!shippingLoaded" class="mt-1">
+            <div class="skeleton skeleton-text w-50 mb-1"></div>
+            <div class="skeleton skeleton-text w-75"></div>
+          </div>
+
           <div class="text-muted small" v-if="shippingLoaded && hasShipping">
             {{ shippingSummary }}
           </div>
@@ -16,10 +23,14 @@
             No delivery info yet. Add your contact number and address for faster checkout.
           </div>
         </div>
-        <button class="btn btn-outline-primary" @click="openShippingModal">
-          <i class="bi bi-pencil-square me-1"></i>
-          {{ hasShipping ? 'Edit' : 'Set up' }} address
-        </button>
+        <router-link
+  class="btn btn-outline-primary"
+  :to="{ name: 'user.settings' }"
+>
+  <i class="bi bi-pencil-square me-1"></i>
+  {{ hasShipping ? 'Manage in Settings' : 'Set up in Settings' }}
+</router-link>
+
       </div>
     </div>
     <!-- Shipping modal -->
@@ -236,7 +247,27 @@
             </button>
           </div>
           <div class="card-body p-0">
-            <div v-if="pendingGroups.length === 0" class="p-3 text-muted small">
+            <!-- ADDED: pending list skeleton -->
+            <div v-if="pendingLoading" class="p-3">
+              <div v-for="i in 3" :key="'pend-skel-'+i" class="mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="pending-thumb skeleton"></div>
+                    <div>
+                      <div class="skeleton skeleton-text w-50 mb-1"></div>
+                      <div class="skeleton skeleton-text w-25"></div>
+                    </div>
+                  </div>
+                  <div class="skeleton skeleton-pill"></div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="skeleton skeleton-text w-25"></div>
+                  <div class="skeleton skeleton-btn"></div>
+                </div>
+              </div>
+            </div>
+
+            <div v-else-if="pendingGroups.length === 0" class="p-3 text-muted small">
               No pending orders yet.
             </div>
             <ul v-else class="list-group list-group-flush">
@@ -312,10 +343,37 @@
         <!-- /Pending Orders List -->
       </aside>
       <!-- Products -->
-      <section class="col-12 col-xxl-9">
+      <section class="col-12 col-xxl-9" :class="{ 'is-loading': loading }">
+
         <div v-if="loading" class="text-center text-muted py-5">
           <span class="spinner-border me-2"></span> Loading products…
+
+          <!-- ADDED: product card skeletons -->
+          <div class="row g-3 mt-3 text-start">
+
+            <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="n in Math.min(pageSize, 12)" :key="'prod-skel-'+n">
+              <div class="card h-100 product-card border-0 shadow-sm">
+                <div class="ratio product-thumb bg-light">
+                  <div class="skeleton skeleton-fill rounded-top"></div>
+                </div>
+                <div class="card-body">
+                  <div class="skeleton skeleton-text w-75 mb-2"></div>
+                  <div class="skeleton skeleton-text w-100 mb-1"></div>
+                  <div class="skeleton skeleton-text w-50 mb-3"></div>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div class="skeleton skeleton-text w-25"></div>
+                    <div class="skeleton skeleton-pill"></div>
+                  </div>
+                </div>
+                <div class="card-footer bg-white border-0">
+                  <div class="skeleton skeleton-input mb-2"></div>
+                  <div class="skeleton skeleton-btn"></div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+
         <div v-else class="row g-3">
           <div v-if="products.length === 0" class="col-12">
             <div class="text-center text-muted py-5">
@@ -480,7 +538,22 @@
           <button class="btn btn-sm btn-outline-secondary" @click="closeCartModal">✕</button>
         </div>
         <div class="card-body">
-          <div v-if="cartItems.length === 0" class="text-center text-muted">
+          <!-- ADDED: cart skeleton -->
+          <div v-if="cartLoading" class="vstack gap-3">
+            <div v-for="i in 3" :key="'cart-skel-'+i" class="d-flex align-items-center gap-3 border rounded-3 p-2">
+              <div class="cart-thumb ratio ratio-1x1 bg-light">
+                <div class="skeleton w-100 h-100 rounded"></div>
+              </div>
+              <div class="flex-grow-1">
+                <div class="skeleton skeleton-text w-75 mb-2"></div>
+                <div class="skeleton skeleton-text w-25 mb-3"></div>
+                <div class="skeleton skeleton-input mb-2" style="max-width: 140px;"></div>
+                <div class="skeleton skeleton-text w-50"></div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="cartItems.length === 0" class="text-center text-muted">
             <i class="bi bi-bag-x fs-2 d-block mb-2"></i>
             Your cart is empty.
           </div>
@@ -769,61 +842,74 @@
           </div>
           <!-- Order Discount (code or select) -->
           <div class="border rounded-3 p-3" v-if="discountMode === 'discount'">
-            <div class="fw-semibold mb-2"><i class="bi bi-gift me-2"></i>Order Discount</div>
-            <div class="row g-3 align-items-end">
-              <div class="col-md-6">
-                <label class="form-label">Discount Code</label>
-                <div class="input-group">
-                  <input
-                    v-model.trim="discountCodeInput"
-                    type="text"
-                    class="form-control"
-                    placeholder="Enter discount code"
-                    @keyup.enter="applyCode()"
-                  />
-                  <button class="btn btn-outline-secondary" @click="applyCode()">Apply</button>
+            <!-- ADDED: discounts skeleton -->
+            <template v-if="discountsLoading">
+              <div class="fw-semibold mb-2"><i class="bi bi-gift me-2"></i>Order Discount</div>
+              <div class="skeleton skeleton-input mb-3"></div>
+              <div class="skeleton skeleton-select mb-3"></div>
+              <div class="skeleton skeleton-text w-100 mb-1"></div>
+              <div class="skeleton skeleton-text w-75 mb-1"></div>
+              <div class="skeleton skeleton-text w-50"></div>
+            </template>
+
+            <!-- EXISTING CONTENT, now under v-else -->
+            <template v-else>
+              <div class="fw-semibold mb-2"><i class="bi bi-gift me-2"></i>Order Discount</div>
+              <div class="row g-3 align-items-end">
+                <div class="col-md-6">
+                  <label class="form-label">Discount Code</label>
+                  <div class="input-group">
+                    <input
+                      v-model.trim="discountCodeInput"
+                      type="text"
+                      class="form-control"
+                      placeholder="Enter discount code"
+                      @keyup.enter="applyCode()"
+                    />
+                    <button class="btn btn-outline-secondary" @click="applyCode()">Apply</button>
+                  </div>
+                  <div class="small mt-1" :class="codeStatusClass">
+                    {{ codeStatusText }}
+                  </div>
                 </div>
-                <div class="small mt-1" :class="codeStatusClass">
-                  {{ codeStatusText }}
+                <div class="col-md-6">
+                  <label class="form-label">Or pick an active discount</label>
+                  <select class="form-select" v-model="selectedDiscountId">
+                    <option :value="''">— Select —</option>
+                    <option v-for="d in discounts" :key="d.id" :value="d.id">
+                      {{ d.title }} •
+                      <template v-if="d.type === 'percent'"
+                        >-{{ Number(d.percent_off).toFixed(2) }}%</template
+                      >
+                      <template v-else-if="d.type === 'fixed_amount'"
+                        >-₱ {{ number(d.amount_off) }}</template
+                      >
+                      <template v-else>Free shipping</template>
+                      <template v-if="Number(d.min_subtotal) > 0">
+                        (min ₱ {{ number(d.min_subtotal) }})
+                      </template>
+                    </option>
+                  </select>
                 </div>
               </div>
-              <div class="col-md-6">
-                <label class="form-label">Or pick an active discount</label>
-                <select class="form-select" v-model="selectedDiscountId">
-                  <option :value="''">— Select —</option>
-                  <option v-for="d in discounts" :key="d.id" :value="d.id">
-                    {{ d.title }} •
-                    <template v-if="d.type === 'percent'"
-                      >-{{ Number(d.percent_off).toFixed(2) }}%</template
-                    >
-                    <template v-else-if="d.type === 'fixed_amount'"
-                      >-₱ {{ number(d.amount_off) }}</template
-                    >
-                    <template v-else>Free shipping</template>
-                    <template v-if="Number(d.min_subtotal) > 0">
-                      (min ₱ {{ number(d.min_subtotal) }})
-                    </template>
-                  </option>
-                </select>
+              <div class="mt-3 small">
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="text-muted">Subtotal (before order discount)</span>
+                  <span>₱ {{ number(cartGrandTotalCreditsOff) }}</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="text-muted">Order Discount</span>
+                  <span class="fw-semibold">− ₱ {{ number(orderLevelDiscountAmount) }}</span>
+                </div>
+                <div class="d-flex align-items-center justify-content-between fs-6 mt-1">
+                  <span class="fw-semibold">Total after order discount</span>
+                  <span class="fw-bold">₱ {{ number(cartTotalAfterOrderDiscount) }}</span>
+                </div>
+                <div v-if="orderDiscountIneligibleReason" class="text-danger mt-2">
+                  {{ orderDiscountIneligibleReason }}
+                </div>
               </div>
-            </div>
-            <div class="mt-3 small">
-              <div class="d-flex align-items-center justify-content-between">
-                <span class="text-muted">Subtotal (before order discount)</span>
-                <span>₱ {{ number(cartGrandTotalCreditsOff) }}</span>
-              </div>
-              <div class="d-flex align-items-center justify-content-between">
-                <span class="text-muted">Order Discount</span>
-                <span class="fw-semibold">− ₱ {{ number(orderLevelDiscountAmount) }}</span>
-              </div>
-              <div class="d-flex align-items-center justify-content-between fs-6 mt-1">
-                <span class="fw-semibold">Total after order discount</span>
-                <span class="fw-bold">₱ {{ number(cartTotalAfterOrderDiscount) }}</span>
-              </div>
-              <div v-if="orderDiscountIneligibleReason" class="text-danger mt-2">
-                {{ orderDiscountIneligibleReason }}
-              </div>
-            </div>
+            </template>
           </div>
           <!-- Items total -->
           <div class="d-flex align-items-center justify-content-between fs-5">
@@ -847,187 +933,234 @@
           <button class="btn btn-sm btn-outline-secondary" @click="closePlacePending">✕</button>
         </div>
         <div class="card-body vstack gap-3">
-          <div class="border rounded-3 p-3">
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">
-                <i class="bi bi-receipt me-2"></i>Reference:
-                <span class="text-monospace">{{ pendingRefNumber }}</span>
-              </div>
-              <span class="badge rounded-pill text-bg-info">Pending</span>
+
+          <!-- ADDED: place-pending skeleton -->
+          <template v-if="pendingPlaceLoading">
+            <div class="border rounded-3 p-3">
+              <div class="skeleton skeleton-text w-25 mb-2"></div>
+              <div class="skeleton skeleton-pill" style="width: 80px;"></div>
             </div>
-          </div>
-          <!-- Delivery (READ-ONLY) -->
-          <div class="border rounded-3 p-3">
-            <div class="fw-semibold mb-2"><i class="bi bi-truck me-2"></i>Delivery details</div>
-            <div class="small">
-              <div><strong>Phone:</strong> {{ shipping.phone || '—' }}</div>
-              <div><strong>Address:</strong> {{ shippingSummary || '—' }}</div>
+            <div class="border rounded-3 p-3">
+              <div class="skeleton skeleton-text w-50 mb-2"></div>
+              <div class="skeleton skeleton-text w-75"></div>
             </div>
-          </div>
-          <!-- Payment (READ-ONLY) -->
-          <div class="border rounded-3 p-3">
-            <div class="fw-semibold mb-2"><i class="bi bi-wallet2 me-2"></i>Payment method</div>
-            <span class="badge text-bg-secondary">
-              {{ paymentMethod === 'ewallet' ? 'E-Wallet' : 'Cash on Delivery' }}
-            </span>
-            <div v-if="paymentMethod === 'ewallet'" class="text-muted small mt-1">
-              Balance: ₱ {{ number(userBalance) }}
+            <div class="border rounded-3 p-3">
+              <div class="skeleton skeleton-text w-25 mb-2"></div>
+              <div class="skeleton skeleton-text w-25"></div>
             </div>
-            <div
-              v-if="paymentMethod === 'ewallet' && !enoughBalanceForOrder"
-              class="text-danger small mt-1"
-            >
-              Insufficient E-Wallet balance for order total.
-            </div>
-          </div>
-          <!-- Discount (READ-ONLY) -->
-          <div class="border rounded-3 p-3">
-            <div class="fw-semibold mb-2"><i class="bi bi-percent me-2"></i>Discount</div>
-            <!-- Credits mode summary -->
-            <template v-if="discountMode === 'credits'">
-              <div class="small">
-                Membership discount via Discount Credits
-                <span class="text-muted">
-                  (estimated used: ₱ {{ number(totalDiscountCreditsUsedIfCreditsMode) }})
-                </span>
-              </div>
-            </template>
-            <!-- Order-level discount summary -->
-            <template v-else-if="discountMode === 'discount'">
-              <div class="small">
-                <div class="mb-1">
-                  <strong>Applied:</strong>
-                  <template v-if="resolvedDiscountByCode">
-                    {{ resolvedDiscountByCode.title }}
-                  </template>
-                  <template v-else-if="selectedDiscountId">
-                    {{ discounts.find((d) => d.id === selectedDiscountId)?.title || '—' }}
-                  </template>
-                  <template v-else>—</template>
-                </div>
-                <div class="d-flex align-items-center justify-content-between">
-                  <span class="text-muted">Subtotal (before order discount)</span>
-                  <span>₱ {{ number(cartGrandTotalCreditsOff) }}</span>
-                </div>
-                <div class="d-flex align-items-center justify-content-between">
-                  <span class="text-muted">Order Discount</span>
-                  <span class="fw-semibold">− ₱ {{ number(orderLevelDiscountAmount) }}</span>
-                </div>
-                <div class="d-flex align-items-center justify-content-between fs-6 mt-1">
-                  <span class="fw-semibold">Total after order discount</span>
-                  <span class="fw-bold">₱ {{ number(cartTotalAfterOrderDiscount) }}</span>
-                </div>
-                <div v-if="orderDiscountIneligibleReason" class="text-danger mt-2">
-                  {{ orderDiscountIneligibleReason }}
-                </div>
-              </div>
-            </template>
-            <!-- None -->
-            <template v-else>
-              <div class="small text-muted">No discount applied.</div>
-            </template>
-          </div>
-          <!-- Items (READ-ONLY) -->
-          <div class="border rounded-3 p-3">
-            <div class="fw-semibold mb-2"><i class="bi bi-bag me-2"></i>Items</div>
-            <div v-if="cartItems.length === 0" class="text-muted small">
-              No items found for this pending order.
-            </div>
-            <div v-else class="vstack gap-2">
-              <div
-                v-for="it in cartItems"
-                :key="it.product.id"
-                class="d-flex align-items-start gap-3"
-              >
-                <!-- thumb -->
-                <div class="pending-item-thumb bg-light rounded">
-                  <img
-                    v-if="it.imageUrl"
-                    :src="it.imageUrl"
-                    :alt="it.product.name"
-                    class="w-100 h-100 object-fit-cover rounded"
-                  />
-                  <div
-                    v-else
-                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                  >
-                    <i class="bi bi-image"></i>
-                  </div>
-                </div>
-                <!-- texts -->
+            <div class="border rounded-3 p-3">
+              <div class="skeleton skeleton-text w-25 mb-3"></div>
+              <div v-for="i in 3" :key="'pp-skel-'+i" class="d-flex align-items-center gap-3 mb-2">
+                <div class="pending-item-thumb skeleton"></div>
                 <div class="flex-grow-1">
-                  <div class="fw-semibold line-clamp-1" :title="it.product.name">
-                    {{ it.product.name }}
-                  </div>
-                  <div
-                    v-if="it.product.description"
-                    class="text-muted small line-clamp-2"
-                    :title="it.product.description"
-                  >
-                    {{ it.product.description }}
-                  </div>
-                  <div class="small mt-1">Qty: {{ it.qty }}</div>
+                  <div class="skeleton skeleton-text w-75 mb-1"></div>
+                  <div class="skeleton skeleton-text w-50"></div>
                 </div>
               </div>
             </div>
-          </div>
-          <!-- Shipping Fee (display only) -->
-          <div class="border rounded-3 p-3 bg-light-subtle">
+            <div class="border rounded-3 p-3">
+              <div class="skeleton skeleton-text w-25 mb-2"></div>
+              <div class="skeleton skeleton-text w-25"></div>
+            </div>
             <div class="d-flex align-items-center justify-content-between">
-              <div class="fw-semibold">
-                <i class="bi bi-truck-flatbed me-2"></i>Admin Shipping Fee
+              <div class="skeleton skeleton-text w-25"></div>
+              <div class="skeleton skeleton-text w-25"></div>
+            </div>
+            <hr class="my-1" />
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="skeleton skeleton-text w-25"></div>
+              <div class="skeleton skeleton-text w-25"></div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+              <div class="skeleton skeleton-btn"></div>
+              <div class="skeleton skeleton-btn"></div>
+            </div>
+          </template>
+
+          <!-- EXISTING content, now under v-else -->
+          <template v-else>
+            <div class="border rounded-3 p-3">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="fw-semibold">
+                  <i class="bi bi-receipt me-2"></i>Reference:
+                  <span class="text-monospace">{{ pendingRefNumber }}</span>
+                </div>
+                <span class="badge rounded-pill text-bg-info">Pending</span>
               </div>
-              <div class="fs-5">
-                <strong v-if="pendingHasFreeShipping">Free</strong>
-                <strong v-else-if="pendingHighestShippingFee > 0"
-                  >₱ {{ number(pendingHighestShippingFee) }}</strong
+            </div>
+            <!-- Delivery (READ-ONLY) -->
+            <div class="border rounded-3 p-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-truck me-2"></i>Delivery details</div>
+              <div class="small">
+                <div><strong>Phone:</strong> {{ shipping.phone || '—' }}</div>
+                <div><strong>Address:</strong> {{ shippingSummary || '—' }}</div>
+              </div>
+            </div>
+            <!-- Payment (READ-ONLY) -->
+            <div class="border rounded-3 p-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-wallet2 me-2"></i>Payment method</div>
+              <span class="badge text-bg-secondary">
+                {{ paymentMethod === 'ewallet' ? 'E-Wallet' : 'Cash on Delivery' }}
+              </span>
+              <div v-if="paymentMethod === 'ewallet'" class="text-muted small mt-1">
+                Balance: ₱ {{ number(userBalance) }}
+              </div>
+              <div
+                v-if="paymentMethod === 'ewallet' && !enoughBalanceForOrder"
+                class="text-danger small mt-1"
+              >
+                Insufficient E-Wallet balance for order total.
+              </div>
+            </div>
+            <!-- Discount (READ-ONLY) -->
+            <div class="border rounded-3 p-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-percent me-2"></i>Discount</div>
+              <!-- Credits mode summary -->
+              <template v-if="discountMode === 'credits'">
+                <div class="small">
+                  Membership discount via Discount Credits
+                  <span class="text-muted">
+                    (estimated used: ₱ {{ number(totalDiscountCreditsUsedIfCreditsMode) }})
+                  </span>
+                </div>
+              </template>
+              <!-- Order-level discount summary -->
+              <template v-else-if="discountMode === 'discount'">
+                <div class="small">
+                  <div class="mb-1">
+                    <strong>Applied:</strong>
+                    <template v-if="resolvedDiscountByCode">
+                      {{ resolvedDiscountByCode.title }}
+                    </template>
+                    <template v-else-if="selectedDiscountId">
+                      {{ discounts.find((d) => d.id === selectedDiscountId)?.title || '—' }}
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-muted">Subtotal (before order discount)</span>
+                    <span>₱ {{ number(cartGrandTotalCreditsOff) }}</span>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <span class="text-muted">Order Discount</span>
+                    <span class="fw-semibold">− ₱ {{ number(orderLevelDiscountAmount) }}</span>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between fs-6 mt-1">
+                    <span class="fw-semibold">Total after order discount</span>
+                    <span class="fw-bold">₱ {{ number(cartTotalAfterOrderDiscount) }}</span>
+                  </div>
+                  <div v-if="orderDiscountIneligibleReason" class="text-danger mt-2">
+                    {{ orderDiscountIneligibleReason }}
+                  </div>
+                </div>
+              </template>
+              <!-- None -->
+              <template v-else>
+                <div class="small text-muted">No discount applied.</div>
+              </template>
+            </div>
+            <!-- Items (READ-ONLY) -->
+            <div class="border rounded-3 p-3">
+              <div class="fw-semibold mb-2"><i class="bi bi-bag me-2"></i>Items</div>
+              <div v-if="cartItems.length === 0" class="text-muted small">
+                No items found for this pending order.
+              </div>
+              <div v-else class="vstack gap-2">
+                <div
+                  v-for="it in cartItems"
+                  :key="it.product.id"
+                  class="d-flex align-items-start gap-3"
                 >
-                <span v-else class="text-warning">awaiting…</span>
+                  <!-- thumb -->
+                  <div class="pending-item-thumb bg-light rounded">
+                    <img
+                      v-if="it.imageUrl"
+                      :src="it.imageUrl"
+                      :alt="it.product.name"
+                      class="w-100 h-100 object-fit-cover rounded"
+                    />
+                    <div
+                      v-else
+                      class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                    >
+                      <i class="bi bi-image"></i>
+                    </div>
+                  </div>
+                  <!-- texts -->
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold line-clamp-1" :title="it.product.name">
+                      {{ it.product.name }}
+                    </div>
+                    <div
+                      v-if="it.product.description"
+                      class="text-muted small line-clamp-2"
+                      :title="it.product.description"
+                    >
+                      {{ it.product.description }}
+                    </div>
+                    <div class="small mt-1">Qty: {{ it.qty }}</div>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="small text-muted mt-1">
-              We display the <em>highest</em> shipping fee among items in this reference. This fee
-              is now included in your order total.
+            <!-- Shipping Fee (display only) -->
+            <div class="border rounded-3 p-3 bg-light-subtle">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="fw-semibold">
+                  <i class="bi bi-truck-flatbed me-2"></i>Admin Shipping Fee
+                </div>
+                <div class="fs-5">
+                  <strong v-if="pendingHasFreeShipping">Free</strong>
+                  <strong v-else-if="pendingHighestShippingFee > 0"
+                    >₱ {{ number(pendingHighestShippingFee) }}</strong
+                  >
+                  <span v-else class="text-warning">awaiting…</span>
+                </div>
+              </div>
+              <div class="small text-muted mt-1">
+                We display the <em>highest</em> shipping fee among items in this reference. This fee
+                is now included in your order total.
+              </div>
             </div>
-          </div>
-          <!-- Totals (Items + Shipping = Order Total) -->
-          <div class="d-flex align-items-center justify-content-between">
-            <span class="text-muted">Items Total</span>
-            <span>₱ {{ number(finalPayableTotal) }}</span>
-          </div>
-          <div class="d-flex align-items-center justify-content-between">
-            <span class="text-muted">Shipping Fee</span>
-            <span>₱ {{ number(pendingHasFreeShipping ? 0 : pendingHighestShippingFee) }}</span>
-          </div>
-          <hr class="my-1" />
-          <div class="d-flex align-items-center justify-content-between fs-5">
-            <div class="fw-semibold">Order Total</div>
-            <div class="fw-bold">₱ {{ number(orderTotalPending) }}</div>
-          </div>
-          <div class="d-flex justify-content-between">
-            <!-- NEW: Cancel Request -->
-            <button
-              class="btn btn-outline-danger"
-              :disabled="placingOrder"
-              @click="cancelPendingOrder"
-              title="Cancel this pending request"
-            >
-              Cancel Request
-            </button>
-            <button
-              class="btn btn-primary"
-              :disabled="
-                placingOrder ||
-                (!pendingHasFreeShipping && pendingHighestShippingFee <= 0) ||
-                (paymentMethod === 'ewallet' && !enoughBalanceForOrder)
-              "
-              @click="placePendingOrder"
-              title="Place Order (enabled when admin has set shipping fee)"
-            >
-              <span v-if="placingOrder" class="spinner-border spinner-border-sm me-2"></span>
-              Place Order
-            </button>
-          </div>
+            <!-- Totals (Items + Shipping = Order Total) -->
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="text-muted">Items Total</span>
+              <span>₱ {{ number(finalPayableTotal) }}</span>
+            </div>
+            <div class="d-flex align-items-center justify-content-between">
+              <span class="text-muted">Shipping Fee</span>
+              <span>₱ {{ number(pendingHasFreeShipping ? 0 : pendingHighestShippingFee) }}</span>
+            </div>
+            <hr class="my-1" />
+            <div class="d-flex align-items-center justify-content-between fs-5">
+              <div class="fw-semibold">Order Total</div>
+              <div class="fw-bold">₱ {{ number(orderTotalPending) }}</div>
+            </div>
+            <div class="d-flex justify-content-between">
+              <!-- NEW: Cancel Request -->
+              <button
+                class="btn btn-outline-danger"
+                :disabled="placingOrder"
+                @click="cancelPendingOrder"
+                title="Cancel this pending request"
+              >
+                Cancel Request
+              </button>
+              <button
+                class="btn btn-primary"
+                :disabled="
+                  placingOrder ||
+                  (!pendingHasFreeShipping && pendingHighestShippingFee <= 0) ||
+                  (paymentMethod === 'ewallet' && !enoughBalanceForOrder)
+                "
+                @click="placePendingOrder"
+                title="Place Order (enabled when admin has set shipping fee)"
+              >
+                <span v-if="placingOrder" class="spinner-border spinner-border-sm me-2"></span>
+                Place Order
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>
@@ -1041,154 +1174,172 @@
         </div>
         <div class="card-body">
           <div class="row g-4">
-            <!-- Gallery -->
-            <div class="col-12 col-lg-6">
-              <div class="ratio product-modal-thumb bg-light" ref="productModalThumbRef">
-                <div
-                  v-if="hasMultipleImages(productModal)"
-                  class="carousel-thumb"
-                  @touchstart.passive="onTouchStart($event, productModal.id)"
-                  @touchend.passive="onTouchEnd($event, productModal.id)"
-                >
-                  <div class="slides">
-                    <img
-                      v-for="(u, i) in productImages(productModal)"
-                      :key="i"
-                      :src="u"
-                      :alt="productModal.name"
-                      class="slide-img"
-                      :class="{ 'slide-img--active': currentSlide(productModal.id) === i }"
-                    />
+
+            <!-- ADDED: product-modal skeleton -->
+            <template v-if="productModalLoading">
+              <div class="col-12 col-lg-6">
+                <div class="ratio product-modal-thumb bg-light">
+                  <div class="skeleton w-100 h-100 rounded-top"></div>
+                </div>
+              </div>
+              <div class="col-12 col-lg-6">
+                <div class="skeleton skeleton-text w-50 mb-2"></div>
+                <div class="skeleton skeleton-text w-25 mb-3"></div>
+                <div class="skeleton skeleton-text w-100 mb-2"></div>
+                <div class="skeleton skeleton-text w-100 mb-2"></div>
+                <div class="skeleton skeleton-input mb-2" style="max-width: 240px;"></div>
+                <div class="skeleton skeleton-btn" style="width: 160px;"></div>
+              </div>
+            </template>
+
+            <!-- EXISTING content, now under v-else -->
+            <template v-else>
+              <!-- Gallery -->
+              <div class="col-12 col-lg-6">
+                <div class="ratio product-modal-thumb bg-light" ref="productModalThumbRef">
+                  <div
+                    v-if="hasMultipleImages(productModal)"
+                    class="carousel-thumb"
+                    @touchstart.passive="onTouchStart($event, productModal.id)"
+                    @touchend.passive="onTouchEnd($event, productModal.id)"
+                  >
+                    <div class="slides">
+                      <img
+                        v-for="(u, i) in productImages(productModal)"
+                        :key="i"
+                        :src="u"
+                        :alt="productModal.name"
+                        class="slide-img"
+                        :class="{ 'slide-img--active': currentSlide(productModal.id) === i }"
+                      />
+                    </div>
+                    <div class="dots">
+                      <span
+                        class="dot"
+                        v-for="(u, i) in productImages(productModal)"
+                        :key="'md' + i"
+                        :class="{ active: currentSlide(productModal.id) === i }"
+                        @click.stop="goToSlide(productModal.id, i)"
+                        aria-label="Go to image"
+                      ></span>
+                    </div>
+                    <button
+                      class="nav left"
+                      @click.stop="prevSlide(productModal.id)"
+                      aria-label="Previous image"
+                    >
+                      <i class="bi bi-chevron-left"></i>
+                    </button>
+                    <button
+                      class="nav right"
+                      @click.stop="nextSlide(productModal.id)"
+                      aria-label="Next image"
+                    >
+                      <i class="bi bi-chevron-right"></i>
+                    </button>
                   </div>
-                  <div class="dots">
-                    <span
-                      class="dot"
-                      v-for="(u, i) in productImages(productModal)"
-                      :key="'md' + i"
-                      :class="{ active: currentSlide(productModal.id) === i }"
-                      @click.stop="goToSlide(productModal.id, i)"
-                      aria-label="Go to image"
-                    ></span>
-                  </div>
-                  <button
-                    class="nav left"
-                    @click.stop="prevSlide(productModal.id)"
-                    aria-label="Previous image"
-                  >
-                    <i class="bi bi-chevron-left"></i>
-                  </button>
-                  <button
-                    class="nav right"
-                    @click.stop="nextSlide(productModal.id)"
-                    aria-label="Next image"
-                  >
-                    <i class="bi bi-chevron-right"></i>
-                  </button>
-                </div>
-                <img
-                  v-else-if="imageUrl(productModal)"
-                  :src="imageUrl(productModal)"
-                  :alt="productModal.name"
-                  class="w-100 h-100 object-fit-cover rounded-top product-img"
-                />
-                <div
-                  v-else
-                  class="w-100 h-100 d-flex align-items-center justify-content-center text-muted product-img-fallback"
-                >
-                  <i class="bi bi-image fs-3"></i>
-                </div>
-              </div>
-            </div>
-            <!-- Details -->
-            <div class="col-12 col-lg-6">
-              <div class="d-flex align-items-start justify-content-between">
-                <h4 class="mb-1">{{ productModal.name }}</h4>
-                <span
-                  class="badge ms-2"
-                  :class="(productModal.stock ?? 0) > 0 ? 'text-bg-success' : 'text-bg-secondary'"
-                >
-                  Stock: {{ productModal.stock ?? 0 }}
-                </span>
-              </div>
-              <div class="mb-3">
-                <div class="fs-5 fw-semibold">
-                  <template v-if="hasMemberDiscount && canDiscountProduct(productModal)">
-                    <span class="text-muted text-decoration-line-through me-2">
-                      ₱ {{ number(productModal.price) }}
-                    </span>
-                    <span>₱ {{ number(discountedPrice(productModal.price)) }}</span>
-                    <span class="badge ms-2 text-bg-warning">-{{ discountLabel }}</span>
-                  </template>
-                  <template v-else> ₱ {{ number(productModal.price) }} </template>
-                </div>
-              </div>
-              <div class="mb-3" v-if="productModal.description">
-                <div class="fw-semibold mb-1">Description</div>
-                <div class="text-muted">{{ productModal.description }}</div>
-              </div>
-              <!-- Warranty -->
-              <div class="mb-3" v-if="productModal.warranty">
-                <div class="fw-semibold mb-1">Warranty</div>
-                <div class="text-muted">{{ productModal.warranty }}</div>
-              </div>
-              <!-- Specifications (JSON) -->
-              <div class="mb-3" v-if="hasSpecs(productModal)">
-                <div class="fw-semibold mb-1">Specifications</div>
-                <table class="table table-sm table-borderless specs-table">
-                  <tbody>
-                    <tr v-for="(pair, idx) in getSpecs(productModal)" :key="idx">
-                      <th class="text-muted small">{{ pair[0] }}</th>
-                      <td class="small">{{ pair[1] }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="d-grid gap-2">
-                <div class="input-group input-group-sm" style="max-width: 240px">
-                  <span class="input-group-text">Qty</span>
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    @click="decQty(productModal)"
-                    :disabled="cartQty(productModal.id) <= 1"
-                  >
-                    <i class="bi bi-dash"></i>
-                  </button>
-                  <input
-                    class="form-control text-center qty-field"
-                    :value="cartQty(productModal.id)"
-                    readonly
+                  <img
+                    v-else-if="imageUrl(productModal)"
+                    :src="imageUrl(productModal)"
+                    :alt="productModal.name"
+                    class="w-100 h-100 object-fit-cover rounded-top product-img"
                   />
-                  <button
-                    type="button"
-                    class="btn btn-outline-secondary"
-                    @click="incQty(productModal)"
-                    :disabled="
-                      productModal.stock != null
-                        ? cartQty(productModal.id) >= Number(productModal.stock)
-                        : false
-                    "
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted product-img-fallback"
                   >
-                    <i class="bi bi-plus"></i>
+                    <i class="bi bi-image fs-3"></i>
+                  </div>
+                </div>
+              </div>
+              <!-- Details -->
+              <div class="col-12 col-lg-6">
+                <div class="d-flex align-items-start justify-content-between">
+                  <h4 class="mb-1">{{ productModal.name }}</h4>
+                  <span
+                    class="badge ms-2"
+                    :class="(productModal.stock ?? 0) > 0 ? 'text-bg-success' : 'text-bg-secondary'"
+                  >
+                    Stock: {{ productModal.stock ?? 0 }}
+                  </span>
+                </div>
+                <div class="mb-3">
+                  <div class="fs-5 fw-semibold">
+                    <template v-if="hasMemberDiscount && canDiscountProduct(productModal)">
+                      <span class="text-muted text-decoration-line-through me-2">
+                        ₱ {{ number(productModal.price) }}
+                      </span>
+                      <span>₱ {{ number(discountedPrice(productModal.price)) }}</span>
+                      <span class="badge ms-2 text-bg-warning">-{{ discountLabel }}</span>
+                    </template>
+                    <template v-else> ₱ {{ number(productModal.price) }} </template>
+                  </div>
+                </div>
+                <div class="mb-3" v-if="productModal.description">
+                  <div class="fw-semibold mb-1">Description</div>
+                  <div class="text-muted">{{ productModal.description }}</div>
+                </div>
+                <!-- Warranty -->
+                <div class="mb-3" v-if="productModal.warranty">
+                  <div class="fw-semibold mb-1">Warranty</div>
+                  <div class="text-muted">{{ productModal.warranty }}</div>
+                </div>
+                <!-- Specifications (JSON) -->
+                <div class="mb-3" v-if="hasSpecs(productModal)">
+                  <div class="fw-semibold mb-1">Specifications</div>
+                  <table class="table table-sm table-borderless specs-table">
+                    <tbody>
+                      <tr v-for="(pair, idx) in getSpecs(productModal)" :key="idx">
+                        <th class="text-muted small">{{ pair[0] }}</th>
+                        <td class="small">{{ pair[1] }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div class="d-grid gap-2">
+                  <div class="input-group input-group-sm" style="max-width: 240px">
+                    <span class="input-group-text">Qty</span>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="decQty(productModal)"
+                      :disabled="cartQty(productModal.id) <= 1"
+                    >
+                      <i class="bi bi-dash"></i>
+                    </button>
+                    <input
+                      class="form-control text-center qty-field"
+                      :value="cartQty(productModal.id)"
+                      readonly
+                    />
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary"
+                      @click="incQty(productModal)"
+                      :disabled="
+                        productModal.stock != null
+                          ? cartQty(productModal.id) >= Number(productModal.stock)
+                          : false
+                      "
+                    >
+                      <i class="bi bi-plus"></i>
+                    </button>
+                  </div>
+                  <button
+                    class="btn btn-primary"
+                    :disabled="(productModal.stock ?? 0) <= 0 || addToCartBusy[productModal.id]"
+                    @click="onAddToCartFromModal($event)"
+                  >
+                    <span
+                      v-if="addToCartBusy[productModal.id]"
+                      class="spinner-border spinner-border-sm me-2"
+                    ></span>
+                    Add to cart
                   </button>
                 </div>
-                <button
-                  class="btn btn-primary"
-                  :disabled="(productModal.stock ?? 0) <= 0 || addToCartBusy[productModal.id]"
-                  @click="onAddToCartFromModal($event)"
-                >
-                  <span
-                    v-if="addToCartBusy[productModal.id]"
-                    class="spinner-border spinner-border-sm me-2"
-                  ></span>
-                  Add to cart
-                </button>
+               
               </div>
-              <div class="mt-3 small text-muted">
-                <i class="bi bi-shield-check me-1"></i>Published:
-                {{ productModal.ispublish ? 'Yes' : 'No' }}
-              </div>
-            </div>
+            </template>
           </div>
         </div>
       </div>
@@ -1196,6 +1347,7 @@
     <!-- END Product Details Modal -->
   </div>
 </template>
+
 
 <script setup lang="ts">
 import {
@@ -1210,6 +1362,34 @@ import {
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
+import Swal from 'sweetalert2'
+
+/* ========================================================================
+   SWEETALERT HELPERS
+   ======================================================================== */
+async function swInfo(message: string, title = 'Heads up') {
+  await Swal.fire({ icon: 'info', title, text: message })
+}
+async function swError(message: string, title = 'Something went wrong') {
+  await Swal.fire({ icon: 'error', title, text: message })
+}
+async function swSuccess(message: string, title = 'Success') {
+  await Swal.fire({ icon: 'success', title, text: message })
+}
+async function swWarn(message: string, title = 'Please check') {
+  await Swal.fire({ icon: 'warning', title, text: message })
+}
+async function swConfirm(message: string, title = 'Are you sure?', confirmText = 'Yes', cancelText = 'Cancel') {
+  const res = await Swal.fire({
+    icon: 'question',
+    title,
+    text: message,
+    showCancelButton: true,
+    confirmButtonText: confirmText,
+    cancelButtonText: cancelText,
+  })
+  return res.isConfirmed
+}
 
 const routers = useRouter()
 const user = computed(() => currentUser.value)
@@ -1403,7 +1583,11 @@ function isNew(created_at: string) {
   const days = (now - created) / (1000 * 60 * 60 * 24)
   return days <= 7
 }
-
+const pendingLoading = ref(false)        // for "Your Pending Orders"
+const cartLoading = ref(false)            // for Cart modal items
+const discountsLoading = ref(false)       // for discount picker in Request Order modal
+const pendingPlaceLoading = ref(false)    // (optional) while building Place Pending view
+const productModalLoading = ref(false)  
 /* ========================================================================
    AUTH HELPERS
    ======================================================================== */
@@ -1646,6 +1830,8 @@ const resolvedDiscountByCode = ref<Discount | null>(null)
 
 /* Load active discounts, but filter out product-specific ones not in cart */
 async function loadActiveDiscounts() {
+  discountsLoading.value = true
+  try {
   const nowIso = new Date().toISOString()
   const { data, error } = await supabase
     .schema('rewards')
@@ -1672,6 +1858,9 @@ async function loadActiveDiscounts() {
   })
 
   discounts.value = filtered as Discount[]
+   } finally {
+    discountsLoading.value = false
+  }
 }
 
 const pickedDiscount = computed<Discount | null>(() => {
@@ -1680,6 +1869,32 @@ const pickedDiscount = computed<Discount | null>(() => {
     return discounts.value.find((d) => d.id === selectedDiscountId.value) ?? null
   }
   return null
+})
+
+/* === UI helpers for product-scoped discounts (ADDED) === */
+const scopedDiscountProductId = computed(() => pickedDiscount.value?.product_id ?? null)
+const scopedDiscountProductName = computed(() => {
+  const pid = scopedDiscountProductId.value
+  if (!pid) return ''
+  const hit = cartItems.value.find(i => i.product.id === pid)
+  return hit?.product.name ?? ''
+})
+const scopedDiscountSubtotal = computed(() => {
+  const pid = scopedDiscountProductId.value
+  if (!pid) return 0
+  let sum = 0
+  for (const it of cartItems.value) {
+    if (it.product.id === pid) {
+      const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
+      sum += Number(it.originalUnit) * qty
+    }
+  }
+  return Number(sum.toFixed(2))
+})
+const scopedDiscountLabel = computed(() => {
+  const name = scopedDiscountProductName.value
+  if (!name) return ''
+  return `Discount applies only to: ${name} (subtotal ₱ ${number(scopedDiscountSubtotal.value)})`
 })
 
 const codeStatusText = computed(() => {
@@ -1779,6 +1994,20 @@ function computeOrderDiscountAmount(base: number, d: Discount | null): number {
   }
 
   return amt
+}
+
+/* ▶ ADDED: helper to split a total discount amount into per-qty parts that sum exactly */
+function splitAmountAcrossQty(total: number, qty: number): number[] {
+  if (!(qty > 0) || !(total > 0)) return []
+  const per = Math.floor((total / qty) * 100) / 100 // floor to 2dp
+  const parts = Array(qty).fill(Number(per.toFixed(2)))
+  const used = Number((per * qty).toFixed(2))
+  let remainder = Number((total - used).toFixed(2))
+  // put remainder (can be up to 0.99) on the last unit
+  if (remainder !== 0 && parts.length) {
+    parts[parts.length - 1] = Number((parts[parts.length - 1] + remainder).toFixed(2))
+  }
+  return parts
 }
 
 /* If we are re-opening a pending order, we re-use the recorded redeemed_amount */
@@ -1908,6 +2137,9 @@ const addrCity = ref('') // -> shipping.value.city
 const addrBarangay = ref('') // -> shipping.value.barangay
 const addrZip = ref('') // -> shipping.value.postal_code
 const addrLine1 = ref('') // -> shipping.value.address_line1
+
+/* 🔧 addressDirty: track changes made in edit modal */
+const addressDirty = ref(false) // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 /* typeahead visibility */
 const showRegionSuggest = ref(false)
@@ -2072,6 +2304,11 @@ watch(addrCity, async (val) => {
   }
 })
 
+/* 🔧 addressDirty: mark dirty whenever user edits any address input */
+watch([addrLine1, addrBarangay, addrCity, addrRegion, addrZip], () => {
+  addressDirty.value = true
+})
+
 /* pick handlers */
 function pickRegion(r: Region) {
   addrRegion.value = r.name
@@ -2099,9 +2336,10 @@ function syncShippingToAddressFields() {
   addrCity.value = shipping.value.city || ''
   addrRegion.value = shipping.value.province || '' // we store region/province in same field
   addrZip.value = shipping.value.postal_code || ''
+  addressDirty.value = false // 🔧 reset dirty after sync
 }
 
-/* helper to sync PSGC form -> shipping */
+/* helper to sync PSGC form -> shipping (kept, but NOT called blindly on save) */
 function syncAddressFieldsToShipping() {
   shipping.value.address_line1 = addrLine1.value || ''
   shipping.value.barangay = addrBarangay.value || ''
@@ -2217,34 +2455,68 @@ function openShippingModal() {
   syncShippingToAddressFields()
   // 🔒 Keep external lookup disabled while editing
   disablePSGCLookup()
+  addressDirty.value = false // 🔧 reset on open
   showShipping.value = true
 }
 function closeShippingModal() {
   showShipping.value = false
 }
+
+/* === FIX: SAFE SAVE that never wipes existing address with blanks === */
+function coalesceNonEmpty(current: string, incoming: string) {
+  const v = (incoming ?? '').trim()
+  return v.length ? v : (current ?? '')
+}
+
 async function saveShipping() {
   const uid = await ensureUser()
   if (!uid) {
-    alert('Please log in to save your delivery details.')
+    await swInfo('Please log in to save your delivery details.')
     return
   }
 
-  // bring PSGC form back to shipping.value
-  syncAddressFieldsToShipping()
+  // ⛑️ Instead of blindly copying possibly-empty typeahead values into shipping,
+  //     safely merge: only take addr* when they are non-empty; otherwise keep existing.
+  const merged: ShippingRow = {
+    ...shipping.value,
+    address_line1: coalesceNonEmpty(shipping.value.address_line1, addrLine1.value),
+    barangay: coalesceNonEmpty(shipping.value.barangay, addrBarangay.value),
+    city: coalesceNonEmpty(shipping.value.city, addrCity.value),
+    province: coalesceNonEmpty(shipping.value.province, addrRegion.value),
+    postal_code: coalesceNonEmpty(shipping.value.postal_code, addrZip.value),
+    phone: coalesceNonEmpty(shipping.value.phone, shipping.value.phone), // phone edited elsewhere
+    user_id: shipping.value.user_id,
+    updated_at: new Date().toISOString(),
+  }
+
+  // If nothing changed and user didn't touch the form, skip DB write
+  const before = buildAddressString(shipping.value)
+  const after = buildAddressString(merged)
+  const samePhone = (shipping.value.phone || '') === (merged.phone || '')
+
+  // 🔧 Only skip if also NOT dirty (prevents false negatives where addr* changed but string looks same)
+  if (!addressDirty.value && before === after && samePhone) {
+    // keep local form fields in sync with the final persisted data
+    syncShippingToAddressFields()
+    return
+  }
 
   savingShipping.value = true
   try {
     const payload = {
-      phone_number: shipping.value.phone || null,
-      address: buildAddressString(shipping.value) || null,
+      phone_number: merged.phone || null,
+      address: after || null,
     }
     const { error } = await supabase.from('users').update(payload).eq('id', uid)
     if (error) {
       console.error('saveShipping error', error.message)
-      alert(error.message)
+      await swError(error.message)
       return
     }
-    await loadShipping()
+    // reflect merged values locally and sync form fields
+    shipping.value = merged
+    syncShippingToAddressFields()
+    addressDirty.value = false // 🔧 reset after successful save
   } finally {
     savingShipping.value = false
   }
@@ -2319,6 +2591,8 @@ async function assertPerUserEligible(
 }
 
 async function loadCartDetails() {
+  cartLoading.value = true
+  try {
   const uid = await ensureUser()
   cartItems.value = []
   if (!uid) return
@@ -2391,6 +2665,9 @@ async function loadCartDetails() {
     dbCartByProduct[p.id] = qty
   }
   cartItems.value = list
+  } finally {
+    cartLoading.value = false
+  }
 }
 
 /* ========================================================================
@@ -2468,7 +2745,7 @@ function popCartAddBadge(n: number) {
 async function onAddToCart(ev: MouseEvent, p: Product) {
   const uid = await ensureUser()
   if (!uid) {
-    alert('Please log in to add items to your cart.')
+    await swInfo('Please log in to add items to your cart.')
     return
   }
   const latestStock = await getLatestStock(p.id)
@@ -2489,10 +2766,10 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
     if (target > stockCap && stockCap !== Infinity) {
       const allowedToAdd = Math.max(0, stockCap - currentInCart)
       if (allowedToAdd <= 0) {
-        alert(`Stock limit reached. Only ${stockCap} item(s) available in total.`)
+        await swWarn(`Stock limit reached. Only ${stockCap} item(s) available in total.`)
         return
       }
-      alert(`Only ${allowedToAdd} more can be added (stock: ${stockCap}).`)
+      await swWarn(`Only ${allowedToAdd} more can be added (stock: ${stockCap}).`)
       const { error: upErr } = await supabase
         .schema('games')
         .from('cart')
@@ -2510,7 +2787,7 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
       .upsert({ user_id: uid, product_id: p.id, qty: target }, { onConflict: 'user_id,product_id' })
     if (error) {
       console.error('addToCart error', error.message)
-      alert(error.message)
+      await swError(error.message)
       return
     }
     dbCartByProduct[p.id] = target
@@ -2546,7 +2823,7 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
       .eq('user_id', uid)
       .eq('product_id', productId)
     if (error) {
-      alert(error.message)
+      await swError(error.message)
       return
     }
     delete dbCartByProduct[productId]
@@ -2563,7 +2840,7 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
       .from('cart')
       .upsert({ user_id: uid, product_id: productId, qty: capped }, { onConflict: 'user_id,product_id' })
     if (error) {
-      alert(error.message)
+      await swError(error.message)
       return
     }
     dbCartByProduct[productId] = capped
@@ -2590,7 +2867,7 @@ async function removeCartProduct(productId: string) {
     .eq('user_id', uid)
     .eq('product_id', productId)
   if (error) {
-    alert(error.message)
+    await swError(error.message)
     return
   }
   delete dbCartByProduct[productId]
@@ -2599,12 +2876,13 @@ async function removeCartProduct(productId: string) {
 async function clearCart() {
   const uid = await ensureUser()
   if (!uid) return
-  if (!confirm('Clear all items from your cart?')) return
+  const confirmed = await swConfirm('Clear all items from your cart?')
+  if (!confirmed) return
   clearingCart.value = true
   try {
     const { error } = await supabase.schema('games').from('cart').delete().eq('user_id', uid)
     if (error) {
-      alert(error.message)
+      await swError(error.message)
       return
     }
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
@@ -2639,19 +2917,19 @@ function closePlaceOrder() {
 async function placeOrder() {
   const uid = await ensureUser()
   if (!uid) {
-    alert('Please log in to request the order.')
+    await swInfo('Please log in to request the order.')
     return
   }
   if (cartItems.value.length === 0) {
-    alert('Your cart is empty.')
+    await swInfo('Your cart is empty.')
     return
   }
   if (!hasShipping.value) {
-    alert('Please complete your delivery details first.')
+    await swWarn('Please complete your delivery details first.')
     return
   }
   if (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value) {
-    alert('Insufficient wallet balance.')
+    await swWarn('Insufficient wallet balance.')
     return
   }
 
@@ -2660,19 +2938,19 @@ async function placeOrder() {
   if (discountMode.value === 'discount') {
     const disc = pickedDiscount.value
     if (!disc) {
-      alert('Please apply a valid discount code or select a discount.')
+      await swWarn('Please apply a valid discount code or select a discount.')
       return
     }
     usedDiscountId = disc.id
     const { ok, message } = await assertPerUserEligible(usedDiscountId, uid)
     if (!ok) {
-      alert(message || 'You have reached the maximum number of uses for this discount.')
+      await swWarn(message || 'You have reached the maximum number of uses for this discount.')
       return
     }
     const base = cartGrandTotalCreditsOff.value
     orderDiscountAmtAtRequest = computeOrderDiscountAmount(base, disc)
     if (orderDiscountAmtAtRequest <= 0) {
-      alert('This discount doesn’t apply to your current subtotal.')
+      await swWarn('This discount doesn’t apply to your current subtotal.')
       return
     }
   }
@@ -2680,7 +2958,9 @@ async function placeOrder() {
   placingOrder.value = true
   const insertedIds: string[] = []
   try {
+    // ⛑️ Safe save (will not wipe fields)
     await saveShipping()
+
     const { data: freshUser } = await supabase
       .from('users')
       .select('balance, discount_credits, membership_id')
@@ -2689,6 +2969,7 @@ async function placeOrder() {
     userBalance.value = Number(freshUser?.balance ?? 0)
     userDiscountCredits.value = Number(freshUser?.discount_credits ?? 0)
     await loadCartDetails()
+
     const batchReference = genReference('REQ')
 
     type RequestLine = {
@@ -2719,6 +3000,10 @@ async function placeOrder() {
     }
 
     let firstPurchaseId: string | null = null
+
+    // ▶ ADDED: capture purchaseId per product for precise redemptions
+    const purchaseByProductId = new Map<string, { purchaseId: string; qty: number }>()
+
     for (const ln of lines) {
       const { data: inserted, error: insErr } = await supabase
         .schema('games')
@@ -2739,53 +3024,117 @@ async function placeOrder() {
         .single()
       if (insErr) {
         console.error('[requestOrder] purchases insert error:', insErr.message)
-        alert('Failed to request order: ' + insErr.message)
+        await swError('Failed to request order: ' + insErr.message)
         return
       }
       const purchaseId = (inserted as InsertedPurchase).id
       insertedIds.push(purchaseId)
       if (!firstPurchaseId) firstPurchaseId = purchaseId
+
+      // ▶ ADDED: remember this purchase for the product
+      purchaseByProductId.set(ln.p.id, { purchaseId, qty: ln.quantity })
     }
 
+    // === DISCOUNT REDEMPTION RECORDING (REQUEST TIME) ====================
     if (discountMode.value === 'discount' && usedDiscountId && firstPurchaseId) {
-      const { error: redInsErr } = await supabase
-        .schema('rewards')
-        .from('discount_redemptions')
-        .insert([
-          {
-            discount_id: usedDiscountId,
+      const d = pickedDiscount.value!
+      if (d.product_id) {
+        // ▶ ADDED: product-specific discount -> apply ONLY to that product
+        const target = purchaseByProductId.get(d.product_id)
+        if (!target) {
+          console.warn('[discount] product_id not found in request lines; skipping redemptions')
+        } else {
+          const { purchaseId, qty } = target
+          const parts = splitAmountAcrossQty(orderDiscountAmtAtRequest, qty)
+          console.log('[discount] product-scoped split', { qty, total: orderDiscountAmtAtRequest, parts })
+
+          const rows = parts.map((amt) => ({
+            discount_id: usedDiscountId!,
             user_id: uid,
-            purchase_id: firstPurchaseId,
-            redeemed_amount: Number(orderDiscountAmtAtRequest.toFixed(2)),
+            purchase_id: purchaseId,
+            redeemed_amount: Number(amt.toFixed(2)),
             currency: 'PHP',
-          },
-        ])
-      if (redInsErr) {
-        console.error('[discount_redemptions insert failed at request time]', redInsErr.message)
-        await supabase.schema('games').from('purchases').delete().in('id', insertedIds)
-        alert('Failed to apply discount to your request: ' + redInsErr.message)
-        return
-      }
-      const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
-        p_discount_id: usedDiscountId,
-      })
-      if (redErr || ok === null) {
-        const { data: dRow, error: selErr } = await supabase
+          }))
+          const { error: redInsErr } = await supabase
+            .schema('rewards')
+            .from('discount_redemptions')
+            .insert(rows as any)
+          if (redInsErr) {
+            console.error('[discount_redemptions insert failed at request time]', redInsErr.message)
+            // rollback purchases just like original logic
+            await supabase.schema('games').from('purchases').delete().in('id', insertedIds)
+            await swError('Failed to apply discount to your request: ' + redInsErr.message)
+            return
+          }
+
+          // keep redemptions_count in sync (loop RPC, then fix remainder if needed)
+          let rpcOk = 0
+          for (let i = 0; i < parts.length; i++) {
+            const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
+              p_discount_id: usedDiscountId,
+            })
+            if (!redErr && ok !== null) rpcOk++
+          }
+          const delta = parts.length - rpcOk
+          if (delta > 0) {
+            const { data: dRow, error: selErr } = await supabase
+              .schema('rewards')
+              .from('discounts')
+              .select('id, redemptions_count')
+              .eq('id', usedDiscountId)
+              .maybeSingle()
+            if (!selErr && dRow?.id) {
+              const nextCount = Number(dRow.redemptions_count ?? 0) + delta
+              await supabase
+                .schema('rewards')
+                .from('discounts')
+                .update({ redemptions_count: nextCount })
+                .eq('id', usedDiscountId)
+            }
+          }
+        }
+      } else {
+        // (Global) original single-record behavior
+        const { error: redInsErr } = await supabase
           .schema('rewards')
-          .from('discounts')
-          .select('id, redemptions_count')
-          .eq('id', usedDiscountId)
-          .maybeSingle()
-        if (!selErr && dRow?.id) {
-          const nextCount = Number(dRow.redemptions_count ?? 0) + 1
-          await supabase
+          .from('discount_redemptions')
+          .insert([
+            {
+              discount_id: usedDiscountId,
+              user_id: uid,
+              purchase_id: firstPurchaseId,
+              redeemed_amount: Number(orderDiscountAmtAtRequest.toFixed(2)),
+              currency: 'PHP',
+            },
+          ])
+        if (redInsErr) {
+          console.error('[discount_redemptions insert failed at request time]', redInsErr.message)
+          await supabase.schema('games').from('purchases').delete().in('id', insertedIds)
+          await swError('Failed to apply discount to your request: ' + redInsErr.message)
+          return
+        }
+        const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
+          p_discount_id: usedDiscountId,
+        })
+        if (redErr || ok === null) {
+          const { data: dRow, error: selErr } = await supabase
             .schema('rewards')
             .from('discounts')
-            .update({ redemptions_count: nextCount })
+            .select('id, redemptions_count')
             .eq('id', usedDiscountId)
+            .maybeSingle()
+          if (!selErr && dRow?.id) {
+            const nextCount = Number(dRow.redemptions_count ?? 0) + 1
+            await supabase
+              .schema('rewards')
+              .from('discounts')
+              .update({ redemptions_count: nextCount })
+              .eq('id', usedDiscountId)
+          }
         }
       }
     }
+    // =====================================================================
 
     await supabase.schema('games').from('cart').delete().eq('user_id', uid)
     for (const k of Object.keys(dbCartByProduct)) delete dbCartByProduct[k]
@@ -2793,7 +3142,7 @@ async function placeOrder() {
     closePlaceOrder()
     await fetchProducts()
     await loadPendingOrders()
-    alert(
+    await swSuccess(
       'Order requested! Status is now pending. Once admin sets the shipping fee, you can place the order.',
     )
   } finally {
@@ -2850,6 +3199,8 @@ async function resolveFirstImageUrl(prod: {
 }
 
 async function loadPendingOrders() {
+  pendingLoading.value = true
+  try {
   const uid = await ensureUser()
   if (!uid) return
   const { data, error } = await supabase
@@ -2982,9 +3333,14 @@ async function loadPendingOrders() {
     grp.displayTotal = Number((itemsAfter + (fee > 0 ? fee : 0)).toFixed(2))
   }
   pendingGroups.value = groups
+  } finally {
+    pendingLoading.value = false
+  }
 }
 
 async function openPlacePending(refNumber: string) {
+  pendingPlaceLoading.value = true
+  try {
   const uid = await ensureUser()
   if (!uid) return
   const { data } = await supabase
@@ -3047,6 +3403,9 @@ async function openPlacePending(refNumber: string) {
   }
   await buildPendingCartItems()
   showPendingPlace.value = true
+  } finally {
+    pendingPlaceLoading.value = false
+  }
 }
 function closePlacePending() {
   showPendingPlace.value = false
@@ -3129,22 +3488,23 @@ const orderTotalPending = computed(() =>
   ),
 )
 
+/* === AfterShip functionality removed: no external push === */
 async function placePendingOrder() {
   const uid = await ensureUser()
   if (!uid || !pendingRefNumber.value) {
-    alert('Please log in.')
+    await swInfo('Please log in.')
     return
   }
   if (cartItems.value.length === 0) {
-    alert('No items found for this pending order.')
+    await swInfo('No items found for this pending order.')
     return
   }
   if (!hasShipping.value) {
-    alert('Please complete your delivery details first.')
+    await swWarn('Please complete your delivery details first.')
     return
   }
   if (pendingHighestShippingFee.value <= 0 && !pendingHasFreeShipping.value) {
-    alert('Shipping fee not yet set by admin.')
+    await swInfo('Shipping fee not yet set by admin.')
     return
   }
 
@@ -3152,7 +3512,7 @@ async function placePendingOrder() {
     const usedId =
       resolvedDiscountByCode.value?.id?.trim() || selectedDiscountId.value?.trim() || ''
     if (!usedId || orderDiscountIneligibleReason.value) {
-      alert(
+      await swWarn(
         orderDiscountIneligibleReason.value ||
           'Please apply a valid discount code or select a discount.',
       )
@@ -3160,13 +3520,14 @@ async function placePendingOrder() {
     }
     const { ok, message } = await assertPerUserEligible(usedId, uid)
     if (!ok) {
-      alert(message || 'You have reached the maximum number of uses for this discount.')
+      await swWarn(message || 'You have reached the maximum number of uses for this discount.')
       return
     }
   }
 
   placingOrder.value = true
   try {
+    // ⛑️ Safe save (will not wipe fields)
     await saveShipping()
     const { data: freshUser } = await supabase
       .from('users')
@@ -3217,7 +3578,7 @@ async function placePendingOrder() {
     const purchaseStatus = isEwallet ? 'to ship' : 'to pay'
     const totalToDeduct = isEwallet ? grandTotalIncludingShipping : 0
     if (isEwallet && freshBalance < totalToDeduct) {
-      alert('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
+      await swWarn('Insufficient balance for E-Wallet. Please choose Cash on Delivery or top up.')
       return
     }
 
@@ -3227,9 +3588,9 @@ async function placePendingOrder() {
         userBalance.value = newBal
       } catch (e: any) {
         if (e?.message === 'INSUFFICIENT_FUNDS') {
-          alert('Insufficient funds. Please choose Cash on Delivery or top up.')
+          await swWarn('Insufficient funds. Please choose Cash on Delivery or top up.')
         } else {
-          alert('Failed to charge E-Wallet: ' + (e?.message || 'Unknown error'))
+          await swError('Failed to charge E-Wallet: ' + (e?.message || 'Unknown error'))
         }
         return
       }
@@ -3244,32 +3605,62 @@ async function placePendingOrder() {
       purchaseId: string
     }
     const lines: LineDraft[] = []
+
     if (discountMode.value === 'discount') {
-      let baseSum = 0
       const byProductPurchase = new Map<string, PurchaseRow>()
       pendingPurchases.value.forEach((r) => byProductPurchase.set(r.product_id, r))
+
+      // Build tmp lines
+      const d = pickedDiscount.value
+      const eligibleProductId = d?.product_id ?? null
+
+      const tmpLines: Array<{
+        p: Product
+        quantity: number
+        unitBeforeOrder: number
+        lineBeforeOrder: number
+        unitFinal: number
+        purchaseId: string
+      }> = []
+
       for (const it of cartItems.value) {
         const qty = Math.max(1, Number(dbCartByProduct[it.product.id] ?? it.qty) || 1)
         const unitBefore = Number(it.originalUnit || 0)
         const lineBefore = unitBefore * qty
-        baseSum += lineBefore
-        lines.push({
+        tmpLines.push({
           p: it.product,
           quantity: qty,
           unitBeforeOrder: unitBefore,
           lineBeforeOrder: lineBefore,
-          unitFinal: unitBefore,
+          unitFinal: unitBefore, // default
           purchaseId: byProductPurchase.get(it.product.id)?.id || '',
         })
       }
-      const useAmt = Math.min(orderDiscountAmt, baseSum)
-      if (useAmt > 0 && baseSum > 0) {
-        for (const ln of lines) {
-          const share = Number(((ln.lineBeforeOrder / baseSum) * useAmt).toFixed(2))
-          const perUnitShare = Number((share / ln.quantity).toFixed(2))
-          ln.unitFinal = Number(Math.max(0, ln.unitBeforeOrder - perUnitShare).toFixed(2))
+
+      // Eligible base is only the targeted product if product_id is set
+      let eligibleBase = 0
+      for (const ln of tmpLines) {
+        if (!eligibleProductId || ln.p.id === eligibleProductId) {
+          eligibleBase += ln.lineBeforeOrder
         }
       }
+
+      const useAmt = Math.min(orderDiscountAmt, eligibleBase)
+      if (useAmt > 0 && eligibleBase > 0) {
+        for (const ln of tmpLines) {
+          if (!eligibleProductId || ln.p.id === eligibleProductId) {
+            const weight = ln.lineBeforeOrder / eligibleBase
+            const share = Number((weight * useAmt).toFixed(2))
+            const perUnitShare = Number((share / ln.quantity).toFixed(2))
+            ln.unitFinal = Number(Math.max(0, ln.unitBeforeOrder - perUnitShare).toFixed(2))
+          } else {
+            // Non-eligible lines remain unchanged
+            ln.unitFinal = ln.unitBeforeOrder
+          }
+        }
+      }
+
+      lines.push(...tmpLines)
     } else {
       const byProductPurchase = new Map<string, PurchaseRow>()
       pendingPurchases.value.forEach((r) => byProductPurchase.set(r.product_id, r))
@@ -3285,6 +3676,7 @@ async function placePendingOrder() {
         })
       }
     }
+
     for (const ln of lines) {
       if (!ln.purchaseId) continue
       const { error: updErr } = await supabase
@@ -3298,32 +3690,12 @@ async function placePendingOrder() {
         .eq('id', ln.purchaseId)
       if (updErr) {
         console.error('[update purchase unit/status] failed:', updErr.message)
-        alert('Failed to finalize order items: ' + updErr.message)
+        await swError('Failed to finalize order items: ' + updErr.message)
         return
       }
     }
 
-    const discountTotalForAftership =
-      (discountMode.value === 'discount' ? orderDiscountAmt : 0) +
-      (discountMode.value === 'credits' ? totalDiscountCreditsUsed.value : 0)
-    await pushOrderToAfterShip({
-      batchReference: pendingRefNumber.value,
-      lines: lines.map((ln) => ({
-        p: ln.p,
-        quantity: ln.quantity,
-        unitBeforeOrder: ln.unitBeforeOrder,
-        lineBeforeOrder: ln.lineBeforeOrder,
-        unitFinal: ln.unitFinal,
-      })),
-      finalSubtotal: itemsTotal,
-      shippingFee,
-      discountTotal: discountTotalForAftership,
-      shipping: shipping.value,
-      isPaid: paymentMethod.value === 'ewallet',
-      currency: 'PHP',
-      customerName: null,
-      customerEmail: null,
-    }).catch((e) => console.warn('[AfterShip push failed]', e))
+    // Removed AfterShip push (no-op)
 
     if (discountMode.value === 'credits') {
       let totalDiscountCreditsToDeduct = 0
@@ -3356,7 +3728,7 @@ async function placePendingOrder() {
             .insert(receiptsPayload as any)
           if (recErr) {
             console.error('[discount_credits_receipt insert failed]', recErr.message)
-            alert('Failed to create discount credits receipt: ' + recErr.message)
+            await swError('Failed to create discount credits receipt: ' + recErr.message)
             return
           }
         }
@@ -3376,12 +3748,114 @@ async function placePendingOrder() {
           .eq('id', uid)
         if (dcErr) {
           console.error('[users.discount_credits update failed]', dcErr.message)
-          alert('Failed to deduct discount credits: ' + dcErr.message)
+          await swError('Failed to deduct discount credits: ' + dcErr.message)
           return
         }
         userDiscountCredits.value = newDcBalance
       }
     }
+
+    // ▶ ADDED: Create discount_redemptions at PLACE time if it wasn't recorded at request time
+    if (discountMode.value === 'discount' && recordedOrderDiscountAmount.value == null) {
+      const usedDiscountId = pickedDiscount.value?.id || ''
+      const disc = pickedDiscount.value
+      if (usedDiscountId && disc && orderDiscountAmt > 0) {
+        if (disc.product_id) {
+          // only the specific product gets redemption rows
+          const targetLine = lines.find((ln) => ln.p.id === disc.product_id)
+          if (targetLine && targetLine.purchaseId) {
+            const parts = splitAmountAcrossQty(orderDiscountAmt, targetLine.quantity)
+            console.log('[discount][pending] product-scoped split', {
+              qty: targetLine.quantity,
+              total: orderDiscountAmt,
+              parts,
+            })
+            const rows = parts.map((amt) => ({
+              discount_id: usedDiscountId,
+              user_id: uid,
+              purchase_id: targetLine.purchaseId,
+              redeemed_amount: Number(amt.toFixed(2)),
+              currency: 'PHP',
+            }))
+            const { error: redInsErr } = await supabase
+              .schema('rewards')
+              .from('discount_redemptions')
+              .insert(rows as any)
+            if (redInsErr) {
+              console.error('[discount_redemptions insert failed at placePending]', redInsErr.message)
+              await swError('Failed to record discount at placement: ' + redInsErr.message)
+              return
+            }
+            let rpcOk = 0
+            for (let i = 0; i < parts.length; i++) {
+              const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
+                p_discount_id: usedDiscountId,
+              })
+              if (!redErr && ok !== null) rpcOk++
+            }
+            const delta = parts.length - rpcOk
+            if (delta > 0) {
+              const { data: dRow, error: selErr } = await supabase
+                .schema('rewards')
+                .from('discounts')
+                .select('id, redemptions_count')
+                .eq('id', usedDiscountId)
+                .maybeSingle()
+              if (!selErr && dRow?.id) {
+                const nextCount = Number(dRow.redemptions_count ?? 0) + delta
+                await supabase
+                  .schema('rewards')
+                  .from('discounts')
+                  .update({ redemptions_count: nextCount })
+                  .eq('id', usedDiscountId)
+              }
+            }
+          }
+        } else {
+          // global discount -> single redemption record (keep your original pattern)
+          const anyPurchaseId = lines[0]?.purchaseId || (await getAnyPurchaseIdForRef(pendingRefNumber.value!, uid))
+          if (anyPurchaseId) {
+            const { error: redInsErr } = await supabase
+              .schema('rewards')
+              .from('discount_redemptions')
+              .insert([
+                {
+                  discount_id: usedDiscountId,
+                  user_id: uid,
+                  purchase_id: anyPurchaseId,
+                  redeemed_amount: Number(orderDiscountAmt.toFixed(2)),
+                  currency: 'PHP',
+                },
+              ])
+            if (redInsErr) {
+              console.error('[discount_redemptions insert failed at placePending]', redInsErr.message)
+              await swError('Failed to record discount at placement: ' + redInsErr.message)
+              return
+            }
+            const { data: ok, error: redErr } = await supabase.rpc('inc_discount_redemption', {
+              p_discount_id: usedDiscountId,
+            })
+            if (redErr || ok === null) {
+              const { data: dRow, error: selErr } = await supabase
+                .schema('rewards')
+                .from('discounts')
+                .select('id, redemptions_count')
+                .eq('id', usedDiscountId)
+                .maybeSingle()
+              if (!selErr && dRow?.id) {
+                const nextCount = Number(dRow.redemptions_count ?? 0) + 1
+                await supabase
+                  .schema('rewards')
+                  .from('discounts')
+                  .update({ redemptions_count: nextCount })
+                  .eq('id', usedDiscountId)
+              }
+            }
+          }
+        }
+      }
+    }
+    // ▶ END ADDED
 
     for (const ln of lines) {
       try {
@@ -3419,7 +3893,7 @@ async function placePendingOrder() {
       }
       if (!purchaseIdForTxn) {
         console.error('[order_transactions] No purchase_id found for', pendingRefNumber.value)
-        alert('Could not tag the payment to a purchase. Please try again.')
+        await swError('Could not tag the payment to a purchase. Please try again.')
         return
       }
       const { error: txnErr } = await supabase
@@ -3434,7 +3908,7 @@ async function placePendingOrder() {
         ])
       if (txnErr) {
         console.error('[order_transactions insert failed]', txnErr.message)
-        alert('Failed to record the wallet payment: ' + txnErr.message)
+        await swError('Failed to record the wallet payment: ' + txnErr.message)
         return
       }
     }
@@ -3443,13 +3917,9 @@ async function placePendingOrder() {
     await loadPendingOrders()
     await fetchProducts()
     if (isEwallet) {
-      alert(
-        'Payment successful! Your order is now set to ship. You’ll receive a confirmation shortly.',
-      )
+      await swSuccess('Payment successful! Your order is now set to ship.')
     } else {
-      alert(
-        'Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.',
-      )
+      await swSuccess('Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.')
     }
   } finally {
     placingOrder.value = false
@@ -3459,9 +3929,38 @@ async function placePendingOrder() {
 async function cancelPendingOrder() {
   const uid = await ensureUser()
   if (!uid || !pendingRefNumber.value) return
+
   const ref = pendingRefNumber.value
-  if (!confirm(`Cancel request ${ref}? This will remove all pending items for this reference.`))
+
+  // ✅ Close review/place overlays first so the confirm isn’t “under” them
+  const prior = await preConfirmClosePlaceModals()
+
+  // 🔔 SweetAlert confirm
+  const result = await Swal.fire({
+    title: 'Cancel request?',
+    text: `Cancel request ${ref}? This will remove all pending items for this reference.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, cancel it',
+    cancelButtonText: 'No, keep it',
+    reverseButtons: true,
+    focusCancel: true,
+    heightAuto: false, // avoids scroll jump on some setups
+  })
+
+  // If user backs out, bring the modal back so they’re not “lost”
+  if (!result.isConfirmed) {
+    // reopen only what was open before
+    try {
+      if (prior.pending && prior.ref) {
+        await openPlacePending(prior.ref)
+      } else if (prior.place) {
+        openPlaceOrder()
+      }
+    } catch (_) {}
     return
+  }
+
   placingOrder.value = true
   try {
     const { error } = await supabase
@@ -3469,19 +3968,34 @@ async function cancelPendingOrder() {
       .from('purchases')
       .delete()
       .eq('user_id', uid)
-      .eq('reference_number', ref)
+      .eq('reference_number', ref!)
       .eq('status', 'pending')
+
     if (error) {
-      alert('Failed to cancel: ' + error.message)
+      await Swal.fire({
+        title: 'Cancel failed',
+        text: error.message,
+        icon: 'error',
+        confirmButtonText: 'OK',
+        heightAuto: false,
+      })
       return
     }
-    closePlacePending()
+
     await loadPendingOrders()
-    alert('Request cancelled.')
+
+    await Swal.fire({
+      title: 'Request cancelled',
+      text: 'Your pending request has been removed.',
+      icon: 'success',
+      confirmButtonText: 'OK',
+      heightAuto: false,
+    })
   } finally {
     placingOrder.value = false
   }
 }
+
 
 /* ========================================================================
    FETCH PRODUCTS (LIST VIEW)
@@ -3640,78 +4154,11 @@ async function bindPurchasesRealtime() {
 }
 
 /* ========================================================================
-   AFTERSHIP PUSH
+   AFTERSHIP PUSH (DISABLED / NO-OP)
    ======================================================================== */
-async function pushOrderToAfterShip(args: {
-  batchReference: string
-  lines: Array<{
-    p: Product
-    quantity: number
-    unitBeforeOrder: number
-    lineBeforeOrder: number
-    unitFinal: number
-  }>
-  finalSubtotal: number
-  shippingFee: number
-  discountTotal: number
-  shipping: ShippingRow
-  isPaid: boolean
-  currency?: string
-  customerName?: string | null
-  customerEmail?: string | null
-}) {
-  const cur = args.currency || 'PHP'
-  const items = args.lines.map((ln, idx) => {
-    const perLineDiscount = Math.max(0, (ln.unitBeforeOrder - ln.unitFinal) * ln.quantity)
-    return {
-      id: `li_${idx + 1}`,
-      product_title: ln.p.name,
-      sku: ln.p.id,
-      quantity: ln.quantity,
-      unit_price: { currency: cur, amount: ln.unitFinal.toFixed(2) },
-      discount: { currency: cur, amount: perLineDiscount.toFixed(2) },
-    }
-  })
-  const order = {
-    number: args.batchReference,
-    currency: cur,
-    status: 'open',
-    financial_status: args.isPaid ? 'paid' : 'unpaid',
-    fulfillment_status: 'unfulfilled',
-    subtotal: { currency: cur, amount: args.finalSubtotal.toFixed(2) },
-    shipping_total: { currency: cur, amount: Number(args.shippingFee || 0).toFixed(2) },
-    discount_total: { currency: cur, amount: Math.max(0, args.discountTotal).toFixed(2) },
-    order_total: {
-      currency: cur,
-      amount: Number(args.finalSubtotal + (args.shippingFee || 0)).toFixed(2),
-    },
-    items,
-    shipping_address: {
-      name: args.customerName ?? null,
-      phone: args.shipping.phone || null,
-      address1: args.shipping.address_line1 || null,
-      city: args.shipping.city || null,
-      region: args.shipping.province || null,
-      postal_code: args.shipping.postal_code || null,
-      country_region: 'PHL',
-    },
-    customer: {
-      name: args.customerName ?? null,
-      email: args.customerEmail ?? null,
-      phone: args.shipping.phone || null,
-    },
-  }
-  const { data, error } = await supabase.functions.invoke('aftership_create_order', {
-    body: { order },
-  })
-  if (error) {
-    console.warn('[aftership_create_order] invoke error:', error.message)
-    return null
-  }
-  if (!data?.ok) {
-    console.warn('[aftership_create_order] non-ok:', data)
-  }
-  return data
+async function pushOrderToAfterShip(_args: any) {
+  // AfterShip integration removed; function kept as a safe no-op.
+  return { ok: true, disabled: true }
 }
 
 /* ========================================================================
@@ -3740,6 +4187,24 @@ async function onAddToCartFromModal(ev: MouseEvent) {
 /* ========================================================================
    SPECIFICATIONS HELPERS
    ======================================================================== */
+
+   async function preConfirmClosePlaceModals() {
+  // remember which UI sheets were open
+  const prior = {
+    pending: showPendingPlace.value,
+    place: showPlace.value,
+    ref: pendingRefNumber.value as string | null,
+  }
+
+  // close the UI layers that sit above the Swal backdrop
+  if (prior.pending) closePlacePending()
+  if (prior.place) closePlaceOrder()
+
+  // give the DOM a frame to settle so SweetAlert isn’t underlapped
+  await nextTick()
+  return prior
+}
+
 function parseSpecs(raw: unknown): Record<string, any> {
   if (raw == null) return {}
   if (typeof raw === 'string') {
@@ -3828,6 +4293,15 @@ watch(resolvedDiscountByCode, (v) => {
 
 
 
+
+
+
+
+
+
+
+
+
 <style scoped>
 /* ================================
    ORIGINAL STYLES (UNCHANGED)
@@ -3888,7 +4362,7 @@ watch(resolvedDiscountByCode, (v) => {
 .product-title {
   font-size: 1rem;
   line-height: 1.25;
-}
+} 
 .price {
   font-size: 1.06rem;
   letter-spacing: 0.2px;
@@ -4424,5 +4898,110 @@ watch(resolvedDiscountByCode, (v) => {
 }
 
 /* End of new additions */
+/* === Skeleton / shimmer === */
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #e9ecef;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.45), rgba(255,255,255,0));
+  animation: shimmer 1.2s infinite;
+}
+
+.skeleton-text { height: 0.875rem; border-radius: 6px; }
+.skeleton-pill { height: 20px; border-radius: 999px; width: 64px; }
+.skeleton-btn { height: 36px; border-radius: 10px; width: 120px; }
+.skeleton-input { height: 38px; border-radius: 10px; }
+.skeleton-select { height: 38px; border-radius: 10px; }
+
+/* match your existing sizes */
+.pending-thumb.skeleton { width: 48px; height: 48px; border-radius: 10px; }
+.pending-item-thumb.skeleton { width: 56px; height: 56px; border-radius: 10px; }
+
+/* make big image corners match your cards */
+.product-thumb .skeleton,
+.product-modal-thumb .skeleton {
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+}
+/* --- Skeleton base + shimmer --- */
+.skeleton {
+  position: relative;
+  background-color: #e9ecef;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  animation: sk-shimmer 1.2s infinite;
+}
+@keyframes sk-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* text/blocks */
+.skeleton-text { height: .9rem; border-radius: .25rem; }
+.skeleton-pill { width: 72px; height: 1.25rem; border-radius: 999px; }
+.skeleton-btn { width: 120px; height: 2.25rem; border-radius: .5rem; }
+.skeleton-input { height: 2rem; border-radius: .5rem; }
+.skeleton-select { height: 2.5rem; border-radius: .5rem; }
+
+/* --- Important: make skeletons fill Bootstrap .ratio boxes --- */
+.ratio > .skeleton,
+.ratio .skeleton-fill {
+  position: absolute;
+  inset: 0;           /* top:0; right:0; bottom:0; left:0 */
+}
+
+/* Skeleton base + shimmer */
+.skeleton {
+  position: relative;
+  background-color: #e9ecef;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  animation: sk-shimmer 1.2s infinite;
+}
+@keyframes sk-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* Blocks */
+.skeleton-text { height: .9rem; border-radius: .25rem; }
+.skeleton-pill { width: 72px; height: 1.25rem; border-radius: 999px; }
+.skeleton-btn { width: 120px; height: 2.25rem; border-radius: .5rem; }
+.skeleton-input { height: 2rem; border-radius: .5rem; }
+
+/* Fill the Bootstrap .ratio box correctly */
+.ratio > .skeleton-fill { position: absolute; inset: 0; }
+
+/* Prevent absolute children (like the image-area skeleton) from bleeding */
+.product-card { overflow: hidden; }
+
+/* IMPORTANT: your .products-div sets a max-height at some breakpoints.
+   That clips tall skeletons. Loosen it only while loading. */
+.is-loading .products-div { max-height: none !important; }
+
+
 </style>
 
