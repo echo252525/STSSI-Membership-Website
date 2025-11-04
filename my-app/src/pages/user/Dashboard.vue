@@ -1979,7 +1979,7 @@ const ppBgStyle = computed(() => {
   position: absolute;
   inset: 0;
   border-radius: 16px;
-  background: rgba(5, 10, 12, 0.25);
+  background: rgba(5, 10, 12, 0.534);
   border: 1px solid rgba(233, 238, 243, 0.12);
   opacity: 0;
   transform: translateY(6px) scale(0.995);
