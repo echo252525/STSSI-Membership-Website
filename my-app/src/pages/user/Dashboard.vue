@@ -253,7 +253,12 @@
 
             <!-- Animated card -->
             <transition name="pp-slide-fade" mode="out-in">
-              <div v-if="currentPreview" :key="currentPreview.id" class="pp-card glass bg-mode">
+              <div 
+                v-if="currentPreview"
+                :key="currentPreview.id"
+                class="pp-card glass bg-mode"
+                :class="{ 'is-hover': hoverActive }"
+              >
                 <!-- Background image layer + scrim -->
                 <div class="pp-bg" :style="ppBgStyle"></div>
                 <div class="pp-scrim"></div>
@@ -266,11 +271,10 @@
                   >
                     -{{ number(currentPreview._discount_pct) }}%
                   </span>
-                  <span v-if="isAffordable(currentPreview)" class="pp-chip best">Affordable</span>
                 </div>
 
                 <!-- Bottom-left overlay (title + prices + view) -->
-                <div class="pp-floating" :class="{ 'pp-floating-up': hoverActive }">
+                <div class="pp-floating px-4" :class="{ 'pp-floating-up': hoverActive }">
                   <h4 class="pp-title-overlay text-wrap mb-0" :title="currentPreview?.name">
                     {{ currentPreview?.name }}
                   </h4>
@@ -294,32 +298,11 @@
                 <!-- Hover overlay (dim, not solid) -->
                 <div class="pp-hover" :class="{ show: hoverActive }">
                   <!-- FLOATING PRICES (top-right) -->
-                  <div class="pp-h-prices">
-                    <div class="pp-h-price-line">
-                      <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
-                      <span v-if="hasWas(currentPreview)" class="pp-was">{{
-                        peso(currentPreview?.price_was || 0)
-                      }}</span>
-                      <span v-if="currentPreview?._discount_pct" class="pp-h-off"
-                        >-{{ number(currentPreview?._discount_pct) }}%</span
-                      >
-                    </div>
-
-                    <!-- membership price (optional) -->
-                    <div
-                      v-if="membershipDiscountPct > 0 && currentPreview"
-                      class="pp-h-member-inline"
-                    >
-                      <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
-                      <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
-                    </div>
-                  </div>
-
-                  <div class="pp-h-content">
-                    <div class="pp-h-title">{{ currentPreview?.name }}</div>
-                    <div v-if="currentPreview?.description" class="pp-h-desc">
-                      {{ currentPreview?.description }}
-                    </div>
+                  <div class="pp-h-content px-5 pt-4">
+                    <div class="pp-h-title mb-3">{{ currentPreview?.name }}</div>
+                    <ul v-if="previewDescItems.length" class="pp-h-desclist">
+                      <li v-for="(d, i) in previewDescItems" :key="i">{{ d }}</li>
+                    </ul>
                   </div>
 
                   <!-- View button at bottom when hovered -->
@@ -327,7 +310,7 @@
                     <router-link
                       v-if="currentPreview"
                       :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
-                      class="btn btn-primary btn-sm"
+                      class="btn btn-secondary btn-sm"
                     >
                       View
                     </router-link>
@@ -545,6 +528,15 @@ const currentPreview = computed<ProdRow | null>(
 )
 watch(previewProducts, () => {
   previewIndex.value = 0
+})
+
+const previewDescItems = computed(() => {
+  const raw = currentPreview.value?.description || ''
+  return raw
+    .split(',')            // split by comma
+    .map(s => s.trim())    // trim spaces
+    .filter(Boolean)       // remove empties
+    .slice(0, 12)          // (optional) cap the length
 })
 
 /* ===== Hover / Autoplay for product preview ===== */
@@ -1846,10 +1838,10 @@ const ppBgStyle = computed(() => {
   transform: translateY(-50%) scale(1.02);
 }
 .pp-nav-left {
-  left: 8px;
+  left: 3px;
 }
 .pp-nav-right {
-  right: 8px;
+  right: 3px;
 }
 
 /* Base card layout kept */
@@ -1967,6 +1959,20 @@ const ppBgStyle = computed(() => {
 .pp-card.bg-mode .pp-body {
   display: none !important;
 }
+/* Hide the base title/price when hovering (we already show them in the hover layer) */
+.pp-title-overlay,
+.pp-price-overlay,
+.pp-member-inline {
+  transition: opacity .25s ease, transform .25s ease;
+}
+
+.pp-card.is-hover .pp-title-overlay,
+.pp-card.is-hover .pp-price-overlay,
+.pp-card.is-hover .pp-member-inline  {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+}
 
 /* Hover overlay (dim) */
 .pp-hover {
@@ -2047,13 +2053,14 @@ const ppBgStyle = computed(() => {
 /* hover content */
 .pp-h-content {
   padding: 14px 14px 0 14px;
-  max-height: 65%;
+  max-height: 100%;
   overflow: auto;
   padding-right: 90px; /* so text doesn't go under floating prices */
+  line-height: 1;
 }
 .pp-h-title {
-  font-weight: 900;
-  font-size: 1.1rem;
+  font-weight: 700;
+  font-size: 1rem;
   margin-bottom: 0.25rem;
   color: #fff;
 }
@@ -2062,6 +2069,19 @@ const ppBgStyle = computed(() => {
   margin-bottom: 0.5rem;
   font-size: 0.85rem;
 }
+.pp-h-desclist {
+  margin: 0.35rem 0 0.6rem;
+  padding-left: 1.1rem;   /* indent for bullets */
+  color: #e2e8f0;         /* matches your hover desc color */
+  font-size: 0.85rem;
+  line-height: 1.25;
+        /* keeps list from overflowing */
+  overflow: auto;         /* scroll if too long */
+}
+
+.pp-h-desclist li {
+  margin: 0.15rem 0;
+}
 
 /* hover actions bottom */
 .pp-h-actions {
@@ -2069,7 +2089,7 @@ const ppBgStyle = computed(() => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  margin-bottom: 1.5rem;
+  margin: 0.3rem 0 0.3rem 0;
 }
 
 /* dot indicators */
@@ -2077,16 +2097,15 @@ const ppBgStyle = computed(() => {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 8px;
+  bottom: 6px;
   display: flex;
-  gap: 10px;
+  gap: 6px;
   justify-content: center;
   z-index: 20;
 }
 .pp-dot {
   position: relative;
-  width: 10px;
-  height: 10px;
+  height: 5px;
   border-radius: 999px;
   background: #e2e8f0;
   border: 1px solid #cbd5e1;
@@ -2094,7 +2113,6 @@ const ppBgStyle = computed(() => {
 .pp-dot.active {
   background: #0ea5e9;
   border-color: #0284c7;
-  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
 }
 .pp-bubble {
   display: none !important;

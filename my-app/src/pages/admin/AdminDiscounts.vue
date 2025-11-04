@@ -1,21 +1,17 @@
 <template>
-  <div class="container-fluid discounts-page" :aria-busy="busy.load ? 'true' : 'false'">
+  <div class="container-fluid py-3 discounts-page" :aria-busy="busy.load ? 'true' : 'false'">
     <!-- Header -->
     <div class="d-flex align-items-center justify-content-between mb-3 gap-2 flex-wrap">
       <div>
-        <h3 class="fw-bold m-0 d-flex align-items-center gap-2">
-          <i class="bi bi-ticket-perforated"></i>
+        <h1 class="h4 m-0 d-flex align-items-center gap-2">
+          <i class="bi bi-ticket-perforated text-primary"></i>
           Discounts
-        </h3>
+        </h1>
         <p class="text-muted small mb-0">Create, manage, and track discount codes and credits.</p>
       </div>
 
       <div class="d-flex align-items-center gap-2">
-        <button
-          class="btn btn-outline-secondary btn-sm"
-          :disabled="busy.load"
-          @click="load"
-        >
+        <button class="btn btn-outline-secondary btn-sm" :disabled="busy.load" @click="load">
           <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
           Refresh
         </button>
@@ -83,9 +79,7 @@
           </div>
 
           <div class="col-12 col-md-2 d-grid">
-            <button class="btn btn-outline-primary btn-sm" @click="load">
-              Apply
-            </button>
+            <button class="btn btn-outline-primary btn-sm" @click="load">Apply</button>
           </div>
         </div>
       </div>
@@ -94,10 +88,9 @@
     <!-- ==================== NEW: Minimalist Tabs + Cards ==================== -->
     <div class="card border-0 shadow-sm rounded-4 list-card breath breath-delay-2">
       <div class="card-body p-3">
-
         <!-- Loading -->
         <div v-if="busy.load" class="row g-3" role="status" aria-live="polite">
-          <div v-for="n in 8" :key="'sk-'+n" class="col-12 col-md-6 col-xl-3">
+          <div v-for="n in 8" :key="'sk-' + n" class="col-12 col-md-6 col-xl-3">
             <div class="discount-card skeleton breath">
               <div class="skeleton-line w-50 mb-2"></div>
               <div class="skeleton-line w-75 mb-3"></div>
@@ -109,7 +102,10 @@
         </div>
 
         <!-- Empty -->
-        <div v-else-if="items.length === 0" class="text-center text-muted py-5 breath breath-delay-3">
+        <div
+          v-else-if="items.length === 0"
+          class="text-center text-muted py-5 breath breath-delay-3"
+        >
           <i class="bi bi-percent fs-2 d-block mb-2"></i>
           No discounts found.
         </div>
@@ -117,11 +113,13 @@
         <!-- Content -->
         <div v-else class="new-layout">
           <!-- Quick tabs -->
-          <div class="disc-tabs d-flex flex-wrap align-items-center gap-2 mb-3 breath breath-delay-3">
+          <div
+            class="disc-tabs d-flex flex-wrap align-items-center gap-2 mb-3 breath breath-delay-3"
+          >
             <button
               class="pill"
-              :class="{active: activeTab==='active'}"
-              @click="activeTab='active'"
+              :class="{ active: activeTab === 'active' }"
+              @click="activeTab = 'active'"
             >
               <i class="bi bi-lightning-charge me-1"></i> Active
               <span class="count">{{ activeItems.length }}</span>
@@ -129,8 +127,8 @@
 
             <button
               class="pill"
-              :class="{active: activeTab==='scheduled'}"
-              @click="activeTab='scheduled'"
+              :class="{ active: activeTab === 'scheduled' }"
+              @click="activeTab = 'scheduled'"
             >
               <i class="bi bi-calendar3 me-1"></i> Scheduled
               <span class="count">{{ scheduledItems.length }}</span>
@@ -138,8 +136,8 @@
 
             <button
               class="pill"
-              :class="{active: activeTab==='expired'}"
-              @click="activeTab='expired'"
+              :class="{ active: activeTab === 'expired' }"
+              @click="activeTab = 'expired'"
             >
               <i class="bi bi-calendar-x me-1"></i> Expired
               <span class="count">{{ expiredItems.length }}</span>
@@ -147,8 +145,8 @@
 
             <button
               class="pill"
-              :class="{active: activeTab==='all'}"
-              @click="activeTab='all'"
+              :class="{ active: activeTab === 'all' }"
+              @click="activeTab = 'all'"
             >
               <i class="bi bi-grid me-1"></i> All
               <span class="count">{{ items.length }}</span>
@@ -157,22 +155,24 @@
 
           <!-- Grid -->
           <div class="row g-3">
-            <div
-              v-for="d in filteredByTab"
-              :key="d.id"
-              class="col-12 col-md-6 col-xl-4"
-            >
+            <div v-for="d in filteredByTab" :key="d.id" class="col-12 col-md-6 col-xl-4">
               <div class="discount-card h-100 d-flex flex-column modern-card">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-start mb-2">
                   <div class="flex-grow-1">
                     <h6 class="mb-0 d-flex align-items-center gap-2">
                       <span class="title-text" :title="d.title">{{ d.title }}</span>
-                      <span class="badge rounded-pill" :class="badgeClass(cardStatus(d))">{{ cardStatus(d) }}</span>
+                      <span class="badge rounded-pill" :class="badgeClass(cardStatus(d))">{{
+                        cardStatus(d)
+                      }}</span>
                     </h6>
-                    <p class="text-muted small mb-1 line-clamp-2" :title="d.description">{{ d.description }}</p>
+                    <p class="text-muted small mb-1 line-clamp-2" :title="d.description">
+                      {{ d.description }}
+                    </p>
                     <p class="small mb-0">
-                      <span v-if="d.code" class="badge text-bg-light border"><i class="bi bi-upc me-1"></i>{{ d.code }}</span>
+                      <span v-if="d.code" class="badge text-bg-light border"
+                        ><i class="bi bi-upc me-1"></i>{{ d.code }}</span
+                      >
                       <span v-else class="text-muted small">No code</span>
                     </p>
                   </div>
@@ -180,7 +180,10 @@
                   <!-- Status-specific actions (compact) -->
                   <div class="d-flex flex-column align-items-end gap-1">
                     <!-- Active: Pause toggle -->
-                    <div v-if="cardStatus(d) === 'active'" class="form-check form-switch small m-0 toggle-wrap">
+                    <div
+                      v-if="cardStatus(d) === 'active'"
+                      class="form-check form-switch small m-0 toggle-wrap"
+                    >
                       <input
                         class="form-check-input pretty-switch"
                         type="checkbox"
@@ -191,7 +194,10 @@
                         @change="pauseDiscount(d)"
                       />
                       <label class="form-check-label tiny-text" :for="'sw-' + d.id">
-                        <span v-if="busy.statusId === d.id" class="spinner-border spinner-border-sm me-1"></span>
+                        <span
+                          v-if="busy.statusId === d.id"
+                          class="spinner-border spinner-border-sm me-1"
+                        ></span>
                         Pause
                       </label>
                     </div>
@@ -213,22 +219,51 @@
                         @click="remove(d)"
                         title="Delete"
                       >
-                        <span v-if="busy.deleteId === d.id" class="spinner-border spinner-border-sm"></span>
+                        <span
+                          v-if="busy.deleteId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-trash"></i>
                       </button>
                     </div>
 
                     <!-- Draft / Paused: quick actions -->
-                    <div v-else-if="cardStatus(d) === 'draft' || cardStatus(d) === 'paused'" class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-secondary" type="button" @click="openEditor(d)" title="Edit">
+                    <div
+                      v-else-if="cardStatus(d) === 'draft' || cardStatus(d) === 'paused'"
+                      class="btn-group btn-group-sm"
+                    >
+                      <button
+                        class="btn btn-outline-secondary"
+                        type="button"
+                        @click="openEditor(d)"
+                        title="Edit"
+                      >
                         <i class="bi bi-pencil"></i>
                       </button>
-                      <button class="btn btn-outline-primary" type="button" @click="activateDiscount(d)" :disabled="busy.statusId === d.id" title="Activate">
-                        <span v-if="busy.statusId === d.id" class="spinner-border spinner-border-sm"></span>
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        @click="activateDiscount(d)"
+                        :disabled="busy.statusId === d.id"
+                        title="Activate"
+                      >
+                        <span
+                          v-if="busy.statusId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-play-fill"></i>
                       </button>
-                      <button class="btn btn-outline-danger" type="button" @click="remove(d)" :disabled="busy.deleteId === d.id" title="Delete">
-                        <span v-if="busy.deleteId === d.id" class="spinner-border spinner-border-sm"></span>
+                      <button
+                        class="btn btn-outline-danger"
+                        type="button"
+                        @click="remove(d)"
+                        :disabled="busy.deleteId === d.id"
+                        title="Delete"
+                      >
+                        <span
+                          v-if="busy.deleteId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -242,25 +277,58 @@
                         @click="renewDiscount(d)"
                         title="Renew (edit details)"
                       >
-                        <span v-if="busy.statusId === d.id" class="spinner-border spinner-border-sm"></span>
+                        <span
+                          v-if="busy.statusId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         Renew
                       </button>
-                      <button class="btn btn-outline-dark" type="button" :disabled="busy.statusId === d.id" @click="archiveDiscount(d)" title="Archive">
+                      <button
+                        class="btn btn-outline-dark"
+                        type="button"
+                        :disabled="busy.statusId === d.id"
+                        @click="archiveDiscount(d)"
+                        title="Archive"
+                      >
                         Archive
                       </button>
-                      <button class="btn btn-outline-danger" type="button" :disabled="busy.deleteId === d.id" @click="remove(d)" title="Delete">
-                        <span v-if="busy.deleteId === d.id" class="spinner-border spinner-border-sm"></span>
+                      <button
+                        class="btn btn-outline-danger"
+                        type="button"
+                        :disabled="busy.deleteId === d.id"
+                        @click="remove(d)"
+                        title="Delete"
+                      >
+                        <span
+                          v-if="busy.deleteId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-trash"></i>
                       </button>
                     </div>
 
                     <!-- Archived: Restore / Delete -->
                     <div v-else-if="cardStatus(d) === 'archived'" class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" type="button" :disabled="busy.statusId === d.id" @click="restoreDiscount(d)" title="Restore to Draft">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        :disabled="busy.statusId === d.id"
+                        @click="restoreDiscount(d)"
+                        title="Restore to Draft"
+                      >
                         <i class="bi bi-arrow-counterclockwise"></i>
                       </button>
-                      <button class="btn btn-outline-danger" type="button" :disabled="busy.deleteId === d.id" @click="remove(d)" title="Delete">
-                        <span v-if="busy.deleteId === d.id" class="spinner-border spinner-border-sm"></span>
+                      <button
+                        class="btn btn-outline-danger"
+                        type="button"
+                        :disabled="busy.deleteId === d.id"
+                        @click="remove(d)"
+                        title="Delete"
+                      >
+                        <span
+                          v-if="busy.deleteId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -280,7 +348,9 @@
                       v-if="d.type === 'percent' && d.max_discount_amount"
                       class="text-muted small mt-1 d-flex align-items-center gap-1"
                     >
-                      <i class="bi bi-shield-check"></i> Cap ₱{{ formatNumber(d.max_discount_amount) }}
+                      <i class="bi bi-shield-check"></i> Cap ₱{{
+                        formatNumber(d.max_discount_amount)
+                      }}
                     </div>
                   </div>
                 </div>
@@ -288,26 +358,42 @@
                 <!-- Badges -->
                 <div class="mb-3">
                   <div class="d-flex flex-wrap gap-1">
-                    <span v-if="d.product_id" class="badge rounded-pill bg-body-secondary border text-secondary small-badge">
+                    <span
+                      v-if="d.product_id"
+                      class="badge rounded-pill bg-body-secondary border text-secondary small-badge"
+                    >
                       <i class="bi bi-box-seam me-1"></i>Product-only
                     </span>
-                    <span v-if="d.min_subtotal && d.min_subtotal > 0" class="badge rounded-pill bg-body-secondary border text-secondary small-badge">
+                    <span
+                      v-if="d.min_subtotal && d.min_subtotal > 0"
+                      class="badge rounded-pill bg-body-secondary border text-secondary small-badge"
+                    >
                       <i class="bi bi-cash-coin me-1"></i>Min ₱{{ formatNumber(d.min_subtotal) }}
                     </span>
-                    <span class="badge rounded-pill bg-body-secondary border text-secondary small-badge">
+                    <span
+                      class="badge rounded-pill bg-body-secondary border text-secondary small-badge"
+                    >
                       <i class="bi bi-layers me-1"></i>Exclusive
                     </span>
-                    <span v-if="d.max_uses_global" class="badge rounded-pill bg-body-secondary border text-secondary small-badge">
+                    <span
+                      v-if="d.max_uses_global"
+                      class="badge rounded-pill bg-body-secondary border text-secondary small-badge"
+                    >
                       <i class="bi bi-people me-1"></i>{{ d.max_uses_global }} global
                     </span>
-                    <span v-if="d.max_uses_per_user" class="badge rounded-pill bg-body-secondary border text-secondary small-badge">
+                    <span
+                      v-if="d.max_uses_per_user"
+                      class="badge rounded-pill bg-body-secondary border text-secondary small-badge"
+                    >
                       <i class="bi bi-person-check me-1"></i>{{ d.max_uses_per_user }}/user
                     </span>
                   </div>
                 </div>
 
                 <!-- Timeline + usage -->
-                <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-muted gap-2">
+                <div
+                  class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-muted gap-2"
+                >
                   <div>
                     <i class="bi bi-calendar-event"></i>
                     {{ d.starts_at ? fmtDate(d.starts_at) : '—' }}
@@ -317,7 +403,11 @@
                     <i class="bi bi-lightning-charge text-warning"></i>
                     {{ d.redemptions_count ?? 0 }} used
                     <div class="text-muted tiny-text">
-                      {{ (d.redemptions_count ?? 0) === 1 ? '1 user has used this discount' : (d.redemptions_count ?? 0) + ' users have used this discount' }}
+                      {{
+                        (d.redemptions_count ?? 0) === 1
+                          ? '1 user has used this discount'
+                          : (d.redemptions_count ?? 0) + ' users have used this discount'
+                      }}
                     </div>
                   </div>
                 </div>
@@ -342,8 +432,12 @@
               Showing <strong>{{ items.length }}</strong>
             </div>
             <div class="btn-group">
-              <button class="btn btn-outline-secondary btn-sm" :disabled="!canPrev" @click="prev">Prev</button>
-              <button class="btn btn-outline-secondary btn-sm" :disabled="!canNext" @click="next">Next</button>
+              <button class="btn btn-outline-secondary btn-sm" :disabled="!canPrev" @click="prev">
+                Prev
+              </button>
+              <button class="btn btn-outline-secondary btn-sm" :disabled="!canNext" @click="next">
+                Next
+              </button>
             </div>
           </div>
 
@@ -358,28 +452,55 @@
 
           <!-- Archived grid -->
           <div v-if="showArchived" class="mt-3 breath breath-delay-3">
-            <div v-if="archivedItems.length === 0" class="text-muted small px-2 pb-2 text-center">No archived discounts.</div>
+            <div v-if="archivedItems.length === 0" class="text-muted small px-2 pb-2 text-center">
+              No archived discounts.
+            </div>
             <div v-else class="row g-3">
-              <div v-for="d in archivedItems" :key="'arch-'+d.id" class="col-12 col-md-6 col-xl-4">
+              <div
+                v-for="d in archivedItems"
+                :key="'arch-' + d.id"
+                class="col-12 col-md-6 col-xl-4"
+              >
                 <div class="discount-card h-100 d-flex flex-column modern-card">
                   <div class="d-flex justify-content-between align-items-start mb-2">
                     <div class="flex-grow-1">
                       <h6 class="mb-0 d-flex align-items-center gap-2">
                         <span class="title-text" :title="d.title">{{ d.title }}</span>
-                        <span class="badge rounded-pill" :class="badgeClass('archived')">archived</span>
+                        <span class="badge rounded-pill" :class="badgeClass('archived')"
+                          >archived</span
+                        >
                       </h6>
-                      <p class="text-muted small mb-1 line-clamp-2" :title="d.description">{{ d.description }}</p>
+                      <p class="text-muted small mb-1 line-clamp-2" :title="d.description">
+                        {{ d.description }}
+                      </p>
                       <p class="small mb-0">
-                        <span v-if="d.code" class="badge text-bg-light border"><i class="bi bi-upc me-1"></i>{{ d.code }}</span>
+                        <span v-if="d.code" class="badge text-bg-light border"
+                          ><i class="bi bi-upc me-1"></i>{{ d.code }}</span
+                        >
                         <span v-else class="text-muted small">No code</span>
                       </p>
                     </div>
                     <div class="btn-group btn-group-sm">
-                      <button class="btn btn-outline-primary" type="button" :disabled="busy.statusId === d.id" @click="restoreDiscount(d)" title="Restore to Draft">
+                      <button
+                        class="btn btn-outline-primary"
+                        type="button"
+                        :disabled="busy.statusId === d.id"
+                        @click="restoreDiscount(d)"
+                        title="Restore to Draft"
+                      >
                         <i class="bi bi-arrow-counterclockwise"></i>
                       </button>
-                      <button class="btn btn-outline-danger" type="button" :disabled="busy.deleteId === d.id" @click="remove(d)" title="Delete">
-                        <span v-if="busy.deleteId === d.id" class="spinner-border spinner-border-sm"></span>
+                      <button
+                        class="btn btn-outline-danger"
+                        type="button"
+                        :disabled="busy.deleteId === d.id"
+                        @click="remove(d)"
+                        title="Delete"
+                      >
+                        <span
+                          v-if="busy.deleteId === d.id"
+                          class="spinner-border spinner-border-sm"
+                        ></span>
                         <i v-else class="bi bi-trash"></i>
                       </button>
                     </div>
@@ -396,7 +517,9 @@
                     </div>
                   </div>
 
-                  <div class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-muted gap-2">
+                  <div
+                    class="d-flex align-items-center justify-content-between mt-auto pt-2 border-top small text-muted gap-2"
+                  >
                     <div>
                       <i class="bi bi-calendar-event"></i>
                       {{ d.starts_at ? fmtDate(d.starts_at) : '—' }}
@@ -411,8 +534,8 @@
               </div>
             </div>
           </div>
-
-        </div> <!-- /new-layout -->
+        </div>
+        <!-- /new-layout -->
 
         <!-- (Kept for reference; hidden) Old grouped sections -->
         <div class="grouped-sections d-none">
@@ -484,7 +607,9 @@
             </div>
 
             <!-- Section: Discount Rule -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Discount Rule</p>
+            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
+              Discount Rule
+            </p>
             <div class="row g-3 mb-3 breath">
               <!-- Type -->
               <div class="col-12 col-md-4">
@@ -496,7 +621,12 @@
                 <!-- insert -->
                 <div class="input-group" v-if="!form.id">
                   <span class="input-group-text bg-light"><i class="bi bi-tags"></i></span>
-                  <select v-model="form.type" class="form-select" :class="errors.type && 'is-invalid'" :required="true">
+                  <select
+                    v-model="form.type"
+                    class="form-select"
+                    :class="errors.type && 'is-invalid'"
+                    :required="true"
+                  >
                     <option value="percent">% Percentage</option>
                     <option value="fixed_amount">₱ Fixed Amount</option>
                   </select>
@@ -505,7 +635,9 @@
                 <!-- edit: display-only -->
                 <div v-else class="display-field">
                   <i class="bi bi-lock text-muted me-1"></i>
-                  <span class="badge rounded-pill bg-soft">{{ uiTypeLabel(form.type || 'percent') }}</span>
+                  <span class="badge rounded-pill bg-soft">{{
+                    uiTypeLabel(form.type || 'percent')
+                  }}</span>
                 </div>
                 <div v-if="errors.type" class="invalid-feedback d-block">{{ errors.type }}</div>
               </div>
@@ -519,8 +651,12 @@
 
                 <!-- insert -->
                 <div class="input-group" v-if="!form.id">
-                  <span class="input-group-text bg-light" v-if="form.type === 'fixed_amount'">₱</span>
-                  <span class="input-group-text bg-light" v-else><i class="bi bi-percent"></i></span>
+                  <span class="input-group-text bg-light" v-if="form.type === 'fixed_amount'"
+                    >₱</span
+                  >
+                  <span class="input-group-text bg-light" v-else
+                    ><i class="bi bi-percent"></i
+                  ></span>
                   <input
                     v-model.number="form.value"
                     :type="'number'"
@@ -537,7 +673,12 @@
                 <!-- edit: display-only -->
                 <div v-else class="display-field">
                   <i class="bi bi-lock text-muted me-1"></i>
-                  <template v-if="(originalDiscount && originalDiscount.type === 'percent') || form.type === 'percent'">
+                  <template
+                    v-if="
+                      (originalDiscount && originalDiscount.type === 'percent') ||
+                      form.type === 'percent'
+                    "
+                  >
                     {{ formatNumber(originalDiscount?.percent_off ?? form.value ?? 0) }}%
                   </template>
                   <template v-else>
@@ -558,14 +699,21 @@
                 </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="bi bi-upc"></i></span>
-                  <input v-model.trim="form.code" type="text" class="form-control" placeholder="E.g., PAYDAY10" />
+                  <input
+                    v-model.trim="form.code"
+                    type="text"
+                    class="form-control"
+                    placeholder="E.g., PAYDAY10"
+                  />
                 </div>
                 <div class="form-text">Unique (case-insensitive) if provided.</div>
               </div>
             </div>
 
             <!-- Section: Applicability -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Applicability</p>
+            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
+              Applicability
+            </p>
             <div class="row g-3 mb-3 breath">
               <!-- insert: choose product -->
               <div class="col-12 col-md-6 position-relative" ref="pickerEl" v-if="!form.id">
@@ -577,11 +725,24 @@
 
                 <div class="input-group product-picker-trigger" @click.stop="toggleProductDropdown">
                   <span class="input-group-text bg-light"><i class="bi bi-box2"></i></span>
-                  <button type="button" class="form-control d-flex align-items-center justify-content-between gap-2">
+                  <button
+                    type="button"
+                    class="form-control d-flex align-items-center justify-content-between gap-2"
+                  >
                     <div class="d-flex align-items-center gap-2 text-start">
                       <div class="picker-thumb">
-                        <img v-if="selectedProduct?.signed_url" :src="selectedProduct.signed_url" alt="product" />
-                        <img v-else-if="selectedProduct?.product_url && selectedProduct.product_url.length" :src="selectedProduct.product_url[0]" alt="product" />
+                        <img
+                          v-if="selectedProduct?.signed_url"
+                          :src="selectedProduct.signed_url"
+                          alt="product"
+                        />
+                        <img
+                          v-else-if="
+                            selectedProduct?.product_url && selectedProduct.product_url.length
+                          "
+                          :src="selectedProduct.product_url[0]"
+                          alt="product"
+                        />
                         <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
                       </div>
                       <div class="picker-label">
@@ -589,31 +750,53 @@
                         <span v-else class="text-muted">All products</span>
                       </div>
                     </div>
-                    <i class="bi" :class="productDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+                    <i
+                      class="bi"
+                      :class="productDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"
+                    ></i>
                   </button>
-                  <button v-if="selectedProduct" type="button" class="btn btn-outline-secondary btn-sm" @click.stop="clearProduct">
+                  <button
+                    v-if="selectedProduct"
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm"
+                    @click.stop="clearProduct"
+                  >
                     <i class="bi bi-x-lg"></i>
                   </button>
                 </div>
 
                 <div v-if="productDropdownOpen" class="product-dropdown shadow-sm rounded-3">
                   <div class="product-dropdown-item" @click="selectProduct(null)">
-                    <div class="picker-thumb"><div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div></div>
+                    <div class="picker-thumb">
+                      <div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div>
+                    </div>
                     <div class="flex-grow-1">
                       <div class="fw-semibold">All products</div>
                       <div class="text-muted small">Discount will apply to any product</div>
                     </div>
                   </div>
 
-                  <div v-for="p in products" :key="p.id" class="product-dropdown-item" @click="selectProduct(p)">
+                  <div
+                    v-for="p in products"
+                    :key="p.id"
+                    class="product-dropdown-item"
+                    @click="selectProduct(p)"
+                  >
                     <div class="picker-thumb">
                       <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
-                      <img v-else-if="p.product_url && p.product_url.length" :src="p.product_url[0]" alt="p" />
+                      <img
+                        v-else-if="p.product_url && p.product_url.length"
+                        :src="p.product_url[0]"
+                        alt="p"
+                      />
                       <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
                     </div>
                     <div class="flex-grow-1">
                       <div class="fw-semibold">{{ p.name }}</div>
-                      <div class="text-muted small">Stock: {{ p.stock }} <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span></div>
+                      <div class="text-muted small">
+                        Stock: {{ p.stock }}
+                        <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -635,12 +818,16 @@
                   <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
                   <span v-else class="text-muted">All products</span>
                 </div>
-                <div class="form-text small text-muted">Product applicability can’t be changed after creation.</div>
+                <div class="form-text small text-muted">
+                  Product applicability can’t be changed after creation.
+                </div>
               </div>
             </div>
 
             <!-- Section: Availability & Limits -->
-            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Availability & Limits</p>
+            <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
+              Availability & Limits
+            </p>
 
             <!-- INSERT or EDIT(DRAFT/EXPIRED/SCHEDULED): Launch mode toggle (unified) -->
             <div class="row g-3 breath" v-if="showCreateModeOptions">
@@ -650,12 +837,24 @@
                   Launch Mode
                 </label>
                 <div class="btn-group btn-group-sm" role="group" aria-label="Launch mode">
-                  <input class="btn-check" type="radio" id="lm-now" value="draftactive" v-model="form.insert_kind" />
+                  <input
+                    class="btn-check"
+                    type="radio"
+                    id="lm-now"
+                    value="draftactive"
+                    v-model="form.insert_kind"
+                  />
                   <label class="btn btn-outline-secondary" for="lm-now">
                     <i class="bi bi-bolt"></i> Now / Draft
                   </label>
 
-                  <input class="btn-check" type="radio" id="lm-sched" value="scheduled" v-model="form.insert_kind" />
+                  <input
+                    class="btn-check"
+                    type="radio"
+                    id="lm-sched"
+                    value="scheduled"
+                    v-model="form.insert_kind"
+                  />
                   <label class="btn btn-outline-secondary" for="lm-sched">
                     <i class="bi bi-calendar-event"></i> Schedule
                   </label>
@@ -672,9 +871,16 @@
                     Activate on Save?
                   </label>
                   <div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="activateNow" v-model="form.activate_now" />
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      id="activateNow"
+                      v-model="form.activate_now"
+                    />
                     <label class="form-check-label" for="activateNow">
-                      <span v-if="form.activate_now">Will be <strong>Active</strong> immediately</span>
+                      <span v-if="form.activate_now"
+                        >Will be <strong>Active</strong> immediately</span
+                      >
                       <span v-else>Will be <strong>Draft</strong> (you can activate later)</span>
                     </label>
                   </div>
@@ -709,7 +915,9 @@
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
+                  <div v-if="errors.starts_at" class="invalid-feedback d-block">
+                    {{ errors.starts_at }}
+                  </div>
                   <div class="form-text text-warning small">Must be a future date and time.</div>
                 </div>
               </template>
@@ -739,10 +947,16 @@
                     {{ form.starts_at ? fmtDate(form.starts_at) : '—' }}
                   </div>
 
-                  <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
-                  <div class="form-text small" :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'">
+                  <div v-if="errors.starts_at" class="invalid-feedback d-block">
+                    {{ errors.starts_at }}
+                  </div>
+                  <div
+                    class="form-text small"
+                    :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'"
+                  >
                     <template v-if="originalStatus === 'scheduled'">
-                      Start time can be changed while the discount is scheduled (must be in the future).
+                      Start time can be changed while the discount is scheduled (must be in the
+                      future).
                     </template>
                     <template v-else>
                       Start time can’t be changed for non-scheduled discounts.
@@ -758,7 +972,9 @@
                   Expires At <span class="text-danger">*</span>
                 </label>
                 <div class="input-group datetime-aesthetic">
-                  <span class="input-group-text bg-light"><i class="bi bi-hourglass-split"></i></span>
+                  <span class="input-group-text bg-light"
+                    ><i class="bi bi-hourglass-split"></i
+                  ></span>
                   <input
                     ref="expiresInputRef"
                     v-model="form.expires_at"
@@ -769,7 +985,9 @@
                     :required="true"
                   />
                 </div>
-                <div v-if="errors.expires_at" class="invalid-feedback d-block">{{ errors.expires_at }}</div>
+                <div v-if="errors.expires_at" class="invalid-feedback d-block">
+                  {{ errors.expires_at }}
+                </div>
                 <div class="form-text small text-muted">Must be after the start time (or now).</div>
               </div>
 
@@ -783,7 +1001,9 @@
                     Max Uses per User <span class="text-danger">*</span>
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                    <span class="input-group-text bg-light"
+                      ><i class="bi bi-person-badge"></i
+                    ></span>
                     <input
                       v-model.number="form.max_uses_per_user"
                       type="number"
@@ -794,7 +1014,9 @@
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
+                    {{ errors.max_uses_per_user }}
+                  </div>
                   <div class="form-text small text-muted">
                     We’ll auto-calculate Global uses as <b>per-user × total users</b> on the server.
                   </div>
@@ -809,7 +1031,9 @@
                     Max Uses per User <span class="text-danger">*</span>
                   </label>
                   <div class="input-group">
-                    <span class="input-group-text bg-light"><i class="bi bi-person-badge"></i></span>
+                    <span class="input-group-text bg-light"
+                      ><i class="bi bi-person-badge"></i
+                    ></span>
                     <input
                       v-model.number="form.max_uses_per_user"
                       type="number"
@@ -820,7 +1044,9 @@
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                  <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
+                    {{ errors.max_uses_per_user }}
+                  </div>
                   <div class="form-text small text-muted">
                     Global uses stays managed server-side; you can adjust per-user here.
                   </div>
@@ -845,10 +1071,18 @@
                     :required="true"
                   />
                 </div>
-                <div v-if="errors.min_subtotal" class="invalid-feedback d-block">{{ errors.min_subtotal }}</div>
+                <div v-if="errors.min_subtotal" class="invalid-feedback d-block">
+                  {{ errors.min_subtotal }}
+                </div>
               </div>
 
-              <div class="col-12 col-md-6 breath" v-if="(form.type === 'percent') || (originalDiscount && originalDiscount.type === 'percent')">
+              <div
+                class="col-12 col-md-6 breath"
+                v-if="
+                  form.type === 'percent' ||
+                  (originalDiscount && originalDiscount.type === 'percent')
+                "
+              >
                 <label class="form-label d-flex align-items-center gap-1">
                   <i class="bi bi-shield-check text-primary"></i>
                   Max Discount Cap
@@ -866,10 +1100,10 @@
                     placeholder="e.g. 150.00"
                   />
                 </div>
-                <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">{{ errors.max_discount_amount }}</div>
-                <div class="form-text">
-                  Optional cap (₱0 or higher). Leave blank for no cap.
+                <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">
+                  {{ errors.max_discount_amount }}
                 </div>
+                <div class="form-text">Optional cap (₱0 or higher). Leave blank for no cap.</div>
               </div>
             </div>
           </div>
@@ -927,20 +1161,27 @@ type GameProduct = {
 const items = ref<DbDiscount[]>([])
 const products = ref<GameProduct[]>([])
 
-const busy = ref<{ load: boolean; save: boolean; deleteId: string | null; statusId: string | null }>({
+const busy = ref<{
+  load: boolean
+  save: boolean
+  deleteId: string | null
+  statusId: string | null
+}>({
   load: false,
   save: false,
   deleteId: null,
   statusId: null,
 })
 
-const query = ref<{ search: string; status: string; type: string; page: number; pageSize: number }>({
-  search: '',
-  status: '',
-  type: '',
-  page: 1,
-  pageSize: 20,
-})
+const query = ref<{ search: string; status: string; type: string; page: number; pageSize: number }>(
+  {
+    search: '',
+    status: '',
+    type: '',
+    page: 1,
+    pageSize: 20,
+  },
+)
 
 const canPrev = ref(false)
 const canNext = ref(false)
@@ -960,7 +1201,10 @@ const forcedStatus = ref<DbDiscount['status'] | null>(null)
 const userCount = ref<number>(0)
 async function loadUserCount(): Promise<number> {
   const { error, count } = await supabase.from('users').select('*', { count: 'exact', head: true })
-  if (error) { console.error('loadUserCount error', error); return 0 }
+  if (error) {
+    console.error('loadUserCount error', error)
+    return 0
+  }
   userCount.value = count || 0
   return userCount.value
 }
@@ -1002,14 +1246,22 @@ function validateRealtime() {
   const e: Record<string, string> = {}
   const isInsert = !form.value.id
   const isScheduledInsert = isInsert && form.value.insert_kind === 'scheduled'
-  const isCreateModeEdit = !!form.value.id && (originalStatus.value === 'draft' || originalStatus.value === 'expired' || originalStatus.value === 'scheduled')
-  const type = (form.value.type || 'percent') as 'percent'|'fixed_amount'
+  const isCreateModeEdit =
+    !!form.value.id &&
+    (originalStatus.value === 'draft' ||
+      originalStatus.value === 'expired' ||
+      originalStatus.value === 'scheduled')
+  const type = (form.value.type || 'percent') as 'percent' | 'fixed_amount'
 
   if (!form.value.title || !form.value.title.trim()) e.title = 'Title is required.'
 
   if (isInsert) {
     if (!form.value.type) e.type = 'Type is required.'
-    if (form.value.value === null || form.value.value === undefined || String(form.value.value) === '') {
+    if (
+      form.value.value === null ||
+      form.value.value === undefined ||
+      String(form.value.value) === ''
+    ) {
       e.value = 'Value is required.'
     } else {
       const v = Number(form.value.value)
@@ -1024,11 +1276,15 @@ function validateRealtime() {
   const ms = Number(form.value.min_subtotal)
   if (!Number.isFinite(ms) || ms < 0) e.min_subtotal = 'Min subtotal must be ≥ 0.'
 
-  if ((isInsert && type === 'percent') || (!isInsert && (originalDiscount.value?.type === 'percent'))) {
+  if (
+    (isInsert && type === 'percent') ||
+    (!isInsert && originalDiscount.value?.type === 'percent')
+  ) {
     const cap = form.value.max_discount_amount
     if (cap !== null && cap !== undefined && String(cap) !== '') {
       const capNum = Number(cap)
-      if (!Number.isFinite(capNum) || capNum < 0) e.max_discount_amount = 'Max discount cap must be ≥ 0.'
+      if (!Number.isFinite(capNum) || capNum < 0)
+        e.max_discount_amount = 'Max discount cap must be ≥ 0.'
     }
   }
 
@@ -1052,7 +1308,9 @@ function validateRealtime() {
 
   const treatAsScheduled =
     isScheduledInsert ||
-    (!isInsert && originalStatus.value === 'scheduled' && (!showCreateModeOptions.value || form.value.insert_kind === 'scheduled')) ||
+    (!isInsert &&
+      originalStatus.value === 'scheduled' &&
+      (!showCreateModeOptions.value || form.value.insert_kind === 'scheduled')) ||
     (isCreateModeEdit && form.value.insert_kind === 'scheduled')
 
   if (treatAsScheduled) {
@@ -1085,7 +1343,7 @@ watch(
     originalStatus.value,
   ],
   () => validateRealtime(),
-  { immediate: true }
+  { immediate: true },
 )
 /** ---------- END REALTIME VALIDATION ---------- */
 
@@ -1097,7 +1355,11 @@ function isImageByName(name: string | undefined | null) {
   return /\.(png|jpe?g|webp|gif|bmp|heic|avif)$/i.test(name)
 }
 
-async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): Promise<string | null> {
+async function signedUrlWithCB(
+  bucket: string,
+  path: string,
+  expiresIn = 3600,
+): Promise<string | null> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) return null
   const url = data?.signedUrl ?? null
@@ -1107,26 +1369,34 @@ async function signedUrlWithCB(bucket: string, path: string, expiresIn = 3600): 
 async function firstImagePathForProduct(productId: string): Promise<string | null> {
   try {
     const dir = `${PRODUCT_ROOT}/${productId}`
-    const { data: files, error: listErr } = await supabase.storage.from(PRODUCT_BUCKET).list(dir, { limit: 10 })
+    const { data: files, error: listErr } = await supabase.storage
+      .from(PRODUCT_BUCKET)
+      .list(dir, { limit: 10 })
     if (listErr || !files || files.length === 0) return null
     const candidate =
       files.find((f: any) => (f?.metadata?.mimetype || '').startsWith('image/')) ||
-      files.find((f: any) => isImageByName(f?.name)) || files[0]
+      files.find((f: any) => isImageByName(f?.name)) ||
+      files[0]
     if (!candidate?.name) return null
     return `${dir}/${candidate.name}`
-  } catch { return null }
+  } catch {
+    return null
+  }
 }
 
 async function attachProductSignedUrls(list: GameProduct[]) {
   if (!list || !list.length) return
-  await Promise.all(list.map(async (p) => {
-    if (p.product_url && p.product_url.length && /^https?:\/\//i.test(p.product_url[0] || '')) {
-      p.signed_url = p.product_url[0]; return
-    }
-    const path = await firstImagePathForProduct(p.id)
-    const signed = path ? await signedUrlWithCB(PRODUCT_BUCKET, path) : null
-    p.signed_url = signed || null
-  }))
+  await Promise.all(
+    list.map(async (p) => {
+      if (p.product_url && p.product_url.length && /^https?:\/\//i.test(p.product_url[0] || '')) {
+        p.signed_url = p.product_url[0]
+        return
+      }
+      const path = await firstImagePathForProduct(p.id)
+      const signed = path ? await signedUrlWithCB(PRODUCT_BUCKET, path) : null
+      p.signed_url = signed || null
+    }),
+  )
 }
 
 const selectedProduct = computed(() => {
@@ -1135,13 +1405,30 @@ const selectedProduct = computed(() => {
 })
 
 const productDropdownOpen = ref(false)
-function toggleProductDropdown() { productDropdownOpen.value = !productDropdownOpen.value }
-function selectProduct(p: GameProduct | null) { form.value.product_id = p ? p.id : null; productDropdownOpen.value = false }
-function clearProduct() { form.value.product_id = null; productDropdownOpen.value = false }
+function toggleProductDropdown() {
+  productDropdownOpen.value = !productDropdownOpen.value
+}
+function selectProduct(p: GameProduct | null) {
+  form.value.product_id = p ? p.id : null
+  productDropdownOpen.value = false
+}
+function clearProduct() {
+  form.value.product_id = null
+  productDropdownOpen.value = false
+}
 
-function formatNumber(n: number | undefined | null) { if (n == null || Number.isNaN(n)) return '0'; return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 2 }).format(n) }
-function fmtDate(value?: string | null) { if (!value) return '—'; const d = new Date(value); return d.toLocaleString('en-PH', { hour12: true }) }
-function uiTypeLabel(t: DbDiscount['type']) { return t === 'percent' ? 'Percent' : 'Fixed amount' }
+function formatNumber(n: number | undefined | null) {
+  if (n == null || Number.isNaN(n)) return '0'
+  return new Intl.NumberFormat('en-PH', { maximumFractionDigits: 2 }).format(n)
+}
+function fmtDate(value?: string | null) {
+  if (!value) return '—'
+  const d = new Date(value)
+  return d.toLocaleString('en-PH', { hour12: true })
+}
+function uiTypeLabel(t: DbDiscount['type']) {
+  return t === 'percent' ? 'Percent' : 'Fixed amount'
+}
 
 function computedStatusRaw(d: DbDiscount) {
   if (d.status === 'expired') return 'expired'
@@ -1149,23 +1436,39 @@ function computedStatusRaw(d: DbDiscount) {
   if (d.expires_at && d.expires_at < nowIso) return 'expired'
   return d.status
 }
-function cardStatus(d: DbDiscount) { return computedStatusRaw(d) }
+function cardStatus(d: DbDiscount) {
+  return computedStatusRaw(d)
+}
 function badgeClass(status: string) {
   switch (status) {
-    case 'active': return 'text-bg-success'
+    case 'active':
+      return 'text-bg-success'
     case 'draft':
-    case 'scheduled': return 'text-bg-secondary'
-    case 'paused': return 'text-bg-warning'
-    case 'archived': return 'text-bg-dark'
-    case 'expired': return 'text-bg-danger'
-    default: return 'text-bg-secondary'
+    case 'scheduled':
+      return 'text-bg-secondary'
+    case 'paused':
+      return 'text-bg-warning'
+    case 'archived':
+      return 'text-bg-dark'
+    case 'expired':
+      return 'text-bg-danger'
+    default:
+      return 'text-bg-secondary'
   }
 }
 
 /** local datetime to ISO */
-function localToISO(dt?: string | null) { if (!dt) return null; const local = new Date(dt); return local.toISOString() }
+function localToISO(dt?: string | null) {
+  if (!dt) return null
+  const local = new Date(dt)
+  return local.toISOString()
+}
 /** local input string "YYYY-MM-DDTHH:MM" */
-function createLocalInputFromDate(d: Date) { const off = d.getTimezoneOffset(); const local = new Date(d.getTime() - off * 60000); return local.toISOString().slice(0, 16) }
+function createLocalInputFromDate(d: Date) {
+  const off = d.getTimezoneOffset()
+  const local = new Date(d.getTime() - off * 60000)
+  return local.toISOString().slice(0, 16)
+}
 /** min for scheduled start */
 const minStart = ref<string>(createLocalInputFromDate(new Date()))
 /** expires min: after starts_at or now */
@@ -1181,24 +1484,29 @@ const capMinString = computed(() => {
 })
 
 /** Sections */
-const scheduledItems = computed(() => items.value.filter(d => cardStatus(d) === 'scheduled'))
-const activeItems = computed(() => items.value.filter(d => cardStatus(d) === 'active'))
-const expiredItems = computed(() => items.value.filter(d => cardStatus(d) === 'expired'))
-const pausedItems = computed(() => items.value.filter(d => cardStatus(d) === 'paused'))
-const draftItems  = computed(() => items.value.filter(d => cardStatus(d) === 'draft'))
-const archivedItems = computed(() => items.value.filter(d => cardStatus(d) === 'archived'))
+const scheduledItems = computed(() => items.value.filter((d) => cardStatus(d) === 'scheduled'))
+const activeItems = computed(() => items.value.filter((d) => cardStatus(d) === 'active'))
+const expiredItems = computed(() => items.value.filter((d) => cardStatus(d) === 'expired'))
+const pausedItems = computed(() => items.value.filter((d) => cardStatus(d) === 'paused'))
+const draftItems = computed(() => items.value.filter((d) => cardStatus(d) === 'draft'))
+const archivedItems = computed(() => items.value.filter((d) => cardStatus(d) === 'archived'))
 
 /** NEW: Tab + Archived toggle */
-const activeTab = ref<'active'|'scheduled'|'expired'|'all'>('active')
+const activeTab = ref<'active' | 'scheduled' | 'expired' | 'all'>('active')
 const showArchived = ref(false)
 
 const filteredByTab = computed<DbDiscount[]>(() => {
   switch (activeTab.value) {
-    case 'active':    return activeItems.value
-    case 'scheduled': return scheduledItems.value
-    case 'expired':   return expiredItems.value
-    case 'all':       return items.value
-    default:          return items.value
+    case 'active':
+      return activeItems.value
+    case 'scheduled':
+      return scheduledItems.value
+    case 'expired':
+      return expiredItems.value
+    case 'all':
+      return items.value
+    default:
+      return items.value
   }
 })
 
@@ -1210,12 +1518,19 @@ const calcGlobal = computed(() => {
   return Number.isFinite(g) && g >= 0 ? g : 0
 })
 
-function roundTo2(n: number) { return Math.round(n * 100) / 100 }
-function numberOrZero(n: any) { const num = Number(n); if (Number.isNaN(num)) return 0; return Math.max(0, Math.round(num * 100) / 100) }
+function roundTo2(n: number) {
+  return Math.round(n * 100) / 100
+}
+function numberOrZero(n: any) {
+  const num = Number(n)
+  if (Number.isNaN(num)) return 0
+  return Math.max(0, Math.round(num * 100) / 100)
+}
 function asNonNegIntOrThrow(v: any, label: string) {
   if (v === null || v === undefined || v === '') throw new Error(`${label} is required.`)
   const num = Number(v)
-  if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num)) throw new Error(`${label} must be a non-negative integer.`)
+  if (!Number.isFinite(num) || num < 0 || !Number.isInteger(num))
+    throw new Error(`${label} must be a non-negative integer.`)
   return num
 }
 function ensureNonNegNumberOrThrow(v: any, label: string) {
@@ -1225,10 +1540,19 @@ function ensureNonNegNumberOrThrow(v: any, label: string) {
   return Math.round(num * 100) / 100
 }
 function isPgUniqueViolation(err: any) {
-  return err && (err.code === '23505' || (err.message && /duplicate key value|uq_rewards_discounts_code_lower/i.test(err.message)))
+  return (
+    err &&
+    (err.code === '23505' ||
+      (err.message && /duplicate key value|uq_rewards_discounts_code_lower/i.test(err.message)))
+  )
 }
 function alertReadableError(e: any) {
-  if (isPgUniqueViolation(e)) { alert('A discount with the same CODE already exists (case-insensitive). Please choose a different code.'); return }
+  if (isPgUniqueViolation(e)) {
+    alert(
+      'A discount with the same CODE already exists (case-insensitive). Please choose a different code.',
+    )
+    return
+  }
   if (e?.message) alert(e.message)
   else alert('Something went wrong. Check console for details.')
 }
@@ -1250,7 +1574,8 @@ function buildPayload(
   if (isNew) {
     const t: 'percent' | 'fixed_amount' = input.type || 'percent'
     if (!t) throw new Error('Type is required.')
-    if (input.value === undefined || input.value === null || String(input.value) === '') throw new Error('Value is required.')
+    if (input.value === undefined || input.value === null || String(input.value) === '')
+      throw new Error('Value is required.')
 
     let percent_off: number | null = null
     let amount_off: number | null = null
@@ -1258,7 +1583,8 @@ function buildPayload(
 
     if (t === 'percent') {
       const v = Number(input.value)
-      if (!Number.isFinite(v) || v <= 0 || v > 100) throw new Error('Percentage must be greater than 0 and at most 100.')
+      if (!Number.isFinite(v) || v <= 0 || v > 100)
+        throw new Error('Percentage must be greater than 0 and at most 100.')
       percent_off = roundTo2(v)
       if (input.max_discount_amount != null && !Number.isNaN(input.max_discount_amount)) {
         const cap = Number(input.max_discount_amount)
@@ -1292,7 +1618,8 @@ function buildPayload(
       startsIso = localToISO(input.starts_at)
       const now = new Date()
       const sdate = startsIso ? new Date(startsIso) : null
-      if (!sdate || sdate.getTime() <= now.getTime()) throw new Error('Scheduled start date/time must be in the future (>= now).')
+      if (!sdate || sdate.getTime() <= now.getTime())
+        throw new Error('Scheduled start date/time must be in the future (>= now).')
     } else {
       nextStatus = input.activate_now ? 'active' : 'draft'
       startsIso = nowIso
@@ -1330,9 +1657,15 @@ function buildPayload(
   const orig = originalDiscount.value
   if (!orig) throw new Error('Original discount not found for editing.')
 
-  const min_subtotal = ensureNonNegNumberOrThrow(input.min_subtotal ?? orig.min_subtotal, 'Min Subtotal')
+  const min_subtotal = ensureNonNegNumberOrThrow(
+    input.min_subtotal ?? orig.min_subtotal,
+    'Min Subtotal',
+  )
   const g = asNonNegIntOrThrow(input.max_uses_global ?? orig.max_uses_global, 'Max Uses (Global)')
-  const perUser = asNonNegIntOrThrow(input.max_uses_per_user ?? orig.max_uses_per_user, 'Max Uses per User')
+  const perUser = asNonNegIntOrThrow(
+    input.max_uses_per_user ?? orig.max_uses_per_user,
+    'Max Uses per User',
+  )
   if (perUser < 1) throw new Error('Max Uses per User must be at least 1.')
   if (perUser >= g) throw new Error('Max Uses (Global) must be greater than Max Uses per User.')
 
@@ -1359,17 +1692,20 @@ function buildPayload(
   if (prevStatus === 'scheduled') {
     if (!input.insert_kind || input.insert_kind === undefined) {
       payload.status = 'scheduled'
-      if (!input.starts_at) throw new Error('Start date/time is required while discount is scheduled.')
+      if (!input.starts_at)
+        throw new Error('Start date/time is required while discount is scheduled.')
       const startsIso = localToISO(input.starts_at)
       const sdate = startsIso ? new Date(startsIso) : null
-      if (!sdate || sdate.getTime() <= now.getTime()) throw new Error('Scheduled start date/time must be in the future (>= now).')
+      if (!sdate || sdate.getTime() <= now.getTime())
+        throw new Error('Scheduled start date/time must be in the future (>= now).')
       payload.starts_at = startsIso
     } else if (input.insert_kind === 'scheduled') {
       payload.status = 'scheduled'
       if (!input.starts_at) throw new Error('Start date/time is required for scheduled discounts.')
       const startsIso = localToISO(input.starts_at)
       const sdate = startsIso ? new Date(startsIso) : null
-      if (!sdate || sdate.getTime() <= now.getTime()) throw new Error('Scheduled start date/time must be in the future (>= now).')
+      if (!sdate || sdate.getTime() <= now.getTime())
+        throw new Error('Scheduled start date/time must be in the future (>= now).')
       payload.starts_at = startsIso
     } else if (input.insert_kind === 'draftactive') {
       payload.status = input.activate_now ? 'active' : 'draft'
@@ -1383,7 +1719,8 @@ function buildPayload(
       if (!input.starts_at) throw new Error('Start date/time is required for scheduled discounts.')
       const startsIso = localToISO(input.starts_at)
       const sdate = startsIso ? new Date(startsIso) : null
-      if (!sdate || sdate.getTime() <= now.getTime()) throw new Error('Scheduled start date/time must be in the future (>= now).')
+      if (!sdate || sdate.getTime() <= now.getTime())
+        throw new Error('Scheduled start date/time must be in the future (>= now).')
       payload.starts_at = startsIso
     } else {
       if (input.activate_now) {
@@ -1398,9 +1735,11 @@ function buildPayload(
   const expiresIso = input.expires_at ? localToISO(input.expires_at) : null
   if (!expiresIso) throw new Error('Expiry date/time is required.')
   const baseForExpiry =
-    (prevStatus === 'scheduled' && input.insert_kind !== 'draftactive' && input.starts_at)
+    prevStatus === 'scheduled' && input.insert_kind !== 'draftactive' && input.starts_at
       ? new Date(localToISO(input.starts_at) as string)
-      : ((prevStatus === 'draft' || prevStatus === 'expired') && input.insert_kind === 'scheduled' && input.starts_at)
+      : (prevStatus === 'draft' || prevStatus === 'expired') &&
+          input.insert_kind === 'scheduled' &&
+          input.starts_at
         ? new Date(localToISO(input.starts_at) as string)
         : new Date()
   if (new Date(expiresIso).getTime() <= baseForExpiry.getTime()) {
@@ -1440,7 +1779,13 @@ async function save() {
     let res
     if (form.value.id) {
       const id = form.value.id
-      res = await supabase.schema('rewards').from('discounts').update(payload).eq('id', id).select().single()
+      res = await supabase
+        .schema('rewards')
+        .from('discounts')
+        .update(payload)
+        .eq('id', id)
+        .select()
+        .single()
     } else {
       res = await supabase.schema('rewards').from('discounts').insert(payload).select().single()
     }
@@ -1454,56 +1799,103 @@ async function save() {
       m.hide()
     }
   } catch (e) {
-    console.error(e); alertReadableError(e)
-  } finally { busy.value.save = false }
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.save = false
+  }
 }
 
 async function activateDiscount(d: DbDiscount) {
   if (!d.id) return
   busy.value.statusId = d.id
   try {
-    const { error } = await supabase.schema('rewards').from('discounts').update({ status: 'active', starts_at: new Date().toISOString() }).eq('id', d.id)
+    const { error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .update({ status: 'active', starts_at: new Date().toISOString() })
+      .eq('id', d.id)
     if (error) throw error
     const idx = items.value.findIndex((x) => x.id === d.id)
-    if (idx >= 0) { items.value[idx] = { ...items.value[idx], status: 'active', starts_at: new Date().toISOString() } }
-  } catch (e) { console.error(e); alertReadableError(e) }
-  finally { busy.value.statusId = null }
+    if (idx >= 0) {
+      items.value[idx] = {
+        ...items.value[idx],
+        status: 'active',
+        starts_at: new Date().toISOString(),
+      }
+    }
+  } catch (e) {
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.statusId = null
+  }
 }
 
 async function pauseDiscount(d: DbDiscount) {
   if (!d.id) return
   busy.value.statusId = d.id
   try {
-    const { error } = await supabase.schema('rewards').from('discounts').update({ status: 'paused' }).eq('id', d.id)
+    const { error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .update({ status: 'paused' })
+      .eq('id', d.id)
     if (error) throw error
     const idx = items.value.findIndex((x) => x.id === d.id)
-    if (idx >= 0) { items.value[idx] = { ...items.value[idx], status: 'paused' } }
-  } catch (e) { console.error(e); alertReadableError(e) }
-  finally { busy.value.statusId = null }
+    if (idx >= 0) {
+      items.value[idx] = { ...items.value[idx], status: 'paused' }
+    }
+  } catch (e) {
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.statusId = null
+  }
 }
 
 async function archiveDiscount(d: DbDiscount) {
   if (!d.id) return
   busy.value.statusId = d.id
   try {
-    const { error } = await supabase.schema('rewards').from('discounts').update({ status: 'archived' }).eq('id', d.id)
+    const { error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .update({ status: 'archived' })
+      .eq('id', d.id)
     if (error) throw error
     const idx = items.value.findIndex((x) => x.id === d.id)
-    if (idx >= 0) { items.value[idx] = { ...items.value[idx], status: 'archived' } }
-  } catch (e) { console.error(e); alertReadableError(e) }
-  finally { busy.value.statusId = null }
+    if (idx >= 0) {
+      items.value[idx] = { ...items.value[idx], status: 'archived' }
+    }
+  } catch (e) {
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.statusId = null
+  }
 }
 
 async function restoreDiscount(d: DbDiscount) {
   if (!d.id) return
   busy.value.statusId = d.id
   try {
-    const { error } = await supabase.schema('rewards').from('discounts').update({ status: 'draft' }).eq('id', d.id)
+    const { error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .update({ status: 'draft' })
+      .eq('id', d.id)
     if (error) throw error
     const idx = items.value.findIndex((x) => x.id === d.id)
-    if (idx >= 0) { items.value[idx] = { ...items.value[idx], status: 'draft' } }
-  } catch (e) { console.error(e); alertReadableError(e) }
-  finally { busy.value.statusId = null }
+    if (idx >= 0) {
+      items.value[idx] = { ...items.value[idx], status: 'draft' }
+    }
+  } catch (e) {
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.statusId = null
+  }
 }
 
 async function renewDiscount(d: DbDiscount) {
@@ -1518,8 +1910,12 @@ async function remove(d: DbDiscount) {
     const { error } = await supabase.schema('rewards').from('discounts').delete().eq('id', d.id)
     if (error) throw error
     await load()
-  } catch (e) { console.error(e); alertReadableError(e) }
-  finally { busy.value.deleteId = null }
+  } catch (e) {
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.deleteId = null
+  }
 }
 
 function onWindowClick(e: Event) {
@@ -1535,9 +1931,9 @@ function setupFlatpickr() {
   if (!w || !w.flatpickr) return
   const cfg = {
     enableTime: true,
-    dateFormat: "Y-m-d\\TH:i",
+    dateFormat: 'Y-m-d\\TH:i',
     altInput: true,
-    altFormat: "M j, Y — h:i K",
+    altFormat: 'M j, Y — h:i K',
     time_24hr: false,
     allowInput: true,
     clickOpens: true,
@@ -1547,7 +1943,8 @@ function setupFlatpickr() {
     w.flatpickr(startInputRef.value, cfg)
   }
   if (expiresInputRef.value) {
-    if ((expiresInputRef.value as any)._flatpickr) (expiresInputRef.value as any)._flatpickr.destroy()
+    if ((expiresInputRef.value as any)._flatpickr)
+      (expiresInputRef.value as any)._flatpickr.destroy()
     w.flatpickr(expiresInputRef.value, cfg)
   }
 }
@@ -1555,10 +1952,21 @@ function setupFlatpickr() {
 async function load() {
   busy.value.load = true
   try {
-    let q = supabase.schema('rewards').from('discounts').select('*', { count: 'exact' }).order('created_at', { ascending: false })
-    if (query.value.search) { const s = `%${query.value.search}%`; q = q.or(`title.ilike.${s},code.ilike.${s}`) }
-    if (query.value.status) { q = q.eq('status', query.value.status) }
-    if (query.value.type) { q = q.eq('type', query.value.type) }
+    let q = supabase
+      .schema('rewards')
+      .from('discounts')
+      .select('*', { count: 'exact' })
+      .order('created_at', { ascending: false })
+    if (query.value.search) {
+      const s = `%${query.value.search}%`
+      q = q.or(`title.ilike.${s},code.ilike.${s}`)
+    }
+    if (query.value.status) {
+      q = q.eq('status', query.value.status)
+    }
+    if (query.value.type) {
+      q = q.eq('type', query.value.type)
+    }
     const from = (query.value.page - 1) * query.value.pageSize
     const to = from + query.value.pageSize - 1
     q = q.range(from, to)
@@ -1566,28 +1974,49 @@ async function load() {
     const { data, error, count } = await q
     if (error) throw error
 
-    items.value = ((data || []) as DbDiscount[]).filter(d => d.type === 'percent' || d.type === 'fixed_amount')
+    items.value = ((data || []) as DbDiscount[]).filter(
+      (d) => d.type === 'percent' || d.type === 'fixed_amount',
+    )
     const total = count ?? 0
     const totalPages = Math.max(1, Math.ceil(total / query.value.pageSize))
     canPrev.value = query.value.page > 1
     canNext.value = query.value.page < totalPages
   } catch (e) {
-    console.error(e); alertReadableError(e)
-  } finally { busy.value.load = false }
+    console.error(e)
+    alertReadableError(e)
+  } finally {
+    busy.value.load = false
+  }
 }
 
 async function loadProducts() {
   try {
-    const { data, error } = await supabase.schema('games').from('products').select('id,name,product_url,stock,price').gt('stock', 0).order('name', { ascending: true })
+    const { data, error } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id,name,product_url,stock,price')
+      .gt('stock', 0)
+      .order('name', { ascending: true })
     if (error) throw error
     const rows = (data || []) as GameProduct[]
     await attachProductSignedUrls(rows)
     products.value = rows
-  } catch (e) { console.error('loadProducts error', e); products.value = [] }
+  } catch (e) {
+    console.error('loadProducts error', e)
+    products.value = []
+  }
 }
 
-function prev() { if (!canPrev.value) return; query.value.page -= 1; load() }
-function next() { if (!canNext.value) return; query.value.page += 1; load() }
+function prev() {
+  if (!canPrev.value) return
+  query.value.page -= 1
+  load()
+}
+function next() {
+  if (!canNext.value) return
+  query.value.page += 1
+  load()
+}
 
 /** New unified insert opener */
 function openInsertUnified() {
@@ -1675,21 +2104,32 @@ function openInsertScheduled() {
 }
 
 function openEditor(d?: DbDiscount) {
-  if (d && computedStatusRaw(d) === 'active') { alert('Pause this discount first before editing.'); return }
+  if (d && computedStatusRaw(d) === 'active') {
+    alert('Pause this discount first before editing.')
+    return
+  }
   forcedStatus.value = null
 
   if (d) {
     originalDiscount.value = d
     form.value = {
       ...d,
-      value: d.type === 'percent' ? d.percent_off ?? undefined : d.type === 'fixed_amount' ? d.amount_off ?? undefined : undefined,
+      value:
+        d.type === 'percent'
+          ? (d.percent_off ?? undefined)
+          : d.type === 'fixed_amount'
+            ? (d.amount_off ?? undefined)
+            : undefined,
       product_id: d.product_id ?? null,
       max_discount_amount: d.max_discount_amount ?? null,
       starts_at: d.starts_at ? createLocalInputFromDate(new Date(d.starts_at)) : '',
       expires_at: d.expires_at ? createLocalInputFromDate(new Date(d.expires_at)) : '',
-      insert_kind: (d.status === 'scheduled')
-        ? 'scheduled'
-        : (d.status === 'draft' || d.status === 'expired') ? 'draftactive' : undefined,
+      insert_kind:
+        d.status === 'scheduled'
+          ? 'scheduled'
+          : d.status === 'draft' || d.status === 'expired'
+            ? 'draftactive'
+            : undefined,
       activate_now: false,
     }
     originalStatus.value = d.status
@@ -1719,7 +2159,9 @@ onMounted(async () => {
   window.addEventListener('click', onWindowClick, true)
   nextTick(() => setupFlatpickr())
 })
-onBeforeUnmount(() => { window.removeEventListener('click', onWindowClick, true) })
+onBeforeUnmount(() => {
+  window.removeEventListener('click', onWindowClick, true)
+})
 </script>
 
 <style scoped>
@@ -1732,86 +2174,192 @@ onBeforeUnmount(() => { window.removeEventListener('click', onWindowClick, true)
   will-change: transform, opacity;
 }
 @keyframes breath-in {
-  0%   { opacity: 0; transform: translateY(4px) scale(.985); filter: blur(.3px); }
-  60%  { opacity: 1; transform: translateY(0) scale(1.01); filter: blur(0); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.985);
+    filter: blur(0.3px);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(0) scale(1.01);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .discounts-page, .breath, .modern-card, .skeleton { animation: none !important; }
+  .discounts-page,
+  .breath,
+  .modern-card,
+  .skeleton {
+    animation: none !important;
+  }
 }
 
 /* Utility to make ANY section breathe (1000ms) */
-.breath { animation: breath-in 500ms ease-out both; }
-.breath-delay-1 { animation-delay: .05s; }
-.breath-delay-2 { animation-delay: .1s; }
-.breath-delay-3 { animation-delay: .15s; }
+.breath {
+  animation: breath-in 500ms ease-out both;
+}
+.breath-delay-1 {
+  animation-delay: 0.05s;
+}
+.breath-delay-2 {
+  animation-delay: 0.1s;
+}
+.breath-delay-3 {
+  animation-delay: 0.15s;
+}
 
 .filters-card,
-.list-card { backdrop-filter: blur(4px); border: 1px solid rgba(148, 163, 184, 0.1); }
+.list-card {
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
 
 /* ================== NEW minimalist nav pills ================== */
-.disc-tabs .pill{
-  border: 1px solid rgba(15,23,42,.08);
+.disc-tabs .pill {
+  border: 1px solid rgba(15, 23, 42, 0.08);
   background: #fff;
-  color:#0f172a;
-  padding:.35rem .75rem;
+  color: #0f172a;
+  padding: 0.35rem 0.75rem;
   border-radius: 9999px;
-  font-size:.875rem;
-  display:inline-flex; align-items:center; gap:.35rem;
-  transition: box-shadow .15s ease, border-color .15s ease, transform .05s ease, background .2s ease;
+  font-size: 0.875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition:
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.05s ease,
+    background 0.2s ease;
 }
-.disc-tabs .pill .count{
-  background:#f1f5f9; border:1px solid rgba(15,23,42,.06);
-  padding:.05rem .35rem; border-radius:.6rem; font-size:.75rem;
+.disc-tabs .pill .count {
+  background: #f1f5f9;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.6rem;
+  font-size: 0.75rem;
 }
-.disc-tabs .pill.active{
-  box-shadow: 0 6px 20px rgba(15,23,42,.06);
-  border-color: rgba(59,130,246,.35);
+.disc-tabs .pill.active {
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.06);
+  border-color: rgba(59, 130, 246, 0.35);
 }
-.disc-tabs .pill:active{ transform: translateY(1px); }
+.disc-tabs .pill:active {
+  transform: translateY(1px);
+}
 
 /* Stagger the card entrances per row (1000ms) */
-.row.g-3 > [class*="col-"] .modern-card { animation: breath-in 500ms ease-out both; }
-.row.g-3 > [class*="col-"]:nth-child(1)  .modern-card { animation-delay: .02s; }
-.row.g-3 > [class*="col-"]:nth-child(2)  .modern-card { animation-delay: .04s; }
-.row.g-3 > [class*="col-"]:nth-child(3)  .modern-card { animation-delay: .06s; }
-.row.g-3 > [class*="col-"]:nth-child(4)  .modern-card { animation-delay: .08s; }
-.row.g-3 > [class*="col-"]:nth-child(5)  .modern-card { animation-delay: .10s; }
-.row.g-3 > [class*="col-"]:nth-child(6)  .modern-card { animation-delay: .12s; }
-.row.g-3 > [class*="col-"]:nth-child(7)  .modern-card { animation-delay: .14s; }
-.row.g-3 > [class*="col-"]:nth-child(8)  .modern-card { animation-delay: .16s; }
-.row.g-3 > [class*="col-"]:nth-child(9)  .modern-card { animation-delay: .18s; }
-.row.g-3 > [class*="col-"]:nth-child(10) .modern-card { animation-delay: .20s; }
-.row.g-3 > [class*="col-"]:nth-child(11) .modern-card { animation-delay: .22s; }
-.row.g-3 > [class*="col-"]:nth-child(12) .modern-card { animation-delay: .24s; }
+.row.g-3 > [class*='col-'] .modern-card {
+  animation: breath-in 500ms ease-out both;
+}
+.row.g-3 > [class*='col-']:nth-child(1) .modern-card {
+  animation-delay: 0.02s;
+}
+.row.g-3 > [class*='col-']:nth-child(2) .modern-card {
+  animation-delay: 0.04s;
+}
+.row.g-3 > [class*='col-']:nth-child(3) .modern-card {
+  animation-delay: 0.06s;
+}
+.row.g-3 > [class*='col-']:nth-child(4) .modern-card {
+  animation-delay: 0.08s;
+}
+.row.g-3 > [class*='col-']:nth-child(5) .modern-card {
+  animation-delay: 0.1s;
+}
+.row.g-3 > [class*='col-']:nth-child(6) .modern-card {
+  animation-delay: 0.12s;
+}
+.row.g-3 > [class*='col-']:nth-child(7) .modern-card {
+  animation-delay: 0.14s;
+}
+.row.g-3 > [class*='col-']:nth-child(8) .modern-card {
+  animation-delay: 0.16s;
+}
+.row.g-3 > [class*='col-']:nth-child(9) .modern-card {
+  animation-delay: 0.18s;
+}
+.row.g-3 > [class*='col-']:nth-child(10) .modern-card {
+  animation-delay: 0.2s;
+}
+.row.g-3 > [class*='col-']:nth-child(11) .modern-card {
+  animation-delay: 0.22s;
+}
+.row.g-3 > [class*='col-']:nth-child(12) .modern-card {
+  animation-delay: 0.24s;
+}
 
-.discount-grid { --gap: 1rem; }
+.discount-grid {
+  --gap: 1rem;
+}
 .discount-card {
   background: #fff;
   border: 1px solid rgba(15, 23, 42, 0.05);
   border-radius: 1.25rem;
   padding: 1rem 1.05rem 0.75rem;
   box-shadow: 0 12px 36px rgba(15, 23, 42, 0.03);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  min-height: 12rem; position: relative;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+  min-height: 12rem;
+  position: relative;
 }
-.discount-card:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06); }
+.discount-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.06);
+}
 
 /* UPDATED: Slight "breath" on cards as they render in (1000ms) */
-.modern-card{ border-radius: 1.1rem; animation: breath-in 500ms ease-out both; }
-.modern-card .badge{ text-transform: lowercase; }
+.modern-card {
+  border-radius: 1.1rem;
+  animation: breath-in 500ms ease-out both;
+}
+.modern-card .badge {
+  text-transform: lowercase;
+}
 
-.value-bubble { width: 70px; height: 70px; border-radius: 1.1rem; display: grid; place-items: center; font-weight: 700; font-size: 1.1rem; color: #0f172a; background: #e2e8f0; }
-.value-bubble.percent { background: radial-gradient(circle, rgba(37, 99, 235, 0.18), rgba(203, 213, 225, 0)); border: 1px solid rgba(59, 130, 246, 0.15); }
-.value-bubble.amount { background: radial-gradient(circle, rgba(22, 163, 74, 0.16), rgba(203, 213, 225, 0)); border: 1px solid rgba(22, 163, 74, 0.18); }
+.value-bubble {
+  width: 70px;
+  height: 70px;
+  border-radius: 1.1rem;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #0f172a;
+  background: #e2e8f0;
+}
+.value-bubble.percent {
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.18), rgba(203, 213, 225, 0));
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+.value-bubble.amount {
+  background: radial-gradient(circle, rgba(22, 163, 74, 0.16), rgba(203, 213, 225, 0));
+  border: 1px solid rgba(22, 163, 74, 0.18);
+}
 
-.title-text { max-width: 13rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.small-badge { font-size: 0.6rem; }
+.title-text {
+  max-width: 13rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.small-badge {
+  font-size: 0.6rem;
+}
 
 /* Modal */
-.editor-modal { border-radius: 1.5rem; overflow: hidden; background: #fff; }
-.editor-modal .modal-body { background: radial-gradient(circle at top, rgba(4, 156, 222, 0.04), transparent 55%), #fff; }
+.editor-modal {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  background: #fff;
+}
+.editor-modal .modal-body {
+  background: radial-gradient(circle at top, rgba(4, 156, 222, 0.04), transparent 55%), #fff;
+}
 
 .display-field {
   padding: 0.5rem 0.75rem;
@@ -1823,106 +2371,213 @@ onBeforeUnmount(() => { window.removeEventListener('click', onWindowClick, true)
   align-items: center;
   gap: 0.35rem;
 }
-.bg-soft { background: rgba(15, 23, 42, 0.06); color: #0f172a; border: 1px solid rgba(15, 23, 42, 0.08); }
+.bg-soft {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+}
 
 /* Product dropdown */
-.product-picker-trigger { cursor: pointer; }
-.product-dropdown { position: absolute; z-index: 70; background: #fff; max-height: 230px; overflow-y: auto; width: 100%; margin-top: 4px; border: 1px solid rgba(15, 23, 42, 0.07); }
-.product-dropdown-item { display: flex; align-items: center; gap: 0.65rem; padding: 0.45rem 0.6rem; cursor: pointer; transition: background 0.15s ease; }
-.product-dropdown-item:hover { background: rgba(4, 156, 222, 0.04); }
-.picker-thumb { width: 38px; height: 38px; border-radius: 0.55rem; overflow: hidden; background: #f1f5f9; flex: 0 0 auto; }
-.picker-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.empty-thumb { width: 100%; height: 100%; display: grid; place-items: center; font-size: 1rem; }
+.product-picker-trigger {
+  cursor: pointer;
+}
+.product-dropdown {
+  position: absolute;
+  z-index: 70;
+  background: #fff;
+  max-height: 230px;
+  overflow-y: auto;
+  width: 100%;
+  margin-top: 4px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+}
+.product-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.product-dropdown-item:hover {
+  background: rgba(4, 156, 222, 0.04);
+}
+.picker-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 0.55rem;
+  overflow: hidden;
+  background: #f1f5f9;
+  flex: 0 0 auto;
+}
+.picker-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.empty-thumb {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 1rem;
+}
 
 /* Skeleton */
-.skeleton { 
-  background: linear-gradient(120deg, #edf2f7 25%, #e2e8f0 37%, #edf2f7 63%); 
-  background-size: 400% 100%; 
-  animation: shimmer 1.6s ease infinite, breath-in 500ms ease-out both; /* UPDATED: breath-in 1000ms */
-  border-radius: 1.25rem; 
-  min-height: 10rem; 
-  padding: 1rem; 
+.skeleton {
+  background: linear-gradient(120deg, #edf2f7 25%, #e2e8f0 37%, #edf2f7 63%);
+  background-size: 400% 100%;
+  animation:
+    shimmer 1.6s ease infinite,
+    breath-in 500ms ease-out both; /* UPDATED: breath-in 1000ms */
+  border-radius: 1.25rem;
+  min-height: 10rem;
+  padding: 1rem;
 }
-.skeleton-line { height: 8px; background: rgba(255, 255, 255, 0.6); border-radius: 9999px; }
-.skeleton-pill { height: 20px; background: rgba(255, 255, 255, 0.6); border-radius: 9999px; }
-@keyframes shimmer { 
-  0% { background-position: -468px 0; } 
-  100% { background-position: 468px 0; } 
+.skeleton-line {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 9999px;
+}
+.skeleton-pill {
+  height: 20px;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 9999px;
+}
+@keyframes shimmer {
+  0% {
+    background-position: -468px 0;
+  }
+  100% {
+    background-position: 468px 0;
+  }
 }
 
 /* number input arrows */
 input[type='number'].no-spinner::-webkit-outer-spin-button,
-input[type='number'].no-spinner::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-input[type='number'].no-spinner { -moz-appearance: textfield; }
+input[type='number'].no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'].no-spinner {
+  appearance: textfield;
+}
 
 /* clamp */
-.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-2 {
+  display: -webkit-box;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
-.tiny-text { font-size: 0.625rem; }
+.tiny-text {
+  font-size: 0.625rem;
+}
 
 /* Toggle */
 .toggle-wrap .pretty-switch {
-  width: 44px; height: 24px; background-color: #e2e8f0; border: none; position: relative; transition: background-color .2s ease; cursor: pointer;
+  width: 44px;
+  height: 24px;
+  background-color: #e2e8f0;
+  border: none;
+  position: relative;
+  transition: background-color 0.2s ease;
+  cursor: pointer;
 }
-.toggle-wrap .pretty-switch:focus { box-shadow: none; outline: 0; }
+.toggle-wrap .pretty-switch:focus {
+  box-shadow: none;
+  outline: 0;
+}
 .toggle-wrap .pretty-switch::before {
-  content: ''; position: absolute; width: 18px; height: 18px; border-radius: 9999px; left: 3px; top: 3px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.15); transition: transform .2s ease;
+  content: '';
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  left: 3px;
+  top: 3px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  transition: transform 0.2s ease;
 }
-.toggle-wrap .pretty-switch:checked { background: linear-gradient(90deg, rgba(59,130,246,1) 0%, rgba(14,165,233,1) 100%); }
-.toggle-wrap .pretty-switch:checked::before { transform: translateX(20px); }
+.toggle-wrap .pretty-switch:checked {
+  background: linear-gradient(90deg, rgba(59, 130, 246, 1) 0%, rgba(14, 165, 233, 1) 100%);
+}
+.toggle-wrap .pretty-switch:checked::before {
+  transform: translateX(20px);
+}
 
 /* hide native picker in general (kept) */
-input[type="date"]::-webkit-calendar-picker-indicator,
-input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-input[type="time"]::-webkit-calendar-picker-indicator {
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator,
+input[type='time']::-webkit-calendar-picker-indicator {
   display: none !important;
 }
 
 /* Minimalist datetime styling */
-.datetime-aesthetic input[type="datetime-local"] {
+.datetime-aesthetic input[type='datetime-local'] {
   appearance: none;
   height: 38px;
-  border-radius: .75rem;
-  border: 1px solid rgba(15,23,42,.08);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(15, 23, 42, 0.08);
   background: #fff;
-  padding: .375rem .75rem;
+  padding: 0.375rem 0.75rem;
   font-variant-numeric: tabular-nums;
-  transition: border-color .15s ease, box-shadow .15s ease, background .2s ease;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background 0.2s ease;
 }
-.datetime-aesthetic input[type="datetime-local"]:focus {
+.datetime-aesthetic input[type='datetime-local']:focus {
   outline: none;
-  border-color: rgba(59,130,246,.45);
-  box-shadow: 0 0 0 .2rem rgba(59,130,246,.15);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 0.2rem rgba(59, 130, 246, 0.15);
   background: #ffffff;
 }
 
 /* Re-show indicator inside the aesthetic wrapper */
-.datetime-aesthetic input[type="date"]::-webkit-calendar-picker-indicator,
-.datetime-aesthetic input[type="datetime-local"]::-webkit-calendar-picker-indicator,
-.datetime-aesthetic input[type="time"]::-webkit-calendar-picker-indicator {
+.datetime-aesthetic input[type='date']::-webkit-calendar-picker-indicator,
+.datetime-aesthetic input[type='datetime-local']::-webkit-calendar-picker-indicator,
+.datetime-aesthetic input[type='time']::-webkit-calendar-picker-indicator {
   display: inline-block !important;
-  opacity: .65;
+  opacity: 0.65;
   cursor: pointer;
-  margin-left: .25rem;
+  margin-left: 0.25rem;
   filter: grayscale(1);
-  transition: opacity .15s ease, filter .2s ease, transform .2s ease;
+  transition:
+    opacity 0.15s ease,
+    filter 0.2s ease,
+    transform 0.2s ease;
 }
-.datetime-aesthetic input[type="datetime-local"]:hover::-webkit-calendar-picker-indicator {
-  opacity: .95; filter: none; transform: scale(1.05);
+.datetime-aesthetic input[type='datetime-local']:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.95;
+  filter: none;
+  transform: scale(1.05);
 }
 
 /* consistent datetime text layout */
-.datetime-aesthetic input[type="datetime-local"]::-webkit-datetime-edit { padding: 0 .1rem; }
-.datetime-aesthetic input[type="datetime-local"]::-webkit-datetime-edit-fields-wrapper { letter-spacing: .02em; }
-.datetime-aesthetic input[type="datetime-local"]::-webkit-datetime-edit-text { opacity: .6; }
+.datetime-aesthetic input[type='datetime-local']::-webkit-datetime-edit {
+  padding: 0 0.1rem;
+}
+.datetime-aesthetic input[type='datetime-local']::-webkit-datetime-edit-fields-wrapper {
+  letter-spacing: 0.02em;
+}
+.datetime-aesthetic input[type='datetime-local']::-webkit-datetime-edit-text {
+  opacity: 0.6;
+}
 
 /* soft empty */
-.empty-soft{
-  background: linear-gradient(180deg, rgba(248,250,252,.6), rgba(255,255,255,.6));
-  border:1px dashed rgba(15,23,42,.1);
-  border-radius:1rem;
+.empty-soft {
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.6), rgba(255, 255, 255, 0.6));
+  border: 1px dashed rgba(15, 23, 42, 0.1);
+  border-radius: 1rem;
 }
 
 /* responsive tweak */
-@media (max-width: 575.98px) { .title-text { max-width: 10rem; } }
+@media (max-width: 575.98px) {
+  .title-text {
+    max-width: 10rem;
+  }
+}
 </style>
