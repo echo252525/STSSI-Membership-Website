@@ -17,7 +17,7 @@
           <router-link to="/app/minigames" class="qchip" v-reveal>
             <i class="bi bi-controller"></i> Mini Games
           </router-link>
-          <router-link to="/app/wallet" class="qchip" v-reveal style="--i: 1">
+          <router-link to="/app/ewallet" class="qchip" v-reveal style="--i: 1">
             <i class="bi bi-wallet2"></i> Wallet
           </router-link>
           <router-link to="/app/deals" class="qchip" v-reveal style="--i: 2">
@@ -36,7 +36,7 @@
       <div class="kpi-card glass" v-reveal v-tilt>
         <div class="kpi-head">
           <span class="label"><i class="bi bi-wallet2 me-1"></i> E-Wallet</span>
-          <router-link to="/app/wallet" class="btn btn-outline-secondary btn-xs"
+          <router-link to="/app/ewallet" class="btn btn-outline-secondary btn-xs"
             >Manage</router-link
           >
         </div>
@@ -68,7 +68,7 @@
       <div class="kpi-card glass" v-reveal v-tilt style="--i: 3">
         <div class="kpi-head">
           <span class="label"><i class="bi bi-people me-1"></i> Referrals</span>
-          <router-link to="/app/referrals" class="btn btn-outline-secondary btn-xs"
+          <router-link to="/app/deals" class="btn btn-outline-secondary btn-xs"
             >Details</router-link
           >
         </div>
