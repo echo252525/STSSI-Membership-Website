@@ -1851,13 +1851,24 @@ async function loadActiveDiscounts() {
     return
   }
 
-  const cartProductIds = new Set(cartItems.value.map((it) => it.product.id))
+    const cartProductIds = new Set(cartItems.value.map((it) => it.product.id))
+    // UPDATED: when in pending context, filter using pending purchase product IDs
+  const productIdsForScope = new Set<string>(
+    (showPendingPlace.value || inPendingContext.value || pendingPurchases.value.length > 0)
+      ? pendingPurchases.value.map(p => p.product_id)
+      : cartItems.value.map(it => it.product.id)
+  )
+
   const filtered = (data || []).filter((d: any) => {
     if (!d.product_id) return true
-    return cartProductIds.has(d.product_id)
+    return productIdsForScope.has(d.product_id)
   })
 
   discounts.value = filtered as Discount[]
+
+
+  discounts.value = filtered as Discount[]
+
    } finally {
     discountsLoading.value = false
   }
@@ -1872,13 +1883,16 @@ const pickedDiscount = computed<Discount | null>(() => {
 })
 
 /* === UI helpers for product-scoped discounts (ADDED) === */
-const scopedDiscountProductId = computed(() => pickedDiscount.value?.product_id ?? null)
+// UPDATED: fall back to pendingDiscountProductId when pickedDiscount is not in the list
+const scopedDiscountProductId = computed(() => pickedDiscount.value?.product_id ?? pendingDiscountProductId.value ?? null)
+
 const scopedDiscountProductName = computed(() => {
   const pid = scopedDiscountProductId.value
   if (!pid) return ''
   const hit = cartItems.value.find(i => i.product.id === pid)
   return hit?.product.name ?? ''
 })
+
 const scopedDiscountSubtotal = computed(() => {
   const pid = scopedDiscountProductId.value
   if (!pid) return 0
@@ -1944,6 +1958,9 @@ async function applyCode() {
         }
       }
       resolvedDiscountByCode.value = disc
+            // NEW: remember the target product for pending flows too
+      pendingDiscountProductId.value = disc.product_id ?? null
+
       selectedDiscountId.value = ''
     } else {
       resolvedDiscountByCode.value = null
@@ -2012,6 +2029,7 @@ function splitAmountAcrossQty(total: number, qty: number): number[] {
 
 /* If we are re-opening a pending order, we re-use the recorded redeemed_amount */
 const recordedOrderDiscountAmount = ref<number | null>(null)
+const pendingDiscountProductId = ref<string | null>(null)
 
 const cartGrandTotal = computed(() => cartItems.value.reduce((sum, it) => sum + it.lineTotal, 0))
 const cartGrandTotalIgnoringCredits = computed(() => {
@@ -3388,7 +3406,19 @@ async function openPlacePending(refNumber: string) {
       recordedOrderDiscountAmount.value = Number(sum.toFixed(2))
     }
   }
-
+pendingDiscountProductId.value = null
+    if (foundDiscountId) {
+      const { data: drow } = await supabase
+        .schema('rewards')
+        .from('discounts')
+        .select('id, product_id')
+        .eq('id', foundDiscountId)
+        .maybeSingle()
+      if (drow) {
+        pendingDiscountProductId.value = (drow as any).product_id ?? null
+      }
+    }
+    //
   await loadActiveDiscounts()
   if (recordedOrderDiscountAmount.value != null && foundDiscountId) {
     discountMode.value = 'discount'
@@ -3406,6 +3436,8 @@ async function openPlacePending(refNumber: string) {
   } finally {
     pendingPlaceLoading.value = false
   }
+
+  
 }
 function closePlacePending() {
   showPendingPlace.value = false
@@ -3610,9 +3642,9 @@ async function placePendingOrder() {
       const byProductPurchase = new Map<string, PurchaseRow>()
       pendingPurchases.value.forEach((r) => byProductPurchase.set(r.product_id, r))
 
-      // Build tmp lines
+      // Build tmp lines (unchanged default = unitBeforeOrder)
       const d = pickedDiscount.value
-      const eligibleProductId = d?.product_id ?? null
+      const eligibleProductId = d?.product_id ?? pendingDiscountProductId.value ?? null
 
       const tmpLines: Array<{
         p: Product
@@ -3632,35 +3664,46 @@ async function placePendingOrder() {
           quantity: qty,
           unitBeforeOrder: unitBefore,
           lineBeforeOrder: lineBefore,
-          unitFinal: unitBefore, // default
+          unitFinal: unitBefore, // default unchanged
           purchaseId: byProductPurchase.get(it.product.id)?.id || '',
         })
       }
 
-      // Eligible base is only the targeted product if product_id is set
-      let eligibleBase = 0
-      for (const ln of tmpLines) {
-        if (!eligibleProductId || ln.p.id === eligibleProductId) {
-          eligibleBase += ln.lineBeforeOrder
-        }
-      }
+      if (eligibleProductId) {
+        // ### CHANGED: apply order-level discount ONLY to the target product line
+        const target = tmpLines.find((ln) => ln.p.id === eligibleProductId)
+        if (target) {
+          // decide how much discount to use strictly against this product line
+          let useAmt =
+            recordedOrderDiscountAmount.value != null
+              ? Math.min(Number(recordedOrderDiscountAmount.value), target.lineBeforeOrder)
+              : computeOrderDiscountAmount(target.lineBeforeOrder, d!)
 
-      const useAmt = Math.min(orderDiscountAmt, eligibleBase)
-      if (useAmt > 0 && eligibleBase > 0) {
-        for (const ln of tmpLines) {
-          if (!eligibleProductId || ln.p.id === eligibleProductId) {
+          useAmt = Number(Math.max(0, useAmt).toFixed(2))
+          if (useAmt > 0 && target.quantity > 0) {
+            const perUnitShare = Number((useAmt / target.quantity).toFixed(2))
+            target.unitFinal = Number(
+              Math.max(0, target.unitBeforeOrder - perUnitShare).toFixed(2),
+            )
+          }
+          // all other tmpLines remain at original price
+        }
+      } else {
+        // Global order discount → keep proportional split across ALL lines (original behavior)
+        let eligibleBase = 0
+        for (const ln of tmpLines) eligibleBase += ln.lineBeforeOrder
+        const useAmt = Math.min(orderDiscountAmt, eligibleBase)
+        if (useAmt > 0 && eligibleBase > 0) {
+          for (const ln of tmpLines) {
             const weight = ln.lineBeforeOrder / eligibleBase
             const share = Number((weight * useAmt).toFixed(2))
             const perUnitShare = Number((share / ln.quantity).toFixed(2))
             ln.unitFinal = Number(Math.max(0, ln.unitBeforeOrder - perUnitShare).toFixed(2))
-          } else {
-            // Non-eligible lines remain unchanged
-            ln.unitFinal = ln.unitBeforeOrder
           }
         }
       }
-
       lines.push(...tmpLines)
+      // ### END CHANGED
     } else {
       const byProductPurchase = new Map<string, PurchaseRow>()
       pendingPurchases.value.forEach((r) => byProductPurchase.set(r.product_id, r))
@@ -4288,6 +4331,7 @@ watch(resolvedDiscountByCode, (v) => {
   if (v) selectedDiscountId.value = ''
 })
 </script>
+
 
 
 

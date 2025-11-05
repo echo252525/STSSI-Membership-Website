@@ -107,7 +107,7 @@
           </div>
         </div>
 
-        <!-- Discount ticket(s) -->
+        <!-- Discount ticket(s) — ORDER-LEVEL ONLY -->
         <div
           v-if="discountsForRef(g.ref).length"
           class="tickets-row"
@@ -200,6 +200,30 @@
                 <span v-if="(Number(it?.qty ?? 1) || 1) > 1" class="badge text-bg-light border"> Qty: {{ Number(it?.qty ?? 1) }} </span>
               </div>
 
+              <!-- Per-item discount tickets (PRODUCT-SCOPED) -->
+              <div
+                class="tickets-row mt-1"
+                v-if="discountsForPurchase(it).length"
+                @click.stop
+              >
+                <div
+                  v-for="d in discountsForPurchase(it)"
+                  :key="d.id"
+                  class="discount-ticket"
+                  title="Discount applied to this item"
+                >
+                  <div class="ticket-left">
+                    <i class="bi bi-ticket-perforated me-1"></i>
+                    <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                  </div>
+                  <div class="ticket-divider" aria-hidden="true"></div>
+                  <div class="ticket-right">
+                    <span class="ticket-value">{{ discountLabel(d) }}</span>
+                    <span class="ticket-tag">APPLIED</span>
+                  </div>
+                </div>
+              </div>
+
               <!-- Per-item return tracking (RR tab & Approved) -->
               <div class="mt-1" v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)">
                 <a
@@ -216,8 +240,14 @@
 
             <!-- Price block -->
             <div class="item-row__price text-end">
-              <template v-if="refHasRedemption(g.ref)">
+              <template v-if="purchaseHasRedemption(it)">
                 <div class="fw-semibold">₱ {{ number(productPrice(it)) }}</div>
+                <div class="small text-danger">− ₱ {{ number(purchaseRedemptionUnitDiscount(it)) }}</div>
+              </template>
+
+              <template v-else-if="refHasRedemption(g.ref)">
+                <div class="fw-semibold">₱ {{ number(productPrice(it)) }}</div>
+                <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
               </template>
 
               <template v-else-if="refHasDiscount(g.ref)">
@@ -342,6 +372,7 @@
           </div>
         </div>
 
+        <!-- ORDER-LEVEL discount tickets -->
         <div v-if="discountsForRef(p.reference_number || p.id).length" class="tickets-row">
           <div
             v-for="d in discountsForRef(p.reference_number || p.id)"
@@ -407,6 +438,29 @@
                 </span>
               </div>
 
+              <!-- Per-item tickets in fallback (PRODUCT-SCOPED) -->
+              <div
+                class="tickets-row mt-1"
+                v-if="discountsForPurchase(p).length"
+              >
+                <div
+                  v-for="d in discountsForPurchase(p)"
+                  :key="d.id"
+                  class="discount-ticket"
+                  title="Discount applied to this item"
+                >
+                  <div class="ticket-left">
+                    <i class="bi bi-ticket-perforated me-1"></i>
+                    <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                  </div>
+                  <div class="ticket-divider" aria-hidden="true"></div>
+                  <div class="ticket-right">
+                    <span class="ticket-value">{{ discountLabel(d) }}</span>
+                    <span class="ticket-tag">APPLIED</span>
+                  </div>
+                </div>
+              </div>
+
               <div class="mt-1" v-if="rrStatus(p.id) && activeTab !== STATUS.RETURN_REFUND">
                 <button class="btn btn-outline-danger btn-sm" @click="goToReturnTab(p.reference_number || p.id)">
                   View return details
@@ -415,7 +469,12 @@
             </div>
 
             <div class="item-row__price text-end">
-              <template v-if="refHasRedemption(p.reference_number || p.id)">
+              <template v-if="purchaseHasRedemption(p)">
+                <div class="fw-semibold">₱ {{ number(productPrice(p)) }}</div>
+                <div class="small text-danger">− ₱ {{ number(purchaseRedemptionUnitDiscount(p)) }}</div>
+              </template>
+
+              <template v-else-if="refHasRedemption(p.reference_number || p.id)">
                 <div class="fw-semibold">₱ {{ number(productPrice(p)) }}</div>
                 <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(p)) }}</div>
               </template>
@@ -526,6 +585,7 @@
               </div>
             </div>
 
+            <!-- ORDER-LEVEL discount tickets -->
             <div v-if="discountsForRef(rrGroup.ref).length" class="tickets-row">
               <div
                 v-for="d in discountsForRef(rrGroup.ref)"
@@ -596,6 +656,29 @@
                       </div>
                       <div v-if="!!rrStatus(it.id)" class="small text-muted">
                         Already submitted • {{ capitalize(rrStatus(it.id)!) }}
+                      </div>
+
+                      <!-- Item-scoped discount tickets in RR modal -->
+                      <div
+                        class="tickets-row mt-1"
+                        v-if="discountsForPurchase(it).length"
+                      >
+                        <div
+                          v-for="d in discountsForPurchase(it)"
+                          :key="d.id"
+                          class="discount-ticket"
+                          title="Discount applied to this item"
+                        >
+                          <div class="ticket-left">
+                            <i class="bi bi-ticket-perforated me-1"></i>
+                            <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                          </div>
+                          <div class="ticket-divider" aria-hidden="true"></div>
+                          <div class="ticket-right">
+                            <span class="ticket-value">{{ discountLabel(d) }}</span>
+                            <span class="ticket-tag">APPLIED</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -668,6 +751,28 @@
             <div class="flex-grow-1">
               <div class="fw-semibold title-ellipsis">{{ productName(rrPurchase) }}</div>
               <div class="text-muted small">Ref# {{ rrPurchase.reference_number || shortId(rrPurchase.id) }}</div>
+
+              <!-- Item-scoped tickets -->
+              <div
+                class="tickets-row mt-1"
+                v-if="discountsForPurchase(rrPurchase).length"
+              >
+                <div
+                  v-for="d in discountsForPurchase(rrPurchase)"
+                  :key="d.id"
+                  class="discount-ticket"
+                >
+                  <div class="ticket-left">
+                    <i class="bi bi-ticket-perforated me-1"></i>
+                    <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                  </div>
+                  <div class="ticket-divider"></div>
+                  <div class="ticket-right">
+                    <span class="ticket-value">{{ discountLabel(d) }}</span>
+                    <span class="ticket-tag">APPLIED</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="text-end">
               <div class="fw-semibold">₱ {{ number(productPrice(rrPurchase)) }}</div>
@@ -766,6 +871,7 @@
             </div>
           </div>
 
+          <!-- ORDER-LEVEL discount tickets -->
           <div v-if="discountsForRef(selectedGroupComputed!.ref).length" class="tickets-row mt-2">
             <div
               v-for="d in discountsForRef(selectedGroupComputed!.ref)"
@@ -837,6 +943,28 @@
                   </span>
                 </div>
 
+                <!-- Item-scoped tickets also in details modal -->
+                <div
+                  class="tickets-row mt-1"
+                  v-if="discountsForPurchase(it).length"
+                >
+                  <div
+                    v-for="d in discountsForPurchase(it)"
+                    :key="d.id"
+                    class="discount-ticket"
+                  >
+                    <div class="ticket-left">
+                      <i class="bi bi-ticket-perforated me-1"></i>
+                      <span class="ticket-title" :title="d.title">{{ d.title }}</span>
+                    </div>
+                    <div class="ticket-divider" aria-hidden="true"></div>
+                    <div class="ticket-right">
+                      <span class="ticket-value">{{ discountLabel(d) }}</span>
+                      <span class="ticket-tag">APPLIED</span>
+                    </div>
+                  </div>
+                </div>
+
                 <div class="mt-1" v-if="activeTab === STATUS.RETURN_REFUND && rrTrackingLinkApproved(it.id)">
                   <a
                     :href="rrTrackingLinkApproved(it.id)"
@@ -851,7 +979,13 @@
               </div>
 
               <div class="item-row__price text-end">
-                <template v-if="refHasRedemption(selectedGroupComputed!.ref)">
+                <template v-if="purchaseHasRedemption(it)">
+                  <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
+                  <div class="small text-danger">− ₱ {{ number(purchaseRedemptionUnitDiscount(it)) }}</div>
+                  <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
+                </template>
+
+                <template v-else-if="refHasRedemption(selectedGroupComputed!.ref)">
                   <div>Unit: ₱ {{ number(productPrice(it)) }}</div>
                   <div class="small text-danger">− ₱ {{ number(redemptionUnitDiscount(it)) }}</div>
                   <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
@@ -1215,14 +1349,21 @@ const refDiscount: Record<string, number> = reactive({})
 const refRedeemedTotal: Record<string, number> = reactive({})
 const refShippingTotal: Record<string, number> = reactive({})
 
-/** ===== NEW: discount metadata (title + %/amount) per ref ===== */
+/** NEW (item-scoped): totals & ids per purchase */
+const perPurchaseRedeemedTotal: Record<string, number> = reactive({})
+const purchaseDiscountIds = reactive<Record<string, string[]>>({})
+
+/** ===== NEW: discount metadata (title + %/amount + product_id) ===== */
 type Discount = {
   id: string
   title: string
   percent_off: number | null
   amount_off: number | null
+  product_id: string | null
 }
 const discountsById = reactive<Record<string, Discount>>({})
+
+/** legacy map kept; now unused by discountsForRef (do not remove per request) */
 const refDiscountIds = reactive<Record<string, string[]>>({})
 
 /** ===== NEW: Event meta (title) per ref ===== */
@@ -1233,11 +1374,14 @@ function isUuidLike(s: string): boolean {
   return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s)
 }
 
+/** Treat discounted_price as discount only if it's actually lower than product price */
 function hasItemLevelDiscount(purchase: AnyRec): boolean {
   const dp = Number(purchase?.discounted_price)
   const base = productPrice(purchase)
   return Number.isFinite(dp) && dp >= 0 && dp < base
 }
+
+/** ref-level discount presence (any item discounted OR order-level redemption OR event off) */
 function refHasDiscount(ref?: string): boolean {
   if (!ref) return false
   if (
@@ -1248,10 +1392,18 @@ function refHasDiscount(ref?: string): boolean {
   if ((refRedeemedTotal[ref] || 0) > 0) return true
   return typeof refDiscount[ref] === 'number' && refDiscount[ref] > 0
 }
+
+/** order-level redemptions exist? */
 function refHasRedemption(ref?: string): boolean {
   if (!ref) return false
   return (refRedeemedTotal[ref] || 0) > 0
 }
+
+/** item-level redemption present? */
+function purchaseHasRedemption(purchase: AnyRec): boolean {
+  return (perPurchaseRedeemedTotal[purchase.id] || 0) > 0
+}
+
 function baseGroupTotalByRef(ref: string): number {
   const rows = purchases.value.filter((p) => (p.reference_number || p.id) === ref)
   return rows.reduce((sum, it) => {
@@ -1259,16 +1411,28 @@ function baseGroupTotalByRef(ref: string): number {
     return sum + q * productPrice(it)
   }, 0)
 }
+
 function discountedUnitPrice(purchase: AnyRec): number {
   if (hasItemLevelDiscount(purchase)) {
     return Number(purchase.discounted_price)
   }
-  const ref = purchase?.reference_number || purchase?.id
-  const base = productPrice(purchase)
-  const qty = Number(purchase?.qty ?? 1) || 1
 
+  // 1) item-scoped redemption
+  const itemRedeemed = perPurchaseRedeemedTotal[purchase.id] || 0
+  if (itemRedeemed > 0) {
+    const base = productPrice(purchase)
+    const qty = Number(purchase?.qty ?? 1) || 1
+    const perUnitLess = itemRedeemed / qty
+    const out = base - perUnitLess
+    return out > 0 ? out : 0
+  }
+
+  // 2) order-level redemption (proportional)
+  const ref = purchase?.reference_number || purchase?.id
   const redeemed = refRedeemedTotal[ref] || 0
   if (redeemed > 0) {
+    const base = productPrice(purchase)
+    const qty = Number(purchase?.qty ?? 1) || 1
     const groupBase = baseGroupTotalByRef(ref)
     if (groupBase > 0) {
       const myBaseSubtotal = base * qty
@@ -1279,12 +1443,26 @@ function discountedUnitPrice(purchase: AnyRec): number {
     }
   }
 
+  // 3) event interest per player (flat off per unit)
   const off = refDiscount[ref] || 0
+  const base = productPrice(purchase)
   const out = base - off
   return out > 0 ? out : 0
 }
+
 function redemptionUnitDiscount(purchase: AnyRec): number {
   const ref = purchase?.reference_number || purchase?.id
+
+  // Prefer item-scoped if present
+  const itemRedeemed = perPurchaseRedeemedTotal[purchase.id] || 0
+  if (itemRedeemed > 0) {
+    const qty = Number(purchase?.qty ?? 1) || 1
+    const base = productPrice(purchase)
+    const perUnit = itemRedeemed / qty
+    return perUnit > base ? base : perUnit
+  }
+
+  // Otherwise order-level share
   const redeemed = refRedeemedTotal[ref] || 0
   if (redeemed <= 0) return 0
   const base = productPrice(purchase)
@@ -1296,6 +1474,7 @@ function redemptionUnitDiscount(purchase: AnyRec): number {
   const perUnit = myDiscountShare / qty
   return perUnit > base ? base : perUnit
 }
+
 function groupTotalDiscounted(g: any): number {
   const items = g.items.reduce((sum: number, it: AnyRec) => {
     const q = Number(it?.qty ?? 1) || 1
@@ -1320,6 +1499,8 @@ async function loadPurchases() {
       Object.keys(discountsById).forEach((k) => delete discountsById[k])
       Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
       Object.keys(refEventTitle).forEach((k) => delete refEventTitle[k])
+      Object.keys(perPurchaseRedeemedTotal).forEach((k) => delete perPurchaseRedeemedTotal[k])
+      Object.keys(purchaseDiscountIds).forEach((k) => delete purchaseDiscountIds[k])
       return
     }
 
@@ -1340,6 +1521,8 @@ async function loadPurchases() {
       Object.keys(discountsById).forEach((k) => delete discountsById[k])
       Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
       Object.keys(refEventTitle).forEach((k) => delete refEventTitle[k])
+      Object.keys(perPurchaseRedeemedTotal).forEach((k) => delete perPurchaseRedeemedTotal[k])
+      Object.keys(purchaseDiscountIds).forEach((k) => delete purchaseDiscountIds[k])
       return
     }
     purchases.value = Array.isArray(data) ? data : []
@@ -1398,7 +1581,7 @@ async function loadPurchases() {
       }
     }
 
-    // Discounts from event/refund_lock
+    // ====== Event-linked flat offs (interest_per_player) & titles ======
     const refs = Array.from(
       new Set(
         purchases.value
@@ -1452,10 +1635,16 @@ async function loadPurchases() {
       }
     }
 
-    // Discount redemptions (aggregate by ref)
+    // ====== Discount redemptions ======
     Object.keys(refRedeemedTotal).forEach((k) => delete refRedeemedTotal[k])
     Object.keys(refDiscountIds).forEach((k) => delete refDiscountIds[k])
+    Object.keys(perPurchaseRedeemedTotal).forEach((k) => delete perPurchaseRedeemedTotal[k])
+    Object.keys(purchaseDiscountIds).forEach((k) => delete purchaseDiscountIds[k])
+
     const allDiscountIds = new Set<string>()
+    let rawRedRows:
+      | Array<{ purchase_id: string; redeemed_amount: any; discount_id?: string }>
+      | null = null
 
     if (purchaseIds.length) {
       const { data: redRows, error: redErr } = await supabase
@@ -1466,39 +1655,68 @@ async function loadPurchases() {
         .in('purchase_id', purchaseIds)
 
       if (!redErr && Array.isArray(redRows)) {
-        const pidToRef = new Map<string, string>()
-        for (const r of purchases.value) {
-          pidToRef.set(r.id, r.reference_number || r.id)
-        }
-        for (const r of redRows as Array<{ purchase_id: string; redeemed_amount: any; discount_id?: string }>) {
-          const ref = pidToRef.get(r.purchase_id)
-          if (!ref) continue
-          const amt = Number(r.redeemed_amount ?? 0) || 0
-          refRedeemedTotal[ref] = (refRedeemedTotal[ref] || 0) + amt
-
+        rawRedRows = redRows as Array<{ purchase_id: string; redeemed_amount: any; discount_id?: string }>
+        for (const r of rawRedRows) {
           const did = (r as any).discount_id as string | undefined
-          if (did) {
-            allDiscountIds.add(did)
-            if (!refDiscountIds[ref]) refDiscountIds[ref] = []
-            if (!refDiscountIds[ref].includes(did)) refDiscountIds[ref].push(did)
+          if (did) allDiscountIds.add(did)
+        }
+      }
+    }
+
+    if (allDiscountIds.size) {
+      const { data: drows, error: derr } = await supabase
+        .schema('rewards')
+        .from('discounts')
+        .select('id,title,percent_off,amount_off,product_id')
+        .in('id', Array.from(allDiscountIds))
+      if (!derr && Array.isArray(drows)) {
+        for (const d of drows as Array<any>) {
+          discountsById[d.id] = {
+            id: d.id,
+            title: d.title,
+            percent_off: d.percent_off ?? null,
+            amount_off: d.amount_off ?? null,
+            product_id: d.product_id ?? null,
           }
         }
       }
+    }
 
-      if (allDiscountIds.size) {
-        const { data: drows, error: derr } = await supabase
-          .schema('rewards')
-          .from('discounts')
-          .select('id,title,percent_off,amount_off')
-          .in('id', Array.from(allDiscountIds))
-        if (!derr && Array.isArray(drows)) {
-          for (const d of drows as Array<any>) {
-            discountsById[d.id] = {
-              id: d.id,
-              title: d.title,
-              percent_off: d.percent_off ?? null,
-              amount_off: d.amount_off ?? null,
-            }
+    // Now distribute redemption amounts into item-scoped vs order-scoped
+    if (rawRedRows) {
+      const pidToRef = new Map<string, string>()
+      const pidToProd = new Map<string, string>()
+      for (const r of purchases.value) {
+        pidToRef.set(r.id, r.reference_number || r.id)
+        if (r.product_id) pidToProd.set(r.id, r.product_id)
+      }
+
+      for (const r of rawRedRows) {
+        const pid = r.purchase_id
+        const ref = pidToRef.get(pid)
+        if (!ref) continue
+        const amt = Number(r.redeemed_amount ?? 0) || 0
+        const did = (r as any).discount_id as string | undefined
+
+        if (did) {
+          // record id for this purchase (used for tickets)
+          if (!purchaseDiscountIds[pid]) purchaseDiscountIds[pid] = []
+          if (!purchaseDiscountIds[pid].includes(did)) purchaseDiscountIds[pid].push(did)
+        }
+
+        const meta = did ? discountsById[did] : undefined
+        const prodOfPurchase = pidToProd.get(pid)
+
+        if (meta && meta.product_id) {
+          // product-scoped: apply only to this purchase
+          perPurchaseRedeemedTotal[pid] = (perPurchaseRedeemedTotal[pid] || 0) + amt
+        } else {
+          // order-scoped: aggregate at reference level
+          refRedeemedTotal[ref] = (refRedeemedTotal[ref] || 0) + amt
+          // (optionally track legacy ref->ids if you want the old map filled)
+          if (did) {
+            if (!refDiscountIds[ref]) refDiscountIds[ref] = []
+            if (!refDiscountIds[ref].includes(did)) refDiscountIds[ref].push(did)
           }
         }
       }
@@ -1680,8 +1898,25 @@ function prettyStatusWithRR(s?: string, purchaseId?: string, group?: Group): str
 
 /** ===== NEW: discount & event UI helpers ===== */
 function discountsForRef(ref: string): Discount[] {
-  const ids = refDiscountIds[ref] || []
-  return ids.map((id) => discountsById[id]).filter(Boolean)
+  // Collect all discount IDs across purchases of this ref, but ONLY order-level (no product_id)
+  const idSet = new Set<string>()
+  for (const p of purchases.value) {
+    if ((p.reference_number || p.id) !== ref) continue
+    for (const did of purchaseDiscountIds[p.id] || []) idSet.add(did)
+  }
+  const out = Array.from(idSet)
+    .map((id) => discountsById[id])
+    .filter((d): d is Discount => Boolean(d && !d.product_id))
+  return out
+}
+function discountsForPurchase(purchase: AnyRec): Discount[] {
+  const ids = purchaseDiscountIds[purchase.id] || []
+  return ids
+    .map((id) => discountsById[id])
+    .filter(
+      (d): d is Discount =>
+        Boolean(d && d.product_id && d.product_id === purchase.product_id),
+    )
 }
 function discountLabel(d: Discount): string {
   const pct = d.percent_off
@@ -2383,6 +2618,12 @@ onMounted(async () => {
   await loadPurchases()
   ensureSignedUrlsForAllProducts()
 })
+
+// Alias to satisfy existing template calls
+function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
+  return redemptionUnitDiscount(purchase)
+}
+
 </script>
 
 <style scoped>
