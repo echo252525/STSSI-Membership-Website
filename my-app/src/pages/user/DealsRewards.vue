@@ -317,6 +317,17 @@
                   </span>
                   <span class="pd-pill">Product only</span>
                 </div>
+
+                <!-- NEW: product image (first from games.products.product_url, signed) -->
+                <div class="pd-thumb-wrap" v-if="d.product_img_url">
+                  <img
+                    :src="d.product_img_url"
+                    :alt="d.product_name || shortProductId(d.product_id)"
+                    class="pd-thumb"
+                    referrerpolicy="no-referrer"
+                  />
+                </div>
+
                 <h3 class="pd-title">{{ d.title }}</h3>
                 <p class="pd-product-label">
                   Applies to: <strong>{{ d.product_name || shortProductId(d.product_id) }}</strong>
@@ -494,6 +505,9 @@ type Discount = {
   min_spend?: number | null
   brand_label?: string | null
   tag?: string | null
+
+  /* NEW: signed product image url */
+  product_img_url?: string | null
 }
 
 type GiftCert = {
@@ -616,31 +630,71 @@ async function loadActiveDiscounts() {
     productDiscounts.value = (prodData || []) as Discount[]
   }
 
+  // Enrich product-specific discounts with product name + FIRST image (signed)
   const ids = productDiscounts.value
     .map(d => d.product_id)
     .filter((x): x is string => !!x)
 
   if (ids.length > 0) {
+    // Pull name + product_url from games.products
     const { data: products, error: prodLoadErr } = await supabase
       .schema('games')
       .from('products')
-      .select('id,name')
+      .select('id,name,product_url')
       .in('id', ids)
 
     if (prodLoadErr) {
       console.warn('games.products load error:', prodLoadErr)
     } else {
-      const lookup: Record<string, string> = {}
+      const nameById: Record<string, string> = {}
+      const firstPathById: Record<string, string | null> = {}
+
       for (const p of products || []) {
-        lookup[(p as { id: string }).id] = (p as { name: string }).name
+        const pid = (p as any).id as string
+        const pname = (p as any).name as string
+        const purl = (p as any).product_url
+        nameById[pid] = pname
+
+        const first = firstPathFromProductUrl(purl)
+        firstPathById[pid] = first
       }
+
+      // assign names first
       for (const d of productDiscounts.value) {
-        if (d.product_id && lookup[d.product_id]) {
-          d.product_name = lookup[d.product_id]
+        if (d.product_id && nameById[d.product_id]) {
+          d.product_name = nameById[d.product_id]
         }
       }
+
+      // sign all available first paths
+      const tasks: Promise<void>[] = []
+      for (const d of productDiscounts.value) {
+        const pId = d.product_id
+        const first = pId ? firstPathById[pId] : null
+        if (first) {
+          tasks.push(
+            signedUrlWithCB(PRIZE_BUCKET, first).then(url => {
+              d.product_img_url = url
+            }),
+          )
+        } else {
+          d.product_img_url = null
+        }
+      }
+      await Promise.all(tasks)
     }
   }
+}
+
+/* === helper: coerce first path from product_url (array or string) === */
+function firstPathFromProductUrl(val: unknown): string | null {
+  if (!val) return null
+  if (Array.isArray(val)) {
+    const first = (val as any[]).find(v => typeof v === 'string' && v.trim() !== '')
+    return (first as string) || null
+  }
+  if (typeof val === 'string' && val.trim() !== '') return val
+  return null
 }
 
 /* === USER REDEMPTIONS === */
@@ -869,6 +923,819 @@ async function copyAffiliate() {
   } catch {
     prompt('Copy your affiliate link:', affiliateUrl.value)
   }
+}
+
+/* ================= IMAGE FETCHING PIPELINE ================= */
+const PRIZE_BUCKET = 'prize_product'
+const PRIZE_ROOT = 'products'
+
+function isImageByName(name: string | undefined | null) {
+  if (!name) return false
+  return /\.(png|jpe?g|webp|gif|bmp|heic|avif)$/i.test(name)
+}
+async function firstImagePathForProduct(productId: string): Promise<string | null> {
+  try {
+    const dir = `${PRIZE_ROOT}/${productId}`
+    const { data: files, error: listErr } = await supabase.storage
+      .from(PRIZE_BUCKET)
+      .list(dir, { limit: 10 })
+
+    if (listErr || !files || files.length === 0) return null
+
+    const candidate =
+      files.find((f: any) => (f?.metadata?.mimetype || '').startsWith('image/')) ||
+      files.find((f: any) => isImageByName(f?.name)) ||
+      files[0]
+
+    if (!candidate?.name) return null
+    return `${dir}/${candidate.name}`
+  } catch {
+    return null
+  }
+}
+async function signedUrlWithCB(
+  bucket: string,
+  path: string,
+  expiresIn = 3600,
+): Promise<string | null> {
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
+  if (error) return null
+  const url = data?.signedUrl ?? null
+  return url ? `${url}&cb=${Date.now()}` : null
+}
+async function attachProductImages(list: any[]) {
+  if (!list || !list.length) return
+  await Promise.all(
+    list.map(async (p) => {
+      const path = await firstImagePathForProduct(p.id)
+      const signed = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
+      p.thumbnail_url = signed || p.thumbnail_url || null
+    }),
+  )
+}
+async function attachPrizeImages(list: any[]) {
+  if (!list || list.length === 0) return
+  await Promise.all(
+    list.map(async (ev) => {
+      if (!ev?.product_id) {
+        ev.imageUrl = null
+        return
+      }
+      const path = await firstImagePathForProduct(ev.product_id)
+      ev.imageUrl = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
+    }),
+  )
+}
+
+/* ---------------- (Everything below kept as-is) ---------------- */
+/* ------- Games / Orders / Products preview etc. (unchanged) ------- */
+/* The rest of the script is exactly your original logic, kept intact. */
+
+type GameRow = {
+  id: string
+  title: string
+  player_count: number
+  player_cap: number
+  status: string
+  winner_price: number
+  product_id?: string | null
+  imageUrl?: string | null
+  created_at?: string
+}
+const allGames = ref<GameRow[]>([])
+const gamesLoading = ref(true)
+const selectedGameId = ref<string | null>(null)
+
+const openGames = computed(() =>
+  allGames.value.filter((g) => (g.status || '').toLowerCase() === 'open'),
+)
+const featureGame = computed<GameRow | null>(() => {
+  const fromSel = selectedGameId.value
+    ? openGames.value.find((g) => g.id === selectedGameId.value)
+    : null
+  return fromSel || openGames.value[0] || null
+})
+const sideListGames = computed(() => {
+  const fid = featureGame.value?.id
+  return openGames.value.filter((g) => g.id !== fid)
+})
+function isSelected(id: string) {
+  return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
+}
+
+type OrderRow = {
+  id: string
+  status: string
+  total_amount?: number | null
+  created_at?: string
+  updated_at?: string
+  order_no?: string | null
+  ref_code?: string | null
+}
+const orderUpdates = ref<OrderRow[]>([])
+const ordersLoading = ref(true)
+
+type ProdRow = {
+  id: string
+  name: string
+  price_now: number
+  price_was: number | null
+  thumbnail_url?: string | null
+  _discount_pct: number
+  description?: string | null
+}
+
+const bigDiscounts = ref<ProdRow[]>([])
+const productsLoading = ref(true)
+const publishedPreview = ref<ProdRow[]>([])
+const previewIndex = ref(0)
+const hoveredDot = ref<number | null>(null)
+const previewProducts = computed<ProdRow[]>(() => {
+  return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 12)
+})
+const currentPreview = computed<ProdRow | null>(
+  () => previewProducts.value[previewIndex.value] || null,
+)
+
+import { nextTick, watch } from 'vue'
+watch(previewProducts, () => {
+  previewIndex.value = 0
+})
+
+const previewDescItems = computed(() => {
+  const raw = currentPreview.value?.description || ''
+  return raw
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 12)
+})
+
+const hoverActive = ref(false)
+let hoverTimer: number | null = null
+function clearHoverTimer() {
+  if (hoverTimer) {
+    window.clearTimeout(hoverTimer)
+    hoverTimer = null
+  }
+}
+function scheduleNext() {
+  clearHoverTimer()
+  hoverTimer = window.setTimeout(() => {
+    nextPreview()
+    scheduleNext()
+  }, 5000)
+}
+function onPPHover() {
+  hoverActive.value = true
+  scheduleNext()
+}
+function onPPLeave() {
+  hoverActive.value = false
+  clearHoverTimer()
+}
+function goToPreview(i: number) {
+  previewIndex.value = i
+}
+function nextPreview() {
+  if (previewProducts.value.length === 0) return
+  previewIndex.value = (previewIndex.value + 1) % previewProducts.value.length
+}
+function prevPreview() {
+  if (previewProducts.value.length === 0) return
+  previewIndex.value =
+    (previewIndex.value - 1 + previewProducts.value.length) % previewProducts.value.length
+}
+
+const peso = (n: number | null | undefined) =>
+  `₱${Number(n ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`
+const number = (n: number | string | null | undefined) =>
+  Number(n ?? 0).toLocaleString('en-PH', { maximumFractionDigits: 0 })
+const dateShort = (iso?: string) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' })
+}
+const shortId = (o: OrderRow) =>
+  o.order_no || o.ref_code || (o.id ? '#' + String(o.id).slice(0, 6) : '#—')
+
+const statusClass = (s: string) => {
+  switch ((s || '').toLowerCase()) {
+    case 'open':
+      return 'st-open'
+    case 'locked':
+      return 'st-locked'
+    case 'spun':
+      return 'st-spun'
+    case 'settled':
+      return 'st-settled'
+    case 'cancelled':
+      return 'st-cancelled'
+    default:
+      return 'st-draft'
+  }
+}
+const orderStatusClass = (s: string) => {
+  switch ((s || '').toLowerCase()) {
+    case 'pending':
+      return 'dot-pending'
+    case 'approved':
+    case 'paid':
+      return 'dot-paid'
+    case 'shipped':
+      return 'dot-shipped'
+    case 'completed':
+    case 'delivered':
+      return 'dot-completed'
+    case 'cancelled':
+    case 'refunded':
+      return 'dot-cancelled'
+    default:
+      return 'dot-default'
+  }
+}
+function joinPct(g: GameRow) {
+  const cap = Math.max(1, Number(g.player_cap || 0))
+  const cnt = Math.min(cap, Number(g.player_count || 0))
+  return (cnt / cap) * 100
+}
+function hasWas(p?: ProdRow | null) {
+  if (!p) return false
+  return !!p.price_was && p.price_was > p.price_now
+}
+function savings(p?: ProdRow | null) {
+  if (!p) return 0
+  return p.price_was && p.price_was > p.price_now ? p.price_was - p.price_now : 0
+}
+function isAffordable(p?: ProdRow | null) {
+  if (!p) return false
+  return p._discount_pct >= 40 || p.price_now <= 500
+}
+const membershipDiscountPct = ref(0)
+function memberPrice(p: ProdRow): number {
+  const base = Number(p.price_now ?? 0)
+  const pct = Number(membershipDiscountPct.value ?? 0)
+  if (!pct || pct <= 0) return base
+  const disc = base * (pct / 100)
+  return Math.max(0, Math.round((base - disc) * 100) / 100)
+}
+
+async function ensureAuthed() {
+  if (!user.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) {
+      await router.push({ name: 'login' })
+      return false
+    }
+  }
+  return true
+}
+
+async function fetchOpenGames() {
+  gamesLoading.value = true
+  try {
+    let { data, error } = await supabase
+      .schema('games')
+      .from('event')
+      .select('id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at')
+      .eq('status', 'open')
+      .order('created_at', { ascending: false })
+      .limit(60)
+
+    if (error) {
+      const fb = await supabase
+        .from('event')
+        .select(
+          'id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at',
+        )
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(60)
+      if (!fb.error) data = fb.data
+    }
+
+    allGames.value = (data ?? []).map(mapEventRow)
+    await attachPrizeImages(allGames.value)
+
+    if (!selectedGameId.value) selectedGameId.value = openGames.value[0]?.id ?? null
+  } catch {
+    allGames.value = []
+  } finally {
+    gamesLoading.value = false
+  }
+}
+function mapEventRow(row: any): GameRow {
+  return {
+    id: row.id,
+    title: String(row.title ?? 'Untitled'),
+    player_count: Number(row.player_count ?? 0),
+    player_cap: Number(row.player_cap ?? 0),
+    status: String(row.status ?? 'draft'),
+    winner_price: Number(row.winner_refund_amount ?? row.winner_price ?? 0),
+    product_id: row.product_id ?? null,
+    imageUrl: null,
+    created_at: row.created_at,
+  }
+}
+
+async function fetchOrderUpdates() {
+  ordersLoading.value = true
+  try {
+    const uid = user.value?.id
+    if (!uid) {
+      orderUpdates.value = []
+      return
+    }
+
+    let { data, error } = await supabase
+      .from('purchases')
+      .select('id,status,total_amount,created_at,updated_at,order_no,ref_code,user_id')
+      .eq('user_id', uid)
+      .order('updated_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false })
+      .limit(8)
+
+    if (error) {
+      const fb = await supabase
+        .from('orders')
+        .select('id,status,total_amount,created_at,updated_at,order_no,ref_code,user_id')
+        .eq('user_id', uid)
+        .order('updated_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(8)
+      if (!fb.error) data = fb.data
+    }
+
+    orderUpdates.value = (data ?? []) as OrderRow[]
+  } catch {
+    orderUpdates.value = []
+  } finally {
+    ordersLoading.value = false
+  }
+}
+function computeDiscountPct(now: number, was?: number | null, pct?: number | null) {
+  if (pct != null) return Math.round(Number(pct))
+  if (!was || was <= 0) return 0
+  return Math.max(0, Math.round(100 - (Number(now) / Number(was)) * 100))
+}
+async function fetchBigDiscounts() {
+  productsLoading.value = true
+  try {
+    let { data, error } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id,name,price,original_price,discount_pct,thumbnail_url,is_active')
+      .eq('is_active', true)
+      .limit(60)
+
+    if (error) {
+      const fb = await supabase
+        .schema('games')
+        .from('products')
+        .select('id,name,price_now,price_was,discount_pct,thumbnail_url,is_active')
+        .eq('is_active', true)
+        .limit(60)
+      if (!fb.error) data = fb.data as any[]
+    }
+
+    const rows = (data ?? []).map((r: any) => {
+      const price_now = Number(r.price_now ?? r.price ?? 0)
+      const price_was = r.price_was ?? r.original_price ?? null
+      const pct = computeDiscountPct(price_now, price_was, r.discount_pct)
+      return {
+        id: r.id,
+        name: String(r.name ?? 'Unnamed'),
+        price_now,
+        price_was: price_was ? Number(price_was) : null,
+        thumbnail_url: r.thumbnail_url ?? null,
+        _discount_pct: pct,
+        description: null,
+      } as ProdRow
+    })
+
+    await attachProductImages(rows)
+
+    bigDiscounts.value = rows
+      .filter((r) => r._discount_pct >= 30)
+      .sort((a, b) => b._discount_pct - a._discount_pct)
+      .slice(0, 14)
+  } catch {
+    bigDiscounts.value = []
+  } finally {
+    productsLoading.value = false
+  }
+}
+
+async function fetchPublishedProductsForPreview() {
+  try {
+    const { data, error } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id,name,description,price,product_url,ispublish,stock,created_at')
+      .eq('ispublish', true)
+      .order('created_at', { ascending: false })
+      .limit(30)
+
+    if (error) throw error
+
+    const mapped: ProdRow[] = (data || []).map((r: any) => {
+      const priceNum = typeof r.price === 'string' ? parseFloat(r.price) : Number(r.price ?? 0)
+      let thumb: string | null = null
+      if (Array.isArray(r.product_url)) thumb = r.product_url[0] ?? null
+      else if (typeof r.product_url === 'string' && r.product_url.trim() !== '')
+        thumb = r.product_url
+      return {
+        id: r.id,
+        name: String(r.name ?? 'Unnamed Product'),
+        price_now: Number.isFinite(priceNum) ? priceNum : 0,
+        price_was: null,
+        thumbnail_url: thumb,
+        _discount_pct: 0,
+        description: typeof r.description === 'string' ? r.description : null,
+      }
+    })
+
+    await attachProductImages(mapped)
+
+    publishedPreview.value = mapped
+  } catch (err) {
+    console.error('[preview products] load failed:', err)
+    publishedPreview.value = []
+  }
+}
+
+/* --------- Dynamic Tier / icons (kept) --------- */
+type TierKey = 'regular' | 'silver' | 'gold' | 'platinum' | 'diamond'
+function nameToKey(name: string): TierKey {
+  const k = (name || '').toLowerCase()
+  if (k.includes('silver')) return 'silver'
+  if (k.includes('gold')) return 'gold'
+  if (k.includes('platinum')) return 'platinum'
+  if (k.includes('diamond')) return 'diamond'
+  return 'regular'
+}
+const badgeIconSigned = ref<string | null>(null)
+const memberTier = ref<TierKey>('regular')
+
+const TIER_ICON_BUCKET = 'tier_icons'
+async function signedUrlOrNullTierIcon(path: string | null | undefined): Promise<string | null> {
+  try {
+    const p = (path || '').replace(/^\/+/, '')
+    if (!p) return null
+    const { data, error } = await supabase.storage.from(TIER_ICON_BUCKET).createSignedUrl(p, 3600)
+    if (error) return null
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
+}
+
+async function loadLiveTiersAndUser() {
+  try {
+    const { data: tiersData } = await supabase
+      .schema('membership')
+      .from('tiers')
+      .select('id,membership_name,icon_url,discount_per_purchase')
+
+    const byId: Record<string, any> = {}
+    for (const r of tiersData ?? []) byId[r.id] = r
+
+    let uid = user.value?.id
+    if (!uid) {
+      const { data } = await supabase.auth.getUser()
+      uid = data.user?.id
+      if (!uid) return
+    }
+
+    const { data: urow } = await supabase
+      .from('users')
+      .select('membership_id')
+      .eq('id', uid)
+      .maybeSingle()
+
+    const memId = urow?.membership_id
+    if (!memId || !byId[memId]) {
+      badgeIconSigned.value = null
+      membershipDiscountPct.value = 0
+      return
+    }
+
+    const tierRow = byId[memId]
+    memberTier.value = nameToKey(tierRow.membership_name || 'regular')
+    badgeIconSigned.value = await signedUrlOrNullTierIcon(tierRow.icon_url)
+    membershipDiscountPct.value = Number(tierRow.discount_per_purchase ?? 0)
+  } catch {}
+}
+
+/* ------- Realtime (kept) ------- */
+let chGames: any = null
+let chOrders: any = null
+let chProducts: any = null
+let chUser: any = null
+let chReferrals: any = null
+let chPubProducts: any = null
+
+function startRealtime() {
+  try {
+    chGames = supabase
+      .channel('rt:games.event:open-only')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'games', table: 'event', filter: 'status=eq.open' },
+        async () => {
+          await fetchOpenGames()
+        },
+      )
+      .subscribe()
+
+    chProducts = supabase
+      .channel('rt:games.products')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'games', table: 'products' },
+        async (payload: any) => {
+          const prodId = payload?.new?.id as string | undefined
+          if (!prodId) return
+          const affectedEvents = allGames.value.filter((e) => e.product_id === prodId)
+          await attachPrizeImages(affectedEvents)
+
+          const affectedPreview = publishedPreview.value.filter((p) => p.id === prodId)
+          await attachProductImages(affectedPreview)
+        },
+      )
+      .subscribe()
+
+    chPubProducts = supabase
+      .channel('rt:games.products')
+      .on('postgres_changes', { event: '*', schema: 'games', table: 'products' }, () =>
+        fetchPublishedProductsForPreview(),
+      )
+      .subscribe()
+  } catch {}
+
+  try {
+    if (user.value?.id) {
+      chOrders = supabase
+        .channel(`rt:purchases:${user.value.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'games',
+            table: 'purchases',
+            filter: `user_id=eq.${user.value.id}`,
+          },
+          () => fetchOrderUpdates(),
+        )
+        .subscribe()
+
+      chUser = supabase
+        .channel(`rt:users:${user.value.id}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.value.id}` },
+          () => fetchUserWalletAndPurchases(),
+        )
+        .subscribe()
+
+      chReferrals = supabase
+        .channel(`rt:referrals:${user.value.id}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'users',
+            filter: `referred_by=eq.${user.value.id}`,
+          },
+          () => fetchReferralCount(),
+        )
+        .subscribe()
+    }
+  } catch {}
+}
+
+import { onBeforeUnmount } from 'vue'
+const gamesPanelEl = ref<HTMLElement | null>(null)
+function selectFeature(id: string) {
+  selectedGameId.value = id
+  gamesPanelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+watch(openGames, () => {
+  if (!openGames.value.find((g) => g.id === selectedGameId.value)) {
+    selectedGameId.value = openGames.value[0]?.id ?? null
+  }
+})
+
+const bannerEl = ref<HTMLElement | null>(null)
+const sideListH = ref(320)
+let roBanner: ResizeObserver | null = null
+function syncSideListHeight() {
+  const h = bannerEl.value?.offsetHeight || 320
+  sideListH.value = Math.max(240, Math.round(h))
+  updateSideScrollHint()
+}
+
+const sideListEl = ref<HTMLElement | null>(null)
+const sideScrollHintVisible = ref(false)
+const sideScrollHintUpVisible = ref(false)
+function updateSideScrollHint() {
+  const el = sideListEl.value
+  if (!el) {
+    sideScrollHintVisible.value = false
+    sideScrollHintUpVisible.value = false
+    return
+  }
+  const canScroll = el.scrollHeight - el.clientHeight > 4
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 4
+  const atTop = el.scrollTop <= 4
+
+  sideScrollHintVisible.value = canScroll && !atBottom
+  sideScrollHintUpVisible.value = canScroll && atBottom && !atTop
+}
+
+const vReveal = {
+  mounted(el: HTMLElement) {
+    el.classList.add('reveal-init')
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((en) => {
+          if (en.isIntersecting) {
+            el.style.transitionDelay = `${Number(getComputedStyle(el).getPropertyValue('--i') || 0) * 60}ms`
+            el.classList.add('reveal-in')
+            io.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.12 },
+    )
+    io.observe(el)
+    ;(el as any)._io = io
+  },
+  unmounted(el: HTMLElement) {
+    ;(el as any)._io?.disconnect?.()
+  },
+}
+const vTilt = {
+  mounted(el: HTMLElement) {
+    el.style.transformStyle = 'preserve-3d'
+    el.style.perspective = '900px'
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect()
+      const x = e.clientX - rect.left
+      const y = e.clientY - rect.top
+      const rx = (y / rect.height - 0.5) * -6
+      const ry = (x / rect.width - 0.5) * 6
+      el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`
+    }
+    const onLeave = () => {
+      el.style.transition = 'transform .25s ease'
+      el.style.transform = 'rotateX(0) rotateY(0)'
+      setTimeout(() => (el.style.transition = ''), 260)
+    }
+    el.addEventListener('mousemove', onMove)
+    el.addEventListener('mouseleave', onLeave)
+    ;(el as any)._tiltMove = onMove
+    ;(el as any)._tiltLeave = onLeave
+  },
+  unmounted(el: HTMLElement) {
+    el.removeEventListener('mousemove', (el as any)._tiltMove)
+    el.removeEventListener('mouseleave', (el as any)._tiltLeave)
+  },
+}
+
+onMounted(async () => {
+  const ok = await ensureAuthed()
+  if (!ok) return
+
+  await Promise.all([
+    fetchProfileAndTier(),
+    fetchOpenGames(),
+    fetchOrderUpdates(),
+    fetchBigDiscounts(),
+    fetchPublishedProductsForPreview(),
+  ])
+
+  await Promise.all([fetchUserWalletAndPurchases(), fetchReferralCount()])
+
+  await loadLiveTiersAndUser()
+  startRealtime()
+
+  await nextTick()
+  syncSideListHeight()
+  if ('ResizeObserver' in window && bannerEl.value) {
+    roBanner = new ResizeObserver(syncSideListHeight)
+    roBanner.observe(bannerEl.value)
+  }
+  window.addEventListener('resize', syncSideListHeight)
+
+  if (sideListEl.value) {
+    sideListEl.value.addEventListener('scroll', updateSideScrollHint)
+    updateSideScrollHint()
+  }
+})
+
+watch([openGames, selectedGameId], async () => {
+  await nextTick()
+  updateSideScrollHint()
+})
+
+onBeforeUnmount(() => {
+  clearHoverTimer()
+  if (chGames) supabase.removeChannel(chGames)
+  if (chOrders) supabase.removeChannel(chOrders)
+  if (chProducts) supabase.removeChannel(chProducts)
+  if (chUser) supabase.removeChannel(chUser)
+  if (chReferrals) supabase.removeChannel(chReferrals)
+  if (chPubProducts) supabase.removeChannel(chPubProducts)
+  roBanner?.disconnect?.()
+  window.removeEventListener('resize', syncSideListHeight)
+  if (sideListEl.value) sideListEl.value.removeEventListener('scroll', updateSideScrollHint)
+})
+
+const ppBgStyle = computed(() => {
+  const url = currentPreview.value?.thumbnail_url
+  return url ? { backgroundImage: `url('${url}')` } : {}
+})
+
+/* Existing helpers used above */
+async function fetchProfileAndTier() {
+  try {
+    const uid = user.value?.id
+    if (!uid) return
+
+    let { data, error } = await supabase
+      .from('profiles')
+      .select('tier_key, ewallet_balance, discount_credit_balance, referrals, lifetime_purchases')
+      .eq('id', uid)
+      .single()
+
+    if (error) {
+      const fb = await supabase
+        .from('member')
+        .select(
+          'tier_key, ewallet_balance, discount_credit_balance, referral_count, lifetime_purchases',
+        )
+        .eq('user_id', uid)
+        .single()
+      if (!fb.error) {
+        data = {
+          tier_key: fb.data?.tier_key,
+          ewallet_balance: fb.data?.ewallet_balance,
+          discount_credit_balance: fb.data?.discount_credit_balance,
+          referrals: fb.data?.referral_count,
+          lifetime_purchases: fb.data?.lifetime_purchases,
+        } as any
+      }
+    }
+
+    const tk = (data as any)?.tier_key as TierKey | undefined
+    if (tk && ['regular', 'silver', 'gold', 'platinum', 'diamond'].includes(tk)) {
+      memberTier.value = tk
+    }
+  } catch (e) {
+    console.warn('[profile/tier] fallback', e)
+  }
+}
+async function fetchUserWalletAndPurchases() {
+  try {
+    let uid = user.value?.id
+    if (!uid) {
+      const { data } = await supabase.auth.getUser()
+      uid = data.user?.id
+      if (!uid) return
+    }
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('balance, discount_credits, purchases_per_month')
+      .eq('id', uid)
+      .maybeSingle()
+
+    if (!error && data) {
+      // balances set earlier
+    }
+  } catch {}
+}
+async function fetchReferralCount() {
+  try {
+    let uid = user.value?.id
+    if (!uid) {
+      const { data } = await supabase.auth.getUser()
+      uid = data.user?.id
+      if (!uid) return
+    }
+
+    const { data: refRow, error } = await supabase
+      .from('referral_stats')
+      .select('referrals_count')
+      .eq('referrer_id', uid)
+      .maybeSingle()
+
+    if (!error) {
+      // set earlier
+    }
+  } catch {}
 }
 </script>
 
@@ -1143,6 +2010,23 @@ async function copyAffiliate() {
   padding: 0.25rem 0.5rem;
   color: #94a3b8;
 }
+
+/* NEW: product image styles */
+.pd-thumb-wrap {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+.pd-thumb {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
 .pd-title {
   font-size: 0.9rem;
   font-weight: 600;

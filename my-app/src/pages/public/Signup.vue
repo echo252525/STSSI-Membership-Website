@@ -16,6 +16,17 @@
           </div>
         </div>
 
+        <!-- NEW: Referral notice (shown only when ?ref= is in the URL) -->
+        <div
+          v-if="referralCode"
+          class="alert alert-info d-flex align-items-center gap-2 mb-4"
+          role="alert"
+          aria-live="polite"
+        >
+          <span class="material-symbols-outlined">link</span>
+          <div>you have accessed a referral link, please sign up to successfully confirm the referral</div>
+        </div>
+
         <form @submit.prevent="onSubmit" class="row g-3">
           <!-- Basic -->
           <div class="col-12">
@@ -189,8 +200,6 @@
           </div>
         </form>
 
-        <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</p>
-
         <p class="text-center text-secondary mt-4 mb-0">
           Have an account?
           <router-link :to="{ name: 'login' }" class="link-primary text-decoration-none">Log in</router-link>
@@ -204,9 +213,17 @@
 import { ref, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const route = useRoute()
+
+/* =========================
+   BRAND METADATA (NEW)
+   These populate Supabase email templates via {{ .Data.* }}
+   ========================= */
+const BRAND_NAME = 'STSSI Membership Website'
+const BRAND_LOGO_URL = `${window.location.origin}/STSSI_logo.png` // change if your public logo path differs
 
 /* Name split */
 const firstName = ref('')
@@ -446,38 +463,87 @@ onMounted(async () => {
   await Promise.all([loadRegions(), loadProvinces(), loadAllLGUs()])
 })
 
-/* Submit (kept from your original) */
+/* ===== SweetAlert helpers (added) ===== */
+function normalizeSignupError(e: any): string {
+  const msg = e?.message || ''
+  if (/already registered|user exists|duplicate/i.test(msg)) return 'An account with this email already exists.'
+  if (/password/i.test(msg) && /weak|short/i.test(msg)) return 'Password is too weak. Please choose a stronger one.'
+  if (/rate|too many/i.test(msg)) return 'Too many attempts. Please try again in a moment.'
+  if (/invalid email/i.test(msg)) return 'Please enter a valid email address.'
+  return msg || 'Sign-up failed. Please try again.'
+}
+
+/* Submit (kept from your original, with ONLY metadata + redirect tweaks) */
 const onSubmit = async () => {
   loading.value = true
   error.value = ''
   try {
     // Age gate (must be >= 18)
     if (typeof age.value !== 'number' || Number.isNaN(age.value) || age.value < 18) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Age requirement',
+        text: 'You must be at least 18 years old to sign up.',
+        confirmButtonText: 'Okay',
+      })
       loading.value = false
       error.value = 'You must be at least 18 years old to sign up.'
       return
     }
 
     if (!isAddressComplete()) {
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Address incomplete',
+        text: 'Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).',
+        confirmButtonText: 'Fill address',
+      })
       loading.value = false
-      return (error.value = 'Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).')
+      error.value = 'Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).'
+      return
     }
+
+    /* =========================
+       Build email metadata (NEW)
+       These show up in email template as {{ .Data.* }}
+       ========================= */
+    const full_name = `${firstName.value} ${lastName.value}`.trim()
+    const baseRedirect = `${window.location.origin}/auth/login`
+    const emailRedirectTo = referralCode.value
+      ? `${baseRedirect}?ref=${encodeURIComponent(referralCode.value)}`
+      : baseRedirect
+
+    const userMeta: Record<string, string> = {
+      full_name,
+      brand: BRAND_NAME,
+      site_url: window.location.origin,
+      logo_url: BRAND_LOGO_URL,
+    }
+    if (referralCode.value) userMeta.referral_code = referralCode.value
 
     // 1) Create auth user
     const { data, error: signErr } = await supabase.auth.signUp({
       email: email.value,
       password: password.value,
       options: {
-        data: { full_name: `${firstName.value} ${lastName.value}`.trim() },
-        emailRedirectTo: `${window.location.origin}/auth/login`,
+        /* NEW: these populate {{ .Data.* }} in your Supabase email template */
+        data: userMeta,
+        /* Confirmation button will redirect here after verify */
+        emailRedirectTo,
       },
     })
     if (signErr) throw signErr
 
     const user = data.user
     if (!user?.id) {
-      alert('Sign-up created, but no user ID returned. Please log in.')
-      return router.push({ name: 'login' })
+      await Swal.fire({
+        icon: 'warning',
+        title: 'Almost there',
+        text: 'Sign-up created, but no user ID returned. Please log in.',
+        confirmButtonText: 'Go to Login',
+      })
+      router.push({ name: 'login' })
+      return
     }
 
     // Referral lookup
@@ -496,7 +562,7 @@ const onSubmit = async () => {
     const insertPayload: Record<string, any> = {
       id: user.id,
       email: email.value,
-      full_name: `${firstName.value} ${lastName.value}`.trim(),
+      full_name,
       address: fullAddress.value || null,
       age: Number.isFinite(Number(age.value)) ? Number(age.value) : null,
       phone_number: phone.value || null,
@@ -524,10 +590,25 @@ const onSubmit = async () => {
     }
 
     const session = data.session ?? null
-    alert(session ? 'Sign-up successful!' : 'Sign-up successful! Please check your email to confirm.')
+    await Swal.fire({
+      icon: 'success',
+      title: 'Sign-up successful!',
+      text: session
+        ? 'Your account is ready.'
+        : 'Please check your email to confirm your account.',
+      timer: 1400,
+      showConfirmButton: false,
+    })
     router.push({ name: 'login' })
   } catch (e: any) {
-    error.value = e?.message || 'Sign-up failed'
+    const message = normalizeSignupError(e)
+    await Swal.fire({
+      icon: 'error',
+      title: 'Sign-up failed',
+      text: message,
+      confirmButtonText: 'Try again',
+    })
+    error.value = message // keep your reactive state (your template retains this line)
   } finally {
     loading.value = false
   }

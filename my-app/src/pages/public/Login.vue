@@ -41,6 +41,7 @@
                 class="input-group-text bg-white password-toggle"
                 role="button"
                 @click="togglePassword"
+                :aria-label="showPassword ? 'Hide password' : 'Show password'"
               >
                 <span class="material-symbols-outlined">
                   {{ showPassword ? 'visibility' : 'visibility_off' }}
@@ -48,7 +49,7 @@
               </span>
             </div>
 
-            <!-- ✅ ADDED: Forgot password link (right below Password field) -->
+            <!-- ✅ Forgot password link (kept as-is) -->
             <div class="d-flex justify-content-end mt-1">
               <router-link
                 :to="{ name: 'forgot-password' }"
@@ -73,6 +74,7 @@
           <div class="col-12 d-grid"></div>
         </form>
 
+        <!-- Kept this line per your request to not remove code. It will remain empty since we show SweetAlert instead. -->
         <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</p>
 
         <p class="text-center text-secondary mt-4 mb-0">
@@ -90,18 +92,26 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const route = useRoute()
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
-const error = ref('')
+const error = ref('') // kept, but we won't display errors here—SweetAlert will handle UX
 
 //show password
 const showPassword = ref(false)
 const togglePassword = () => {
   showPassword.value = !showPassword.value
+}
+
+function normalizeErrorMessage(e: unknown): string {
+  const msg = (e as any)?.message || ''
+  if (/invalid login/i.test(msg)) return 'Incorrect email or password.'
+  if (/email not confirmed/i.test(msg)) return 'Please confirm your email before logging in.'
+  return msg || 'Login failed. Please try again.'
 }
 
 const onSubmit = async () => {
@@ -118,7 +128,6 @@ const onSubmit = async () => {
     // 2) Make sure we got a user id
     const uid = signInData?.user?.id
     if (!uid) {
-      // Defensive: sign out if something is odd
       await supabase.auth.signOut()
       throw new Error('Login failed: missing user id.')
     }
@@ -135,11 +144,28 @@ const onSubmit = async () => {
       throw new Error('Incorrect email or password.')
     }
 
-    // 4) Proceed to app
+    // 4) Sweet, we’re in — show a friendly success then redirect
     const redirect = (route.query.redirect as string) || '/app'
+    await Swal.fire({
+      icon: 'success',
+      title: 'Welcome back!',
+      text: 'Login successful.',
+      timer: 1100,
+      showConfirmButton: false,
+    })
+
     router.push(redirect)
   } catch (e: any) {
-    error.value = e?.message || 'Login failed'
+    const message = normalizeErrorMessage(e)
+    // show SweetAlert error
+    await Swal.fire({
+      icon: 'error',
+      title: 'Login failed',
+      text: message,
+      confirmButtonText: 'Try again',
+    })
+    // keep your original reactive state but don’t surface it in the UI
+    error.value = ''
   } finally {
     loading.value = false
   }
@@ -165,6 +191,13 @@ const onSubmit = async () => {
 .login-logo {
   height: 58px;
   width: auto;
+}
+.password-toggle {
+  cursor: pointer;
+  border-left: 0;
+}
+.password-toggle:hover {
+  background: #f6f8fa;
 }
 @media only screen and (max-width: 431px) {
   .card {
