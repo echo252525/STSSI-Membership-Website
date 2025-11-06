@@ -271,7 +271,7 @@
                 </div>
 
                 <div class="discount-side">
-                  <p v-if="d.code" class="discount-code">Code: {{ d.code }}</p>
+                  <p v-if="d.code" class="discount-code">{{ d.code }}</p>
                   <p
                     v-if="typeof d.max_uses_per_user === 'number'"
                     class="discount-usage"
@@ -412,7 +412,7 @@
                   </div>
 
                   <div class="discount-side">
-                    <p v-if="d.code" class="discount-code">Code: {{ d.code }}</p>
+                    <p v-if="d.code" class="discount-code">{{ d.code }}</p>
                     <button class="cta-btn orange" disabled aria-disabled="true">Soon</button>
                   </div>
                 </article>
@@ -2308,9 +2308,17 @@ async function fetchReferralCount() {
 
 /* DISCOUNT LIST */
 .discount-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
+
+    /* make it scroll */
+    max-height: 60vh;        /* or any height you like (e.g., 480px) */
+  overflow-y: auto;
+  padding-right: 4px;      /* keeps content from touching the scrollbar */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;           /* important if parent is flex */
 }
 .discount-card {
   background: #f8fafc;
@@ -2325,7 +2333,7 @@ async function fetchReferralCount() {
   cursor: pointer;
 }
 .discount-main {
-  display: flex;
+  display: grid;
   gap: 0.8rem;
   align-items: center;
 }
@@ -2369,13 +2377,50 @@ async function fetchReferralCount() {
   align-items: flex-end;
   gap: 0.3rem;
 }
+/* ===== Gradient background for discount codes ===== */
 .discount-code {
-  background: rgba(15, 23, 42, 0.04);
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  font-size: var(--fs-xs);
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b6b, #ff9f43, #feca57);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  user-select: all;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+
+/* Optional decorative punch holes (ticket look) */
+.discount-code::before,
+.discount-code::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translateY(-50%);
+}
+.discount-code::before {
+  left: -4px;
+}
+.discount-code::after {
+  right: -4px;
+}
+
+/* Hover effect */
+.discount-code:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
 .discount-usage {
   font-size: var(--fs-xs);
   color: #94a3b8;
@@ -2409,7 +2454,7 @@ async function fetchReferralCount() {
 /* PRODUCT DISCOUNTS */
 .product-discount-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
 }
 .product-discount-card {
