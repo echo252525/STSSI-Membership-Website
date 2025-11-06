@@ -872,25 +872,141 @@
                     {{ codeStatusText }}
                   </div>
                 </div>
-                <div class="col-md-6">
-                  <label class="form-label">Or pick an active discount</label>
-                  <select class="form-select" v-model="selectedDiscountId">
-                    <option :value="''">— Select —</option>
-                    <option v-for="d in discounts" :key="d.id" :value="d.id">
-                      {{ d.title }} •
-                      <template v-if="d.type === 'percent'"
-                        >-{{ Number(d.percent_off).toFixed(2) }}%</template
-                      >
-                      <template v-else-if="d.type === 'fixed_amount'"
-                        >-₱ {{ number(d.amount_off) }}</template
-                      >
-                      <template v-else>Free shipping</template>
-                      <template v-if="Number(d.min_subtotal) > 0">
-                        (min ₱ {{ number(d.min_subtotal) }})
-                      </template>
-                    </option>
-                  </select>
+                <!-- ===== Discount Ticket Picker (ADD) ===== -->
+<div class="discount-picker position-relative mb-3">
+  <!-- Trigger -->
+  <button
+    type="button"
+    class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between gap-2"
+    @click="openDiscountMenu"
+    :disabled="discountsLoading"
+  >
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-ticket-perforated"></i>
+      <div class="text-start">
+        <div class="fw-semibold">
+          {{ chosenTicket?.title || 'Pick an active discount' }}
+        </div>
+        <div class="small text-muted" v-if="chosenTicket">
+          <span class="me-2">{{ chosenTicket.valueText }}</span>
+          <span class="badge bg-light text-dark border">{{ chosenTicket.scopeText }}</span>
+          <template v-if="chosenTicket.minSubtotal && chosenTicket.minSubtotal > 0">
+            <span class="ms-2 small">Min ₱ {{ number(chosenTicket.minSubtotal) }}</span>
+          </template>
+          <template v-if="chosenTicket.maxCap != null">
+            <span class="ms-2 small">Cap ₱ {{ number(chosenTicket.maxCap) }}</span>
+          </template>
+        </div>
+        <div class="small text-muted" v-else>
+          {{ discountsLoading ? 'Loading discounts…' : 'Tap to see available vouchers' }}
+        </div>
+      </div>
+    </div>
+    <i class="bi" :class="showDiscountMenu ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+  </button>
+
+  <!-- Dropdown -->
+  <div
+    v-if="showDiscountMenu"
+    class="ticket-menu card shadow-lg border-0 mt-2"
+    style="position:absolute; inset-inline:0; z-index:1100;"
+  >
+    <div class="card-body p-2">
+      <div v-if="discountsLoading" class="p-3 text-center text-muted small">
+        Loading…
+      </div>
+
+      <template v-else>
+        <div
+          v-if="pickableDiscounts.length === 0"
+          class="p-3 text-center text-muted small"
+        >
+          No active discounts applicable to your items.
+        </div>
+
+        <ul class="list-unstyled m-0 d-flex flex-column gap-2">
+          <li
+            v-for="d in pickableDiscounts"
+            :key="d.id"
+            class="ticket d-flex align-items-stretch"
+          >
+            <button
+              type="button"
+              class="ticket-btn w-100"
+              @click="chooseDiscount(d.id)"
+            >
+              <!-- Left: product avatar when product-scoped -->
+              <div class="ticket-left" v-if="d.productId">
+                <div class="ticket-avatar">
+                  <img v-if="d.productThumb" :src="d.productThumb" alt="" />
+                  <div v-else class="ticket-avatar-fallback">
+                    <i class="bi bi-box"></i>
+                  </div>
                 </div>
+              </div>
+
+              <!-- Main -->
+              <div class="ticket-main">
+                <div class="d-flex align-items-center justify-content-between gap-2">
+                  <div class="ticket-title fw-semibold">
+                    {{ d.title }}
+                  </div>
+                  <div class="ticket-value">
+                    {{ d.valueText }}
+                  </div>
+                </div>
+
+                <div class="ticket-sub small text-muted">
+                  <span class="badge bg-light text-dark border me-2">{{ d.scopeText }}</span>
+                  <template v-if="d.productId && d.productName">
+                    <span class="text-truncate">for <strong>{{ d.productName }}</strong></span>
+                  </template>
+                </div>
+
+                <div class="ticket-foot small text-muted">
+                  <template v-if="d.minSubtotal && d.minSubtotal > 0">
+                    Min: ₱ {{ number(d.minSubtotal) }}
+                  </template>
+                  <template v-if="d.maxCap != null">
+                    <span class="ms-2">Cap: ₱ {{ number(d.maxCap) }}</span>
+                  </template>
+                </div>
+
+                <div class="ticket-blurb small mt-1" v-if="d.blurb">
+                  {{ d.blurb }}
+                </div>
+              </div>
+
+              <!-- Perforation & stub -->
+              <div class="ticket-stub d-none d-sm-flex flex-column align-items-center justify-content-center">
+                <i
+                  class="bi"
+                  :class="selectedDiscountId === d.id ? 'bi-check2-circle' : 'bi-plus-circle'"
+                ></i>
+                <div class="small mt-1">
+                  {{ selectedDiscountId === d.id ? 'Selected' : 'Use' }}
+                </div>
+              </div>
+            </button>
+          </li>
+
+          <!-- Clear selection -->
+          <li>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary w-100"
+              @click="chooseDiscount(null)"
+            >
+              Clear selection
+            </button>
+          </li>
+        </ul>
+      </template>
+    </div>
+  </div>
+</div>
+<!-- ===== End Ticket Picker ===== -->
+
               </div>
               <div class="mt-3 small">
                 <div class="d-flex align-items-center justify-content-between">
@@ -1393,6 +1509,128 @@ async function swConfirm(message: string, title = 'Are you sure?', confirmText =
 
 const routers = useRouter()
 const user = computed(() => currentUser.value)
+/* ========================================================================
+   DISCOUNT TICKET DROPDOWN (ADD-ON) — NON-DESTRUCTIVE
+   ======================================================================== */
+
+const showDiscountMenu = ref(false)
+
+// Build a quick lookup for products currently in the cart/pending view
+const productByIdFromCart = computed<Record<string, Product>>(() => {
+  const map: Record<string, Product> = {}
+  for (const it of cartItems.value) map[it.product.id] = it.product
+  return map
+})
+
+// Reuse your image helpers to get a product thumbnail if product-scoped
+function thumbForProductId(pid: string | null): string {
+  if (!pid) return ''
+  const p = productByIdFromCart.value[pid]
+  if (!p) return ''
+  const cartLine = cartItems.value.find((i) => i.product.id === pid)
+  if (cartLine?.imageUrl) return cartLine.imageUrl
+  const raw = firstUrl(p.product_url)
+  return raw || ''
+}
+
+function discountValueText(d: Discount): string {
+  const pct = Number(d.percent_off || 0)
+  const amt = Number(d.amount_off || 0)
+  if (d.type === 'percent' && pct > 0) {
+    const whole = Math.round(pct)
+    return Math.abs(pct - whole) < 1e-6 ? `${whole}% OFF` : `${pct.toFixed(2)}% OFF`
+  }
+  if (d.type === 'fixed_amount' && amt > 0) return `₱ ${number(amt)} OFF`
+  if (d.type === 'free_shipping') return 'FREE SHIPPING'
+  return 'DISCOUNT'
+}
+
+type PickableTicket = {
+  id: string
+  title: string
+  blurb: string
+  valueText: string
+  scopeText: string
+  minSubtotal?: number
+  maxCap?: number | null
+  productId?: string | null
+  productName?: string
+  productThumb?: string
+}
+
+const pickableDiscounts = computed<PickableTicket[]>(() => {
+  return (discounts.value || []).map((d) => {
+    const pid = d.product_id || null
+    const productName = pid ? (productByIdFromCart.value[pid]?.name || '') : ''
+    const productThumb = pid ? thumbForProductId(pid) : ''
+    const scopeText = pid ? 'Product Only' : 'All Products'
+    const valueText = discountValueText(d)
+    const blurb = d.description || ''
+    return {
+      id: d.id,
+      title: d.title,
+      blurb,
+      valueText,
+      scopeText,
+      minSubtotal: Number(d.min_subtotal ?? 0) || 0,
+      maxCap: d.max_discount_amount == null ? null : Number(d.max_discount_amount),
+      productId: pid,
+      productName,
+      productThumb,
+    }
+  })
+})
+
+const chosenTicket = computed<PickableTicket | null>(() => {
+  if (resolvedDiscountByCode.value) {
+    const d = resolvedDiscountByCode.value
+    const pid = d.product_id || null
+    return {
+      id: d.id,
+      title: d.title,
+      blurb: d.description || '',
+      valueText: discountValueText(d),
+      scopeText: pid ? 'Product Only' : 'All Products',
+      minSubtotal: Number(d.min_subtotal ?? 0) || 0,
+      maxCap: d.max_discount_amount == null ? null : Number(d.max_discount_amount),
+      productId: pid,
+      productName: pid ? (productByIdFromCart.value[pid]?.name || '') : '',
+      productThumb: pid ? thumbForProductId(pid) : '',
+    }
+  }
+  const id = selectedDiscountId.value
+  if (!id) return null
+  return pickableDiscounts.value.find((x) => x.id === id) || null
+})
+
+function openDiscountMenu() {
+  if (discountsLoading.value) return
+  showDiscountMenu.value = true
+}
+
+function chooseDiscount(id: string | null) {
+  // Choosing a ticket clears manual code flow (keeps your existing behavior aligned)
+  discountCodeInput.value = ''
+  resolvedDiscountByCode.value = null
+  selectedDiscountId.value = id || ''
+  showDiscountMenu.value = false
+}
+
+/* Own outside-click handler (doesn't touch your existing onDocClick) */
+function discountDocClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.discount-picker')) {
+    showDiscountMenu.value = false
+  }
+}
+
+/* Hook our listener without altering yours */
+onMounted(() => {
+  document.addEventListener('click', discountDocClick, { capture: true })
+})
+onUnmounted(() => {
+  document.removeEventListener('click', discountDocClick, { capture: true })
+})
 
 onMounted(async () => {
   if (!user.value) {
@@ -5046,6 +5284,76 @@ watch(resolvedDiscountByCode, (v) => {
    That clips tall skeletons. Loosen it only while loading. */
 .is-loading .products-div { max-height: none !important; }
 
+/* ===== Discount Ticket UI ===== */
+.discount-picker .ticket-menu {
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 16px;
+}
+
+.ticket {
+  border-radius: 14px;
+  background: #fff;
+  border: 1px dashed rgba(0,0,0,.12);
+  position: relative;
+  overflow: hidden;
+}
+
+.ticket-btn {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  text-align: left;
+  background: transparent;
+  border: 0;
+}
+
+.ticket-left {
+  display: flex; align-items: center;
+}
+
+.ticket-avatar {
+  width: 48px; height: 48px; border-radius: 12px;
+  background: #f3f4f6;
+  overflow: hidden; display: grid; place-items: center;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.ticket-avatar img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.ticket-avatar-fallback { color: #6c757d; font-size: 20px; }
+
+.ticket-main .ticket-title { line-height: 1.2; }
+.ticket-main .ticket-value { font-weight: 700; white-space: nowrap; }
+.ticket-main .ticket-sub { margin-top: 2px; }
+.ticket-main .ticket-foot { margin-top: 2px; opacity: .85; }
+
+.ticket-stub {
+  border-left: 1px dashed rgba(0,0,0,.12);
+  padding-inline: 10px;
+  min-width: 64px;
+  color: #0d6efd;
+}
+
+.ticket-btn:hover .ticket {
+  background: #f8fafc;
+}
+
+/* Little perforation effect */
+.ticket::before, .ticket::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 12px;
+  background:
+    radial-gradient(circle at center, #fff 6px, transparent 6px) center/12px 16px repeat-y;
+  opacity: .8;
+  pointer-events: none;
+}
+.ticket::before { left: -6px; }
+.ticket::after  { right: -6px; }
 
 </style>
 

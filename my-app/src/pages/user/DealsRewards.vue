@@ -699,11 +699,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router' // ← added useRoute
 import { currentUser } from '@/lib/authState'
 import { nextTick, watch } from 'vue'
 
 const router = useRouter()
+const route = useRoute() // ← added
 const user = computed(() => currentUser.value)
 
 /** NEW: initial page skeleton flag */
@@ -715,6 +716,10 @@ onMounted(async () => {
     if (!data.user) return router.push({ name: 'login' })
   }
   await loadAll()
+
+  // NEW: try open from ?focus=<discountId> after data load
+  tryOpenFromQuery()
+
   // keep skeleton just a beat for nicer perception
   setTimeout(() => (isBooting.value = false), 350)
 })
@@ -1104,6 +1109,49 @@ async function copyDiscountCodeLocal() {
     alert('Voucher code copied!')
   } catch {}
 }
+
+/* ========= NEW: Deep-link focus handling ========= */
+const pendingFocusId = ref<string | null>(null)
+
+function findDiscountById(id: string): Discount | null {
+  return (
+    discounts.value.find(d => d.id === id) ||
+    productDiscounts.value.find(d => d.id === id) ||
+    upcomingOrderDiscounts.value.find(d => d.id === id) ||
+    upcomingProductDiscounts.value.find(d => d.id === id) ||
+    null
+  )
+}
+
+function resolveFocus() {
+  if (!pendingFocusId.value || showDiscountModal.value) return
+  const hit = findDiscountById(pendingFocusId.value)
+  if (hit) {
+    openDiscount(hit)
+    pendingFocusId.value = null
+  }
+}
+
+function tryOpenFromQuery() {
+  const raw = route.query?.focus
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    pendingFocusId.value = decodeURIComponent(raw.trim())
+    resolveFocus()
+  }
+}
+
+/* React when lists load/refresh */
+watch(
+  [discounts, productDiscounts, upcomingOrderDiscounts, upcomingProductDiscounts],
+  () => resolveFocus()
+)
+
+/* React to URL changes like /app/deals?focus=<id> */
+watch(
+  () => route.query.focus,
+  () => tryOpenFromQuery()
+)
+/* ===== END new deep-link section ===== */
 
 /* === REFEES === */
 type RefereeRow = {
@@ -2116,6 +2164,7 @@ async function fetchReferralCount() {
   --accent-dark: #e64a19;
   --accent-ghost: rgba(255, 87, 34, 0.08);
 }
+
 .deals-shell {
   min-height: 100vh;
   background: radial-gradient(circle at top, rgba(42, 144, 198, 0.08), transparent 35%), #f8fafc;
