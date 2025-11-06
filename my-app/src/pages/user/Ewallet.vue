@@ -662,6 +662,24 @@ const dtOpts: Intl.DateTimeFormatOptions = {
   minute: '2-digit'
 }
 
+// ===== 🔗 URL helpers (ADDED) =====
+const setQueryFlag = (key: 'isCreditsOpen' | 'isTopUpOpen', value: 'yes' | null) => {
+  const q: Record<string, any> = { ...route.query }
+  if (value) q[key] = value
+  else delete q[key]
+  router.replace({ query: q })
+}
+
+const ensureTopUpModal = () => {
+  const w = window as any
+  if (!w?.bootstrap || !topUpModalEl.value) return null
+  return w.bootstrap.Modal.getOrCreateInstance(topUpModalEl.value, {
+    backdrop: true,
+    keyboard: true,
+    focus: true
+  })
+}
+
 // Formatters
 const formatAmount = (n: number) =>
   n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -758,21 +776,22 @@ const isDuplicateRefError = (err: any) => {
   )
 }
 
-// Open Top Up
+// Open Top Up (UPDATED: also set URL flag)
 const openTopUp = () => {
   errorMsg.value = ''
   okMsg.value = ''
   const w = window as any
   if (w?.bootstrap && topUpModalEl.value) {
-    // ensure backdrop dim
     bsModal = w.bootstrap.Modal.getOrCreateInstance(topUpModalEl.value, {
       backdrop: true,
       keyboard: true,
       focus: true
     })
+    // keep URL in sync when opened
+    setQueryFlag('isTopUpOpen', 'yes')
     bsModal.show()
   } else {
-    const vAmt = window.prompt('Enter top-up amount (PHP):', '') // 🔹 no default
+    const vAmt = window.prompt('Enter top-up amount (PHP):', '')
     const vRef = vAmt ? window.prompt('Enter reference number:') : null
     const vBank = vRef
       ? window.prompt("Enter bank name ('gcash'|'maya'|'gotyme'):", topUpBank.value)
@@ -781,6 +800,8 @@ const openTopUp = () => {
       const amt = Number(vAmt)
       const bank = vBank.toLowerCase() as BankName
       if (!isNaN(amt) && amt > 0 && ['gcash', 'maya', 'gotyme'].includes(bank)) {
+        // we still reflect intent in the URL for parity
+        setQueryFlag('isTopUpOpen', 'yes')
         confirmTopUpFallback(amt, vRef.trim(), bank)
       } else {
         alert('Invalid inputs.')
@@ -1180,6 +1201,7 @@ const openByRef = (refStr: string) => {
   if (dcr) openDcrDetails(dcr)
 }
 
+/* ========= MOUNT ========= */
 onMounted(async () => {
   const w = window as any
   if (w?.bootstrap && topUpModalEl.value) {
@@ -1187,6 +1209,10 @@ onMounted(async () => {
       backdrop: true,
       keyboard: true,
       focus: true
+    })
+    // when closed, clear ?isTopUpOpen
+    topUpModalEl.value.addEventListener('hidden.bs.modal', () => {
+      setQueryFlag('isTopUpOpen', null)
     })
   }
   if (w?.bootstrap && editRefModalEl.value) {
@@ -1232,18 +1258,39 @@ onMounted(async () => {
   if (initialRef) {
     setTimeout(() => openByRef(initialRef), 0)
   }
+
+  // 🔗 URL flags (ADDED): open tab/modal based on query on first load
+  const initialCredits = (route.query?.isCreditsOpen ?? '') as string
+  if (initialCredits === 'yes') {
+    activeTab.value = 'discount'
+  }
+  const initialTopUp = (route.query?.isTopUpOpen ?? '') as string
+  if (initialTopUp === 'yes') {
+    const m = ensureTopUpModal()
+    m?.show()
+  }
 })
 
-// 🔗 URL ref: if query changes, reflect it (prefer TX, else DCR)
+// 🔗 Keep URL in sync with tab (ADDED)
+watch(activeTab, (next) => {
+  setQueryFlag('isCreditsOpen', next === 'discount' ? 'yes' : null)
+})
+
+// 🔗 React to URL changes externally (ADDED)
 watch(
-  () => route.query.ref,
-  (newRef) => {
-    const nextRef = (newRef ?? '') as string
-    if (!nextRef) return
-    // If already showing that exact ref in any modal, ignore
-    if (selectedTx.value?.reference_number === nextRef) return
-    if (selectedDcr.value?.reference_number === nextRef) return
-    openByRef(nextRef)
+  () => route.query.isCreditsOpen,
+  (v) => {
+    if (v === 'yes') activeTab.value = 'discount'
+    // if cleared, we leave user's current tab as-is
+  }
+)
+
+watch(
+  () => route.query.isTopUpOpen,
+  (v) => {
+    const m = ensureTopUpModal()
+    if (v === 'yes') m?.show()
+    else m?.hide()
   }
 )
 

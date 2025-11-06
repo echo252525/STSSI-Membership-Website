@@ -382,7 +382,7 @@
             </div>
           </div>
           <!-- 2 / 3 / 4 cards per row -->
-          <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id">
+          <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id" >
             <div
               class="card h-100 product-card border-0 shadow-sm product-card--clickable"
               @click="openProductModal(p)"
@@ -1476,7 +1476,7 @@ import {
   nextTick,
 } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router' // ⬅️ ADDED useRoute
 import { currentUser } from '@/lib/authState'
 import Swal from 'sweetalert2'
 
@@ -1508,6 +1508,7 @@ async function swConfirm(message: string, title = 'Are you sure?', confirmText =
 }
 
 const routers = useRouter()
+const route = useRoute() // ⬅️ ADDED
 const user = computed(() => currentUser.value)
 /* ========================================================================
    DISCOUNT TICKET DROPDOWN (ADD-ON) — NON-DESTRUCTIVE
@@ -1692,6 +1693,47 @@ type UsersRow = {
   balance: number | null
   membership_id?: string | null
   discount_credits?: number | null
+}
+
+/* ========================================================================
+   🔎 FOCUS QUERY → OPEN PRODUCT MODAL (ADD-ON)
+   ======================================================================== */
+// Safely read ?focus=<id> from the route
+function getFocusParam(): string | null {
+  const q = route.query?.focus
+  if (Array.isArray(q)) return q[0] || null
+  if (typeof q === 'string' && q.trim()) return q
+  return null
+}
+
+// Ensure a product exists locally; if not, fetch by id
+async function ensureProductLoaded(productId: string): Promise<Product | null> {
+  let p = products.value.find((x) => x.id === productId) || null
+  if (p) return p
+  const { data, error } = await supabase
+    .schema('games')
+    .from('products')
+    .select(
+      'id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty',
+    )
+    .eq('id', productId)
+    .maybeSingle()
+  if (error || !data) return null
+  p = data as Product
+  // seed staged qty so existing UI behaves
+  if (cartByProduct[p.id] == null) cartByProduct[p.id] = 1
+  return p
+}
+
+async function tryOpenFocusProduct() {
+  const id = getFocusParam()
+  if (!id) return
+  // Avoid reopening same product
+  if (showProductModal.value && productModal.value?.id === id) return
+  const p = await ensureProductLoaded(id)
+  if (p) {
+    openProductModal(p)
+  }
 }
 
 /* ========================================================================
@@ -3909,19 +3951,19 @@ async function placePendingOrder() {
 
       if (eligibleProductId) {
         // ### CHANGED: apply order-level discount ONLY to the target product line
-        const target = tmpLines.find((ln) => ln.p.id === eligibleProductId)
-        if (target) {
+        const targetLine = tmpLines.find((ln) => ln.p.id === eligibleProductId)
+        if (targetLine) {
           // decide how much discount to use strictly against this product line
           let useAmt =
             recordedOrderDiscountAmount.value != null
-              ? Math.min(Number(recordedOrderDiscountAmount.value), target.lineBeforeOrder)
-              : computeOrderDiscountAmount(target.lineBeforeOrder, d!)
+              ? Math.min(Number(recordedOrderDiscountAmount.value), targetLine.lineBeforeOrder)
+              : computeOrderDiscountAmount(targetLine.lineBeforeOrder, d!)
 
           useAmt = Number(Math.max(0, useAmt).toFixed(2))
-          if (useAmt > 0 && target.quantity > 0) {
-            const perUnitShare = Number((useAmt / target.quantity).toFixed(2))
-            target.unitFinal = Number(
-              Math.max(0, target.unitBeforeOrder - perUnitShare).toFixed(2),
+          if (useAmt > 0 && targetLine.quantity > 0) {
+            const perUnitShare = Number((useAmt / targetLine.quantity).toFixed(2))
+            targetLine.unitFinal = Number(
+              Math.max(0, targetLine.unitBeforeOrder - perUnitShare).toFixed(2),
             )
           }
           // all other tmpLines remain at original price
@@ -4527,6 +4569,9 @@ onMounted(async () => {
   await Promise.all([fetchProducts(), loadCart(), loadShipping()])
   await loadPendingOrders()
 
+  // ▶️ After initial loads, honor ?focus=<productId>
+  await tryOpenFocusProduct() // ⬅️ ADDED
+
   // Load PSGC datasets ONLY if external lookup is enabled (kept OFF for editing)
   if (addressLookupEnabled.value) {
     await Promise.all([loadRegionsPSGC(), loadProvincesPSGC(), loadAllLGUsPSGC()])
@@ -4568,7 +4613,16 @@ watch(selectedDiscountId, (v) => {
 watch(resolvedDiscountByCode, (v) => {
   if (v) selectedDiscountId.value = ''
 })
+
+/* 🔁 Watch the query for focus changes (open when it changes) */
+watch(
+  () => route.query.focus,
+  async () => {
+    await tryOpenFocusProduct()
+  },
+)
 </script>
+
 
 
 

@@ -176,6 +176,53 @@
             <span class="material-symbols-outlined">verified</span>
             You’re at the highest tier. Enjoy all the perks!
           </div>
+
+          <!-- === ADDED: Monthly deadline & goals strip === -->
+          <div class="deadline-card rounded-4 p-3 mt-3 fade-in-up delay-5 breath-in-once">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
+              <div class="d-flex align-items-center gap-2">
+                <span class="material-symbols-outlined text-azure">hourglass_bottom</span>
+                <div>
+                  <div class="small text-secondary">This period ends</div>
+                  <div class="fw-semibold">
+                    in {{ daysLeft }} day<span v-if="daysLeft !== 1">s</span>
+                    <span class="text-secondary">({{ periodEndsOnStr }})</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="d-flex gap-2 flex-wrap">
+                <!-- Retain current tier -->
+                <div class="goal-chip" :class="{ met: retainMet, risk: !retainMet }">
+                  <span class="label">Retain {{ currentTier?.name || 'Tier' }}</span>
+                  <span class="value" v-if="retainMet">On track</span>
+                  <span class="value" v-else>
+                    Need {{ peso(retainNeeds.purchases) }} & {{ retainNeeds.referrals }} ref
+                  </span>
+                </div>
+
+                <!-- Upgrade to next -->
+                <div class="goal-chip" v-if="nextTier" :class="{ met: upgradeMet }">
+                  <span class="label">Upgrade → {{ nextTier?.name }}</span>
+                  <span class="value" v-if="upgradeMet">Ready</span>
+                  <span class="value" v-else>
+                    Need {{ peso(upgradeNeeds.purchases) }} & {{ upgradeNeeds.referrals }} ref
+                  </span>
+                </div>
+
+                <!-- Demotion risk -->
+                <div class="goal-chip warn" v-if="demotionRisk">
+                  <span class="label">Demotion risk</span>
+                  <span class="value">Yes if unmet</span>
+                </div>
+              </div>
+            </div>
+            <div class="mt-2 small text-secondary">
+              Requirements are evaluated at the end of each month. Purchases shown are your current month’s
+              total; referrals reflect your current count.
+            </div>
+          </div>
+          <!-- === /ADDED === -->
         </div>
       </div>
 
@@ -415,8 +462,8 @@ const isLoading = ref(true)
 const userState = reactive({
   id: '' as string,
   tierKey: 'regular' as TierKey,
-  lifetimePurchases: 0,
-  referrals: 0,
+  lifetimePurchases: 0, // NOTE: you’re already loading this from purchases_per_month (monthly total)
+  referrals: 0,         // NOTE: using current referral count
 })
 
 // Signed icon for hero badge (current tier)
@@ -596,6 +643,54 @@ const referralsPct = computed(() => {
   const pct = clamp01((userState.referrals || 0) / Math.max(1, nextTier.value.referralsRequired || 1))
   return Math.round(pct * 100)
 })
+
+/* -------------------------
+   === ADDED: Monthly deadline + retain/upgrade/demotion logic ===
+------------------------- */
+// End-of-month (local time in the user's browser)
+const periodEnd = computed(() => {
+  const now = new Date()
+  // last day of current month at 23:59:59.999
+  return new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+})
+
+const daysLeft = computed(() => {
+  const now = new Date().getTime()
+  const end = periodEnd.value.getTime()
+  const diffMs = Math.max(0, end - now)
+  return Math.max(0, Math.ceil(diffMs / (1000 * 60 * 60 * 24)))
+})
+
+const periodEndsOnStr = computed(() =>
+  periodEnd.value.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' }),
+)
+
+// Retain (meet current tier requirements before period end)
+const retainNeeds = computed(() => {
+  const t = currentTier.value
+  if (!t) return { purchases: 0, referrals: 0 }
+  const purchasesNeeded = Math.max(0, (t.purchasesRequired || 0) - (userState.lifetimePurchases || 0))
+  const referralsNeeded = Math.max(0, (t.referralsRequired || 0) - (userState.referrals || 0))
+  return { purchases: purchasesNeeded, referrals: referralsNeeded }
+})
+const retainMet = computed(() => retainNeeds.value.purchases <= 0 && retainNeeds.value.referrals <= 0)
+
+// Upgrade (meet next tier requirements)
+const upgradeNeeds = computed(() => {
+  const n = nextTier.value
+  if (!n) return { purchases: 0, referrals: 0 }
+  const purchasesNeeded = Math.max(0, (n.purchasesRequired || 0) - (userState.lifetimePurchases || 0))
+  const referralsNeeded = Math.max(0, (n.referralsRequired || 0) - (userState.referrals || 0))
+  return { purchases: purchasesNeeded, referrals: referralsNeeded }
+})
+const upgradeMet = computed(() => {
+  if (!nextTier.value) return false
+  return upgradeNeeds.value.purchases <= 0 && upgradeNeeds.value.referrals <= 0
+})
+
+// Demotion risk if retain is not yet met
+const demotionRisk = computed(() => !retainMet.value)
+/* ------------------------- */
 
 /* -------------------------
    Auth gate + initial load
@@ -835,7 +930,7 @@ onMounted(async () => {
   z-index: 0;
   background:
     radial-gradient(135% 120% at 85% 0%, var(--fx-a) 0%, transparent 60%),
-    radial-gradient(120% 140% at 8% 100%, var(--fx-b) 0%, transparent 60%);
+    radial-gradient(120% 140% at 8% 100%, var(--fx-b) 0, transparent 60%);
   pointer-events: none;
 }
 .tier-modal > * {
@@ -952,6 +1047,39 @@ onMounted(async () => {
   color: var(--brand-azure);
 }
 
+/* === ADDED: deadline strip styles === */
+.deadline-card {
+  background: #ffffff;
+  border: 1px dashed rgba(32, 100, 124, 0.25);
+  box-shadow: var(--soft-shadow);
+}
+.goal-chip {
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: #fff;
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  min-width: 190px;
+}
+.goal-chip .label {
+  display: block;
+  font-size: 0.8rem;
+  color: #6c757d;
+  margin-bottom: 2px;
+}
+.goal-chip .value {
+  font-weight: 700;
+}
+.goal-chip.met {
+  border-color: #c8ead4;
+  box-shadow: 0 0 0 3px rgba(32, 164, 76, 0.08);
+}
+.goal-chip.risk,
+.goal-chip.warn {
+  border-color: #ffe3d5;
+  box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.08);
+}
+/* === /ADDED === */
+
 /* Mobile */
 @media only screen and (max-width: 431px) {
   .page-head {
@@ -984,6 +1112,10 @@ onMounted(async () => {
   .tier-icon {
     width: 28px;
     height: 28px;
+  }
+  /* ADDED: make chips wrap nicely on small screens */
+  .goal-chip {
+    min-width: unset;
   }
 }
 </style>

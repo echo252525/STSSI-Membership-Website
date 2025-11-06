@@ -239,8 +239,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, computed, nextTick } from 'vue' // ⭐ changed: add nextTick
-import { useRouter } from 'vue-router'
+import { onMounted, onUnmounted, reactive, ref, computed, nextTick, watch } from 'vue' // ⭐ added watch
+import { useRouter, useRoute } from 'vue-router' // ⭐ added useRoute
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
 import type { CSSProperties } from 'vue'
@@ -295,6 +295,7 @@ type AvatarInfo = {
 }
 
 const router = useRouter()
+const route = useRoute() // ⭐ route access for ?focus
 
 /* ==================== STATE (UNCHANGED) ==================== */
 const busy = reactive({ load: false })
@@ -396,8 +397,7 @@ function slideStyle(i: number): CSSProperties {
   const scale = Math.max(base - distance * perStep, minScale)
 
   // Use % of the holder so it never exceeds the clipped area
-const width = isPhone ? 'min(96%, 520px)' : isTablet ? '92%' : 'clamp(320px, 70%, 620px)'
-
+  const width = isPhone ? 'min(96%, 520px)' : isTablet ? '92%' : 'clamp(320px, 70%, 620px)'
 
   // Softer dimming on small screens to avoid “washed out” side cards
   const dimFactor = isPhone ? 0.12 : 0.2
@@ -550,6 +550,9 @@ async function loadOpenEvents() {
 
     // clamp activeIndex if list shorter than before
     if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
+
+    // ⭐ Try to bring focused event (if any) to front after loading
+    tryFocusFront()
   } catch (e: any) {
     console.error('loadOpenEvents error:', e?.message || e)
   } finally {
@@ -900,6 +903,40 @@ let entriesChannel: ReturnType<typeof supabase.channel> | null = null
 let productsChannel: ReturnType<typeof supabase.channel> | null = null
 let usersChannel: ReturnType<typeof supabase.channel> | null = null
 
+// ⭐ FOCUS TARGET STATE & HELPERS
+const focusTarget = ref<string | null>(null)
+
+function tryFocusFront() {
+  const id = focusTarget.value
+  if (!id) return
+  const i = events.value.findIndex((e) => e.id === id)
+  if (i >= 0) {
+    activeIndex.value = i
+    // optional: bring keyboard focus to slider for immediate arrow navigation
+    nextTick(() => {
+      try {
+        (document.querySelector('.slider') as HTMLElement | null)?.focus?.()
+      } catch {}
+    })
+  }
+}
+
+// react to query changes (e.g., router push/replace with different ?focus)
+watch(
+  () => route.query.focus,
+  (val) => {
+    const v = Array.isArray(val) ? val[0] : (val as string | undefined)
+    focusTarget.value = v || null
+    tryFocusFront()
+  },
+  { immediate: true },
+)
+
+// in case events arrive after the query is read (initial load or realtime)
+watch(events, () => {
+  tryFocusFront()
+})
+
 function subscribeRealtime() {
   console.log('[RT] Subscribing to games.event, games.entry, games.products, public.users…')
 
@@ -934,6 +971,8 @@ function subscribeRealtime() {
               await loadMyEntriesFor([row.id])
               await refreshEntryCount(row.id)
               await refreshParticipantAvatars(row.id)
+              // ⭐ ensure focus applies if this was the target
+              tryFocusFront()
             }
           }
         } else if (type === 'UPDATE') {
@@ -960,6 +999,8 @@ function subscribeRealtime() {
               console.log('[RT:event] UPDATE merged ->', row.id)
               await refreshEntryCount(row.id)
               await refreshParticipantAvatars(row.id)
+              // ⭐ in case the index shifted
+              tryFocusFront()
             }
           } else if (isOpen && !wasOpen) {
             const clone = { ...row }
@@ -971,6 +1012,8 @@ function subscribeRealtime() {
             await refreshEntryCount(row.id)
             await refreshParticipantAvatars(row.id)
             console.log('[RT:event] UPDATE became open -> added', row.id)
+            // ⭐ newly added; check focus
+            tryFocusFront()
           }
         } else if (type === 'DELETE') {
           const oldId = payload.old?.id as string | undefined
@@ -1032,6 +1075,8 @@ function subscribeRealtime() {
         }
 
         if (activeIndex.value > events.value.length - 1) activeIndex.value = 0
+        // ⭐ in case counts/ordering changed
+        tryFocusFront()
       }),
     )
     .subscribe(
@@ -1067,6 +1112,8 @@ function subscribeRealtime() {
             }
           }
           console.log('[RT:product] refreshed prize images/prices for', affected.length, 'event(s)')
+          // ⭐ ensure focus stays correct if indices shifted
+          tryFocusFront()
         }
       }),
     )

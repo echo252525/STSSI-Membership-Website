@@ -9,73 +9,51 @@
             <div v-else class="tier-fallback"><i class="bi bi-person-badge"></i></div>
           </div>
           <div>
-            <div class="text-muted small text-uppercase">Welcome back</div>
+            <!-- CHANGED: Welcome back -> Welcome, {{ name }} -->
+            <div class="text-muted small">Welcome, {{ welcomeName }}</div>
             <h1 class="h4 fw-bold m-0">{{ currentTier.name }}</h1>
           </div>
         </div>
+
+        <!-- ===== REPLACED QUICK ACTIONS: show balances with actions ===== -->
         <div class="quick-actions">
-          <router-link to="/app/minigames" class="qchip" v-reveal>
-            <i class="bi bi-controller"></i> Mini Games
-          </router-link>
-          <router-link to="/app/ewallet" class="qchip" v-reveal style="--i: 1">
-            <i class="bi bi-wallet2"></i> Wallet
-          </router-link>
-          <router-link to="/app/deals" class="qchip" v-reveal style="--i: 2">
-            <i class="bi bi-ticket-perforated"></i> Deals
-          </router-link>
-          <router-link to="/app/purchases" class="qchip" v-reveal style="--i: 3">
-            <i class="bi bi-receipt"></i> Orders
-          </router-link>
+          <!-- E-Wallet balance + Top-up -->
+          <div class="qchip balance" v-reveal>
+            <i class="bi bi-wallet2"></i>
+            <span class="label">E-Wallet</span>
+            <span class="value">{{ peso(ewallet.balance) }}</span>
+            <!-- CHANGED: add ?isTopUpOpen=yes -->
+            <router-link
+              :to="{ path: '/app/ewallet', query: { isTopUpOpen: 'yes' } }"
+              class="icon-btn"
+              aria-label="Top up e-wallet"
+              title="Top up"
+            >
+              <i class="bi bi-plus-lg"></i>
+            </router-link>
+          </div>
+
+          <!-- Credits balance + View in e-wallet -->
+          <div class="qchip balance" v-reveal style="--i: 1">
+            <i class="bi bi-ticket-perforated"></i>
+            <span class="label">Credits</span>
+            <span class="value">{{ peso(credits.balance) }}</span>
+            <!-- CHANGED: add ?isCreditsOpen=yes -->
+            <router-link
+              :to="{ path: '/app/ewallet', query: { isCreditsOpen: 'yes' } }"
+              class="icon-btn"
+              aria-label="View credits in wallet"
+              title="View Credits"
+            >
+              <i class="bi bi-eye"></i>
+            </router-link>
+          </div>
         </div>
       </div>
       <div class="hero-grid" aria-hidden="true"></div>
     </section>
 
-    <!-- ===== KPIs ===== -->
-    <section class="grid grid-quick mb-4">
-      <div class="kpi-card glass" v-reveal v-tilt>
-        <div class="kpi-head">
-          <span class="label"><i class="bi bi-wallet2 me-1"></i> E-Wallet</span>
-          <router-link to="/app/ewallet" class="btn btn-outline-secondary btn-xs"
-            >Manage</router-link
-          >
-        </div>
-        <div class="kpi-value">{{ peso(ewallet.balance) }}</div>
-        <div class="kpi-subtext text-muted small">Available balance</div>
-      </div>
-
-      <div class="kpi-card glass" v-reveal v-tilt style="--i: 1">
-        <div class="kpi-head">
-          <span class="label"><i class="bi bi-ticket-perforated me-1"></i> Discount Credits</span>
-          <router-link to="/app/deals" class="btn btn-outline-secondary btn-xs">Use</router-link>
-        </div>
-        <div class="kpi-value">{{ peso(credits.balance) }}</div>
-        <div class="kpi-subtext text-muted small">Credit balance</div>
-      </div>
-
-      <div class="kpi-card glass" v-reveal v-tilt style="--i: 2">
-        <div class="kpi-head">
-          <span class="label"><i class="bi bi-bag-check me-1"></i> Purchases</span>
-          <router-link to="/app/purchases" class="btn btn-outline-secondary btn-xs"
-            >History</router-link
-          >
-        </div>
-        <div class="kpi-value">{{ peso(memberStats.lifetimePurchases) }}</div>
-        <div class="kpi-subtext text-muted small">Lifetime total</div>
-        <div class="kpi-subtext text-muted small">This month: {{ peso(purchasesPerMonth) }}</div>
-      </div>
-
-      <div class="kpi-card glass" v-reveal v-tilt style="--i: 3">
-        <div class="kpi-head">
-          <span class="label"><i class="bi bi-people me-1"></i> Referrals</span>
-          <router-link to="/app/deals" class="btn btn-outline-secondary btn-xs"
-            >Details</router-link
-          >
-        </div>
-        <div class="kpi-value">{{ number(memberStats.referrals) }}</div>
-        <div class="kpi-subtext text-muted small">Successful sign-ups</div>
-      </div>
-    </section>
+    <!-- ===== (REMOVED KPI CARDS SECTION) ===== -->
 
     <!-- ===== MAIN: GAMES (OPEN ONLY) + PRODUCT PREVIEW ===== -->
     <section class="grid grid-main mb-4">
@@ -253,7 +231,7 @@
 
             <!-- Animated card -->
             <transition name="pp-slide-fade" mode="out-in">
-              <div 
+              <div
                 v-if="currentPreview"
                 :key="currentPreview.id"
                 class="pp-card glass bg-mode"
@@ -355,7 +333,7 @@
       </div>
     </section>
 
-    <!-- ===== UPCOMING DISCOUNTS (replaces Big Discounts panel UI) ===== -->
+    <!-- ===== UPCOMING DISCOUNTS (kept) ===== -->
     <section class="card border-0 shadow-sm rounded-4" v-reveal>
       <div class="card-body p-0 discounts-panel">
         <div class="panel-head px-3 px-sm-4 pt-3 pb-2">
@@ -487,6 +465,18 @@ import { currentUser } from '@/lib/authState'
 const router = useRouter()
 const user = computed(() => currentUser.value)
 
+/* NEW: Welcome name from metadata/email with safe fallback */
+const welcomeName = computed(() => {
+  const u: any = user.value || {}
+  const meta = u?.user_metadata || {}
+  return (
+    meta.first_name ||
+    meta.full_name ||
+    (u?.email && String(u.email).split('@')[0]) ||
+    'Member'
+  )
+})
+
 /* ------- Tier Icons -------- */
 type TierKey = 'regular' | 'silver' | 'gold' | 'platinum' | 'diamond'
 const tiers = [
@@ -607,10 +597,10 @@ watch(previewProducts, () => {
 const previewDescItems = computed(() => {
   const raw = currentPreview.value?.description || ''
   return raw
-    .split(',')            // split by comma
-    .map(s => s.trim())    // trim spaces
-    .filter(Boolean)       // remove empties
-    .slice(0, 12)          // (optional) cap the length
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+    .slice(0, 12)
 })
 
 /* ===== Hover / Autoplay for product preview ===== */
@@ -1674,6 +1664,8 @@ function startsInLabel(iso: string) {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* Original qchip base (kept) */
 .qchip {
   display: inline-flex;
   align-items: center;
@@ -1695,6 +1687,41 @@ function startsInLabel(iso: string) {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
   background: #f9fafb;
 }
+
+/* === Balance chips variant === */
+.qchip.balance {
+  border-radius: 14px;
+  padding: 0.55rem 0.7rem 0.55rem 0.65rem;
+  gap: 0.55rem;
+  cursor: default;
+}
+.qchip.balance .label {
+  font-weight: 700;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+.qchip.balance .value {
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.qchip.balance .icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid #e9eef3;
+  background: #fff;
+  color: #0f172a;
+  text-decoration: none;
+  margin-left: 4px;
+}
+.qchip.balance .icon-btn:hover {
+  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  transform: translateY(-1px);
+}
+
+/* Aesthetic background grid */
 .hero-grid {
   position: absolute;
   inset: 0;
@@ -1727,47 +1754,6 @@ function startsInLabel(iso: string) {
       120px 120px,
       -120px -120px;
   }
-}
-
-/* ===== KPIs ===== */
-.grid-quick {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-}
-@media (max-width: 992px) {
-  .grid-quick {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-@media (max-width: 576px) {
-  .grid-quick {
-    grid-template-columns: 1fr;
-  }
-}
-.kpi-card {
-  border-radius: 16px;
-  padding: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
-}
-.kpi-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-.kpi-head .label {
-  font-weight: 700;
-  color: #0f172a;
-  letter-spacing: 0.2px;
-}
-.kpi-value {
-  font-size: 1.55rem;
-  font-weight: 800;
-  letter-spacing: 0.2px;
-}
-.kpi-subtext {
-  margin-top: -2px;
 }
 
 /* ===== Main Split ===== */
@@ -2102,6 +2088,7 @@ function startsInLabel(iso: string) {
 .pp-skel-card {
   height: 210px;
   border-radius: 16px;
+  /* FIXED: hex typo #f1f5f9 */
   background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
   background-size: 200% 100%;
   animation: sk 1.2s linear infinite;
@@ -2279,13 +2266,11 @@ function startsInLabel(iso: string) {
 .pp-card.bg-mode .pp-body {
   display: none !important;
 }
-/* Hide the base title/price when hovering (we already show them in the hover layer) */
 .pp-title-overlay,
 .pp-price-overlay,
 .pp-member-inline {
   transition: opacity .25s ease, transform .25s ease;
 }
-
 .pp-card.is-hover .pp-title-overlay,
 .pp-card.is-hover .pp-price-overlay,
 .pp-card.is-hover .pp-member-inline  {
@@ -2375,7 +2360,7 @@ function startsInLabel(iso: string) {
   padding: 14px 14px 0 14px;
   max-height: 100%;
   overflow: auto;
-  padding-right: 90px; /* so text doesn't go under floating prices */
+  padding-right: 90px;
   line-height: 1;
 }
 .pp-h-title {
@@ -2391,14 +2376,12 @@ function startsInLabel(iso: string) {
 }
 .pp-h-desclist {
   margin: 0.35rem 0 0.6rem;
-  padding-left: 1.1rem;   /* indent for bullets */
-  color: #e2e8f0;         /* matches your hover desc color */
+  padding-left: 1.1rem;
+  color: #e2e8f0;
   font-size: 0.85rem;
   line-height: 1.25;
-        /* keeps list from overflowing */
-  overflow: auto;         /* scroll if too long */
+  overflow: auto;
 }
-
 .pp-h-desclist li {
   margin: 0.15rem 0;
 }

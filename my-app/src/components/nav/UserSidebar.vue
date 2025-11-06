@@ -11,40 +11,56 @@
     >
       <!-- TOP when EXPANDED -->
       <div v-if="!isRail" class="d-flex align-items-center justify-content-between mb-3">
-        <div
-          class="profile-card cursor-pointer gap-2 d-flex align-items-center"
-          :title="displayName"
-          role="link"
-          tabindex="0"
-          @click="goSettings"
-          @keydown.enter.prevent="goSettings"
-          @keydown.space.prevent="goSettings"
-        >
-          <div
-            class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
-            style="width: 36px; height: 36px; font-weight: 700; position: relative; overflow: hidden"
-          >
-            <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
-            {{ initials }}
-          </div>
-          <div class="profile-text">
-            <div class="fw-semibold small text-truncate text-primary">
-              {{ displayName }}
-            </div>
-            <div class="text-muted small text-truncate">
-              {{ membershipMeta.label }} member
+        <!-- 🔸 Skeleton state -->
+        <template v-if="isSidebarBooting">
+          <div class="d-flex align-items-center gap-2 flex-grow-1">
+            <div class="skel-avatar rounded-circle"></div>
+            <div class="flex-grow-1">
+              <div class="skel-line w-75 mb-1"></div>
+              <div class="skel-line w-50 skel-sm"></div>
             </div>
           </div>
-        </div>
+          <div class="skel-icon"></div>
+        </template>
 
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm rounded-circle d-none d-lg-inline-flex"
-          @click="toggle()"
-          aria-label="Collapse sidebar"
-        >
-          <i class="bi bi-chevron-double-left"></i>
-        </button>
+        <!-- ✅ Original block (unchanged) -->
+        <template v-else>
+          <div
+            class="profile-card cursor-pointer gap-2 d-flex align-items-center"
+            :title="displayName"
+            role="link"
+            tabindex="0"
+            @click="goSettings"
+            @keydown.enter.prevent="goSettings"
+            @keydown.space.prevent="goSettings"
+          >
+            <div
+              class="rounded-circle d-inline-flex align-items-center justify-content-center bg-primary text-white ring-ambient"
+              style="width: 36px; height: 36px; font-weight: 700; position: relative; overflow: hidden"
+            >
+              <img v-if="avatarUrl" :src="avatarUrl" alt="Profile" class="profile-avatar-img" />
+              {{ initials }}
+            </div>
+            <div class="profile-text">
+              <div class="fw-semibold small text-truncate text-primary">
+                {{ displayName }}
+              </div>
+              <!-- ✅ Changed: show tier name from membership.tiers (with fallback) -->
+              <div class="text-muted small text-truncate">
+                {{ displayTierName }} member
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="btn btn-outline-secondary btn-sm rounded-circle d-none d-lg-inline-flex"
+            @click="toggle()"
+            aria-label="Collapse sidebar"
+          >
+            <i class="bi bi-chevron-double-left"></i>
+          </button>
+        </template>
       </div>
 
       <!-- TOP when COLLAPSED -->
@@ -58,7 +74,6 @@
           <i class="bi bi-chevron-double-right"></i>
         </button>
       </div>
-
 
       <!-- Profile (hidden when collapsed) -->
       <div class="d-flex align-items-center justify-content-center">
@@ -209,7 +224,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
@@ -337,51 +352,21 @@ const displayName = computed(() => fullName.value || 'User')
 /** Only show membership tier UI when expanded */
 const showTier = computed(() => !isRail.value)
 
-/** Dynamic UI metadata for membership tier */
+/** Dynamic UI metadata for membership tier (legacy fallback) */
 const membershipMeta = computed(() => {
   const t = (membershipType.value || 'regular').toLowerCase()
   switch (t) {
     case 'gold':
-      return {
-        label: 'Gold',
-        icon: 'bi-gem',
-        bg: '#FFF7E0',
-        fg: '#A67C00',
-        ring: '0 0 0 6px rgba(217,164,6,.18)',
-      }
+      return { label: 'Gold', icon: 'bi-gem', bg: '#FFF7E0', fg: '#A67C00', ring: '0 0 0 6px rgba(217,164,6,.18)' }
     case 'silver':
-      return {
-        label: 'Silver',
-        icon: 'bi-gem',
-        bg: '#F4F6F8',
-        fg: '#6C757D',
-        ring: '0 0 0 6px rgba(108,117,125,.18)',
-      }
+      return { label: 'Silver', icon: 'bi-gem', bg: '#F4F6F8', fg: '#6C757D', ring: '0 0 0 6px rgba(108,117,125,.18)' }
     case 'diamond':
-      return {
-        label: 'Diamond',
-        icon: 'bi-diamond',
-        bg: '#E8F9FF',
-        fg: '#0AA2C0',
-        ring: '0 0 0 6px rgba(13,202,240,.18)',
-      }
+      return { label: 'Diamond', icon: 'bi-diamond', bg: '#E8F9FF', fg: '#0AA2C0', ring: '0 0 0 6px rgba(13,202,240,.18)' }
     case 'platinum':
-      return {
-        label: 'Platinum',
-        icon: 'bi-gem',
-        bg: '#EEF1F8',
-        fg: '#6F42C1',
-        ring: '0 0 0 6px rgba(111,66,193,.16)',
-      }
+      return { label: 'Platinum', icon: 'bi-gem', bg: '#EEF1F8', fg: '#6F42C1', ring: '0 0 0 6px rgba(111,66,193,.16)' }
     case 'regular':
     default:
-      return {
-        label: 'Regular',
-        icon: 'bi-person',
-        bg: '#E9ECEF',
-        fg: '#6C757D',
-        ring: '0 0 0 0 rgba(0,0,0,0)',
-      }
+      return { label: 'Regular', icon: 'bi-person', bg: '#E9ECEF', fg: '#6C757D', ring: '0 0 0 0 rgba(0,0,0,0)' }
   }
 })
 
@@ -396,56 +381,62 @@ const logout = async () => {
   try {
     await supabase.auth.signOut()
   } catch {}
-  currentUser.value = null
+  ;(currentUser as any).value = null
   hardBlockBackToAuthed()
   router.replace({ name: 'login' })
   emit('nav')
 }
 
 /* ===== load user info & avatar ===== */
+const userLoaded = ref(false) // 🔸 new: track user block loading
+
 onMounted(async () => {
-  const { data } = await supabase.auth.getUser()
-  const user = data?.user
-  if (user) {
-    userEmail.value = user.email || ''
-    fullName.value = (user.user_metadata?.full_name as string) || ''
+  try {
+    const { data } = await supabase.auth.getUser()
+    const user = data?.user
+    if (user) {
+      userEmail.value = user.email || ''
+      fullName.value = (user.user_metadata?.full_name as string) || ''
 
-    let { data: row, error } = await supabase
-      .from('users')
-      .select('membership_type')
-      .eq('id', user.id)
-      .single()
-
-    if (error || !row) {
-      const { data: rowByEmail } = await supabase
+      let { data: row, error } = await supabase
         .from('users')
         .select('membership_type')
-        .eq('email', user.email)
-        .single()
-      row = rowByEmail ?? row
-    }
-    if (row?.membership_type) membershipType.value = String(row.membership_type)
-
-    // avatar
-    try {
-      const { data: urow } = await supabase
-        .from('users')
-        .select('profile_url')
         .eq('id', user.id)
         .single()
 
-      const objectPath = urow?.profile_url as string | null
-      if (objectPath) {
-        const { data: signed } = await supabase.storage
-          .from('user_profile')
-          .createSignedUrl(objectPath, 3600)
-        if (signed?.signedUrl) {
-          avatarUrl.value = `${signed.signedUrl}&cb=${Date.now()}`
-        }
+      if (error || !row) {
+        const { data: rowByEmail } = await supabase
+          .from('users')
+          .select('membership_type')
+          .eq('email', user.email)
+          .single()
+        row = rowByEmail ?? row
       }
-    } catch {
-      /* ignore */
+      if (row?.membership_type) membershipType.value = String(row.membership_type)
+
+      // avatar
+      try {
+        const { data: urow } = await supabase
+          .from('users')
+          .select('profile_url')
+          .eq('id', user.id)
+          .single()
+
+        const objectPath = urow?.profile_url as string | null
+        if (objectPath) {
+          const { data: signed } = await supabase.storage
+            .from('user_profile')
+            .createSignedUrl(objectPath, 3600)
+          if (signed?.signedUrl) {
+            avatarUrl.value = `${signed.signedUrl}&cb=${Date.now()}`
+          }
+        }
+      } catch {
+        /* ignore */
+      }
     }
+  } finally {
+    userLoaded.value = true // ✅ end skeleton for top row
   }
 })
 
@@ -474,6 +465,183 @@ function goSettings() {
     closeOffcanvasIfMobile()
   }
 }
+
+/* --------------------------------------------------------------------
+   🔽 ADDED: Use membership.tiers + users.membership_id to get live tier
+-------------------------------------------------------------------- */
+const users = computed(() => currentUser.value)
+
+/* Types */
+type TierKey = 'regular' | 'silver' | 'gold' | 'platinum' | 'diamond'
+type Tier = {
+  key: TierKey
+  name: string
+  purchasesRequired: number
+  referralsRequired: number
+  benefits: string[]
+  iconSignedUrl?: string | null
+  id?: string
+  order?: number
+}
+
+/* Fallback tiers (UI never breaks) */
+const staticTiers: Tier[] = [
+  { key: 'regular', name: 'Regular Member', purchasesRequired: 0, referralsRequired: 0, benefits: ['Free Membership', '₱2,000 discount credits per month', 'Enjoy <strong>5%</strong> discount on all purchases'] },
+  { key: 'silver', name: 'Silver Member', purchasesRequired: 10_000, referralsRequired: 10, benefits: ['Made ₱10,000 worth of purchases', '10 Referrals with ₱5,000 purchases', '₱10,000 discount credits per month', 'Enjoy <strong>6%</strong> discount on all purchases'] },
+  { key: 'gold', name: 'Gold Member', purchasesRequired: 20_000, referralsRequired: 20, benefits: ['Made ₱20,000 worth of purchases', '20 Referrals with ₱10,000 purchases', '₱20,000 discount credits per month', 'Enjoy <strong>7%</strong> discount on all purchases', 'Free Delivery for Val. Order worth ₱10,000'] },
+  { key: 'platinum', name: 'Platinum Member', purchasesRequired: 50_000, referralsRequired: 50, benefits: ['Made ₱50,000 worth of purchases', '50 Referrals with ₱20,000 purchases', '₱50,000 discount credits per month', 'Enjoy <strong>8%</strong> discount on all purchases', 'Free delivery for GMA orders worth ₱10,000'] },
+  { key: 'diamond', name: 'Diamond Member', purchasesRequired: 100_000, referralsRequired: 100, benefits: ['Made ₱100,000 worth of purchases', '100 Referrals with ₱50,000 purchases', '₱100,000 discount credits per month', 'Enjoy <strong>10%</strong> discount on all purchases', 'Free delivery for GMA orders worth ₱10,000', 'Exclusive Discount Offers'] },
+]
+
+/* Live state */
+const tiersLive = ref<Tier[]>(staticTiers)
+const currentTier = ref<Tier | null>(staticTiers[0])
+const nextTier = ref<Tier | null>(null)
+const isLoading = ref(true) // 🔸 your existing tiers loader
+
+const userState = reactive({
+  id: '' as string,
+  tierKey: 'regular' as TierKey,
+  lifetimePurchases: 0,
+  referrals: 0,
+})
+
+const badgeIcon = computed(() => currentTier.value?.iconSignedUrl || null)
+
+/* NEW: Combined boot flag for the top skeleton */
+const isSidebarBooting = computed(() => !userLoaded.value || isLoading.value)
+
+const nameToKey = (name: string): TierKey => {
+  const k = (name || '').trim().toLowerCase()
+  if (k.includes('silver')) return 'silver'
+  if (k.includes('gold')) return 'gold'
+  if (k.includes('platinum')) return 'platinum'
+  if (k.includes('diamond')) return 'diamond'
+  return 'regular'
+}
+
+function composeBenefits(row: any): string[] {
+  const out: string[] = []
+  if (row.discount_credits && Number(row.discount_credits) > 0) {
+    out.push(`₱${Number(row.discount_credits).toLocaleString('en-PH')} discount credits per month`)
+  }
+  if (row.discount_per_purchase && Number(row.discount_per_purchase) > 0) {
+    out.push(`Enjoy <strong>${Number(row.discount_per_purchase).toFixed(0)}%</strong> discount on all purchases`)
+  }
+  if (row.is_free_delivery) {
+    if (row.purchase_requirements_for_free_delivery && Number(row.purchase_requirements_for_free_delivery) > 0) {
+      out.push(`Free delivery for orders worth ₱${Number(row.purchase_requirements_for_free_delivery).toLocaleString('en-PH')}`)
+    } else {
+      out.push('Free delivery on eligible orders')
+    }
+  }
+  if (row.referral_count_requirements && Number(row.referral_count_requirements) > 0) {
+    out.push(`${row.referral_count_requirements} referral${row.referral_count_requirements > 1 ? 's' : ''} required`)
+  }
+  return out.length ? out : ['Free Membership']
+}
+
+const BUCKET = 'tier_icons'
+async function signedUrlOrNull(path: string | null | undefined): Promise<string | null> {
+  try {
+    const p = (path || '').replace(/^\/+/, '')
+    if (!p) return null
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(p, 60 * 60)
+    if (error) return null
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
+}
+
+/* Loaders */
+async function loadLiveTiers() {
+  const { data, error } = await supabase
+    .schema('membership')
+    .from('tiers')
+    .select(
+      'id, membership_name, membership_tier_order, purchases_count, referral_count_requirements, discount_credits, discount_per_purchase, is_free_delivery, purchase_requirements_for_free_delivery, icon_url'
+    )
+    .order('membership_tier_order', { ascending: true })
+
+  if (error || !data) return
+
+  const mapped: Tier[] = []
+  for (const row of data) {
+    const key = nameToKey(row.membership_name)
+    const iconSignedUrl = await signedUrlOrNull(row.icon_url)
+    mapped.push({
+      id: row.id,
+      key,
+      name: row.membership_name,
+      order: row.membership_tier_order,
+      purchasesRequired: Number(row.purchases_count || 0),
+      referralsRequired: Number(row.referral_count_requirements || 0),
+      benefits: composeBenefits(row),
+      iconSignedUrl,
+    })
+  }
+  if (mapped.length) tiersLive.value = mapped
+}
+
+async function loadUserAndMembership() {
+  let uid: string | null = null
+  if (!users.value) {
+    const { data } = await supabase.auth.getUser()
+    if (!data.user) return router.push({ name: 'login' })
+    uid = data.user.id
+  } else {
+    uid = (users.value as any).id
+  }
+
+  userState.id = uid!
+
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('id, membership_id, purchases_per_month')
+    .eq('id', uid)
+    .maybeSingle()
+
+  const { data: refRow } = await supabase
+    .from('referral_stats')
+    .select('referrals_count')
+    .eq('referrer_id', uid)
+    .maybeSingle()
+
+  userState.referrals = Number(refRow?.referrals_count || 0)
+  userState.lifetimePurchases = Number(userRow?.purchases_per_month || 0)
+
+  let tier: Tier | undefined
+  if (userRow?.membership_id) {
+    tier = tiersLive.value.find((t) => t.id === userRow.membership_id)
+  }
+
+  currentTier.value = tier || tiersLive.value[0] || staticTiers[0]
+
+  if (currentTier.value) {
+    const ordered = [...tiersLive.value].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    const idx = ordered.findIndex((t) => t.id === currentTier.value!.id)
+    nextTier.value = idx >= 0 ? ordered[idx + 1] || null : null
+  } else {
+    nextTier.value = null
+  }
+
+  userState.tierKey = (currentTier.value?.key || 'regular') as TierKey
+}
+
+async function loadAll() {
+  await loadLiveTiers()
+  await loadUserAndMembership()
+  isLoading.value = false
+}
+
+/* Kick off live tier load */
+onMounted(async () => {
+  await loadAll()
+})
+
+/* Expose a safe display name for the tier line */
+const displayTierName = computed(() => currentTier.value?.name || membershipMeta.value.label)
 </script>
 
 <style scoped>
@@ -579,8 +747,6 @@ function goSettings() {
 }
 
 /* === Aesthetic upgrades (add-only) === */
-
-/* Aesthetic card feel for the profile block */
 .profile-card {
   border-radius: 16px;
   transition: transform .15s ease, box-shadow .2s ease, background .2s ease;
@@ -593,23 +759,21 @@ function goSettings() {
     0 6px 16px rgba(67, 97, 238, .18);
 }
 
-/* Name & email look like buttons—no underlines */
 .name-link,
 .email-link {
   cursor: pointer;
   transition: color .15s ease, opacity .15s ease, transform .15s ease;
-  text-decoration: none; /* ensure no underline */
+  text-decoration: none;
 }
 .profile-card:hover .name-link,
 .profile-card:focus-visible .name-link {
-  color: #0a58ca; /* slightly deeper primary on hover/focus */
+  color: #0a58ca;
 }
 .profile-card:hover .email-link,
 .profile-card:focus-visible .email-link {
   opacity: .9;
 }
 
-/* Rail version: tiny hover lift so it feels tappable */
 .profile-card--rail .rail-avatar {
   transition: transform .15s ease, box-shadow .2s ease;
 }
@@ -620,11 +784,52 @@ function goSettings() {
   outline: none;
 }
 
-/* Keyboard focus ring for accessibility (no underline) */
 .profile-card:focus-visible,
 .profile-card--rail:focus-visible {
   box-shadow:
     0 0 0 3px rgba(67,97,238,.18),
     0 8px 24px rgba(16, 24, 40, 0.06);
+}
+
+/* ─────────────────────────────── */
+/* 🔸 Skeleton styles (added)      */
+/* ─────────────────────────────── */
+@keyframes skel-shimmer {
+  0% { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skel {
+  animation: skel-shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(
+    90deg,
+    #e9ecef 25%,
+    #f8f9fa 37%,
+    #e9ecef 63%
+  );
+  background-size: 200px 100%;
+}
+.skel-line {
+  height: 12px;
+  border-radius: 6px;
+  width: 100%;
+}
+.skel-sm { height: 10px; }
+.skel-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+.skel-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+}
+.skel-line,
+.skel-avatar,
+.skel-icon {
+  /* apply shimmer */
+  animation: skel-shimmer 1.2s ease-in-out infinite;
+  background: linear-gradient(90deg, #e9ecef 25%, #f8f9fa 37%, #e9ecef 63%);
+  background-size: 200px 100%;
 }
 </style>
