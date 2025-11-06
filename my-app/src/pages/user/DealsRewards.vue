@@ -248,20 +248,23 @@
               <article
                 v-for="d in discounts"
                 :key="d.id"
-                class="discount-card"
+                class="discount-card shopeeish"
                 :data-type="d.type || 'percent'"
+                @click="openDiscount(d)"
               >
                 <div class="discount-main">
                   <div class="discount-badge" :class="d.type">
                     <i v-if="d.type === 'free_shipping'" class="bi bi-truck"></i>
-                    <i v-else class="bi bi-percent"></i>
+                    <i v-else class="bi bi-ticket-perforated"></i>
                   </div>
                   <div>
                     <h3 class="discount-title">{{ d.title }}</h3>
+                    <p class="discount-value">{{ headline(d) }}</p>
                     <p class="discount-desc">
-                      <span v-if="d.min_spend != null">Min. spend ₱{{ d.min_spend }}</span>
-                      <span v-else-if="d.description">{{ d.description }}</span>
-                      <span v-else>Store-wide offer</span>
+                      <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
+                      <template v-if="capText(d)">
+                        <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
+                      </template>
                     </p>
                     <p class="discount-exp">Valid {{ expiryLabel(d) }}</p>
                   </div>
@@ -277,8 +280,8 @@
                     Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
                   </p>
                   <button
-                    class="cta-btn"
-                    @click="goToShop(d)"
+                    class="cta-btn orange"
+                    @click.stop="goToShop(d)"
                     :disabled="exceededUserLimit(d)"
                     :aria-disabled="exceededUserLimit(d)"
                   >
@@ -304,21 +307,22 @@
               <article
                 v-for="d in productDiscounts"
                 :key="d.id"
-                class="product-discount-card"
+                class="product-discount-card shopeeish"
                 :data-type="d.type || 'percent'"
+                @click="openDiscount(d)"
               >
                 <div class="pd-top">
                   <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
-                  <span class="pd-type" v-else-if="d.type === 'percent'">
-                    {{ Number(d.percent_off ?? 0) }}% OFF
-                  </span>
                   <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
                     ₱{{ money(d.amount_off ?? 0) }} OFF
                   </span>
+                  <span class="pd-type" v-else-if="d.type === 'percent' && d.max_discount_amount != null">
+                    Up to ₱{{ money(d.max_discount_amount) }} OFF
+                  </span>
+                  <span class="pd-type" v-else>Special discount</span>
                   <span class="pd-pill">Product only</span>
                 </div>
 
-                <!-- NEW: product image (first from games.products.product_url, signed) -->
                 <div class="pd-thumb-wrap" v-if="d.product_img_url">
                   <img
                     :src="d.product_img_url"
@@ -330,7 +334,10 @@
 
                 <h3 class="pd-title">{{ d.title }}</h3>
                 <p class="pd-product-label">
-                  Applies to: <strong>{{ d.product_name || shortProductId(d.product_id) }}</strong>
+                  <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
+                  <template v-if="capText(d)">
+                    <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
+                  </template>
                 </p>
                 <p class="pd-meta">Valid {{ expiryLabel(d) }}</p>
 
@@ -344,8 +351,8 @@
                     Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
                   </p>
                   <button
-                    class="mini-btn"
-                    @click="goToShop(d)"
+                    class="mini-btn orange"
+                    @click.stop="goToShop(d)"
                     :disabled="exceededUserLimit(d)"
                     :aria-disabled="exceededUserLimit(d)"
                   >
@@ -355,12 +362,124 @@
               </article>
             </div>
           </div>
+
+          <!-- ================= NEW: UPCOMING DISCOUNTS (status = scheduled) ================= -->
+          <div
+            class="panel breath-in-once"
+            v-if="upcomingOrderDiscounts.length || upcomingProductDiscounts.length"
+          >
+            <div class="panel-head">
+              <div>
+                <h2 class="panel-title">Upcoming Discounts</h2>
+                <p class="panel-sub">
+                  Scheduled promos that will go live soon. Watch this space.
+                </p>
+              </div>
+            </div>
+
+            <!-- Upcoming Order/Cart -->
+            <template v-if="upcomingOrderDiscounts.length">
+              <h3
+                class="panel-sub mb-2"
+                style="font-weight:600;color:#0f172a;font-size:.95rem;"
+              >
+                Order / Cart
+              </h3>
+              <div class="discount-list">
+                <article
+                  v-for="d in upcomingOrderDiscounts"
+                  :key="d.id"
+                  class="discount-card shopeeish"
+                  :data-type="d.type || 'percent'"
+                  @click="openDiscount(d)"
+                >
+                  <div class="discount-main">
+                    <div class="discount-badge" :class="d.type">
+                      <i v-if="d.type === 'free_shipping'" class="bi bi-truck"></i>
+                      <i v-else class="bi bi-ticket-perforated"></i>
+                    </div>
+                    <div>
+                      <h3 class="discount-title">{{ d.title }}</h3>
+                      <p class="discount-value">{{ headline(d) }}</p>
+                      <p class="discount-desc">
+                        <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
+                        <template v-if="capText(d)">
+                          <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
+                        </template>
+                      </p>
+                      <p class="discount-exp">Starts {{ startLabel(d) }}</p>
+                    </div>
+                  </div>
+
+                  <div class="discount-side">
+                    <p v-if="d.code" class="discount-code">Code: {{ d.code }}</p>
+                    <button class="cta-btn orange" disabled aria-disabled="true">Soon</button>
+                  </div>
+                </article>
+              </div>
+            </template>
+
+            <!-- Upcoming Product-Specific -->
+            <template v-if="upcomingProductDiscounts.length">
+              <h3
+                class="panel-sub mb-2"
+                style="font-weight:600;color:#0f172a;font-size:.95rem; margin-top:.75rem;"
+              >
+                Product-Specific
+              </h3>
+              <div class="product-discount-grid">
+                <article
+                  v-for="d in upcomingProductDiscounts"
+                  :key="d.id"
+                  class="product-discount-card shopeeish"
+                  :data-type="d.type || 'percent'"
+                  @click="openDiscount(d)"
+                >
+                  <div class="pd-top">
+                    <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
+                    <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
+                      ₱{{ money(d.amount_off ?? 0) }} OFF
+                    </span>
+                    <span class="pd-type" v-else-if="d.type === 'percent' && d.max_discount_amount != null">
+                      Up to ₱{{ money(d.max_discount_amount) }} OFF
+                    </span>
+                    <span class="pd-type" v-else>Special discount</span>
+                    <span class="pd-pill">Product only</span>
+                  </div>
+
+                  <div class="pd-thumb-wrap" v-if="d.product_img_url">
+                    <img
+                      :src="d.product_img_url"
+                      :alt="d.product_name || shortProductId(d.product_id)"
+                      class="pd-thumb"
+                      referrerpolicy="no-referrer"
+                    />
+                  </div>
+
+                  <h3 class="pd-title">{{ d.title }}</h3>
+                  <p class="pd-product-label">
+                    <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
+                    <template v-if="capText(d)">
+                      <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
+                    </template>
+                  </p>
+                  <p class="pd-meta">Starts {{ startLabel(d) }}</p>
+
+                  <div class="pd-footer">
+                    <p v-if="d.code" class="pd-code">Code: {{ d.code }}</p>
+                    <button class="mini-btn orange" disabled aria-disabled="true">Soon</button>
+                  </div>
+                </article>
+              </div>
+            </template>
+          </div>
+          <!-- ================= END NEW: UPCOMING DISCOUNTS ================= -->
         </section>
 
         <!-- ================= RIGHT: Affiliate & Network ================= -->
         <section class="deals-right">
           <!-- Affiliate -->
-          <div class="panel sticky-panel breath-in-once">
+          <div class="panel breath-in-once">
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Affiliate & Referrals</h2>
@@ -458,6 +577,122 @@
         </section>
       </main>
     </template>
+
+    <!-- ===================== DETAILS MODAL (Shopee vibe) ===================== -->
+    <div v-if="showDiscountModal" class="dm-overlay" @click.self="closeDiscount">
+      <div class="dm-wrap" role="dialog" aria-modal="true" aria-label="Discount details">
+        <button class="dm-x" @click="closeDiscount" aria-label="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+
+        <div class="dm-header">
+          <div class="dm-badge" :class="activeDiscount?.type">
+            <i v-if="activeDiscount?.type === 'free_shipping'" class="bi bi-truck"></i>
+            <i v-else class="bi bi-ticket-perforated"></i>
+          </div>
+          <div class="dm-titles">
+            <h3 class="dm-title">{{ activeDiscount?.title }}</h3>
+            <p class="dm-headline">{{ headline(activeDiscount!) }}</p>
+            <p class="dm-sub">
+              <template v-if="minSubtotalText(activeDiscount!)">{{ minSubtotalText(activeDiscount!) }}</template>
+              <template v-if="capText(activeDiscount!)">
+                <span v-if="minSubtotalText(activeDiscount!)"> • </span>{{ capText(activeDiscount!) }}
+              </template>
+            </p>
+          </div>
+        </div>
+
+        <div class="dm-body">
+          <!-- Value row (friendly) -->
+          <div class="dm-row highlight">
+            <div class="dm-col">
+              <p class="dm-label">Deal</p>
+              <p class="dm-strong">{{ headline(activeDiscount!) }}</p>
+            </div>
+            <div class="dm-col">
+              <p class="dm-label">Min. Subtotal</p>
+              <p class="dm-strong">
+                <template v-if="activeDiscount?.min_subtotal && Number(activeDiscount.min_subtotal) > 0">
+                  ₱{{ money(activeDiscount!.min_subtotal) }}
+                </template>
+                <template v-else>None</template>
+              </p>
+            </div>
+          </div>
+
+          <!-- Cap + Code -->
+          <div class="dm-row">
+            <div class="dm-col" v-if="capText(activeDiscount!)">
+              <p class="dm-label">Max Cap</p>
+              <p class="dm-strong">₱{{ money(activeDiscount!.max_discount_amount) }}</p>
+            </div>
+            <div class="dm-col">
+              <p class="dm-label">Voucher Code</p>
+              <div class="dm-code-line" v-if="activeDiscount?.code">
+                <code class="dm-code">{{ activeDiscount!.code }}</code>
+                <button class="mini-btn orange" @click="copyDiscountCodeLocal">
+                  <i class="bi bi-clipboard"></i> Copy
+                </button>
+              </div>
+              <p v-else class="dm-muted">No code required</p>
+            </div>
+          </div>
+
+          <!-- Scope + Stacking -->
+          <div class="dm-row">
+            <div class="dm-col">
+              <p class="dm-label">Scope</p>
+              <p class="dm-strong">
+                <template v-if="activeDiscount?.product_id">Product only</template>
+                <template v-else>Store-wide</template>
+              </p>
+              <p class="dm-note" v-if="activeDiscount?.product_name">
+                Applies to: <strong>{{ activeDiscount!.product_name }}</strong>
+              </p>
+            </div>
+            <div class="dm-col">
+              <p class="dm-label">Stacking</p>
+              <p class="dm-strong">{{ stackText(activeDiscount!) }}</p>
+              <p class="dm-note">Whether this can be combined with other vouchers.</p>
+            </div>
+          </div>
+
+          <!-- Validity -->
+          <div class="dm-row">
+            <div class="dm-col">
+              <p class="dm-label">Starts</p>
+              <p class="dm-strong">{{ prettyDT(activeDiscount?.starts_at) || '—' }}</p>
+            </div>
+            <div class="dm-col">
+              <p class="dm-label">Expires</p>
+              <p class="dm-strong">{{ prettyDT(activeDiscount?.expires_at) || 'No expiry' }}</p>
+            </div>
+          </div>
+
+          <!-- Usage limit (per-user only, friendly) -->
+          <div class="dm-row" v-if="typeof activeDiscount?.max_uses_per_user === 'number'">
+            <div class="dm-col">
+              <p class="dm-label">Per-User Limit</p>
+              <p class="dm-strong">{{ activeDiscount!.max_uses_per_user }} use{{ activeDiscount!.max_uses_per_user === 1 ? '' : 's' }} per user</p>
+              <p class="dm-note">You’ve used this {{ userUseCount(activeDiscount!.id) }} time(s).</p>
+            </div>
+            <div class="dm-col"></div>
+          </div>
+        </div>
+
+        <div class="dm-footer">
+          <button class="mini-btn light" @click="closeDiscount">Close</button>
+          <button
+            class="mini-btn orange"
+            :disabled="exceededUserLimit(activeDiscount!)"
+            @click="goToShop(activeDiscount!); closeDiscount()"
+          >
+            {{ exceededUserLimit(activeDiscount!) ? 'Limit reached' : 'Use this deal' }}
+          </button>
+        </div>
+      </div>
+    </div>
+    <!-- =================== /DETAILS MODAL =================== -->
   </div>
 </template>
 
@@ -466,6 +701,7 @@ import { computed, onMounted, ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
+import { nextTick, watch } from 'vue'
 
 const router = useRouter()
 const user = computed(() => currentUser.value)
@@ -497,12 +733,19 @@ type Discount = {
   code?: string | null
   type?: 'percent' | 'fixed_amount' | 'free_shipping' | null
   starts_at?: string | null
-  status?: 'draft' | 'active' | 'disabled' | null
+  status?: 'draft' | 'active' | 'disabled' | 'scheduled' | null
   is_public?: boolean | null
   max_uses_per_user?: number | null
 
+  /* From schema */
+  scope?: 'order' | 'product' | null
+  stack?: 'exclusive' | 'stackable' | null
+  min_subtotal?: number | null
+  max_discount_amount?: number | null
+  redemptions_count?: number | null /* hidden to users */
+  max_uses_global?: number | null   /* hidden to users */
+
   /* UI-only */
-  min_spend?: number | null
   brand_label?: string | null
   tag?: string | null
 
@@ -520,6 +763,10 @@ type GiftCert = {
 const busy = ref(false)
 const discounts = ref<Discount[]>([])
 const productDiscounts = ref<Discount[]>([])
+/* NEW arrays for scheduled */
+const upcomingOrderDiscounts = ref<Discount[]>([])
+const upcomingProductDiscounts = ref<Discount[]>([])
+
 const gcs = ref<GiftCert[]>([])
 const affiliateUrl = ref<string | null>(null)
 const referralStats = ref({ total: 0, converted: 0, commission: 0 })
@@ -527,9 +774,47 @@ const userRedemptions = ref<Record<string, number>>({})
 
 const goalPerRef = ref<number | null>(null)
 
+/* ===== Shopper-friendly helpers ===== */
 function money(v: number | string | null | undefined) {
   const n = Number(v ?? 0)
   return Number.isFinite(n) ? n.toFixed(2) : '0.00'
+}
+function headline(d: Discount) {
+  if (!d) return 'Discount'
+  if (d.type === 'fixed_amount') return `₱${money(d.amount_off)} OFF`
+  if (d.type === 'percent') {
+    if (d.max_discount_amount != null) return `Up to ₱${money(d.max_discount_amount)} OFF`
+    return 'Special discount'
+  }
+  if (d.type === 'free_shipping') return 'Free Shipping'
+  return 'Discount'
+}
+function capText(d: Discount) {
+  return d?.type === 'percent' && d?.max_discount_amount != null
+    ? `Max cap ₱${money(d.max_discount_amount)}`
+    : null
+}
+function minSubtotalText(d: Discount) {
+  const val = Number(d?.min_subtotal ?? 0)
+  return val > 0 ? `Min. subtotal ₱${money(val)}` : null
+}
+function stackText(d: Discount) {
+  const s = (d?.stack || '').toLowerCase()
+  if (s === 'stackable') return 'Stackable'
+  if (s === 'exclusive') return 'Exclusive'
+  return '—'
+}
+function prettyDT(iso?: string | null) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return d.toLocaleString('en-PH', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
 }
 
 function expiryLabel(d: Discount) {
@@ -544,6 +829,20 @@ function expiryLabel(d: Discount) {
   if (hours > 0) return `${hours} hour${hours > 1 ? 's' : ''} left`
   const mins = Math.max(1, Math.floor(ms / (1000 * 60)))
   return `${mins} min left`
+}
+/* NEW: start label for scheduled discounts */
+function startLabel(d: Discount) {
+  if (!d.starts_at) return 'soon'
+  const start = new Date(d.starts_at).getTime()
+  if (!isFinite(start)) return 'soon'
+  const ms = start - Date.now()
+  if (ms <= 0) return 'now'
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24))
+  if (days > 0) return `in ${days} day${days > 1 ? 's' : ''}`
+  const hours = Math.floor(ms / (1000 * 60 * 60))
+  if (hours > 0) return `in ${hours} hour${hours > 1 ? 's' : ''}`
+  const mins = Math.max(1, Math.floor(ms / (1000 * 60)))
+  return `in ${mins} min`
 }
 
 /* === REFERRALS === */
@@ -589,7 +888,7 @@ async function loadReferralBits(uid: string) {
 async function loadActiveDiscounts() {
   const nowIso = new Date().toISOString()
   const selectCols =
-    'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,max_uses_per_user,product_id'
+    'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,max_uses_per_user,product_id,scope,stack,min_subtotal,max_discount_amount'
 
   const orderPromise = supabase
     .schema('rewards')
@@ -613,8 +912,31 @@ async function loadActiveDiscounts() {
     .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
     .order('starts_at', { ascending: false })
 
-  const [{ data: orderData, error: orderErr }, { data: prodData, error: prodErr }] =
-    await Promise.all([orderPromise, productPromise])
+  /* NEW: scheduled (upcoming) */
+  const upcomingOrderPromise = supabase
+    .schema('rewards')
+    .from('discounts')
+    .select(selectCols)
+    .eq('is_public', true)
+    .eq('status', 'scheduled')
+    .is('product_id', null)
+    .order('starts_at', { ascending: true, nullsFirst: false })
+
+  const upcomingProdPromise = supabase
+    .schema('rewards')
+    .from('discounts')
+    .select(selectCols)
+    .eq('is_public', true)
+    .eq('status', 'scheduled')
+    .not('product_id', 'is', null)
+    .order('starts_at', { ascending: true, nullsFirst: false })
+
+  const [
+    { data: orderData, error: orderErr },
+    { data: prodData, error: prodErr },
+    { data: upOrder, error: upOrderErr },
+    { data: upProd, error: upProdErr },
+  ] = await Promise.all([orderPromise, productPromise, upcomingOrderPromise, upcomingProdPromise])
 
   if (orderErr) {
     console.warn('loadActiveDiscounts (order-level) error:', orderErr)
@@ -628,6 +950,21 @@ async function loadActiveDiscounts() {
     productDiscounts.value = []
   } else {
     productDiscounts.value = (prodData || []) as Discount[]
+  }
+
+  /* NEW set upcoming arrays */
+  if (upOrderErr) {
+    console.warn('loadUpcomingDiscounts (order-level) error:', upOrderErr)
+    upcomingOrderDiscounts.value = []
+  } else {
+    upcomingOrderDiscounts.value = (upOrder || []) as Discount[]
+  }
+
+  if (upProdErr) {
+    console.warn('loadUpcomingDiscounts (product-level) error:', upProdErr)
+    upcomingProductDiscounts.value = []
+  } else {
+    upcomingProductDiscounts.value = (upProd || []) as Discount[]
   }
 
   // Enrich product-specific discounts with product name + FIRST image (signed)
@@ -684,6 +1021,9 @@ async function loadActiveDiscounts() {
       await Promise.all(tasks)
     }
   }
+
+  /* NEW: enrich upcoming product-specific in the same way */
+  await enrichProductDiscounts(upcomingProductDiscounts.value)
 }
 
 /* === helper: coerce first path from product_url (array or string) === */
@@ -728,7 +1068,7 @@ function userUseCount(discountId: string) {
   return userRedemptions.value[discountId] ?? 0
 }
 function exceededUserLimit(d: Discount) {
-  if (d.max_uses_per_user == null) return false
+  if (!d || d.max_uses_per_user == null) return false
   const used = userUseCount(d.id)
   return used >= d.max_uses_per_user
 }
@@ -739,6 +1079,30 @@ function goToShop(d: Discount) {
 function shortProductId(id?: string | null) {
   if (!id) return 'Unknown Product'
   return id.slice(0, 8) + '…'
+}
+
+/* === MODAL STATE === */
+const showDiscountModal = ref(false)
+const activeDiscount = ref<Discount | null>(null)
+function openDiscount(d: Discount) {
+  activeDiscount.value = d
+  showDiscountModal.value = true
+  // lock scroll (shoee vibe)
+  document.documentElement.style.overflow = 'hidden'
+}
+function closeDiscount() {
+  showDiscountModal.value = false
+  activeDiscount.value = null
+  document.documentElement.style.overflow = ''
+}
+async function copyDiscountCodeLocal() {
+  if (!activeDiscount.value?.code) return
+  try {
+    await navigator.clipboard.writeText(activeDiscount.value.code)
+    // subtle toast
+    // no external dependency—just a quick native feel:
+    alert('Voucher code copied!')
+  } catch {}
 }
 
 /* === REFEES === */
@@ -987,10 +1351,56 @@ async function attachPrizeImages(list: any[]) {
   )
 }
 
-/* ---------------- (Everything below kept as-is) ---------------- */
-/* ------- Games / Orders / Products preview etc. (unchanged) ------- */
-/* The rest of the script is exactly your original logic, kept intact. */
+/* NEW: shared enricher for product-specific discounts (name + signed image) */
+async function enrichProductDiscounts(list: Discount[]) {
+  const ids = (list || [])
+    .map(d => d.product_id)
+    .filter((x): x is string => !!x)
 
+  if (!ids.length) return
+
+  const { data: products, error } = await supabase
+    .schema('games')
+    .from('products')
+    .select('id,name,product_url')
+    .in('id', ids)
+
+  if (error) {
+    console.warn('enrichProductDiscounts error:', error)
+    return
+  }
+
+  const nameById: Record<string, string> = {}
+  const firstPathById: Record<string, string | null> = {}
+
+  for (const p of products || []) {
+    const pid = (p as any).id as string
+    const pname = (p as any).name as string
+    const purl = (p as any).product_url
+    nameById[pid] = pname
+    firstPathById[pid] = firstPathFromProductUrl(purl)
+  }
+
+  const tasks: Promise<void>[] = []
+  for (const d of list) {
+    if (d.product_id && nameById[d.product_id]) {
+      d.product_name = nameById[d.product_id]
+    }
+    const first = d.product_id ? firstPathById[d.product_id] : null
+    if (first) {
+      tasks.push(
+        signedUrlWithCB(PRIZE_BUCKET, first).then(url => {
+          d.product_img_url = url
+        }),
+      )
+    } else {
+      d.product_img_url = null
+    }
+  }
+  await Promise.all(tasks)
+}
+
+/* ---------------- Existing games/orders/products preview etc. ---------------- */
 type GameRow = {
   id: string
   title: string
@@ -1057,7 +1467,6 @@ const currentPreview = computed<ProdRow | null>(
   () => previewProducts.value[previewIndex.value] || null,
 )
 
-import { nextTick, watch } from 'vue'
 watch(previewProducts, () => {
   previewIndex.value = 0
 })
@@ -1515,7 +1924,6 @@ function startRealtime() {
   } catch {}
 }
 
-import { onBeforeUnmount } from 'vue'
 const gamesPanelEl = ref<HTMLElement | null>(null)
 function selectFeature(id: string) {
   selectedGameId.value = id
@@ -1554,56 +1962,6 @@ function updateSideScrollHint() {
   sideScrollHintUpVisible.value = canScroll && atBottom && !atTop
 }
 
-const vReveal = {
-  mounted(el: HTMLElement) {
-    el.classList.add('reveal-init')
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((en) => {
-          if (en.isIntersecting) {
-            el.style.transitionDelay = `${Number(getComputedStyle(el).getPropertyValue('--i') || 0) * 60}ms`
-            el.classList.add('reveal-in')
-            io.unobserve(el)
-          }
-        })
-      },
-      { threshold: 0.12 },
-    )
-    io.observe(el)
-    ;(el as any)._io = io
-  },
-  unmounted(el: HTMLElement) {
-    ;(el as any)._io?.disconnect?.()
-  },
-}
-const vTilt = {
-  mounted(el: HTMLElement) {
-    el.style.transformStyle = 'preserve-3d'
-    el.style.perspective = '900px'
-    const onMove = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      const rx = (y / rect.height - 0.5) * -6
-      const ry = (x / rect.width - 0.5) * 6
-      el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`
-    }
-    const onLeave = () => {
-      el.style.transition = 'transform .25s ease'
-      el.style.transform = 'rotateX(0) rotateY(0)'
-      setTimeout(() => (el.style.transition = ''), 260)
-    }
-    el.addEventListener('mousemove', onMove)
-    el.addEventListener('mouseleave', onLeave)
-    ;(el as any)._tiltMove = onMove
-    ;(el as any)._tiltLeave = onLeave
-  },
-  unmounted(el: HTMLElement) {
-    el.removeEventListener('mousemove', (el as any)._tiltMove)
-    el.removeEventListener('mouseleave', (el as any)._tiltLeave)
-  },
-}
-
 onMounted(async () => {
   const ok = await ensureAuthed()
   if (!ok) return
@@ -1633,13 +1991,15 @@ onMounted(async () => {
     sideListEl.value.addEventListener('scroll', updateSideScrollHint)
     updateSideScrollHint()
   }
-})
 
-watch([openGames, selectedGameId], async () => {
-  await nextTick()
-  updateSideScrollHint()
+  // Close on ESC
+  window.addEventListener('keydown', onKeydownEsc)
 })
+function onKeydownEsc(e: KeyboardEvent) {
+  if (e.key === 'Escape' && showDiscountModal.value) closeDiscount()
+}
 
+import { onBeforeUnmount } from 'vue'
 onBeforeUnmount(() => {
   clearHoverTimer()
   if (chGames) supabase.removeChannel(chGames)
@@ -1651,6 +2011,7 @@ onBeforeUnmount(() => {
   roBanner?.disconnect?.()
   window.removeEventListener('resize', syncSideListHeight)
   if (sideListEl.value) sideListEl.value.removeEventListener('scroll', updateSideScrollHint)
+  window.removeEventListener('keydown', onKeydownEsc)
 })
 
 const ppBgStyle = computed(() => {
@@ -1749,6 +2110,11 @@ async function fetchReferralCount() {
   --muted: #6b7280;
   --line: rgba(15, 23, 42, 0.04);
   --radius-lg: 1.25rem;
+
+  /* Shopee-ish accent */
+  --accent: #ff5722;
+  --accent-dark: #e64a19;
+  --accent-ghost: rgba(255, 87, 34, 0.08);
 }
 .deals-shell {
   min-height: 100vh;
@@ -1907,6 +2273,7 @@ async function fetchReferralCount() {
   gap: 1rem;
   align-items: center;
   font-size: var(--fs-base);
+  cursor: pointer;
 }
 .discount-main {
   display: flex;
@@ -1931,6 +2298,12 @@ async function fetchReferralCount() {
   font-weight: 600;
   color: #0f172a;
   margin-bottom: 0.1rem;
+}
+.discount-value {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: .95rem;
+  margin: .1rem 0 .15rem;
 }
 .discount-desc {
   font-size: var(--fs-sm);
@@ -1972,6 +2345,18 @@ async function fetchReferralCount() {
   cursor: not-allowed;
 }
 
+/* Shopee-ish accent on actionable buttons and cards */
+.shopeeish:hover {
+  border-color: rgba(255, 87, 34, 0.22);
+  box-shadow: 0 0 0 3px var(--accent-ghost);
+}
+.orange {
+  background: var(--accent);
+}
+.orange:hover {
+  background: var(--accent-dark);
+}
+
 /* PRODUCT DISCOUNTS */
 .product-discount-grid {
   display: grid;
@@ -1987,6 +2372,7 @@ async function fetchReferralCount() {
   flex-direction: column;
   gap: 0.5rem;
   font-size: var(--fs-base);
+  cursor: pointer;
 }
 .pd-top {
   display: flex;
@@ -2068,6 +2454,10 @@ async function fetchReferralCount() {
   align-items: center;
   gap: 0.2rem;
   cursor: pointer;
+}
+.mini-btn.light {
+  background: #e2e8f0;
+  color: #0f172a;
 }
 .mini-btn[disabled] {
   opacity: 0.35;
@@ -2285,6 +2675,76 @@ async function fetchReferralCount() {
   animation: shimmer 1.2s infinite linear;
 }
 
+/* =================== DETAILS MODAL =================== */
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.32);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+.dm-wrap {
+  width: min(720px, 96vw);
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  position: relative;
+}
+.dm-x {
+  position: absolute;
+  top: .6rem;
+  right: .6rem;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.dm-header {
+  display: flex;
+  gap: .8rem;
+  padding: 1rem 1rem .25rem 1rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+}
+.dm-badge {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(150deg, #0ea5e9 0%, #4f46e5 100%);
+  font-size: 1.2rem;
+}
+.dm-badge.free_shipping {
+  background: linear-gradient(150deg, #059669 0%, #10b981 100%);
+}
+.dm-titles { display: flex; flex-direction: column; gap: .2rem; }
+.dm-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+.dm-headline { font-weight: 800; color: #0f172a; font-size: 1rem; }
+.dm-sub { color: #6b7280; font-size: var(--fs-sm); }
+
+.dm-body { padding: .9rem 1rem; display: flex; flex-direction: column; gap: .75rem; }
+.dm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.dm-row.highlight {
+  background: #fff7f4; border: 1px solid rgba(255, 87, 34, .15);
+  border-radius: .75rem; padding: .6rem .7rem;
+}
+.dm-col { background: #fff; border: 1px solid rgba(15,23,42,.04); border-radius: .65rem; padding: .6rem .7rem; }
+.dm-label { font-size: var(--fs-xs); color: #94a3b8; margin-bottom: .15rem; text-transform: uppercase; letter-spacing: .04em; }
+.dm-strong { font-weight: 700; color: #0f172a; }
+.dm-note { font-size: var(--fs-xs); color: #94a3b8; margin-top: .15rem; }
+.dm-code-line { display: flex; align-items: center; gap: .35rem; }
+.dm-code { background: #0f172a; color: #fff; border-radius: .5rem; padding: .2rem .45rem; font-size: .8rem; }
+.dm-muted { color: #94a3b8; font-size: var(--fs-sm); }
+
+.dm-footer {
+  display: flex; justify-content: flex-end; gap: .5rem;
+  padding: .75rem 1rem 1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
+}
+
 /* RESPONSIVE */
 @media (max-width: 1080px) {
   .deals-grid {
@@ -2328,5 +2788,135 @@ async function fetchReferralCount() {
   .hero-stats {
     gap: 0.4rem;
   }
+  .dm-row { grid-template-columns: 1fr; }
 }
+
+/* =================== DETAILS MODAL (fully responsive) =================== */
+.dm-overlay {
+  position: fixed;
+  inset: 0;
+  /* allow the page behind to stay locked while overlay can scroll if needed */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(15, 23, 42, 0.32);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+
+  /* Safe area padding for iOS + small screens */
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+           max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  overscroll-behavior: contain;
+}
+
+.dm-wrap {
+  /* Centered, capped width + height, and internally scrollable */
+  width: min(720px, 96vw);
+  max-width: 96vw;
+  /* use dvh so mobile browser chrome doesn’t cut us off */
+  max-height: min(92dvh, calc(100dvh - 24px));
+  background: #fff;
+  border-radius: 1rem;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  position: relative;
+
+  /* Make header/footer fixed in place while body scrolls */
+  display: flex;
+  flex-direction: column;
+
+  /* In case content inside has transforms that could spill */
+  contain: layout paint;
+}
+
+.dm-x {
+  position: absolute;
+  top: .6rem;
+  right: .6rem;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 10px;
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.dm-header {
+  display: flex;
+  gap: .8rem;
+  padding: 1rem 1rem .25rem 1rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+  flex: 0 0 auto; /* keep visible */
+}
+
+.dm-badge {
+  width: 48px; height: 48px; border-radius: 14px;
+  display: grid; place-items: center; color: #fff;
+  background: linear-gradient(150deg, #0ea5e9 0%, #4f46e5 100%);
+  font-size: 1.2rem;
+}
+.dm-badge.free_shipping {
+  background: linear-gradient(150deg, #059669 0%, #10b981 100%);
+}
+
+.dm-titles { display: flex; flex-direction: column; gap: .2rem; }
+.dm-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+.dm-headline { font-weight: 800; color: #0f172a; font-size: 1rem; }
+.dm-sub { color: #6b7280; font-size: 0.875rem; }
+
+.dm-body {
+  /* The only scrollable area */
+  flex: 1 1 auto;
+  min-height: 0; /* required so flex item can actually shrink and scroll */
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: .9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: .75rem;
+  overscroll-behavior: contain;
+}
+
+.dm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.dm-row.highlight {
+  background: #fff7f4; border: 1px solid rgba(255, 87, 34, .15);
+  border-radius: .75rem; padding: .6rem .7rem;
+}
+.dm-col { background: #fff; border: 1px solid rgba(15,23,42,.04); border-radius: .65rem; padding: .6rem .7rem; }
+.dm-label {
+  font-size: 0.75rem; color: #94a3b8; margin-bottom: .15rem;
+  text-transform: uppercase; letter-spacing: .04em;
+}
+.dm-strong { font-weight: 700; color: #0f172a; }
+.dm-note { font-size: 0.75rem; color: #94a3b8; margin-top: .15rem; }
+
+.dm-code-line { display: flex; align-items: center; gap: .35rem; }
+.dm-code {
+  background: #0f172a; color: #fff; border-radius: .5rem;
+  padding: .2rem .45rem; font-size: .8rem;
+  word-break: break-all; /* avoid horizontal overflow for long codes */
+}
+
+.dm-muted { color: #94a3b8; font-size: 0.875rem; }
+
+.dm-footer {
+  flex: 0 0 auto; /* keep visible */
+  display: flex; justify-content: flex-end; gap: .5rem;
+  padding: .75rem 1rem 1rem;
+  border-top: 1px solid rgba(15, 23, 42, 0.05);
+  background: #fff; /* ensures footer stays readable over scroll */
+}
+
+/* Mobile polish */
+@media (max-width: 640px) {
+  .dm-wrap {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 12px;
+  }
+  .dm-row { grid-template-columns: 1fr; }
+}
+
 </style>

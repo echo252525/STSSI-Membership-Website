@@ -292,13 +292,13 @@
                   {{ it.product?.description }}
                 </div>
 
-                <!-- ORIGINAL (kept) -->
-                <div class="text-muted small" v-if="!hasEventDiscount(g.reference_number)">
+                <!-- ORIGINAL (kept when no event & no item-only redemption) -->
+                <div class="text-muted small" v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)">
                   ₱ {{ number(it.price_each) }} × {{ it.qty }}
                 </div>
 
-                <!-- NEW: Discounted display when event/per-purchase discount applies (ALL TABS) -->
-                <div class="small" v-else>
+                <!-- EVENT/PER-PURCHASE discounted (kept) -->
+                <div class="small" v-else-if="hasEventDiscount(g.reference_number)">
                   <span class="text-muted text-decoration-line-through me-1">
                     ₱ {{ number(it.price_each) }}
                   </span>
@@ -308,7 +308,21 @@
                   <span class="text-muted">× {{ it.qty }}</span>
                 </div>
 
-                <!-- NEW: visible badges per item (status + payment) -->
+                <!-- NEW: ITEM-ONLY redemption display (price slash only on item row, not in subtotal) -->
+                <div class="small" v-else-if="hasItemOnlyDiscount(it)">
+                  <span class="text-muted text-decoration-line-through me-1">
+                    ₱ {{ number(it.price_each) }}
+                  </span>
+                  <span class="fw-semibold text-primary">
+                    ₱ {{ number(itemOnlyDiscountedEach(it)) }}
+                  </span>
+                  <span class="text-muted">× {{ it.qty }}</span>
+                  <span class="badge ms-2 badge-tight text-bg-primary-subtle border" title="This discount applies only to this product (discounts.product_id set).">
+                    Item-only discount
+                  </span>
+                </div>
+
+                <!-- visible badges per item (status + payment) -->
                 <div class="mt-1 d-flex flex-wrap gap-2">
                   <span
                     class="badge badge-tight"
@@ -319,9 +333,20 @@
                   <span class="badge text-bg-light border badge-tight">
                     {{ purchasePayment(g, it.order_id) || '—' }}
                   </span>
+                  <!-- NEW: names of item-only discounts applied (if any) -->
+                  <template v-if="itemOnlyLabels(it.order_id).length">
+                    <span
+                      v-for="lbl in itemOnlyLabels(it.order_id)"
+                      :key="it.order_id + ':' + lbl"
+                      class="badge badge-tight text-bg-light border"
+                      :title="lbl"
+                    >
+                      {{ trimLabel(lbl) }}
+                    </span>
+                  </template>
                 </div>
 
-                <!-- UPDATED: Show per-item tracking link ONLY if no ref-level link -->
+                <!-- UPDATED: per-item tracking link ONLY if no ref-level link -->
                 <div
                   class="mt-1 small"
                   v-if="
@@ -336,14 +361,20 @@
                 </div>
               </div>
 
-              <!-- ORIGINAL rightmost line total (kept when no event) -->
-              <div class="text-end fw-semibold" v-if="!hasEventDiscount(g.reference_number)">
+              <!-- ORIGINAL rightmost line total when no event & no item-only -->
+              <div class="text-end fw-semibold" v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)">
                 ₱ {{ number(it.line_total) }}
               </div>
 
-              <!-- NEW: rightmost discounted line total -->
-              <div class="text-end fw-semibold" v-else>
+              <!-- EVENT rightmost discounted line total (kept) -->
+              <div class="text-end fw-semibold" v-else-if="hasEventDiscount(g.reference_number)">
                 <div class="small text-muted">₱ {{ number(it.line_total) }}</div>
+              </div>
+
+              <!-- NEW: ITEM-ONLY rightmost line total (show both; does not change group subtotal) -->
+              <div class="text-end fw-semibold" v-else-if="hasItemOnlyDiscount(it)">
+                <div class="small text-muted">₱ {{ number(it.line_total) }}</div>
+                <div class="fw-semibold">₱ {{ number(lineTotalAfterItemOnly(it)) }}</div>
               </div>
             </div>
           </div>
@@ -362,57 +393,62 @@
               <div class="text-end ms-auto">
                 <div class="text-muted small">Subtotal</div>
 
+                <!-- IMPORTANT: Subtotal remains original (no item-only deduction here) -->
                 <div class="fw-semibold fs-5" v-if="!hasEventDiscount(g.reference_number)">
-                  ₱ {{ number(groupSubtotal(g)) }}
+                  ₱ {{ number(groupSubtotalOriginal(g)) }}
                 </div>
 
-                <!-- ★ CHANGE: When discounted, show original vs discounted subtotal clearly (card body) -->
+                <!-- ★ CHANGE (kept): EVENT discounted subtotal view -->
                 <div v-else class="text-end">
                   <div class="small text-muted text-decoration-line-through">
                     ₱ {{ number(groupSubtotalOriginal(g)) }}
                   </div>
-                   <!-- NEW: explicit item discount line (event/per-purchase) -->
-                <div class="small text-muted" v-if="hasEventDiscount(g.reference_number) && groupItemDiscountAmount(g) > 0">
-                  Item discount: − ₱ {{ number(groupItemDiscountAmount(g)) }}
-                </div>
                   <div class="small text-success fw-semibold">
                     ₱ {{ number(groupSubtotalDiscounted(g)) }}
                   </div>
                 </div>
                 <!-- /★ CHANGE -->
 
-               
-
-                <!-- show discounts line only if we actually subtracted them (avoid double subtract) -->
-                <div class="small text-muted" v-if="(g.discount_total || 0) > 0">
-                  Discounts: − ₱ {{ number(g.discount_total) }}
-                </div>
-                <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
-                <div class="small text-muted"
-                  v-else-if="g.allPending && discountSumForRef(g.reference_number) > 0">
-                  Discounts: − ₱ {{ number(discountSumForRef(g.reference_number)) }}
+                <!-- NEW: Show item-only discount total (display only) -->
+                <div class="small text-muted" v-if="itemOnlySumForRef(g.reference_number) > 0">
+                  Item-only discounts: − ₱ {{ number(itemOnlySumForRef(g.reference_number)) }}
                 </div>
 
-                <!-- NEW (CHANGED): Shipping line respects free-shipping display rules -->
+                <!-- show discounts line only for ORDER-WIDE (we fixed effectiveDiscountForRef to exclude item-only) -->
+                <div class="small text-muted" v-if="orderWideSumForRef(g.reference_number) > 0">
+                  Order-wide discounts: − ₱ {{ number(orderWideSumForRef(g.reference_number)) }}
+                </div>
+
+
+
+                <!-- NEW: (kept) Shipping line with free-shipping rules -->
                 <div v-if="statusFilter !== STATUS.RETURN_REFUND">
-                  <!-- Free shipping applied -->
                   <template v-if="groupFreeShipping(g.reference_number)">
-                    <!-- If there was an original fee > 0, show it slashed -->
                     <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
                       Shipping fee:
                       <span class="text-decoration-line-through">₱ {{ number(shippingForRef(g.reference_number)) }}</span>
                     </div>
-                    <!-- Always show Free shipping label -->
                     <div class="small text-success fw-semibold">Free shipping</div>
                   </template>
-                  <!-- Not free shipping -->
                   <div class="small text-muted" v-else-if="shippingForRef(g.reference_number) > 0">
                     Shipping fee: ₱ {{ number(shippingForRef(g.reference_number)) }}
                   </div>
                 </div>
 
-                <!-- Recorded total excludes shipping when free-shipping is applied -->
+                <!-- Recorded total (unchanged logic) -->
                 <div class="fw-semibold fs-5">Recorded total: ₱ {{ number(g.total_amount) }}</div>
+
+                <!-- NEW: order-wide discount labels for visibility -->
+                <div class="mt-1" v-if="orderWideLabelsForRef(g.reference_number).length">
+                  <span
+                    v-for="lbl in orderWideLabelsForRef(g.reference_number)"
+                    :key="g.reference_number + ':' + lbl"
+                    class="badge badge-tight text-bg-light border ms-1"
+                    :title="lbl"
+                  >
+                    {{ trimLabel(lbl) }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -552,16 +588,26 @@
                   >
                     {{ s.product?.name || s.product_id }}
                     <span class="small">
-                      <template v-if="!hasEventDiscount(g.reference_number)">
+                      <template v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(s)">
                         ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                       </template>
-                      <template v-else>
+                      <template v-else-if="hasEventDiscount(g.reference_number)">
                         ({{ s.qty }} ×
                         <span class="text-muted text-decoration-line-through me-1"
                           >₱ {{ number(s.price_each) }}</span
                         >
                         <span class="fw-semibold text-danger"
                           >₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span
+                        >
+                        )
+                      </template>
+                      <template v-else>
+                        ({{ s.qty }} ×
+                        <span class="text-muted text-decoration-line-through me-1"
+                          >₱ {{ number(s.price_each) }}</span
+                        >
+                        <span class="fw-semibold text-primary"
+                          >₱ {{ number(itemOnlyDiscountedEach(s)) }}</span
                         >
                         )
                       </template>
@@ -603,10 +649,10 @@
                 <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
                   {{ s.product?.name || s.product_id }}
                   <span class="small">
-                    <template v-if="!hasEventDiscount(g.reference_number)">
+                    <template v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(s)">
                       ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                     </template>
-                    <template v-else>
+                    <template v-else-if="hasEventDiscount(g.reference_number)">
                       ({{ s.qty }} ×
                       <span class="text-muted text-decoration-line-through me-1"
                         >₱ {{ number(s.price_each) }}</span
@@ -616,22 +662,40 @@
                       >
                       )
                     </template>
+                    <template v-else>
+                      ({{ s.qty }} ×
+                      <span class="text-muted text-decoration-line-through me-1"
+                        >₱ {{ number(s.price_each) }}</span
+                      >
+                      <span class="fw-semibold text-primary"
+                        >₱ {{ number(itemOnlyDiscountedEach(s)) }}</span
+                      >
+                      )
+                    </template>
                   </span>
                 </div>
 
                 <div
                   class="small"
-                  :class="hasEventDiscount(g.reference_number) ? '' : 'text-muted'"
+                  :class="hasEventDiscount(g.reference_number) || hasItemOnlyDiscount(s) ? '' : 'text-muted'"
                 >
-                  <template v-if="!hasEventDiscount(g.reference_number)">
+                  <template v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(s)">
                     ₱ {{ number(s.line_total) }}
+                  </template>
+                  <template v-else-if="hasEventDiscount(g.reference_number)">
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(s.line_total) }}
+                    </span>
+                    <span class="fw-semibold"
+                      >₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span
+                    >
                   </template>
                   <template v-else>
                     <span class="text-muted text-decoration-line-through me-1">
                       ₱ {{ number(s.line_total) }}
                     </span>
                     <span class="fw-semibold"
-                      >₱ {{ number(lineTotalAfterDiscount(s, g.reference_number)) }}</span
+                      >₱ {{ number(lineTotalAfterItemOnly(s)) }}</span
                     >
                   </template>
                 </div>
@@ -679,16 +743,26 @@
                   <div class="fw-semibold title-ellipsis" :title="s.product?.name || s.product_id">
                     {{ s.product?.name || s.product_id }}
                     <span class="small">
-                      <template v-if="!hasEventDiscount(g.reference_number)">
+                      <template v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(s)">
                         ({{ s.qty }} × ₱ {{ number(s.price_each) }})
                       </template>
-                      <template v-else>
+                      <template v-else-if="hasEventDiscount(g.reference_number)">
                         ({{ s.qty }} ×
                         <span class="text-muted text-decoration-line-through me-1"
                           >₱ {{ number(s.price_each) }}</span
                         >
                         <span class="fw-semibold text-danger"
                           >₱ {{ number(discountedPriceEachForItem(s, g.reference_number)) }}</span
+                        >
+                        )
+                      </template>
+                      <template v-else>
+                        ({{ s.qty }} ×
+                        <span class="text-muted text-decoration-line-through me-1"
+                          >₱ {{ number(s.price_each) }}</span
+                        >
+                        <span class="fw-semibold text-primary"
+                          >₱ {{ number(itemOnlyDiscountedEach(s)) }}</span
                         >
                         )
                       </template>
@@ -830,21 +904,28 @@
                 <div>
                   <span class="text-muted">Payment: </span>{{ selectedGroup.paymentSummaryLabel }}
                 </div>
+
+                <!-- EVENT item discount line (kept) -->
                 <div v-if="hasEventDiscount(selectedGroup.reference_number) && groupItemDiscountAmount(selectedGroup) > 0">
-                  <span class="text-muted">Item Discount: </span>− ₱
+                  <span class="text-muted">Event Item Discount: </span>− ₱
                   {{ number(groupItemDiscountAmount(selectedGroup)) }}
                 </div>
-                <div v-if="(selectedGroup.discount_total || 0) > 0">
-                  <span class="text-muted">Discounts Applied: </span>− ₱
-                  {{ number(selectedGroup.discount_total) }}
+
+                <!-- NEW: Item-only + Order-wide lines -->
+                <div v-if="itemOnlySumForRef(selectedGroup.reference_number) > 0">
+                  <span class="text-muted">Item-only discounts: </span>− ₱
+                  {{ number(itemOnlySumForRef(selectedGroup.reference_number)) }}
                 </div>
-                <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
-                <div v-else-if="selectedGroup.allPending && discountSumForRef(selectedGroup.reference_number) > 0">
-                  <span class="text-muted">Discounts: </span>− ₱
-                  {{ number(discountSumForRef(selectedGroup.reference_number)) }}
+                <div v-if="orderWideSumForRef(selectedGroup.reference_number) > 0">
+                  <span class="text-muted">Order-wide discounts: </span>− ₱
+                  {{ number(orderWideSumForRef(selectedGroup.reference_number)) }}
+                </div>
+                <div v-if="totalDiscountsCreditedForRef(selectedGroup.reference_number) > 0 && !hasEventDiscount(selectedGroup.reference_number)">
+                  <span class="text-muted">Discounts credited (recorded): </span>− ₱
+                  {{ number(totalDiscountsCreditedForRef(selectedGroup.reference_number)) }}
                 </div>
 
-                <!-- NEW (CHANGED): Shipping display respects free-shipping rules -->
+                <!-- NEW (kept): Shipping display respects free-shipping rules -->
                 <div v-if="statusFilter !== STATUS.RETURN_REFUND" class="mt-1">
                   <template v-if="groupFreeShipping(selectedGroup.reference_number)">
                     <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
@@ -872,6 +953,18 @@
                   </div>
                   <div class="form-text">One link for the whole reference. Required before shipping.</div>
                 </div>
+              </div>
+
+              <!-- NEW: show order-wide discount labels -->
+              <div class="mt-2" v-if="orderWideLabelsForRef(selectedGroup.reference_number).length">
+                <span
+                  v-for="lbl in orderWideLabelsForRef(selectedGroup.reference_number)"
+                  :key="'lbl:' + selectedGroup.reference_number + ':' + lbl"
+                  class="badge badge-tight text-bg-light border me-1"
+                  :title="lbl"
+                >
+                  {{ trimLabel(lbl) }}
+                </span>
               </div>
             </div>
           </div>
@@ -909,10 +1002,10 @@
                     >
                       {{ o.items[0]?.product?.name || o.items[0]?.product_id }}
                       <span class="small ms-2">
-                        <template v-if="!hasEventDiscount(selectedGroup.reference_number)">
+                        <template v-if="!hasEventDiscount(selectedGroup.reference_number) && !hasItemOnlyDiscount(o.items[0])">
                           ({{ o.items[0]?.qty }} × ₱ {{ number(o.items[0]?.price_each) }})
                         </template>
-                        <template v-else>
+                        <template v-else-if="hasEventDiscount(selectedGroup.reference_number)">
                           ({{ o.items[0]?.qty }} ×
                           <span class="text-muted text-decoration-line-through me-1"
                             >₱ {{ number(o.items[0]?.price_each) }}</span
@@ -929,6 +1022,16 @@
                             }} </span
                           >)
                         </template>
+                        <template v-else>
+                          ({{ o.items[0]?.qty }} ×
+                          <span class="text-muted text-decoration-line-through me-1"
+                            >₱ {{ number(o.items[0]?.price_each) }}</span
+                          >
+                          <span class="fw-semibold text-primary">
+                            ₱ {{ number(itemOnlyDiscountedEach(o.items[0])) }}
+                          </span>
+                          )
+                        </template>
                       </span>
                     </div>
 
@@ -944,11 +1047,11 @@
 
                   <!-- line totals -->
                   <div class="mt-1">
-                    <template v-if="!hasEventDiscount(selectedGroup.reference_number)">
+                    <template v-if="!hasEventDiscount(selectedGroup.reference_number) && !hasItemOnlyDiscount(o.items[0])">
                       <span class="text-muted small">Line total:</span>
                       <span class="fw-semibold"> ₱ {{ number(o.items[0]?.line_total) }}</span>
                     </template>
-                    <template v-else>
+                    <template v-else-if="hasEventDiscount(selectedGroup.reference_number)">
                       <span class="text-muted small">Line total:</span>
                       <span class="text-muted small text-decoration-line-through me-1"
                         >₱ {{ number(o.items[0]?.line_total) }}</span
@@ -960,6 +1063,28 @@
                         }}</span
                       >
                     </template>
+                    <template v-else>
+                      <span class="text-muted small">Line total:</span>
+                      <span class="text-muted small text-decoration-line-through me-1"
+                        >₱ {{ number(o.items[0]?.line_total) }}</span
+                      >
+                      <span class="fw-semibold"
+                        >₱
+                        {{ number(lineTotalAfterItemOnly(o.items[0])) }}</span
+                      >
+                    </template>
+                  </div>
+
+                  <!-- NEW: show item-only labels in modal -->
+                  <div class="mt-1" v-if="itemOnlyLabels(o.id).length">
+                    <span
+                      v-for="lbl in itemOnlyLabels(o.id)"
+                      :key="'iLbl:' + o.id + ':' + lbl"
+                      class="badge badge-tight text-bg-light border me-1"
+                      :title="lbl"
+                    >
+                      {{ trimLabel(lbl) }}
+                    </span>
                   </div>
 
                   <!-- NEW: Return tracking link per RR (modal) -->
@@ -1051,7 +1176,7 @@
                 v-if="!hasEventDiscount(selectedGroup.reference_number)"
                 class="fw-semibold fs-5"
               >
-                ₱ {{ number(groupSubtotal(selectedGroup)) }}
+                ₱ {{ number(groupSubtotalOriginal(selectedGroup)) }}
               </div>
               <div v-else class="text-end">
                 <div class="small text-muted text-decoration-line-through">
@@ -1062,20 +1187,22 @@
                 </div>
               </div>
 
-              <!-- NEW: explicit item discount line in modal totals -->
-              <div class="small text-muted" v-if="hasEventDiscount(selectedGroup.reference_number) && groupItemDiscountAmount(selectedGroup) > 0">
-                Item discount: − ₱ {{ number(groupItemDiscountAmount(selectedGroup)) }}
+              <!-- NEW: explicit item-only discount line in modal totals -->
+              <div class="small text-muted" v-if="itemOnlySumForRef(selectedGroup.reference_number) > 0">
+                Item-only discounts: − ₱ {{ number(itemOnlySumForRef(selectedGroup.reference_number)) }}
               </div>
 
-              <div class="small text-muted" v-if="(selectedGroup.discount_total || 0) > 0">
-                Discounts: − ₱ {{ number(selectedGroup.discount_total) }}
-              </div>
-              <!-- NEW: show order-level discounts from discount_redemptions even when pending (not subtracted here) -->
-              <div class="small text-muted" v-else-if="selectedGroup.allPending && discountSumForRef(selectedGroup.reference_number) > 0">
-                Discounts: − ₱ {{ number(discountSumForRef(selectedGroup.reference_number)) }}
+              <!-- keep (order-wide only now) -->
+              <div class="small text-muted" v-if="orderWideSumForRef(selectedGroup.reference_number) > 0">
+                Order-wide discounts: − ₱ {{ number(orderWideSumForRef(selectedGroup.reference_number)) }}
               </div>
 
-              <!-- NEW (CHANGED): Shipping line respects free-shipping display rules -->
+              <!-- optional roll-up -->
+              <div class="small text-muted" v-if="totalDiscountsCreditedForRef(selectedGroup.reference_number) > 0 && !hasEventDiscount(selectedGroup.reference_number)">
+                Discounts credited (recorded): − ₱ {{ number(totalDiscountsCreditedForRef(selectedGroup.reference_number)) }}
+              </div>
+
+              <!-- NEW (kept): Shipping line -->
               <div v-if="statusFilter !== STATUS.RETURN_REFUND" class="w-100 text-end">
                 <template v-if="groupFreeShipping(selectedGroup.reference_number)">
                   <div class="small text-muted" v-if="shippingForRef(selectedGroup.reference_number) > 0">
@@ -1203,10 +1330,10 @@ type PurchaseRow = {
   updated_at: string
   modeofpayment: string | null
   qty: number
-  discounted_price: number | string | null // ★ ADDED
-  shipping_fee: number | string | null     // ★ ADDED
-  tracking_link: string | null             // ★ ADDED
-  is_free_shipping: boolean                // ★★ NEW
+  discounted_price: number | string | null
+  shipping_fee: number | string | null
+  tracking_link: string | null
+  is_free_shipping: boolean
 }
 type Product = {
   id: string
@@ -1217,10 +1344,10 @@ type Product = {
 }
 type Buyer = {
   id: string
-  full_name: string | null // NEW
+  full_name: string | null
   phone_number: string | null
   address: string | null
-  membership_id: string | null // ★★ NEW
+  membership_id: string | null
 }
 type TierRow = {
   id: string
@@ -1238,7 +1365,6 @@ type ReturnRefundRow = {
   status: string
   created_at: string
   updated_at: string
-  /** NEW: store the return tracking link in DB */
   refund_tracking_link: string | null
 }
 
@@ -1264,7 +1390,7 @@ type ViewOrder = {
   created_at: string
   updated_at: string
   items: Array<OrderItem>
-  tracking_link?: string | null // ★ ADDED
+  tracking_link?: string | null
 }
 
 /** Grouped view model */
@@ -1278,7 +1404,7 @@ type ViewGroup = {
   paymentSummaryLabel: string
   paymentSummaryTitle: string
   total_amount: number
-  shipping_name: string | null // NEW
+  shipping_name: string | null
   shipping_address: string | null
   phone_number: string | null
   items: Array<OrderItem>
@@ -1291,10 +1417,7 @@ type ViewGroup = {
   siblingCompletedItems: Array<OrderItem>
   completedRRItems: Array<OrderItem & { rrStatus: string | null }>
   discount_total?: number
-  /** ★ NEW: true when ALL purchases in the group are status 'pending' */
   allPending: boolean
-
-  /** ★★ NEW: membership/tier fields for Offer Shipping */
   memberTierName?: string | null
   tierIsFreeDelivery?: boolean
   tierFreeShipRequirement?: number
@@ -1322,37 +1445,59 @@ const busy = ref<BusyState>({
 
 /**
  * IMPORTANT: Make groupIndex NON-REACTIVE.
- * We fill/clear it inside the `orderGroups` computed. If this were reactive,
- * those mutations would retrigger the computed and cause an infinite loop.
  */
 let groupIndex: Record<string, string[]> = Object.create(null)
 
 /* ★ ADDED: per-purchase discounted price cache (final price each) */
 const discountedByPurchase: Record<string, number | null> = reactive({})
 
-/* ★ NEW: per-purchase & per-reference discount redemption caches */
-const discountByPurchase: Record<string, number> = reactive({ })
-const discountByRef: Record<string, number> = reactive({ })
+/* ★ NEW: per-purchase & per-reference discount redemption caches (split by type) */
+const discountByPurchase: Record<string, number> = reactive({}) // legacy aggregation (kept)
+const discountByRef: Record<string, number> = reactive({})       // legacy (kept)
 
-/* ★ NEW: per-reference shipping fee cache (MAX of purchases.shipping_fee) */
+/* NEW: Item-only vs Order-wide breakdown */
+const itemRedeemedByPurchase: Record<string, number> = reactive({})
+const orderRedeemedByPurchase: Record<string, number> = reactive({})
+const itemLabelsByPurchase: Record<string, Set<string>> = reactive({})
+const orderLabelsByRef: Record<string, Set<string>> = reactive({})
+
+/* NEW: computed helpers for sums */
+function itemOnlySumForRef(ref?: string | null): number {
+  if (!ref) return 0
+  const ids = groupIndex[ref] || []
+  const total = ids.reduce((s, pid) => s + (Number(itemRedeemedByPurchase[pid] || 0) || 0), 0)
+  return Number(total.toFixed(2))
+}
+function orderWideSumForRef(ref?: string | null): number {
+  if (!ref) return 0
+  const ids = groupIndex[ref] || []
+  const total = ids.reduce((s, pid) => s + (Number(orderRedeemedByPurchase[pid] || 0) || 0), 0)
+  return Number(total.toFixed(2))
+}
+function totalDiscountsCreditedForRef(ref?: string | null): number {
+  if (!ref) return 0
+  return Number((itemOnlySumForRef(ref) + orderWideSumForRef(ref)).toFixed(2))
+}
+
+/* ★ NEW: per-reference shipping fee cache */
 const shippingByRef: Record<string, number> = reactive({})
 
-/* ★★ NEW: per-reference "has free shipping applied" flag */
+/* ★★ NEW: free shipping flag */
 const freeShipByRef: Record<string, boolean> = reactive({})
 
 /* ★ NEW: single tracking link per reference */
 const trackLinkByRef: Record<string, string> = reactive({})
 
-/* Map purchase -> ref for quick lookup when shipping */
+/* Map purchase -> ref */
 const purchaseRefIndex: Record<string, string> = reactive({})
 
-/* NEW: per-reference shipping offer input can be string OR number (from number input) */
+/* NEW: per-reference shipping offer input */
 const shippingOfferInputByRef: Record<string, string | number> = reactive({})
 
-/* NEW: per-RR return tracking link input cache */
+/* NEW: per-RR return tracking link input */
 const rrTrackById: Record<string, string> = reactive({})
 
-/* ★★ NEW: maps for membership tiers */
+/* ★★ NEW: tiers map */
 const tiersMap = reactive<Record<string, TierRow>>({})
 function tierOfUser(userId?: string | null): TierRow | null {
   if (!userId) return null
@@ -1371,7 +1516,7 @@ busy.value.anyGroup = (k: string): boolean => {
 
 const statusFilter = ref<(typeof tabs)[number]['value']>('all')
 const search = ref('')
-const payment = ref<string>('') // UI-only currently
+const payment = ref<string>('')
 const dateFrom = ref<string>('')
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1383,7 +1528,7 @@ const pageSize = ref(10)
 const total = ref(0)
 const totalPages = computed(() => Math.max(1, Math.ceil(total.value / pageSize.value)))
 
-/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+/* data stores */
 const orders = ref<ViewOrder[]>([])
 const productsMap = reactive<Record<string, Product>>({})
 const buyersMap = reactive<Record<string, Buyer>>({})
@@ -1391,16 +1536,14 @@ const rrByPurchase = reactive<Record<string, ReturnRefundRow[]>>({})
 const signedUrlMap: Record<string, string> = reactive({})
 const signingBusy: Record<string, boolean> = reactive({})
 
-/* NEW: for sibling fetches keyed by reference_number (includes all purchases for that ref) */
+/* siblings keyed by ref */
 const siblingsByRef = reactive<Record<string, PurchaseRow[]>>({})
 
-/* NEW: event discount map by reference_number (event.id) */
+/* event discount map by ref */
 type EventRow = { id: string; winner_refund_amount: number | string }
 const eventDiscountByRef = reactive<Record<string, number>>({})
 
 /* ---------- Helpers ---------- */
-
-// ★ FIX: detect a *real* per-purchase discount (final each < base each)
 function perPurchaseDiscountApplied(purchaseId: string): boolean {
   const per = discountedByPurchase[purchaseId]
   if (per == null) return false
@@ -1412,7 +1555,6 @@ function perPurchaseDiscountApplied(purchaseId: string): boolean {
 
 const number = (n: number | string | null | undefined) => Number(n ?? 0).toFixed(2)
 
-/* Clean formatter: "Dec 18, 2025 • 3 PM" */
 function formatClean(iso?: string) {
   if (!iso) return '—'
   const d = new Date(iso)
@@ -1437,7 +1579,6 @@ const formatDate = (iso?: string) => {
 }
 const shortId = (s: string) => (s ? `${s.slice(0, 6)}…${s.slice(-4)}` : '—')
 
-/* Kept utility */
 function genReference(prefix = 'TXN'): string {
   const ts = new Date()
     .toISOString()
@@ -1449,7 +1590,7 @@ function genReference(prefix = 'TXN'): string {
 
 function prettyStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
-  if (k === 'pending') return 'Pending' // NEW: so badges look nice if you have pending status
+  if (k === 'pending') return 'Pending'
   if (k === STATUS.TO_PAY) return 'To Pay'
   if (k === STATUS.TO_SHIP) return 'To Ship'
   if (k === STATUS.TO_RECEIVE) return 'To Receive'
@@ -1460,7 +1601,7 @@ function prettyStatus(s?: string | null) {
 }
 function statusClass(s?: string | null) {
   const k = String(s || '').toLowerCase()
-  if (k === 'pending') return 'text-bg-light border' // NEW
+  if (k === 'pending') return 'text-bg-light border'
   if (k === STATUS.CANCELLED) return 'text-bg-danger-subtle border'
   if (k === STATUS.RETURN_REFUND) return 'text-bg-warning-subtle border'
   if (k === STATUS.COMPLETED) return 'text-bg-success-subtle border'
@@ -1468,7 +1609,6 @@ function statusClass(s?: string | null) {
   if (k === STATUS.TO_PAY) return 'text-bg-light border'
   return 'text-bg-light border'
 }
-/* Return/refund helpers */
 function prettyRRStatus(s?: string | null) {
   const k = String(s || '').toLowerCase()
   if (k === 'pending') return 'Pending'
@@ -1492,7 +1632,6 @@ function isRRApproved(rr?: ReturnRefundRow) {
   if (!rr) return false
   return String(rr.status || '').toLowerCase() === 'approved'
 }
-/** NEW: latest RR status for a purchase (used for To Receive sibling RR badges) */
 function rrStatusForPurchase(purchaseId: string): string | null {
   const list = rrByPurchase[purchaseId] || []
   if (!list.length) return null
@@ -1530,28 +1669,19 @@ function productThumb(prod?: Product): string {
   return ''
 }
 
-/* ---------- NEW: Event/per-purchase discount helpers ---------- */
+/* ---------- Event/per-purchase discount helpers ---------- */
 function winnerRefundForRef(ref?: string | null): number {
   if (!ref) return 0
   return Number(eventDiscountByRef[ref] ?? 0) || 0
 }
-
-/* CHANGED: treat group as “discounted” if either event refund > 0 OR any purchase under ref has discounted_price */
-// ★ FIX: only treat as discounted if price actually changed
 function hasPerPurchaseDiscount(ref?: string | null): boolean {
   if (!ref) return false
   const ids = groupIndex[ref] || []
   return ids.some(perPurchaseDiscountApplied)
 }
-
-// ★ FIX: event OR real per-purchase discount
 function hasEventDiscount(ref?: string | null): boolean {
   return winnerRefundForRef(ref) > 0 || hasPerPurchaseDiscount(ref)
 }
-
-
-/* use per-purchase discounted_price (final each) when present; else fallback to event-based computation */
-// ★ FIX: only use discounted_price if it's < base; otherwise fall back
 function discountedPriceEachForItem(it: OrderItem, ref?: string | null): number {
   if (perPurchaseDiscountApplied(it.order_id)) {
     return Number(discountedByPurchase[it.order_id])
@@ -1560,11 +1690,43 @@ function discountedPriceEachForItem(it: OrderItem, ref?: string | null): number 
   const less = winnerRefundForRef(ref)
   return Math.max(0, base - less)
 }
-
 function lineTotalAfterDiscount(it: OrderItem, ref?: string | null): number {
   const each = discountedPriceEachForItem(it, ref)
   const qty = Number(it.qty || 1)
   return Number((each * qty).toFixed(2))
+}
+
+/* ---------- NEW: Item-only redemption helpers (UI only; Subtotal intact) ---------- */
+function itemOnlyAmountForPurchase(purchaseId: string): number {
+  return Number(itemRedeemedByPurchase[purchaseId] || 0) || 0
+}
+function hasItemOnlyDiscount(it: OrderItem): boolean {
+  return itemOnlyAmountForPurchase(it.order_id) > 0
+}
+function itemOnlyDiscountedEach(it: OrderItem): number {
+  const qty = Math.max(1, Number(it.qty || 1))
+  const totalDisc = itemOnlyAmountForPurchase(it.order_id)
+  const perEachDisc = totalDisc / qty
+  const base = Number(it.price_each || 0)
+  return Math.max(0, base - perEachDisc)
+}
+function lineTotalAfterItemOnly(it: OrderItem): number {
+  const qty = Math.max(1, Number(it.qty || 1))
+  const totalDisc = itemOnlyAmountForPurchase(it.order_id)
+  const baseLine = Number(it.line_total || 0)
+  return Math.max(0, Number((baseLine - totalDisc).toFixed(2)))
+}
+function itemOnlyLabels(purchaseId: string): string[] {
+  const set = itemLabelsByPurchase[purchaseId]
+  return set ? Array.from(set) : []
+}
+function orderWideLabelsForRef(ref?: string | null): string[] {
+  if (!ref) return []
+  const set = orderLabelsByRef[ref]
+  return set ? Array.from(set) : []
+}
+function trimLabel(lbl: string): string {
+  return lbl.length > 28 ? lbl.slice(0, 27) + '…' : lbl
 }
 
 /* ---------- SHIPPING & DISCOUNT helpers ---------- */
@@ -1577,24 +1739,19 @@ function discountSumForRef(ref?: string | null): number {
   return Number(discountByRef[ref] ?? 0) || 0
 }
 
-/* FIX: subtract redemptions ONLY for purchases under this ref that DO NOT already have a per-purchase discounted_price.
-   This prevents double-subtracting when discounted_price is already the final net price. */
-// ★ FIX: exclude vouchers only when a real per-purchase discount was applied
+/* FIX: effective discount used in totals should be ORDER-WIDE only */
 function effectiveDiscountForRef(ref?: string | null): number {
   if (!ref) return 0
   const ids = groupIndex[ref] || []
   let sum = 0
   for (const pid of ids) {
-    const redemption = Number(discountByPurchase[pid] || 0) || 0
-    if (redemption > 0 && !perPurchaseDiscountApplied(pid)) {
-      sum += redemption
-    }
+    const od = Number(orderRedeemedByPurchase[pid] || 0) || 0
+    sum += od
   }
   return Number(sum.toFixed(2))
 }
 
-
-/* ---------- Subtotals (original vs discounted) ---------- */
+/* ---------- Subtotals (original vs discounted by EVENT only) ---------- */
 function groupItemsTotalOriginal(g: ViewGroup) {
   return g.items.reduce((sum, it) => sum + Number(it.line_total || 0), 0)
 }
@@ -1602,30 +1759,18 @@ function groupItemsTotalDiscounted(g: ViewGroup) {
   if (!hasEventDiscount(g.reference_number)) return groupItemsTotalOriginal(g)
   return g.items.reduce((sum, it) => sum + lineTotalAfterDiscount(it, g.reference_number), 0)
 }
+function groupSubtotalOriginal(g: ViewGroup) { return groupItemsTotalOriginal(g) }
+function groupSubtotalDiscounted(g: ViewGroup) { return groupItemsTotalDiscounted(g) }
+function groupSubtotal(g: ViewGroup) { return groupSubtotalOriginal(g) }
 
-/* Subtotal display (ITEMS ONLY — no shipping) */
-function groupSubtotalOriginal(g: ViewGroup) {
-  return groupItemsTotalOriginal(g)
-}
-function groupSubtotalDiscounted(g: ViewGroup) {
-  return groupItemsTotalDiscounted(g)
-}
-/* kept legacy name used in template */
-function groupSubtotal(g: ViewGroup) {
-  return groupSubtotalOriginal(g)
-}
-
-/* NEW: net items after discounts (event/per-purchase + rewards) */
 function groupItemsNet(g: ViewGroup): number {
   const base = hasEventDiscount(g.reference_number)
     ? groupSubtotalDiscounted(g)
     : groupSubtotalOriginal(g)
-  const less = Number(g.discount_total || 0)
+  const less = Number(g.discount_total || 0) // now only order-wide
   const net = Math.max(0, Number((base - less).toFixed(2)))
   return net
 }
-
-/* NEW: explicit item discount amount (original - discounted) */
 function groupItemDiscountAmount(g: ViewGroup): number {
   if (!hasEventDiscount(g.reference_number)) return 0
   const orig = groupSubtotalOriginal(g)
@@ -1633,7 +1778,6 @@ function groupItemDiscountAmount(g: ViewGroup): number {
   return Math.max(0, Number((orig - disc).toFixed(2)))
 }
 
-/* Helper: pull purchase info for badges & links */
 function purchaseFromGroup(g: ViewGroup, purchaseId: string): ViewOrder | undefined {
   return g.purchases.find((p) => p.id === purchaseId)
 }
@@ -1647,7 +1791,6 @@ function purchaseTrackingLink(g: ViewGroup, purchaseId: string): string | null |
   return purchaseFromGroup(g, purchaseId)?.tracking_link
 }
 
-/* NEW: read the single tracking link per reference (fallback to any purchase link) */
 function refTrackingLink(ref?: string | null): string {
   if (!ref) return ''
   const fromMap = (trackLinkByRef[ref] || '').trim()
@@ -1667,12 +1810,12 @@ function isFreeShippingCandidate(g: ViewGroup): boolean {
   const tierOk = !!g.tierIsFreeDelivery
   const req = Number(g.tierFreeShipRequirement || 0)
   if (!tierOk) return false
-  if (!isFinite(req) || req <= 0) return false // 0 means NOT a candidate (per your rule)
+  if (!isFinite(req) || req <= 0) return false
   const orderNet = groupItemsNet(g)
-  return orderNet >= req // “order total is above the requirement” → qualifies
+  return orderNet >= req
 }
 
-/* ---------- GROUPING (by reference_number) ---------- */
+/* ---------- GROUPING ---------- */
 const orderGroups = computed<ViewGroup[]>(() => {
   const byRef: Record<string, ViewOrder[]> = {}
   for (const o of orders.value) {
@@ -1681,7 +1824,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
     byRef[key].push(o)
   }
 
-  // Clear & rebuild NON-REACTIVE cache safely inside computed
+  // rebuild NON-REACTIVE cache
   for (const k of Object.keys(groupIndex)) delete groupIndex[k]
 
   const groups: ViewGroup[] = []
@@ -1700,7 +1843,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
     const statuses = Array.from(new Set(arr.map((a) => String(a.status || '').toLowerCase())))
     const allToPay = statuses.length === 1 && statuses[0] === STATUS.TO_PAY
     const allToShip = statuses.length === 1 && statuses[0] === STATUS.TO_SHIP
-    const allPending = statuses.length === 1 && statuses[0] === 'pending' // ★ NEW
+    const allPending = statuses.length === 1 && statuses[0] === 'pending'
     const canGroupCancel = statuses.every((s) => s === STATUS.TO_PAY || s === STATUS.TO_SHIP)
 
     let statusSummaryLabel = 'Mixed'
@@ -1722,7 +1865,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
       return buyersMap[uid]?.full_name ?? null
     })()
 
-    const /* ★★ NEW */ tierInfo = (() => {
+    const tierInfo = (() => {
       const uid = arr[0]?.user_id
       const t = uid ? tierOfUser(uid) : null
       return {
@@ -1734,20 +1877,15 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
     const items = arr.flatMap((a) => a.items)
 
-    // Items totals (respect event/per-purchase discount)
     const itemsTotal = hasEventDiscount(ref)
       ? items.reduce((s, it) => s + lineTotalAfterDiscount(it, ref), 0)
       : items.reduce((s, it) => s + Number(it.line_total || 0), 0)
 
-    // ★ CHANGE: In Offer Shipping, also subtract redemption discounts when no per-purchase discounted price
-    // (prevents double-subtract if discounted_price is already applied at item level)
-    // ★ FIX: always use the same “effective” logic on every tab
+    // Only order-wide discounts affect discount_total
     const discount_total_effective = effectiveDiscountForRef(ref)
 
     const shipFee = shippingForRef(ref)
 
-    // Recorded total includes shipping on all tabs EXCEPT Return/Refund,
-    // and EXCLUDES it when free shipping is applied.
     const netAfterDiscounts = Math.max(0, Number((itemsTotal - discount_total_effective).toFixed(2)))
     const includeShipping = statusFilter.value !== STATUS.RETURN_REFUND && !groupFreeShipping(ref)
     const total_amount = Math.max(
@@ -1806,7 +1944,6 @@ const orderGroups = computed<ViewGroup[]>(() => {
       }
     }
 
-    /* ===== NEW: populate RR + Completed siblings for TO_RECEIVE tab ===== */
     if (statusFilter.value === STATUS.TO_RECEIVE) {
       const allForRef: PurchaseRow[] = (siblingsByRef[ref] && siblingsByRef[ref].length)
         ? siblingsByRef[ref]
@@ -1858,7 +1995,6 @@ const orderGroups = computed<ViewGroup[]>(() => {
         }
       }
     }
-    /* ===== /NEW ===== */
 
     groups.push({
       groupKey: ref,
@@ -1882,10 +2018,8 @@ const orderGroups = computed<ViewGroup[]>(() => {
       siblingRRItems,
       siblingCompletedItems,
       completedRRItems,
-      discount_total: discount_total_effective, // expose only the effective discount we subtracted
-      allPending, // ★ NEW
-
-      /** ★★ NEW: tier info for UI */
+      discount_total: discount_total_effective,
+      allPending,
       memberTierName: tierInfo.name,
       tierIsFreeDelivery: tierInfo.perk,
       tierFreeShipRequirement: tierInfo.req,
@@ -1898,7 +2032,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
 
   if (statusFilter.value === STATUS.COMPLETED) {
     out = out.filter((g) => {
-      const allPurchasesForRef = (siblingsByRef[g.reference_number] || [])
+      const allForRef: any[] = (siblingsByRef[g.reference_number] || [])
         .concat(
           g.purchases.map(
             (p) =>
@@ -1920,7 +2054,7 @@ const orderGroups = computed<ViewGroup[]>(() => {
           ),
         )
 
-      for (const pr of allPurchasesForRef) {
+      for (const pr of allForRef) {
         const st = String(pr.status).toLowerCase()
         if (st === STATUS.COMPLETED) continue
         if (st === STATUS.RETURN_REFUND) {
@@ -1942,8 +2076,6 @@ const orderGroups = computed<ViewGroup[]>(() => {
     })
   }
 
-  /* NEW: Offer Shipping tab filter:
-     show refs with shipping_fee == 0 AND ALL purchases are 'pending' */
   if (statusFilter.value === TAB_OFFER_SHIPPING) {
     out = out.filter((g) => isGroupPendingShipping(g))
   }
@@ -1968,7 +2100,7 @@ function groupRRs(g: ViewGroup): ReturnRefundRow[] {
 function getShippingInputRaw(ref: string): string {
   const v = (shippingOfferInputByRef as Record<string, any>)[ref]
   if (v === null || v === undefined) return ''
-  return typeof v === 'string' ? v.trim() : String(v) // ← SAFE COERCION to fix .trim issue
+  return typeof v === 'string' ? v.trim() : String(v)
 }
 function isGroupPendingShipping(g: ViewGroup): boolean {
   const feePending = shippingForRef(g.reference_number) <= 0
@@ -1997,12 +2129,10 @@ async function loadOrders(resetPage = false) {
       .schema('games')
       .from('purchases')
       .select(
-        // ★★ add is_free_shipping
         'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price,shipping_fee,tracking_link,is_free_shipping',
         { count: 'exact' },
       )
 
-    /* CHANGED: avoid filtering by a non-existent status for the custom tab */
     if (statusFilter.value !== 'all' && statusFilter.value !== TAB_OFFER_SHIPPING) q = q.eq('status', statusFilter.value)
 
     if (dateFrom.value) q = q.gte('created_at', new Date(dateFrom.value).toISOString())
@@ -2033,10 +2163,7 @@ async function loadOrders(resetPage = false) {
     const userIds = new Set<string>()
     const purchaseIds = new Set<string>()
     const refSet = new Set<string>()
-    const tierIds = new Set<string>() // ★★ NEW
-
-    // reset group-level caches
-    for (const k of Object.keys(freeShipByRef)) delete freeShipByRef[k]
+    const tierIds = new Set<string>()
 
     for (const p of purchaseRows) {
       if (p.product_id) productIds.add(p.product_id)
@@ -2045,10 +2172,9 @@ async function loadOrders(resetPage = false) {
       if (p.reference_number) {
         refSet.add(p.reference_number)
         purchaseRefIndex[p.id] = p.reference_number
-        if (p.is_free_shipping) freeShipByRef[p.reference_number] = true // ★★ NEW
+        if (p.is_free_shipping) freeShipByRef[p.reference_number] = true
       }
       discountedByPurchase[p.id] = p.discounted_price != null ? Number(p.discounted_price) : null
-      // seed reference tracking link from any existing purchase link if not set yet
       if (p.reference_number && !trackLinkByRef[p.reference_number] && p.tracking_link) {
         trackLinkByRef[p.reference_number] = p.tracking_link
       }
@@ -2081,7 +2207,7 @@ async function loadOrders(resetPage = false) {
         if (!trackLinkByRef[s.reference_number] && s.tracking_link) {
           trackLinkByRef[s.reference_number] = s.tracking_link
         }
-        if (s.is_free_shipping) freeShipByRef[s.reference_number] = true // ★★ NEW
+        if (s.is_free_shipping) freeShipByRef[s.reference_number] = true
       }
       for (const r of refs) siblingsByRef[r] = siblingRows.filter((s) => s.reference_number === r)
     } else {
@@ -2099,7 +2225,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // ★★ pull users with membership_id
     if (userIds.size > 0) {
       const { data: urows } = await supabase
         .from('users')
@@ -2113,7 +2238,6 @@ async function loadOrders(resetPage = false) {
       }
     }
 
-    // ★★ pull membership tiers once
     if (tierIds.size > 0) {
       const { data: trows } = await supabase
         .schema('membership')
@@ -2159,7 +2283,6 @@ async function loadOrders(resetPage = false) {
           const arr = rrByPurchase[r.purchase_id] || []
           arr.push(r)
           rrByPurchase[r.purchase_id] = arr
-          // prime input cache with existing DB value if present
           if (r.refund_tracking_link && !rrTrackById[r.id]) {
             rrTrackById[r.id] = r.refund_tracking_link
           }
@@ -2181,8 +2304,13 @@ async function loadOrders(resetPage = false) {
       }
     }
 
+    // --------- NEW: read discount redemptions + join to rewards.discounts for product_id/scope/type/title ----------
     for (const k of Object.keys(discountByPurchase)) delete discountByPurchase[k]
     for (const k of Object.keys(discountByRef)) delete discountByRef[k]
+    for (const k of Object.keys(itemRedeemedByPurchase)) delete itemRedeemedByPurchase[k]
+    for (const k of Object.keys(orderRedeemedByPurchase)) delete orderRedeemedByPurchase[k]
+    for (const k of Object.keys(itemLabelsByPurchase)) delete itemLabelsByPurchase[k]
+    for (const k of Object.keys(orderLabelsByRef)) delete orderLabelsByRef[k]
 
     if (purchaseIds.size > 0) {
       const { data: drows } = await supabase
@@ -2190,14 +2318,60 @@ async function loadOrders(resetPage = false) {
         .from('discount_redemptions')
         .select('purchase_id,redeemed_amount,discount_id,created_at')
         .in('purchase_id', Array.from(purchaseIds))
-      if (Array.isArray(drows)) {
-        for (const d of drows as DiscountRow[]) {
-          const pid = d.purchase_id
-          const amt = Number(d.redeemed_amount || 0) || 0
-          discountByPurchase[pid] = (discountByPurchase[pid] || 0) + amt
+
+      const allRedemptions = Array.isArray(drows) ? (drows as DiscountRow[]) : []
+      const discountIds = Array.from(new Set(allRedemptions.map(d => d.discount_id).filter(Boolean)))
+
+      // lookup discounts metadata
+      const discountMeta: Record<string, { id: string, title: string | null, product_id: string | null, scope: string | null, type: string | null }> = {}
+      if (discountIds.length) {
+        const { data: meta } = await supabase
+          .schema('rewards')
+          .from('discounts')
+          .select('id,title,product_id,scope,type')
+          .in('id', discountIds)
+        if (Array.isArray(meta)) {
+          for (const m of meta as any[]) {
+            discountMeta[m.id] = {
+              id: m.id,
+              title: m.title ?? null,
+              product_id: m.product_id ?? null,
+              scope: m.scope ?? null,
+              type: m.type ?? null,
+            }
+          }
+        }
+      }
+
+      // categorize per redemption
+      for (const d of allRedemptions) {
+        const pid = d.purchase_id
+        const ref = purchaseRefIndex[pid]
+        const amt = Number(d.redeemed_amount || 0) || 0
+        if (!pid || !isFinite(amt) || amt <= 0) continue
+
+        // legacy aggregates (kept)
+        discountByPurchase[pid] = (discountByPurchase[pid] || 0) + amt
+        if (ref) discountByRef[ref] = (discountByRef[ref] || 0) + amt
+
+        // item-only vs order-wide
+        const meta = discountMeta[d.discount_id] || null
+        const isItemOnly = !!(meta && meta.product_id)
+
+        if (isItemOnly) {
+          itemRedeemedByPurchase[pid] = (itemRedeemedByPurchase[pid] || 0) + amt
+          if (!itemLabelsByPurchase[pid]) itemLabelsByPurchase[pid] = new Set<string>()
+          if (meta?.title) itemLabelsByPurchase[pid]!.add(meta.title)
+        } else {
+          orderRedeemedByPurchase[pid] = (orderRedeemedByPurchase[pid] || 0) + amt
+          if (ref) {
+            if (!orderLabelsByRef[ref]) orderLabelsByRef[ref] = new Set<string>()
+            if (meta?.title) orderLabelsByRef[ref]!.add(meta.title)
+          }
         }
       }
     }
+    // ------------------------------------------------------------------------------------------------------------
 
     for (const ref of Array.from(refSet)) {
       let pids = purchaseRows.filter((p) => p.reference_number === ref).map((p) => p.id)
@@ -2223,8 +2397,6 @@ async function loadOrders(resetPage = false) {
           ? siblingsByRef[ref]
           : purchaseRows.filter((p) => p.reference_number === ref)) || []
       shippingByRef[ref] = maxShippingFrom(list)
-
-      // prime the input with current shipping (if any)
       if (shippingByRef[ref] > 0 && !shippingOfferInputByRef[ref]) {
         shippingOfferInputByRef[ref] = String(shippingByRef[ref])
       }
@@ -2293,7 +2465,7 @@ async function loadOrders(resetPage = false) {
   }
 }
 
-/* ---------- Actions ---------- */
+/* ---------- Actions (unchanged except where noted) ---------- */
 async function updateStatus(purchaseId: string, status: string) {
   busy.value.action[purchaseId] = true
   try {
@@ -2314,7 +2486,7 @@ async function updateStatus(purchaseId: string, status: string) {
   }
 }
 
-/* STOCK RESTORE */
+/* STOCK RESTORE (kept) */
 async function restoreStock(productId?: string | null, qty?: number | null) {
   try {
     const pid = String(productId || '')
@@ -2388,17 +2560,14 @@ async function markAsCompleted(purchaseId: string) {
   await updateStatus(purchaseId, STATUS.COMPLETED)
 }
 
-/* helper: detect e-wallet */
 function isEwalletPayment(method?: string | null) {
   const k = String(method || '').trim().toLowerCase()
   return k === 'ewallet' || k === 'e-wallet' || k === 'e wallet'
 }
-/* NEW helper: detect COD */
 function isCODPayment(method?: string | null) {
   return String(method || '').trim().toLowerCase() === 'cod'
 }
 
-/* ---------- helpers to decide shipping refund conditions ---------- */
 async function allPurchasesCancelledForRef(ref: string): Promise<boolean> {
   const { data: rows } = await supabase
     .schema('games')
@@ -2425,7 +2594,6 @@ async function countCompletedRefundsForRef(ref: string): Promise<number> {
   return rrRows.filter((r) => String(r.status).toLowerCase() === 'completed').length
 }
 
-/* ---------- NEW: helper to read redeemed discount amount for a purchase ---------- */
 async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
   if (purchaseId in discountByPurchase) {
     return Number(discountByPurchase[purchaseId] || 0) || 0
@@ -2444,7 +2612,7 @@ async function redeemedDiscountAmount(purchaseId: string): Promise<number> {
   }
 }
 
-/* ===== E-WALLET RPC helper (REPLACES any direct users.balance updates) ===== */
+/* ===== E-WALLET RPC helper (kept) ===== */
 async function applyTxPesos(
   userId: string,
   amountPeso: number,
@@ -2463,7 +2631,6 @@ async function applyTxPesos(
     p_idempotency: idempotency ?? null,
   } as any
 
-  // Try namespaced function first (ewallet.apply_tx_pesos), then fallback to public wrapper (apply_tx_pesos)
   let { data, error } = await supabase.schema('ewallet').rpc('apply_tx_pesos' as any, args)
   if (error) {
     const fallback = await supabase.schema('ewallet').rpc('apply_tx_pesos' as any, args)
@@ -2485,7 +2652,6 @@ async function applyTxPesos(
 }
 /* ===== /E-WALLET RPC helper ===== */
 
-/* CANCEL ORDER (kept from previous) */
 async function cancelOrder(purchaseId: string, skipConfirm = false) {
   if (!skipConfirm && !confirm('Cancel this order?')) return
   const order = orders.value.find((o) => o.id === purchaseId)
@@ -2520,21 +2686,18 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         alert(upErr.message); return
       }
 
-      // OLD (kept): compute original subtotal
+      // compute effective item amount (kept + event)
       let itemsSubtotal = order!.items.reduce((s, it) => s + Number(it.line_total || 0), 0)
 
-      // ★★★ NEW: override subtotal with DISCOUNTED logic for ewallet + to ship
       {
         const ref = order!.reference_number || purchaseRefIndex[purchaseId]
         const firstItem = order!.items?.[0]
         const qty = Number(firstItem?.qty ?? 1) || 1
 
-        // 1) if purchase has a real discounted_price from DB, refund that × qty
         const perPurchaseDisc = discountedByPurchase[purchaseId]
         if (perPurchaseDisc != null && isFinite(Number(perPurchaseDisc))) {
           itemsSubtotal = Number((Number(perPurchaseDisc) * qty).toFixed(2))
         } else {
-          // 2) else, check event-based discount for this reference
           const baseEach = Number(firstItem?.price_each ?? 0)
           const eventLess = winnerRefundForRef(ref)
           const effectiveEach = Math.max(0, baseEach - Number(eventLess || 0))
@@ -2547,7 +2710,6 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
 
       const userId = order!.user_id
 
-      /* ===== CHANGED: use RPC to credit items refund ===== */
       await applyTxPesos(
         userId,
         netRefundItems,
@@ -2573,7 +2735,6 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
         if (order!.reference_number && (await allPurchasesCancelledForRef(order!.reference_number))) {
           const ship = shippingForRef(order!.reference_number)
           if (ship > 0) {
-            /* ===== CHANGED: use RPC to credit shipping refund when entire ref cancelled ===== */
             await applyTxPesos(
               order!.user_id,
               ship,
@@ -2632,7 +2793,7 @@ async function cancelOrder(purchaseId: string, skipConfirm = false) {
   }
 }
 
-/* Approve order (unchanged) */
+/* Approve order (kept) */
 async function approveOrder(order: ViewOrder) {
   const purchaseId = order.id
   busy.value.action[purchaseId] = true
@@ -2689,7 +2850,7 @@ async function addToPurchasesPerMonth(userId: string, amount: number) {
   await supabase.from('users').update({ purchases_per_month: next }).eq('id', userId)
 }
 
-/* Approve/Reject/Complete Refund */
+/* Approve/Reject/Complete Refund (kept) */
 async function approveRefund(rr: ReturnRefundRow) {
   if (!rr) return
   const rrId = rr.id
@@ -2718,7 +2879,6 @@ async function rejectRefund(rr: ReturnRefundRow) {
   const rrId = rr.id
   busy.value.action[rrId] = true
   try {
-    // 1) Update RR status to rejected
     const { error } = await supabase
       .schema('games')
       .from('return_refunds')
@@ -2727,7 +2887,6 @@ async function rejectRefund(rr: ReturnRefundRow) {
     if (error) { alert(error.message); return }
     rr.status = 'rejected'
 
-    // 2) Add item price * qty to users.purchases_per_month
     const { data: purchase, error: pErr } = await supabase
       .schema('games')
       .from('purchases')
@@ -2745,7 +2904,6 @@ async function rejectRefund(rr: ReturnRefundRow) {
         const qty = Number(purchase.qty ?? 1) || 1
         const baseEach = Number(product.price || 0)
 
-        // Prefer per-purchase discounted price if truly applied; else use event discount; else base
         let effectiveEach =
           discountedByPurchase[purchase.id] != null ? Number(discountedByPurchase[purchase.id]) : NaN
 
@@ -2785,9 +2943,7 @@ async function completeRefund(rr: ReturnRefundRow) {
 
     const ref = purchase.reference_number
 
-    /* === CHANGED: Never refund shipping for completed refunds === */
-    let includeShipping = false
-    // (previous logic disabled by request)
+    let includeShipping = false // disabled by design
 
     const { data: product, error: prodErr } = await supabase
       .schema('games')
@@ -2828,7 +2984,6 @@ async function completeRefund(rr: ReturnRefundRow) {
       })
     } catch {}
 
-    /* ===== CHANGED: use RPC to credit product refund ===== */
     await applyTxPesos(
       purchase.user_id,
       productRefund,
@@ -2837,9 +2992,8 @@ async function completeRefund(rr: ReturnRefundRow) {
       `rr:${rrId}`,
     )
 
-    // NOTE: Shipping refund is intentionally disabled
     if (includeShipping && ref) {
-      /* no-op by design */
+      /* no-op */
     }
 
     await restoreStock(rr.product_id || purchase.product_id, qty)
@@ -2849,7 +3003,7 @@ async function completeRefund(rr: ReturnRefundRow) {
   }
 }
 
-/* GROUP ACTIONS */
+/* GROUP ACTIONS (kept) */
 async function approveGroup(g: ViewGroup) {
   for (const o of g.purchases) {
     if (o.status === STATUS.TO_PAY) {
@@ -2879,7 +3033,7 @@ async function cancelGroup(g: ViewGroup) {
   }
 }
 
-/* Filters & pagination */
+/* Filters & pagination (kept) */
 function setStatus(v: (typeof tabs)[number]['value']) {
   if (statusFilter.value !== v) {
     statusFilter.value = v
@@ -2919,7 +3073,7 @@ function viewReturnDetails() {
   loadOrders(true)
 }
 
-/* ===== Modal state & helpers ===== */
+/* ===== Modal state & helpers (kept + small adds) ===== */
 const selectedRef = ref<string | null>(null)
 const selectedGroup = computed(
   () => orderGroups.value.find((g) => g.reference_number === selectedRef.value) || null,
@@ -2929,7 +3083,6 @@ const selectedGroupHasToShip = computed(() =>
 )
 function openGroupModal(g: ViewGroup) {
   selectedRef.value = g.reference_number
-  // Initialize ref link if missing from any purchase that has it
   if (!trackLinkByRef[g.reference_number]) {
     const found = g.purchases.find(p => (p.tracking_link || '').trim())
     if (found?.tracking_link) trackLinkByRef[g.reference_number] = found.tracking_link
@@ -2943,10 +3096,10 @@ onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 /* ===== /Modal ===== */
 
-/* ===== NEW: Offer Shipping actions ===== */
+/* ===== Offer Shipping actions (kept) ===== */
 async function offerShipping(g: ViewGroup) {
   const ref = g.reference_number
-  const raw = getShippingInputRaw(ref) // SAFE
+  const raw = getShippingInputRaw(ref)
   const amount = Number(raw)
   if (!isFinite(amount) || amount < 0) {
     alert('Please enter a valid shipping fee (₱).')
@@ -2957,24 +3110,22 @@ async function offerShipping(g: ViewGroup) {
     const { error } = await supabase
       .schema('games')
       .from('purchases')
-      .update({ shipping_fee: amount, is_free_shipping: false }) // ensure not flagged as free ship if fee is set
+      .update({ shipping_fee: amount, is_free_shipping: false })
       .eq('reference_number', ref)
 
     if (error) {
       alert(error.message)
       return
     }
-    // Update local cache & refresh
     shippingByRef[ref] = Number(amount.toFixed(2))
     freeShipByRef[ref] = false
-    await loadOrders() // refresh totals and hide from the tab if not pending anymore
+    await loadOrders()
     alert('Shipping fee saved for this reference.')
   } finally {
     busy.value.action[`offer:${ref}`] = false
   }
 }
 
-/** ★★ Make Free Shipping: sets games.purchases.is_free_shipping = true and shipping_fee = 0 for the whole reference */
 async function makeFreeShipping(g: ViewGroup) {
   const ref = g.reference_number
   busy.value.action[`offer:${ref}`] = true
@@ -2989,7 +3140,6 @@ async function makeFreeShipping(g: ViewGroup) {
       alert(error.message)
       return
     }
-    // reflect locally
     freeShipByRef[ref] = true
     shippingByRef[ref] = 0
     shippingOfferInputByRef[ref] = '0'

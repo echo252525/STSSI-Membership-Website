@@ -205,7 +205,7 @@
         </div>
       </div>
 
-      <!-- ===== Product Preview (Aesthetic slideshow w/ hover, arrows, membership discount) ===== -->
+      <!-- ===== Product Preview (kept) ===== -->
       <div class="panel card border-0 shadow-sm rounded-4" v-reveal style="--i: 1">
         <div class="card-body">
           <div class="panel-head">
@@ -355,47 +355,121 @@
       </div>
     </section>
 
-    <!-- ===== BIG DISCOUNTS ===== -->
+    <!-- ===== UPCOMING DISCOUNTS (replaces Big Discounts panel UI) ===== -->
     <section class="card border-0 shadow-sm rounded-4" v-reveal>
-      <div class="card-body">
-        <div class="panel-head">
+      <div class="card-body p-0 discounts-panel">
+        <div class="panel-head px-3 px-sm-4 pt-3 pb-2">
           <h3 class="h6 m-0 d-flex align-items-center gap-2">
-            <i class="bi bi-fire"></i> Big Discounts
+            <i class="bi bi-fire"></i> Upcoming Discounts
           </h3>
-          <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm"
-            >Go to Shop</router-link
+          <router-link to="/app/deals" class="btn btn-outline-secondary btn-sm"
+            >See all</router-link
           >
         </div>
 
-        <div v-if="productsLoading" class="skeleton-scroll">
-          <div class="skeleton-prod" v-for="i in 7" :key="'psk' + i"></div>
+        <!-- Skeleton -->
+        <div v-if="discountsLoading" class="discounts-skeleton">
+          <div class="dsk dsk-banner"></div>
+          <div class="dsk dsk-side" v-for="i in 4" :key="'dsk' + i"></div>
         </div>
 
-        <div v-else-if="bigDiscounts.length === 0" class="empty-state">
+        <!-- Empty -->
+        <div v-else-if="rankedScheduled.length === 0" class="empty-state">
           <i class="bi bi-emoji-smile"></i>
-          <div>No big discounts right now.</div>
+          <div>No scheduled discounts yet.</div>
         </div>
 
-        <div v-else class="products-scroll">
-          <div v-for="p in bigDiscounts" :key="p.id" class="prod-card glass" v-tilt>
-            <div class="thumb">
-              <img v-if="p.thumbnail_url" :src="p.thumbnail_url" :alt="p.name" />
-              <div v-else class="thumb-fallback"><i class="bi bi-image"></i></div>
-              <div class="off-pill">-{{ number(p._discount_pct) }}%</div>
+        <!-- Layout: Feature + side list -->
+        <div v-else class="disc-layout">
+          <!-- FEATURED UPCOMING DISCOUNT -->
+          <div
+            class="disc-banner"
+            ref="discBannerEl"
+            v-tilt
+            v-reveal
+            v-if="featureDiscount"
+            :key="featureDiscount.id"
+          >
+            <div class="disc-art" v-if="featureDiscount.imageUrl">
+              <img :src="featureDiscount.imageUrl" alt="Discount" />
             </div>
-            <div class="pname text-truncate" :title="p.name">{{ p.name }}</div>
-            <div class="prices">
-              <span class="now">{{ peso(p.price_now) }}</span>
-              <span class="was" v-if="p.price_was && p.price_was > p.price_now">{{
-                peso(p.price_was)
-              }}</span>
+
+            <div class="disc-top">
+              <span class="pill alt"><i class="bi bi-calendar-event me-1"></i> Scheduled</span>
+              <span class="pill"
+                ><i class="bi bi-cash-stack me-1"></i>{{ featureDiscount.estLabel }}</span
+              >
             </div>
+
+            <h4 class="disc-title text-truncate" :title="featureDiscount.title">
+              {{ featureDiscount.title }}
+            </h4>
+            <p class="disc-muted" v-if="featureDiscount.shortDesc">{{ featureDiscount.shortDesc }}</p>
+
+            <div class="disc-meta">
+              <span class="chip">
+                <i class="bi bi-clock me-1"></i>{{ startsInLabel(featureDiscount.starts_at) }}
+              </span>
+              <span class="chip" v-if="featureDiscount.scope === 'product'">
+                <i class="bi bi-bag me-1"></i>{{ featureDiscount.productName || 'Specific product' }}
+              </span>
+              <span class="chip" v-else>
+                <i class="bi bi-receipt me-1"></i>Order-wide
+              </span>
+            </div>
+
             <router-link
-              :to="{ path: '/app/shop', query: { focus: p.id } }"
-              class="btn btn-sm btn-outline-secondary w-100 mt-2"
+              :to="{ path: '/app/deals', query: { focus: featureDiscount.id } }"
+              class="btn btn-play btn-white mt-2"
             >
-              View
+              <i class="bi bi-eye-fill me-1"></i> View Details
             </router-link>
+          </div>
+
+          <!-- SIDE LIST -->
+          <div class="side-wrap">
+            <div
+              class="side-list side-list-discounts scrollable"
+              ref="discSideListEl"
+              :style="{ maxHeight: discSideListH + 'px' }"
+            >
+              <button
+                v-for="d in sideDiscounts"
+                :key="d.id"
+                type="button"
+                class="side-item side-item-discount"
+                :class="{ active: isDiscSelected(d.id) }"
+                @click="selectFeatureDiscount(d.id)"
+                :aria-selected="isDiscSelected(d.id)"
+                :title="d.title"
+              >
+                <div class="icon-slot">
+                  <img v-if="d.imageUrl" :src="d.imageUrl" alt="Product" />
+                  <i v-else class="bi bi-ticket-perforated"></i>
+                </div>
+                <div class="body">
+                  <div class="title text-truncate">{{ d.title }}</div>
+                  <div class="tiny">
+                    <i class="bi bi-cash-coin me-1"></i>{{ d.estLabel }}
+                    <span class="sep">•</span>
+                    <i class="bi bi-clock me-1"></i>{{ startsAtShort(d.starts_at) }}
+                  </div>
+                </div>
+                <i class="bi bi-chevron-right caret"></i>
+              </button>
+            </div>
+
+            <!-- Scroll hints -->
+            <div class="side-hint floating" v-if="discSideScrollHintVisible" aria-hidden="true">
+              <i class="bi bi-arrow-down-short"></i>
+            </div>
+            <div
+              class="side-hint floating up"
+              v-if="discSideScrollHintUpVisible"
+              aria-hidden="true"
+            >
+              <i class="bi bi-arrow-up-short"></i>
+            </div>
           </div>
         </div>
       </div>
@@ -509,7 +583,7 @@ type ProdRow = {
   description?: string | null
 }
 
-/* ------ Big Discounts ------ */
+/* ------ Big Discounts (kept for other uses / preview fallback) ------ */
 const bigDiscounts = ref<ProdRow[]>([])
 const productsLoading = ref(true)
 
@@ -1057,6 +1131,216 @@ async function loadLiveTiersAndUser() {
   } catch {}
 }
 
+/* =================== UPCOMING (SCHEDULED) DISCOUNTS =================== */
+
+type DiscountScope = 'order' | 'product'
+type DiscountType = 'percent' | 'fixed_amount' | 'free_shipping'
+
+type RawDiscount = {
+  id: string
+  title: string
+  description: string | null
+  code: string | null
+  is_public: boolean
+  type: DiscountType
+  scope: DiscountScope
+  percent_off: number | null
+  amount_off: number | null
+  currency: string
+  min_subtotal: number
+  stack: string
+  max_uses_global: number | null
+  max_uses_per_user: number | null
+  redemptions_count: number
+  status: string
+  starts_at: string
+  expires_at: string | null
+  product_id: string | null
+  max_discount_amount: number | null
+}
+
+type DiscountCard = {
+  id: string
+  title: string
+  shortDesc: string | null
+  type: DiscountType
+  scope: DiscountScope
+  percent_off: number | null
+  amount_off: number | null
+  max_discount_amount: number | null
+  min_subtotal: number
+  starts_at: string
+  expires_at: string | null
+  product_id: string | null
+  productName?: string | null
+  imageUrl?: string | null
+  estSavings: number
+  estLabel: string
+}
+
+const discountsLoading = ref(true)
+const scheduledRaw = ref<RawDiscount[]>([])
+const upcomingDiscounts = ref<DiscountCard[]>([])
+const selectedDiscountId = ref<string | null>(null)
+
+const rankedScheduled = computed<DiscountCard[]>(() => {
+  return [...upcomingDiscounts.value].sort((a, b) => {
+    if (b.estSavings !== a.estSavings) return b.estSavings - a.estSavings
+    // Tie-breaker: earlier start first
+    return new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+  })
+})
+
+const featureDiscount = computed<DiscountCard | null>(() => {
+  if (!rankedScheduled.value.length) return null
+  const fromSel = selectedDiscountId.value
+    ? rankedScheduled.value.find((d) => d.id === selectedDiscountId.value)
+    : null
+  return fromSel || rankedScheduled.value[0]
+})
+
+const sideDiscounts = computed<DiscountCard[]>(() => {
+  const fid = featureDiscount.value?.id
+  return rankedScheduled.value.filter((d) => d.id !== fid)
+})
+
+function isDiscSelected(id: string) {
+  return (selectedDiscountId.value ?? rankedScheduled.value[0]?.id) === id
+}
+function selectFeatureDiscount(id: string) {
+  selectedDiscountId.value = id
+  discBannerEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
+
+/* --- Savings estimation & labels --- */
+function round2(n: number) {
+  return Math.round(n * 100) / 100
+}
+function estSavingsFor(
+  r: RawDiscount,
+  productPrice?: number | null,
+): number {
+  const t = r.type
+  if (t === 'free_shipping') return 0
+  if (t === 'fixed_amount') return Math.max(0, Number(r.amount_off || 0))
+
+  // percent
+  const pct = Math.max(0, Number(r.percent_off || 0)) / 100
+  const cap = r.max_discount_amount == null ? Infinity : Math.max(0, Number(r.max_discount_amount))
+  if (r.scope === 'product') {
+    const base = Math.max(0, Number(productPrice ?? 0))
+    if (!base) return 0
+    return round2(Math.min(base * pct, cap))
+  } else {
+    const base = Math.max(0, Number(r.min_subtotal || 0))
+    if (!base && cap < Infinity) return round2(cap) // if no min, show cap as potential
+    return round2(Math.min(base * pct, cap))
+  }
+}
+function labelFor(r: RawDiscount, est: number, productPrice?: number | null): string {
+  if (r.type === 'free_shipping') return 'Free shipping'
+  if (r.type === 'fixed_amount') return `${peso(r.amount_off || 0)} off`
+
+  const pct = Number(r.percent_off || 0)
+  const cap = r.max_discount_amount
+  if (r.scope === 'product' && productPrice) {
+    if (cap != null) return `Up to ${peso(Math.min(est, cap))} (${pct}% off)`
+    return `${pct}% off (~${peso(est)})`
+  } else {
+    if (cap != null && cap > 0) return `Up to ${peso(cap)} (${pct}% off)`
+    if (r.min_subtotal) return `${pct}% off (min spend ${peso(r.min_subtotal)})`
+    return `${pct}% off`
+  }
+}
+
+/* --- Fetch scheduled discounts + related product info --- */
+async function fetchScheduledDiscounts() {
+  discountsLoading.value = true
+  try {
+    // Pull scheduled discounts
+    const { data: drows, error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .select(
+        'id,title,description,code,is_public,type,scope,percent_off,amount_off,currency,min_subtotal,stack,max_uses_global,max_uses_per_user,redemptions_count,status,starts_at,expires_at,product_id,max_discount_amount',
+      )
+      .eq('status', 'scheduled')
+      .order('starts_at', { ascending: true })
+      .limit(100)
+
+    if (error) throw error
+    scheduledRaw.value = (drows || []) as RawDiscount[]
+
+    // Gather product ids
+    const productIds = Array.from(
+      new Set(
+        (scheduledRaw.value || [])
+          .map((r) => r.product_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+
+    const productMap: Record<string, ProdRow> = {}
+    if (productIds.length) {
+      const { data: prows } = await supabase
+        .schema('games')
+        .from('products')
+        .select('id,name,price,price_now,original_price,price_was,product_url,thumbnail_url')
+        .in('id', productIds)
+
+      const mapped: ProdRow[] = (prows || []).map((r: any) => {
+        const price_now = Number(r.price_now ?? r.price ?? 0)
+        const price_was = r.price_was ?? r.original_price ?? null
+        const p: ProdRow = {
+          id: r.id,
+          name: String(r.name ?? 'Unnamed'),
+          price_now,
+          price_was: price_was ? Number(price_was) : null,
+          thumbnail_url: r.thumbnail_url ?? (Array.isArray(r.product_url) ? r.product_url[0] : r.product_url) ?? null,
+          _discount_pct: 0,
+          description: null,
+        }
+        return p
+      })
+
+      // Attach storage images if any
+      await attachProductImages(mapped)
+      for (const p of mapped) productMap[p.id] = p
+    }
+
+    // Map to cards with estimated savings
+    upcomingDiscounts.value = scheduledRaw.value.map((r) => {
+      const prod = r.product_id ? productMap[r.product_id] : undefined
+      const prodPrice = prod ? prod.price_now : null
+      const est = estSavingsFor(r, prodPrice)
+      const label = labelFor(r, est, prodPrice)
+      return {
+        id: r.id,
+        title: r.title,
+        shortDesc: (r.description || '')?.length > 120 ? (r.description || '').slice(0, 118) + '…' : (r.description || ''),
+        type: r.type,
+        scope: r.scope,
+        percent_off: r.percent_off,
+        amount_off: r.amount_off,
+        max_discount_amount: r.max_discount_amount,
+        min_subtotal: r.min_subtotal,
+        starts_at: r.starts_at,
+        expires_at: r.expires_at,
+        product_id: r.product_id,
+        productName: prod?.name ?? null,
+        imageUrl: prod?.thumbnail_url ?? null,
+        estSavings: est,
+        estLabel: label,
+      } as DiscountCard
+    })
+  } catch (e) {
+    console.warn('[scheduled discounts] load failed:', e)
+    upcomingDiscounts.value = []
+  } finally {
+    discountsLoading.value = false
+  }
+}
+
 /* ------- Realtime ------- */
 let chGames: any = null
 let chOrders: any = null
@@ -1064,6 +1348,7 @@ let chProducts: any = null
 let chUser: any = null
 let chReferrals: any = null
 let chPubProducts: any = null
+let chDiscounts: any = null
 
 function startRealtime() {
   try {
@@ -1142,10 +1427,22 @@ function startRealtime() {
         )
         .subscribe()
     }
+
+    // Realtime for scheduled discounts
+    chDiscounts = supabase
+      .channel('rt:rewards.discounts:scheduled')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'rewards', table: 'discounts', filter: 'status=eq.scheduled' },
+        async () => {
+          await fetchScheduledDiscounts()
+        },
+      )
+      .subscribe()
   } catch {}
 }
 
-/* ------- Feature selection / UI helpers ------- */
+/* ------- Feature selection / UI helpers for games ------- */
 const gamesPanelEl = ref<HTMLElement | null>(null)
 function selectFeature(id: string) {
   selectedGameId.value = id
@@ -1157,7 +1454,7 @@ watch(openGames, () => {
   }
 })
 
-/* ------- Side list height sync to banner ------- */
+/* ------- Side list height sync to banner (games) ------- */
 const bannerEl = ref<HTMLElement | null>(null)
 const sideListH = ref(320)
 let roBanner: ResizeObserver | null = null
@@ -1167,7 +1464,7 @@ function syncSideListHeight() {
   updateSideScrollHint()
 }
 
-/* ------- Scroll hint state for side list ------- */
+/* ------- Scroll hint (games) ------- */
 const sideListEl = ref<HTMLElement | null>(null)
 const sideScrollHintVisible = ref(false)
 const sideScrollHintUpVisible = ref(false)
@@ -1187,55 +1484,34 @@ function updateSideScrollHint() {
   sideScrollHintUpVisible.value = canScroll && atBottom && !atTop
 }
 
-/* ------- Simple animation directives ------- */
-const vReveal = {
-  mounted(el: HTMLElement) {
-    el.classList.add('reveal-init')
-    const io = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((en) => {
-          if (en.isIntersecting) {
-            el.style.transitionDelay = `${Number(getComputedStyle(el).getPropertyValue('--i') || 0) * 60}ms`
-            el.classList.add('reveal-in')
-            io.unobserve(el)
-          }
-        })
-      },
-      { threshold: 0.12 },
-    )
-    io.observe(el)
-    ;(el as any)._io = io
-  },
-  unmounted(el: HTMLElement) {
-    ;(el as any)._io?.disconnect?.()
-  },
+/* ------- Side list height sync to banner (discounts) ------- */
+const discBannerEl = ref<HTMLElement | null>(null)
+const discSideListEl = ref<HTMLElement | null>(null)
+const discSideListH = ref(320)
+let roDiscBanner: ResizeObserver | null = null
+
+function syncDiscSideListHeight() {
+  const h = discBannerEl.value?.offsetHeight || 320
+  discSideListH.value = Math.max(240, Math.round(h))
+  updateDiscSideScrollHint()
 }
-const vTilt = {
-  mounted(el: HTMLElement) {
-    el.style.transformStyle = 'preserve-3d'
-    el.style.perspective = '900px'
-    const onMove = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect()
-      const x = e.clientX - rect.left
-      const y = e.clientY - rect.top
-      const rx = (y / rect.height - 0.5) * -6
-      const ry = (x / rect.width - 0.5) * 6
-      el.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg) translateZ(0)`
-    }
-    const onLeave = () => {
-      el.style.transition = 'transform .25s ease'
-      el.style.transform = 'rotateX(0) rotateY(0)'
-      setTimeout(() => (el.style.transition = ''), 260)
-    }
-    el.addEventListener('mousemove', onMove)
-    el.addEventListener('mouseleave', onLeave)
-    ;(el as any)._tiltMove = onMove
-    ;(el as any)._tiltLeave = onLeave
-  },
-  unmounted(el: HTMLElement) {
-    el.removeEventListener('mousemove', (el as any)._tiltMove)
-    el.removeEventListener('mouseleave', (el as any)._tiltLeave)
-  },
+
+/* ------- Scroll hint (discounts) ------- */
+const discSideScrollHintVisible = ref(false)
+const discSideScrollHintUpVisible = ref(false)
+function updateDiscSideScrollHint() {
+  const el = discSideListEl.value
+  if (!el) {
+    discSideScrollHintVisible.value = false
+    discSideScrollHintUpVisible.value = false
+    return
+  }
+  const canScroll = el.scrollHeight - el.clientHeight > 4
+  const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 4
+  const atTop = el.scrollTop <= 4
+
+  discSideScrollHintVisible.value = canScroll && !atBottom
+  discSideScrollHintUpVisible.value = canScroll && atBottom && !atTop
 }
 
 /* ------- Lifecycle ------- */
@@ -1247,32 +1523,54 @@ onMounted(async () => {
     fetchProfileAndTier(),
     fetchOpenGames(),
     fetchOrderUpdates(),
-    fetchBigDiscounts(),
+    fetchBigDiscounts(),                 // kept (used by preview fallback)
     fetchPublishedProductsForPreview(),
   ])
 
   await Promise.all([fetchUserWalletAndPurchases(), fetchReferralCount()])
 
+  // Load membership visuals/discount
   await loadLiveTiersAndUser()
+
+  // Load scheduled discounts
+  await fetchScheduledDiscounts()
+
   startRealtime()
 
   await nextTick()
+  // Games sync
   syncSideListHeight()
   if ('ResizeObserver' in window && bannerEl.value) {
     roBanner = new ResizeObserver(syncSideListHeight)
     roBanner.observe(bannerEl.value)
   }
   window.addEventListener('resize', syncSideListHeight)
-
   if (sideListEl.value) {
     sideListEl.value.addEventListener('scroll', updateSideScrollHint)
     updateSideScrollHint()
+  }
+
+  // Discounts sync
+  syncDiscSideListHeight()
+  if ('ResizeObserver' in window && discBannerEl.value) {
+    roDiscBanner = new ResizeObserver(syncDiscSideListHeight)
+    roDiscBanner.observe(discBannerEl.value)
+  }
+  window.addEventListener('resize', syncDiscSideListHeight)
+  if (discSideListEl.value) {
+    discSideListEl.value.addEventListener('scroll', updateDiscSideScrollHint)
+    updateDiscSideScrollHint()
   }
 })
 
 watch([openGames, selectedGameId], async () => {
   await nextTick()
   updateSideScrollHint()
+})
+
+watch(rankedScheduled, async () => {
+  await nextTick()
+  updateDiscSideScrollHint()
 })
 
 onBeforeUnmount(() => {
@@ -1283,9 +1581,13 @@ onBeforeUnmount(() => {
   if (chUser) supabase.removeChannel(chUser)
   if (chReferrals) supabase.removeChannel(chReferrals)
   if (chPubProducts) supabase.removeChannel(chPubProducts)
+  if (chDiscounts) supabase.removeChannel(chDiscounts)
   roBanner?.disconnect?.()
+  roDiscBanner?.disconnect?.()
   window.removeEventListener('resize', syncSideListHeight)
+  window.removeEventListener('resize', syncDiscSideListHeight)
   if (sideListEl.value) sideListEl.value.removeEventListener('scroll', updateSideScrollHint)
+  if (discSideListEl.value) discSideListEl.value.removeEventListener('scroll', updateDiscSideScrollHint)
 })
 
 /* ===== New: reactive style for background image ===== */
@@ -1293,6 +1595,24 @@ const ppBgStyle = computed(() => {
   const url = currentPreview.value?.thumbnail_url
   return url ? { backgroundImage: `url('${url}')` } : {}
 })
+
+/* ===== Date helpers for Upcoming Discounts ===== */
+function startsAtShort(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+function startsInLabel(iso: string) {
+  const now = Date.now()
+  const t = new Date(iso).getTime()
+  const diffMs = t - now
+  if (diffMs <= 0) return 'Starting soon'
+  const mins = Math.round(diffMs / 60000)
+  if (mins < 60) return `Starts in ${mins}m`
+  const hrs = Math.round(mins / 60)
+  if (hrs < 48) return `Starts in ${hrs}h`
+  const days = Math.round(hrs / 24)
+  return `Starts in ${days}d`
+}
 </script>
 
 <style scoped>
@@ -1774,7 +2094,7 @@ const ppBgStyle = computed(() => {
   }
 }
 
-/* ===== Product Preview ===== */
+/* ===== Product Preview (kept) ===== */
 .pp-skeleton {
   display: grid;
   gap: 12px;
@@ -2132,7 +2452,7 @@ const ppBgStyle = computed(() => {
   transform: translateX(-12px);
 }
 
-/* ===== Products ===== */
+/* ===== Products scroll (kept styles) ===== */
 .products-scroll {
   display: grid;
   gap: 10px;
@@ -2276,5 +2596,143 @@ const ppBgStyle = computed(() => {
   .pp-h-content {
     padding-right: 6px;
   }
+}
+
+/* =================================================================== */
+/* ====================  UPCOMING DISCOUNTS PANEL  ==================== */
+/* =================================================================== */
+.discounts-panel {
+  --dk-ink: #0f172a;
+  --dk-muted: #64748b;
+  --dk-card: rgba(255,255,255,0.9);
+  --dk-edge: #e9eef3;
+  --dk-acc: #0ea5e9; /* accent for pills */
+  padding: 0;
+}
+
+.discounts-skeleton {
+  position: relative;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 14px;
+}
+.discounts-skeleton .dsk {
+  background: linear-gradient(90deg, #eef2f7, #e2e8f0, #eef2f7);
+  background-size: 200% 100%;
+  animation: sk 1.2s infinite linear;
+  border-radius: 18px;
+  opacity: 0.7;
+}
+.discounts-skeleton .dsk-banner {
+  height: 240px;
+}
+.discounts-skeleton .dsk-side {
+  height: 78px;
+  margin-bottom: 10px;
+}
+
+.disc-layout {
+  display: grid;
+  grid-template-columns: 1.4fr 0.8fr;
+  gap: 14px;
+  padding: 10px 12px 14px 12px;
+}
+@media (max-width: 992px) {
+  .disc-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.disc-banner {
+  position: relative;
+  border-radius: 20px;
+  padding: 18px;
+  min-height: 240px;
+  color: var(--dk-ink);
+  background:
+    linear-gradient(135deg, #f8fafc, #ffffff),
+    radial-gradient(120% 120% at 20% 10%, rgba(14,165,233,0.12), transparent 60%);
+  border: 1px solid var(--dk-edge);
+  box-shadow:
+    0 8px 24px rgba(2, 6, 23, 0.06) inset,
+    0 10px 24px rgba(2, 6, 23, 0.04);
+  overflow: hidden;
+}
+.disc-art {
+  position: absolute;
+  inset: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  mask-image: linear-gradient(to left, rgba(0,0,0,.9), rgba(0,0,0,0));
+}
+.disc-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: .14;
+}
+
+.disc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.pill.alt {
+  background: #0ea5e91a;
+  color: #0ea5e9;
+  border-color: #0ea5e933;
+}
+.btn-white {
+  background: #fff;
+  color: #0f172a;
+}
+
+.disc-title {
+  position: relative;
+  z-index: 1;
+  font-size: 1.45rem;
+  font-weight: 900;
+  margin: 0.45rem 0 0.25rem;
+  letter-spacing: 0.2px;
+}
+.disc-muted {
+  position: relative;
+  z-index: 1;
+  margin: 0.25rem 0 0.6rem;
+  color: var(--dk-muted);
+}
+
+.disc-meta .chip {
+  background: rgba(2,6,23,0.04);
+  border: 1px solid #e5e7eb;
+  color: #0f172a;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+/* Side list for discounts */
+.side-list-discounts .side-item-discount {
+  background: var(--dk-card);
+  color: var(--dk-ink);
+  border: 1px solid var(--dk-edge);
+}
+.side-list-discounts .side-item-discount .icon-slot i {
+  color: #0ea5e9;
+}
+.side-list-discounts .side-item-discount.active {
+  border-color: #bae6fd;
+  box-shadow: 0 10px 28px rgba(2, 132, 199, 0.12);
+}
+
+/* Tweak tiny text in discount side items */
+.side-list-discounts .tiny {
+  color: var(--dk-muted);
 }
 </style>
