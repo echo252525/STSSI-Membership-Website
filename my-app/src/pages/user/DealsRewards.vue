@@ -223,13 +223,9 @@
           <div class="panel breath-in-once border border-primary-subtle">
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Order / Cart Discounts</h2>
-                <p class="panel-sub">Auto or code-based promos that can apply to most orders.</p>
+                <h2 class="panel-title">Universal Deals</h2>
+                <p class="panel-sub">Sitewide offers you can auto-apply or redeem with a code.</p>
               </div>
-              <button class="ghost-btn" @click="reload">
-                <i class="bi bi-arrow-repeat me-1"></i>
-                Refresh
-              </button>
             </div>
 
             <div v-if="busy" class="empty-state">
@@ -253,40 +249,34 @@
                 @click="openDiscount(d)"
               >
                 <div class="discount-main">
-                  <div class="discount-badge" :class="d.type">
-                    <i v-if="d.type === 'free_shipping'" class="bi bi-truck"></i>
-                    <i v-else class="bi bi-ticket-perforated"></i>
+                  <div class="d-flex justify-content-between">
+                    <p v-if="d.code" class="discount-code">{{ d.code }}</p>
+                    <button
+                      class="cta-btn"
+                      @click.stop="goToShop(d)"
+                      :disabled="exceededUserLimit(d)"
+                      :aria-disabled="exceededUserLimit(d)"
+                    >
+                      {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
+                    </button>          
                   </div>
                   <div>
                     <h3 class="discount-title">{{ d.title }}</h3>
                     <p class="discount-value">{{ headline(d) }}</p>
                     <p class="discount-desc">
                       <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                      <template v-if="capText(d)">
-                        <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
-                      </template>
+                      <br></br>
+                      <template v-if="capText(d)">{{ capText(d) }}</template>
                     </p>
-                    <p class="discount-exp">Valid {{ expiryLabel(d) }}</p>
+                    <p class="discount-exp">Expiring: {{ expiryLabel(d) }}</p>
+                    <p
+                      v-if="typeof d.max_uses_per_user === 'number'"
+                      class="discount-usage text-secondary fs-6"
+                      :class="{ 'text-danger': exceededUserLimit(d) }"
+                    >
+                      Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
+                    </p>
                   </div>
-                </div>
-
-                <div class="discount-side d-grid gap-1">
-                  <p v-if="d.code" class="discount-code">{{ d.code }}</p>
-                  <p
-                    v-if="typeof d.max_uses_per_user === 'number'"
-                    class="discount-usage"
-                    :class="{ 'text-danger': exceededUserLimit(d) }"
-                  >
-                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
-                  </p>
-                  <button
-                    class="cta-btn orange"
-                    @click.stop="goToShop(d)"
-                    :disabled="exceededUserLimit(d)"
-                    :aria-disabled="exceededUserLimit(d)"
-                  >
-                    {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
-                  </button>
                 </div>
               </article>
             </div>
@@ -296,9 +286,9 @@
           <div class="panel breath-in-once pd-panel border border-warning-subtle" v-if="productDiscounts.length > 0">
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Product-Specific Discounts</h2>
+                <h2 class="panel-title">Product-Only Discounts</h2>
                 <p class="panel-sub">
-                  Can only be applied to a certain product. Perfect for highlighting key items.
+                  Can only be applied to a certain product.
                 </p>
               </div>
             </div>
@@ -331,24 +321,24 @@
                   />
                 </div>
 
-                <h3 class="pd-title m-0">{{ d.title }}</h3>
+                <h3 class="pd-title m-0 mt-2 fw-bold">{{ d.title }}</h3>
                 <p class="pd-product-label">
                   <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                  <template v-if="capText(d)">
-                    <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
-                  </template>
+                  <br></br>
+                  <template v-if="capText(d)">{{ capText(d) }}</template>
                 </p>
-                <p class="pd-meta">Valid {{ expiryLabel(d) }}</p>
+                <p class="pd-meta" style="font-size: 0.9rem;">Expiring: {{ expiryLabel(d) }}</p>
+                <p
+                  v-if="typeof d.max_uses_per_user === 'number'"
+                  class="pd-usage"
+                  style="font-size: 0.9rem;"
+                  :class="{ 'text-danger': exceededUserLimit(d) }"
+                  >
+                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
+                </p>
 
                 <div class="pd-footer">
                   <p v-if="d.code" class="pd-code">{{ d.code }}</p>
-                  <p
-                    v-if="typeof d.max_uses_per_user === 'number'"
-                    class="pd-usage"
-                    :class="{ 'text-danger': exceededUserLimit(d) }"
-                  >
-                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
-                  </p>
                   <button
                     class="mini-btn orange"
                     @click.stop="goToShop(d)"
@@ -370,7 +360,7 @@
               <div>
                 <h2 class="panel-title">Upcoming Discounts</h2>
                 <p class="panel-sub">
-                  Scheduled promos that will go live soon. Watch this space.
+                  Scheduled promos that will go live soon.
                 </p>
               </div>
             </div>
@@ -381,7 +371,7 @@
                 class="panel-sub mb-2"
                 style="font-weight:600;color:#0f172a;font-size:.95rem;"
               >
-                Order / Cart
+                Universal Deals
               </h3>
               <div class="discount-list">
                 <article
@@ -411,7 +401,7 @@
 
                   <div class="discount-side align-items-center">
                     <p v-if="d.code" class="discount-code">{{ d.code }}</p>
-                    <button class="cta-btn orange" disabled aria-disabled="true">Soon</button>
+                    <button class="cta-btn orange ms-3" disabled aria-disabled="true">Soon</button>
                   </div>
                 </article>
               </div>
@@ -423,7 +413,7 @@
                 class="panel-sub mb-2 mt-4"
                 style="font-weight:600;color:#0f172a;font-size:.95rem; margin-top:.75rem;"
               >
-                Product-Specific
+                Product-Only Discounts
               </h3>
               <div class="product-discount-grid pd-grid-scroll">
                 <article
@@ -453,17 +443,16 @@
                     />
                   </div>
 
-                  <h3 class="pd-title">{{ d.title }}</h3>
+                  <h3 class="pd-title mt-2">{{ d.title }}</h3>
                   <p class="pd-product-label">
                     <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                    <template v-if="capText(d)">
-                      <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
-                    </template>
+                    <br></br>
+                    <template v-if="capText(d)">{{ capText(d) }}</template>
                   </p>
                   <p class="pd-meta">Starts {{ startLabel(d) }}</p>
 
                   <div class="pd-footer">
-                    <p v-if="d.code" class="pd-code">Code: {{ d.code }}</p>
+                    <p v-if="d.code" class="pd-code">{{ d.code }}</p>
                     <button class="mini-btn orange" disabled aria-disabled="true">Soon</button>
                   </div>
                 </article>
@@ -574,7 +563,7 @@
       </main>
     </template>
 
-    <!-- ===================== DETAILS MODAL (Shopee vibe) ===================== -->
+    <!-- ===================== DETAILS MODAL ===================== -->
     <div v-if="showDiscountModal" class="dm-overlay" @click.self="closeDiscount">
       <div class="dm-wrap" role="dialog" aria-modal="true" aria-label="Discount details">
         <button class="dm-x" @click="closeDiscount" aria-label="Close">
@@ -588,26 +577,18 @@
           </div>
           <div class="dm-titles">
             <h3 class="dm-title">{{ activeDiscount?.title }}</h3>
-            <p class="dm-headline">{{ headline(activeDiscount!) }}</p>
-            <p class="dm-sub">
-              <template v-if="minSubtotalText(activeDiscount!)">{{ minSubtotalText(activeDiscount!) }}</template>
-              <template v-if="capText(activeDiscount!)">
-                <span v-if="minSubtotalText(activeDiscount!)"> • </span>{{ capText(activeDiscount!) }}
-              </template>
-            </p>
           </div>
         </div>
 
         <div class="dm-body">
-          <!-- Value row (friendly) -->
           <div class="dm-row highlight">
             <div class="dm-col">
               <p class="dm-label">Deal</p>
-              <p class="dm-strong">{{ headline(activeDiscount!) }}</p>
+              <p class="dm-strong p-0 m-0">{{ headline(activeDiscount!) }}</p>
             </div>
             <div class="dm-col">
               <p class="dm-label">Min. Subtotal</p>
-              <p class="dm-strong">
+              <p class="dm-strong p-0 m-0">
                 <template v-if="activeDiscount?.min_subtotal && Number(activeDiscount.min_subtotal) > 0">
                   ₱{{ money(activeDiscount!.min_subtotal) }}
                 </template>
@@ -648,8 +629,8 @@
             </div>
             <div class="dm-col">
               <p class="dm-label">Stacking</p>
-              <p class="dm-strong">{{ stackText(activeDiscount!) }}</p>
-              <p class="dm-note">Whether this can be combined with other vouchers.</p>
+              <p class="dm-strong p-0 m-0">{{ stackText(activeDiscount!) }}</p>
+              <p class="dm-note p-0 m-0">Whether this can be combined with other vouchers.</p>
             </div>
           </div>
 
@@ -669,8 +650,8 @@
           <div class="dm-row" v-if="typeof activeDiscount?.max_uses_per_user === 'number'">
             <div class="dm-col">
               <p class="dm-label">Per-User Limit</p>
-              <p class="dm-strong">{{ activeDiscount!.max_uses_per_user }} use{{ activeDiscount!.max_uses_per_user === 1 ? '' : 's' }} per user</p>
-              <p class="dm-note">You’ve used this {{ userUseCount(activeDiscount!.id) }} time(s).</p>
+              <p class="dm-strong p-0 m-0">{{ activeDiscount!.max_uses_per_user }} use{{ activeDiscount!.max_uses_per_user === 1 ? '' : 's' }} per user</p>
+              <p class="dm-note p-0 m-0">You’ve used this {{ userUseCount(activeDiscount!.id) }} time(s).</p>
             </div>
             <div class="dm-col"></div>
           </div>
@@ -792,12 +773,12 @@ function headline(d: Discount) {
 }
 function capText(d: Discount) {
   return d?.type === 'percent' && d?.max_discount_amount != null
-    ? `Max cap ₱${money(d.max_discount_amount)}`
+    ? `Capped at ₱${money(d.max_discount_amount)}`
     : null
 }
 function minSubtotalText(d: Discount) {
   const val = Number(d?.min_subtotal ?? 0)
-  return val > 0 ? `Min. subtotal ₱${money(val)}` : null
+  return val > 0 ? `Min. Spend ₱${money(val)}` : null
 }
 function stackText(d: Discount) {
   const s = (d?.stack || '').toLowerCase()
@@ -2315,7 +2296,7 @@ async function fetchReferralCount() {
 /* DISCOUNT LIST */
 .discount-list {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
   /* make it scroll */
   max-height: 50vh;        /* or any height you like (e.g., 480px) */
@@ -2330,16 +2311,13 @@ async function fetchReferralCount() {
   border: 1px solid rgba(15, 23, 42, 0.02);
   border-radius: 1rem;
   padding: 0.75rem 0.8rem;
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: center;
+
   font-size: var(--fs-base);
   cursor: pointer;
 }
 .discount-main {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.5rem;
   align-items: center;
 }
 .discount-badge {
@@ -2376,12 +2354,7 @@ async function fetchReferralCount() {
   color: #94a3b8;
   margin-top: 0.1rem;
 }
-.discount-side {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.3rem;
-}
+
 /* ===== Gradient background for discount codes ===== */
 .discount-code {
   display: inline-flex;
@@ -2426,10 +2399,6 @@ async function fetchReferralCount() {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
-.discount-usage {
-  font-size: var(--fs-xs);
-  color: #94a3b8;
-}
 .cta-btn {
   background: #0f172a;
   border: none;
@@ -2474,10 +2443,10 @@ async function fetchReferralCount() {
   padding: 0.75rem 0.75rem 0.65rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.1rem;
   font-size: var(--fs-base);
   cursor: pointer;
-  
+  height: 100%;
 }
 
 
@@ -2526,8 +2495,9 @@ async function fetchReferralCount() {
   background: rgba(6, 95, 70, 0.055);
   color: #065f46;
   font-size: var(--fs-xs);
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  padding: 0.1rem 0.7rem;
+  border-radius: 0.55rem;
+  margin-bottom: 5px;
   font-weight: 500;
 }
 .pd-pill {
@@ -2573,6 +2543,7 @@ async function fetchReferralCount() {
   gap: 0.4rem;
   align-items: center;
   justify-content: space-between;
+  margin-top: auto;
 }
 .pd-code {
   display: inline-flex;
@@ -2608,7 +2579,6 @@ async function fetchReferralCount() {
   justify-content: center;
   gap: 0.2rem;
   cursor: pointer;
-  width: 80px;
 }
 .mini-btn.light {
   background: #e2e8f0;
@@ -2836,127 +2806,6 @@ async function fetchReferralCount() {
   animation: shimmer 1.2s infinite linear;
 }
 
-/* =================== DETAILS MODAL =================== */
-.dm-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.32);
-  display: grid;
-  place-items: center;
-  z-index: 9999;
-  padding: 1rem;
-}
-.dm-wrap {
-  width: min(720px, 96vw);
-  background: #fff;
-  border-radius: 1rem;
-  border: 1px solid rgba(15, 23, 42, 0.06);
-  box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
-  overflow: hidden;
-  position: relative;
-}
-.dm-x {
-  position: absolute;
-  top: .6rem;
-  right: .6rem;
-  background: #fff;
-  border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 10px;
-  width: 34px; height: 34px;
-  display: grid; place-items: center;
-  cursor: pointer;
-}
-.dm-header {
-  display: flex;
-  gap: .8rem;
-  padding: 1rem 1rem .25rem 1rem;
-  border-bottom: 1px solid rgba(15, 23, 42, 0.05);
-}
-.dm-badge {
-  width: 48px; height: 48px; border-radius: 14px;
-  display: grid; place-items: center; color: #fff;
-  background: linear-gradient(150deg, #0ea5e9 0%, #4f46e5 100%);
-  font-size: 1.2rem;
-}
-.dm-badge.free_shipping {
-  background: linear-gradient(150deg, #059669 0%, #10b981 100%);
-}
-.dm-titles { display: flex; flex-direction: column; gap: .2rem; }
-.dm-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
-.dm-headline { font-weight: 800; color: #0f172a; font-size: 1rem; }
-.dm-sub { color: #6b7280; font-size: var(--fs-sm); }
-
-.dm-body { padding: .9rem 1rem; display: flex; flex-direction: column; gap: .75rem; }
-.dm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
-.dm-row.highlight {
-  background: #fff7f4; border: 1px solid rgba(255, 87, 34, .15);
-  border-radius: .75rem; padding: .6rem .7rem;
-}
-.dm-col { background: #fff; border: 1px solid rgba(15,23,42,.04); border-radius: .65rem; padding: .6rem .7rem; }
-.dm-label { font-size: var(--fs-xs); color: #94a3b8; margin-bottom: .15rem; text-transform: uppercase; letter-spacing: .04em; }
-.dm-strong { font-weight: 700; color: #0f172a; }
-.dm-note { font-size: var(--fs-xs); color: #94a3b8; margin-top: .15rem; }
-.dm-code-line { display: flex; align-items: center; gap: .35rem; }
-.dm-code { background: #0f172a; color: #fff; border-radius: .5rem; padding: .2rem .45rem; font-size: .8rem; }
-.dm-muted { color: #94a3b8; font-size: var(--fs-sm); }
-
-.dm-footer {
-  display: flex; justify-content: flex-end; gap: .5rem;
-  padding: .75rem 1rem 1rem;
-  border-top: 1px solid rgba(15, 23, 42, 0.05);
-}
-
-/* RESPONSIVE */
-@media (max-width: 1080px) {
-  .deals-grid {
-    grid-template-columns: 1fr;
-  }
-  .sticky-panel {
-    position: static;
-  }
-  .hero-stats {
-    justify-content: flex-start;
-  }
-  .deals-right {
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-}
-@media (max-width: 640px) {
-  .deals-shell {
-    padding: 1.25rem 1rem 2.2rem;
-  }
-  .deals-hero {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .hero-title {
-    font-size: 1.35rem;
-  }
-  .panel {
-    border-radius: 1rem;
-  }
-  .discount-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .discount-side {
-    flex-direction: row;
-    gap: 0.4rem;
-  }
-  .aff-metrics {
-    flex-direction: column;
-  }
-
-  .hero-stats {
-    gap: 0.4rem;
-  }
-  .dm-row { grid-template-columns: 1fr; }
-  .product-discount-grid {
-    grid-template-columns: 1fr 1fr;
-  }
-}
 
 /* =================== DETAILS MODAL (fully responsive) =================== */
 .dm-overlay {
@@ -3028,10 +2877,26 @@ async function fetchReferralCount() {
   background: linear-gradient(150deg, #059669 0%, #10b981 100%);
 }
 
-.dm-titles { display: flex; flex-direction: column; gap: .2rem; }
-.dm-title { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
-.dm-headline { font-weight: 800; color: #0f172a; font-size: 1rem; }
-.dm-sub { color: #6b7280; font-size: 0.875rem; }
+.dm-titles { 
+  display: flex;
+  justify-content: center;
+  flex-direction: column; 
+  gap: .2rem; 
+}
+.dm-title { 
+  font-size: 1.05rem; 
+  font-weight: 700; 
+  color: #0f172a;
+}
+.dm-headline { 
+  font-weight: 800; 
+  color: #0f172a; 
+  font-size: 1rem; 
+}
+.dm-sub { 
+  color: #6b7280; 
+  font-size: 0.875rem; 
+}
 
 .dm-body {
   /* The only scrollable area */
@@ -3046,44 +2911,126 @@ async function fetchReferralCount() {
   overscroll-behavior: contain;
 }
 
-.dm-row { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.dm-row { 
+  display: grid; 
+  grid-template-columns: 1fr 1fr; 
+  gap: .75rem; 
+}
 .dm-row.highlight {
-  background: #fff7f4; border: 1px solid rgba(255, 87, 34, .15);
-  border-radius: .75rem; padding: .6rem .7rem;
+  background: #f5fff4; 
+  border: 1px solid rgba(115, 255, 34, 0.15);
+  border-radius: .75rem; 
+  padding: .6rem .7rem;
 }
-.dm-col { background: #fff; border: 1px solid rgba(15,23,42,.04); border-radius: .65rem; padding: .6rem .7rem; }
+.dm-col { 
+  background: #fff; 
+  border: 1px solid rgba(15,23,42,.04); 
+  border-radius: .65rem; 
+  padding: .6rem .7rem; 
+}
 .dm-label {
-  font-size: 0.75rem; color: #94a3b8; margin-bottom: .15rem;
-  text-transform: uppercase; letter-spacing: .04em;
+  font-size: 0.75rem; 
+  color: #94a3b8; 
+  margin-bottom: .15rem;
+  text-transform: uppercase; 
+  letter-spacing: .04em;
 }
-.dm-strong { font-weight: 700; color: #0f172a; }
-.dm-note { font-size: 0.75rem; color: #94a3b8; margin-top: .15rem; }
-
-.dm-code-line { display: flex; align-items: center; gap: .35rem; }
+.dm-strong { 
+  font-weight: 700; 
+  color: #0f172a; 
+}
+.dm-note { 
+  font-size: 0.75rem; 
+  color: #94a3b8; 
+  margin-top: .15rem; 
+}
+.dm-code-line { 
+  display: flex; 
+  align-items: center; 
+  gap: .35rem;
+  font-size: 0.75rem;
+}
 .dm-code {
-  background: #0f172a; color: #fff; border-radius: .5rem;
-  padding: .2rem .45rem; font-size: .8rem;
+  background: #0f172a; 
+  color: #fff; 
+  border-radius: .5rem;
+  padding: .2rem .45rem; 
+  font-size: .8rem;
   word-break: break-all; /* avoid horizontal overflow for long codes */
 }
-
-.dm-muted { color: #94a3b8; font-size: 0.875rem; }
-
+.dm-muted { 
+  color: #94a3b8; 
+  font-size: 0.875rem; 
+}
 .dm-footer {
   flex: 0 0 auto; /* keep visible */
-  display: flex; justify-content: flex-end; gap: .5rem;
+  display: flex; 
+  justify-content: flex-end; 
+  gap: .5rem;
   padding: .75rem 1rem 1rem;
   border-top: 1px solid rgba(15, 23, 42, 0.05);
   background: #fff; /* ensures footer stays readable over scroll */
 }
 
-/* Mobile polish */
+/* RESPONSIVE */
+@media (max-width: 1080px) {
+  .deals-grid {
+    grid-template-columns: 1fr;
+  }
+  .sticky-panel {
+    position: static;
+  }
+  .hero-stats {
+    justify-content: flex-start;
+  }
+  .deals-right {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
 @media (max-width: 640px) {
+  .deals-shell {
+    padding: 1.25rem 1rem 2.2rem;
+  }
+  .deals-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .hero-title {
+    font-size: 1.35rem;
+  }
+  .panel {
+    border-radius: 1rem;
+  }
+  .discount-list {
+    grid-template-columns: 1fr;
+  }
+  .discount-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .discount-side {
+    flex-direction: row;
+    gap: 0.4rem;
+  }
+  .aff-metrics {
+    flex-direction: column;
+  }
+  .hero-stats {
+    gap: 0.4rem;
+  }
+  .dm-row { 
+    grid-template-columns: 1fr; 
+  }
   .dm-wrap {
     width: 100%;
     max-width: 100%;
     border-radius: 12px;
   }
-  .dm-row { grid-template-columns: 1fr; }
+  .product-discount-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 </style>
