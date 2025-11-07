@@ -220,7 +220,7 @@
         <!-- ================= LEFT: Discounts ================= -->
         <section class="deals-left">
           <!-- ORDER-LEVEL DISCOUNTS -->
-          <div class="panel breath-in-once">
+          <div class="panel breath-in-once border border-primary-subtle">
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Order / Cart Discounts</h2>
@@ -270,14 +270,14 @@
                   </div>
                 </div>
 
-                <div class="discount-side">
+                <div class="discount-side d-grid gap-1">
                   <p v-if="d.code" class="discount-code">{{ d.code }}</p>
                   <p
                     v-if="typeof d.max_uses_per_user === 'number'"
                     class="discount-usage"
                     :class="{ 'text-danger': exceededUserLimit(d) }"
                   >
-                    Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
+                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
                   </p>
                   <button
                     class="cta-btn orange"
@@ -293,7 +293,7 @@
           </div>
 
           <!-- PRODUCT-SPECIFIC DISCOUNTS -->
-          <div class="panel breath-in-once" v-if="productDiscounts.length > 0">
+          <div class="panel breath-in-once pd-panel border border-warning-subtle" v-if="productDiscounts.length > 0">
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Product-Specific Discounts</h2>
@@ -320,7 +320,6 @@
                     Up to ₱{{ money(d.max_discount_amount) }} OFF
                   </span>
                   <span class="pd-type" v-else>Special discount</span>
-                  <span class="pd-pill">Product only</span>
                 </div>
 
                 <div class="pd-thumb-wrap" v-if="d.product_img_url">
@@ -332,7 +331,7 @@
                   />
                 </div>
 
-                <h3 class="pd-title">{{ d.title }}</h3>
+                <h3 class="pd-title m-0">{{ d.title }}</h3>
                 <p class="pd-product-label">
                   <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
                   <template v-if="capText(d)">
@@ -342,13 +341,13 @@
                 <p class="pd-meta">Valid {{ expiryLabel(d) }}</p>
 
                 <div class="pd-footer">
-                  <p v-if="d.code" class="pd-code">Code: {{ d.code }}</p>
+                  <p v-if="d.code" class="pd-code">{{ d.code }}</p>
                   <p
                     v-if="typeof d.max_uses_per_user === 'number'"
                     class="pd-usage"
                     :class="{ 'text-danger': exceededUserLimit(d) }"
                   >
-                    Used {{ userUseCount(d.id) }} / {{ d.max_uses_per_user }}
+                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
                   </p>
                   <button
                     class="mini-btn orange"
@@ -363,9 +362,8 @@
             </div>
           </div>
 
-          <!-- ================= NEW: UPCOMING DISCOUNTS (status = scheduled) ================= -->
-          <div
-            class="panel breath-in-once"
+          <!-- UPCOMING DISCOUNTS -->
+          <div class="panel breath-in-once border border border-secondary-subtle"
             v-if="upcomingOrderDiscounts.length || upcomingProductDiscounts.length"
           >
             <div class="panel-head">
@@ -411,7 +409,7 @@
                     </div>
                   </div>
 
-                  <div class="discount-side">
+                  <div class="discount-side align-items-center">
                     <p v-if="d.code" class="discount-code">{{ d.code }}</p>
                     <button class="cta-btn orange" disabled aria-disabled="true">Soon</button>
                   </div>
@@ -422,12 +420,12 @@
             <!-- Upcoming Product-Specific -->
             <template v-if="upcomingProductDiscounts.length">
               <h3
-                class="panel-sub mb-2"
+                class="panel-sub mb-2 mt-4"
                 style="font-weight:600;color:#0f172a;font-size:.95rem; margin-top:.75rem;"
               >
                 Product-Specific
               </h3>
-              <div class="product-discount-grid">
+              <div class="product-discount-grid pd-grid-scroll">
                 <article
                   v-for="d in upcomingProductDiscounts"
                   :key="d.id"
@@ -473,13 +471,12 @@
               </div>
             </template>
           </div>
-          <!-- ================= END NEW: UPCOMING DISCOUNTS ================= -->
         </section>
 
         <!-- ================= RIGHT: Affiliate & Network ================= -->
         <section class="deals-right">
           <!-- Affiliate -->
-          <div class="panel breath-in-once">
+          <div class="panel breath-in-once border border-info-subtle">
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Affiliate & Referrals</h2>
@@ -518,7 +515,7 @@
           </div>
 
           <!-- Referees list -->
-          <div class="panel breath-in-once">
+          <div class="panel breath-in-once border border-info-subtle">
             <div class="panel-head">
               <div>
                 <h2 class="panel-title">Your Network</h2>
@@ -2234,14 +2231,24 @@ async function fetchReferralCount() {
 /* GRID LAYOUT */
 .deals-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.9fr);
+  grid-template-columns: minmax(0, 2.25fr) minmax(320px, 1fr);
   gap: 1.5rem;
+  align-items: start;
 }
 .deals-left,
 .deals-right {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+.deals-right {
+  position: sticky;
+  top: 1.5rem;
+  align-self: start;
+  max-height: calc(100vh - 1.5rem);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
 }
 
 /* PANEL */
@@ -2311,9 +2318,8 @@ async function fetchReferralCount() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-
-    /* make it scroll */
-    max-height: 60vh;        /* or any height you like (e.g., 480px) */
+  /* make it scroll */
+  max-height: 50vh;        /* or any height you like (e.g., 480px) */
   overflow-y: auto;
   padding-right: 4px;      /* keeps content from touching the scrollbar */
   -webkit-overflow-scrolling: touch;
@@ -2431,7 +2437,7 @@ async function fetchReferralCount() {
   color: #fff;
   border-radius: 999px;
   font-size: var(--fs-xs);
-  padding: 0.4rem 0.9rem;
+  padding: 0.1rem 0.9rem;
   cursor: pointer;
 }
 .cta-btn[disabled] {
@@ -2439,24 +2445,29 @@ async function fetchReferralCount() {
   cursor: not-allowed;
 }
 
+
+
 /* Shopee-ish accent on actionable buttons and cards */
 .shopeeish:hover {
   border-color: rgba(255, 87, 34, 0.22);
   box-shadow: 0 0 0 3px var(--accent-ghost);
 }
-.orange {
-  background: var(--accent);
-}
 .orange:hover {
-  background: var(--accent-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
 }
 
 /* PRODUCT DISCOUNTS */
+.discount-card p,
+.product-discount-card p,
+.metric-card p,
+.aff-input-wrap p { margin: 0; }
 .product-discount-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.85rem;
 }
+
 .product-discount-card {
   background: #f8fafc;
   border-radius: 1rem;
@@ -2467,7 +2478,45 @@ async function fetchReferralCount() {
   gap: 0.5rem;
   font-size: var(--fs-base);
   cursor: pointer;
+  
 }
+
+
+/* Allow flex/grid descendants to actually shrink & scroll */
+.deals-left,
+.panel,
+.product-discount-grid {
+  min-height: 0;
+}
+
+/* Scrollable grid for upcoming product-specific discounts */
+.pd-grid-scroll {
+  max-height: 60vh;          /* adjust as you like */
+  overflow-y: auto;
+  padding-right: 4px;        /* breathing room near scrollbar */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  min-height: 0;             /* keeps it shrinkable in flex/stack parents */
+}
+
+/* Make just the Product-Specific panel a capped, internal-scrolling layout */
+.pd-panel {
+  display: flex;              /* header stays on top */
+  flex-direction: column;
+  max-height: 80vh;           /* <= adjust if you want a taller/shorter panel */
+  min-height: 0;              /* crucial for scroll to work inside */
+}
+
+/* The grid itself becomes the scrolling region */
+.pd-panel .product-discount-grid {
+  flex: 1 1 auto;
+  min-height: 0;              /* mandatory in flex children for overflow */
+  overflow-y: auto;           /* this is the scrollbar */
+  padding-right: 4px;         /* keeps content from touching the scrollbar */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
 .pd-top {
   display: flex;
   justify-content: space-between;
@@ -2527,10 +2576,21 @@ async function fetchReferralCount() {
   justify-content: space-between;
 }
 .pd-code {
-  font-size: var(--fs-xs);
-  background: rgba(15, 23, 42, 0.04);
-  border-radius: 999px;
-  padding: 0.15rem 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b6b, #ff9f43, #feca57);
+  border-radius: 8px;
+  padding: 0.4rem 0.8rem;
+  position: relative;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.12);
+  user-select: all;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .pd-usage {
   font-size: var(--fs-xs);
@@ -2546,8 +2606,10 @@ async function fetchReferralCount() {
   padding: 0.25rem 0.65rem;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.2rem;
   cursor: pointer;
+  width: 80px;
 }
 .mini-btn.light {
   background: #e2e8f0;
@@ -2578,9 +2640,11 @@ async function fetchReferralCount() {
   margin-bottom: 0.35rem;
 }
 .aff-input-wrap {
-  display: flex;
+  display: grid;
   gap: 0.4rem;
   align-items: center;
+
+  grid-template-columns: 1fr auto;
 }
 .aff-input {
   flex: 1;
@@ -2589,6 +2653,9 @@ async function fetchReferralCount() {
   border-radius: 0.65rem;
   padding: 0.45rem 0.6rem;
   font-size: var(--fs-sm);
+
+  min-width: 0;
+  word-break: break-all;
 }
 .aff-hint {
   font-size: var(--fs-xs);
@@ -2596,7 +2663,8 @@ async function fetchReferralCount() {
   color: #94a3b8;
 }
 .aff-metrics {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
   gap: 0.5rem;
 }
 .metric-card {
@@ -2850,6 +2918,11 @@ async function fetchReferralCount() {
   .hero-stats {
     justify-content: flex-start;
   }
+  .deals-right {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
 }
 @media (max-width: 640px) {
   .deals-shell {
@@ -2876,13 +2949,14 @@ async function fetchReferralCount() {
   .aff-metrics {
     flex-direction: column;
   }
-  .product-discount-grid {
-    grid-template-columns: 1fr;
-  }
+
   .hero-stats {
     gap: 0.4rem;
   }
   .dm-row { grid-template-columns: 1fr; }
+  .product-discount-grid {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 /* =================== DETAILS MODAL (fully responsive) =================== */
