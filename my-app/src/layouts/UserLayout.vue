@@ -67,7 +67,7 @@
       @click="openNotifModal"
     >
       <i class="bi bi-bell fs-5"></i>
-      <!-- 🔴 Count badge -->
+      
       <span
         v-if="notifCount > 0"
         class="notif-badge"
@@ -103,10 +103,8 @@
           </div>
 
           <div class="notif-body">
-            <!-- Lazy-load Notifications.vue to keep this shell light -->
             <Suspense>
               <template #default>
-                <!-- child will emit update:count -->
                 <Notifications @update:count="onNotifCount" />
               </template>
               <template #fallback>
@@ -125,16 +123,187 @@
       </transition>
     </div>
   </teleport>
+
+  <!-- 🆕 Tier-change modal (LANDSCAPE with big hero; “View benefits” button removed) -->
+  <teleport to="body">
+    <div
+      v-if="isTierModalOpen"
+      class="tier-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Membership update"
+      @click.self="closeTierModal"
+    >
+      <transition name="tier-zoom">
+        <div class="tier-modal tier-modal-landscape" v-show="isTierModalOpen">
+          <!-- Keep your original small header bar (not removed) -->
+          <div class="d-flex align-items-center justify-content-between border-bottom px-3 py-2">
+            <div class="fw-semibold d-flex align-items-center gap-2">
+              <i class="bi bi-stars"></i>
+              Membership Update
+            </div>
+            <button
+              type="button"
+              class="btn btn-light btn-sm"
+              aria-label="Close membership update"
+              @click="closeTierModal"
+            >
+              <i class="bi bi-x-lg"></i>
+            </button>
+          </div>
+
+          <!-- Landscape two-column layout -->
+          <div class="tier-content-grid">
+            <!-- LEFT: Big hero section -->
+            <section
+              class="tier-hero-big d-flex flex-column"
+              :class="['status-' + (tierChange?.status || 'stayed')]"
+            >
+              <div class="hero-top d-flex align-items-center gap-3">
+                <div class="hero-icon-wrap">
+                  <img
+                    v-if="tierChange?.neu?.icon_signed_url || tierChange?.neu?.icon_url"
+                    :src="
+                      tierChange?.neu?.icon_signed_url ?? tierChange?.neu?.icon_url ?? undefined
+                    "
+                    :alt="(tierChange?.neu?.membership_name || 'Tier') + ' icon'"
+                  />
+                  <div v-else class="icon-fallback"><i class="bi bi-person-badge"></i></div>
+                </div>
+                <div>
+                  <div class="eyebrow">
+                    <span v-if="tierChange?.status === 'promoted'">🎉 Promotion</span>
+                    <span v-else-if="tierChange?.status === 'demoted'">🌱 Reset</span>
+                    <span v-else>✅ Maintained</span>
+                  </div>
+                  <h2 class="hero-title display-6 m-0">
+                    {{ heroCopy.title }}
+                  </h2>
+                  <p class="hero-sub lead m-0">
+                    {{ heroCopy.subtitle }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Quick chips for headline perks -->
+              <div v-if="heroChips.length" class="hero-chips mt-3">
+                <span class="chip" v-for="(c, i) in heroChips" :key="i">{{ c }}</span>
+              </div>
+
+              <!-- Large tier name banner -->
+              <div class="tier-banner mt-auto">
+                <div class="label">Current Tier</div>
+                <div class="name">
+                  {{ tierChange?.neu?.membership_name || '—' }}
+                </div>
+              </div>
+            </section>
+
+            <!-- RIGHT: Details -->
+            <section class="tier-details p-3">
+              <div v-if="tierHeadline" class="h6 mb-3">{{ tierHeadline }}</div>
+
+              <!-- Previous → Current small summary -->
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div class="flex-grow-1">
+                  <div class="small text-muted mb-1">Previous tier</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <img
+                      v-if="tierChange?.old?.icon_signed_url || tierChange?.old?.icon_url"
+                      :src="
+                        tierChange?.old?.icon_signed_url ?? tierChange?.old?.icon_url ?? undefined
+                      "
+                      :alt="(tierChange?.old?.membership_name || '') + ' icon'"
+                      class="rounded"
+                      style="width: 28px; height: 28px; object-fit: cover"
+                    />
+                    <span class="fw-semibold">{{ tierChange?.old?.membership_name || '—' }}</span>
+                  </div>
+                </div>
+                <i class="bi bi-arrow-right fs-5 opacity-75"></i>
+                <div class="flex-grow-1">
+                  <div class="small text-muted mb-1">Current tier</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <img
+                      v-if="tierChange?.neu?.icon_signed_url || tierChange?.neu?.icon_url"
+                      :src="
+                        tierChange?.neu?.icon_signed_url ?? tierChange?.neu?.icon_url ?? undefined
+                      "
+                      :alt="(tierChange?.neu?.membership_name || '') + ' icon'"
+                      class="rounded"
+                      style="width: 28px; height: 28px; object-fit: cover"
+                    />
+                    <span class="fw-semibold">{{ tierChange?.neu?.membership_name || '—' }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- What changed -->
+              <div v-if="tierDiffs.length" class="diff-block mb-3">
+                <div class="small text-muted mb-2">What changed</div>
+                <ul class="diff-list">
+                  <li v-for="d in tierDiffs" :key="d.label">
+                    <div class="label">{{ d.label }}</div>
+                    <div class="vals">
+                      <span class="before">{{ d.before }}</span>
+                      <i class="bi bi-arrow-right-short"></i>
+                      <span class="after">{{ d.after }}</span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Benefits -->
+              <div class="benefit-block">
+                <div class="small text-muted mb-2">Your current benefits</div>
+                <ul class="benefit-list">
+                  <li v-for="(b, i) in tierBenefits.neu" :key="'new-' + i">
+                    <i class="bi bi-check2-circle"></i>
+                    <span v-html="b"></span>
+                  </li>
+                </ul>
+              </div>
+
+              <!-- Status alert -->
+              <div
+                class="alert mt-3"
+                :class="{
+                  'alert-success': tierChange?.status === 'promoted',
+                  'alert-secondary': tierChange?.status === 'stayed',
+                  'alert-warning': tierChange?.status === 'demoted',
+                }"
+                role="status"
+              >
+                <template v-if="tierChange?.status === 'promoted'">
+                  🎉 Great job! You’ve moved up a tier.
+                </template>
+                <template v-else-if="tierChange?.status === 'stayed'">
+                  ✅ You’re holding steady. Keep it up!
+                </template>
+                <template v-else-if="tierChange?.status === 'demoted'">
+                  ⚠️ It’s okay — you can climb back next month. We believe in you!
+                </template>
+              </div>
+            </section>
+          </div>
+
+          <!-- Footer: only OK (removed View benefits) -->
+          <div class="border-top px-3 py-2 d-flex justify-content-end gap-2">
+            <button class="btn btn-primary btn-sm" @click="closeTierModal">OK</button>
+          </div>
+        </div>
+      </transition>
+    </div>
+  </teleport>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, defineAsyncComponent, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import UserSidebar from '@/components/nav/UserSidebar.vue'
-/* 🆕 Supabase for realtime */
 import { supabase } from '@/lib/supabaseClient'
 
-/* 🔹 Notifications component (as requested: access ../user/Notifications.vue) */
+/* 🔹 Notifications component */
 const Notifications = defineAsyncComponent(() => import('../pages/user/Notifications.vue'))
 
 const isDesktop = ref(window.matchMedia('(min-width: 992px)').matches)
@@ -150,10 +319,10 @@ const onMQChange = (e: MediaQueryListEvent) => {
 const onKey = (e: KeyboardEvent) => {
   if (e.key === 'Escape') {
     isMenuOpen.value = false
-    isNotifModalOpen.value = false /* 🔹 also close notifications modal via ESC */
+    isNotifModalOpen.value = false
+    isTierModalOpen.value = false
   }
 }
-
 const openMenu = () => {
   isMenuOpen.value = true
 }
@@ -174,42 +343,37 @@ onBeforeUnmount(() => {
   removeHook?.()
 })
 
-/* 👉 Also lock scroll when notifications modal is open */
+/* 👉 Lock scroll when drawers/modals are open */
 const isNotifModalOpen = ref(false)
-
-/* Keep body scroll locked when either drawer or notif modal is open */
 watch([isMenuOpen, isNotifModalOpen], ([menuOpen, modalOpen]) => {
   const lock = menuOpen || modalOpen
   document.body.style.overflow = lock ? 'hidden' : ''
 })
 
-/* ✅ Scroll-direction reveal for the floating notification button */
+const isTierModalOpen = ref(false)
+watch(isTierModalOpen, (tierOpen) => {
+  const lock = tierOpen || isMenuOpen.value || isNotifModalOpen.value
+  document.body.style.overflow = lock ? 'hidden' : ''
+})
+
+/* ✅ Scroll-direction reveal */
 const isNotifVisible = ref(true)
 let lastScrollY = window.scrollY
 let lastToggleTs = 0
-
 const onScroll = () => {
   const now = performance.now()
-  // throttle a bit for performance
   if (now - lastToggleTs < 80) return
-
   const current = window.scrollY
   const delta = current - lastScrollY
-
-  // Only react when movement is significant enough
   if (Math.abs(delta) > 6) {
-    // scrolling down -> hide, up -> show
     isNotifVisible.value = delta < 0
     lastScrollY = current
     lastToggleTs = now
   }
 }
-
 onMounted(() => {
   window.addEventListener('scroll', onScroll, { passive: true })
-  // 🔔 Optional: allow global updates via event bus
   window.addEventListener('notif:count', onNotifCountEvent as EventListener)
-  /* 🆕 Load last known count so FAB isn't 0 before Notifications mounts */
   try {
     const raw = localStorage.getItem(NOTIF_COUNT_KEY)
     if (raw) {
@@ -223,33 +387,25 @@ onBeforeUnmount(() => {
   window.removeEventListener('notif:count', onNotifCountEvent as EventListener)
 })
 
-/* 🔔 Open/Close notifications modal */
+/* 🔔 Notifications modal */
 const openNotifModal = () => {
-  if (!isDesktop.value) isMenuOpen.value = false // ensure drawer closed on mobile
+  if (!isDesktop.value) isMenuOpen.value = false
   isNotifModalOpen.value = true
 }
 const closeNotifModal = () => {
   isNotifModalOpen.value = false
 }
-
-/* 🔴 Notif count state + helpers */
 const NOTIF_COUNT_KEY = 'notif:lastCount'
 const notifCount = ref<number>(0)
 const displayNotifCount = computed(() => (notifCount.value > 99 ? '99+' : String(notifCount.value)))
-
-/* 🆕 persist count on change (nice-to-have for reloads) */
 watch(notifCount, (n) => {
   try {
     localStorage.setItem(NOTIF_COUNT_KEY, String(n))
   } catch {}
 })
-
-// child emit handler (from Notifications.vue -> emit('update:count', n))
 const onNotifCount = (n: number) => {
   if (typeof n === 'number' && n >= 0) notifCount.value = n
 }
-
-// global event handler (from Notifications.vue -> window.dispatchEvent('notif:count', {detail:n}))
 const onNotifCountEvent = (e: CustomEvent<number> | Event) => {
   const evt = e as CustomEvent<number>
   const n = Number(evt.detail)
@@ -257,15 +413,11 @@ const onNotifCountEvent = (e: CustomEvent<number> | Event) => {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   🆕 Realtime FAB count (Supabase → ewallet.transactions)
-   - Increments on INSERT for current user
-   - Ignores IDs already marked "seen" (same storage key as child)
-   - Primes an initial count from latest TXs (approx) until child overrides
+   Realtime FAB count (Supabase → ewallet.transactions)
    ────────────────────────────────────────────────────────────── */
 const userId = ref<string | null>(null)
 let rtNotifChannel: ReturnType<typeof supabase.channel> | null = null
 
-/* Same seen storage key format as Notifications.vue */
 const seenIds = ref<Set<string>>(new Set())
 const storageKey = () => (userId.value ? `notif:seen:${userId.value}` : 'notif:seen')
 function loadSeen() {
@@ -279,7 +431,6 @@ function loadSeen() {
 }
 const isSeenId = (id: string) => seenIds.value.has(id)
 
-/* Prime approximate count from recent transactions (child will override with full, grouped logic) */
 async function primeCountFromTransactions() {
   if (!userId.value) return
   try {
@@ -292,12 +443,11 @@ async function primeCountFromTransactions() {
       .limit(50)
     if (!error && Array.isArray(data)) {
       const unseen = (data as { id: string }[]).filter((r) => !isSeenId(r.id)).length
-      if (unseen > notifCount.value) notifCount.value = unseen // don't undercut persisted higher count
+      if (unseen > notifCount.value) notifCount.value = unseen
     }
   } catch {}
 }
 
-/* Bind realtime inserts on ewallet.transactions for current user */
 function bindNotifRealtime() {
   if (rtNotifChannel || !userId.value) return
   rtNotifChannel = supabase
@@ -312,10 +462,8 @@ function bindNotifRealtime() {
       },
       (payload) => {
         const tx = payload.new as { id: string; user_id: string }
-        // If not already marked seen, bump the FAB
         if (!isSeenId(tx.id)) {
           notifCount.value = Math.max(0, (notifCount.value || 0) + 1)
-          // Optionally broadcast to keep other listeners (if any) in sync
           try {
             window.dispatchEvent(new CustomEvent('notif:count', { detail: notifCount.value }))
           } catch {}
@@ -325,7 +473,6 @@ function bindNotifRealtime() {
     .subscribe()
 }
 
-/* Auth → load seen → prime count → bind realtime */
 onMounted(async () => {
   try {
     const { data: auth } = await supabase.auth.getUser()
@@ -334,11 +481,238 @@ onMounted(async () => {
   loadSeen()
   await primeCountFromTransactions()
   bindNotifRealtime()
+  await checkTierChangeAndShow()
 })
-
 onBeforeUnmount(() => {
   if (rtNotifChannel) supabase.removeChannel(rtNotifChannel)
 })
+
+/* ──────────────────────────────────────────────────────────────
+   🆕 Tier change logic + big hero; landscape layout
+   ────────────────────────────────────────────────────────────── */
+type TierRow = {
+  id: string
+  membership_name: string
+  membership_tier_order: number
+  icon_url: string | null
+  discount_credits?: number | null
+  discount_per_purchase?: number | null
+  is_free_delivery?: boolean | null
+  purchase_requirements_for_free_delivery?: number | null
+  referral_count_requirements?: number | null
+  purchases_count?: number | null
+  icon_signed_url?: string | null
+}
+
+const BUCKET = 'tier_icons'
+async function signedUrlOrNull(path: string | null | undefined): Promise<string | null> {
+  try {
+    const p = (path || '').replace(/^\/+/, '')
+    if (!p) return null
+    const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(p, 60 * 60)
+    if (error) return null
+    return data?.signedUrl || null
+  } catch {
+    return null
+  }
+}
+
+const tierChange = ref<{
+  old?: TierRow
+  neu?: TierRow
+  status?: 'promoted' | 'demoted' | 'stayed'
+} | null>(null)
+
+const tierHeadline = computed(() => {
+  const s = tierChange.value?.status
+  const newName = tierChange.value?.neu?.membership_name
+  const oldName = tierChange.value?.old?.membership_name
+  if (!s || !newName) return ''
+  if (s === 'promoted') return `Congrats! You’ve been promoted to ${newName}.`
+  if (s === 'stayed') return `You stayed in ${newName}.`
+  return `Your tier changed from ${oldName || 'previous'} to ${newName}.`
+})
+
+const formatPeso = (n: number) =>
+  `₱${Number(n || 0).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`
+
+function composeBenefits(row: Partial<TierRow> | undefined): string[] {
+  if (!row) return ['Free Membership']
+  const out: string[] = []
+  if (row.discount_credits && Number(row.discount_credits) > 0) {
+    out.push(`${formatPeso(Number(row.discount_credits))} discount credits per month`)
+  }
+  if (row.discount_per_purchase && Number(row.discount_per_purchase) > 0) {
+    out.push(
+      `Enjoy <strong>${Number(row.discount_per_purchase).toFixed(0)}%</strong> discount on all purchases`,
+    )
+  }
+  if (row.is_free_delivery) {
+    if (
+      row.purchase_requirements_for_free_delivery &&
+      Number(row.purchase_requirements_for_free_delivery) > 0
+    ) {
+      out.push(
+        `Free delivery for orders from ${formatPeso(Number(row.purchase_requirements_for_free_delivery))}`,
+      )
+    } else {
+      out.push('Free delivery on eligible orders')
+    }
+  }
+  if (row.referral_count_requirements && Number(row.referral_count_requirements) > 0) {
+    const r = Number(row.referral_count_requirements)
+    out.push(`${r} referral${r > 1 ? 's' : ''} required`)
+  }
+  return out.length ? out : ['Free Membership']
+}
+
+const tierBenefits = computed(() => ({
+  old: composeBenefits(tierChange.value?.old),
+  neu: composeBenefits(tierChange.value?.neu),
+}))
+
+const tierDiffs = computed(() => {
+  const old = tierChange.value?.old
+  const neu = tierChange.value?.neu
+  const diffs: Array<{ label: string; before: string; after: string }> = []
+  if (!old || !neu) return diffs
+
+  const oPct = Number(old.discount_per_purchase || 0)
+  const nPct = Number(neu.discount_per_purchase || 0)
+  if (oPct !== nPct)
+    diffs.push({
+      label: 'Per-purchase discount',
+      before: `${oPct.toFixed(0)}%`,
+      after: `${nPct.toFixed(0)}%`,
+    })
+
+  const oCred = Number(old.discount_credits || 0)
+  const nCred = Number(neu.discount_credits || 0)
+  if (oCred !== nCred)
+    diffs.push({
+      label: 'Monthly discount credits',
+      before: formatPeso(oCred),
+      after: formatPeso(nCred),
+    })
+
+  const oFree = !!old.is_free_delivery
+  const nFree = !!neu.is_free_delivery
+  const oThr = Number(old.purchase_requirements_for_free_delivery || 0)
+  const nThr = Number(neu.purchase_requirements_for_free_delivery || 0)
+  if (oFree !== nFree || oThr !== nThr) {
+    const before = oFree ? (oThr > 0 ? `Yes — from ${formatPeso(oThr)}` : 'Yes') : 'No'
+    const after = nFree ? (nThr > 0 ? `Yes — from ${formatPeso(nThr)}` : 'Yes') : 'No'
+    diffs.push({ label: 'Free delivery', before, after })
+  }
+  return diffs
+})
+
+const heroCopy = computed(() => {
+  const status = tierChange.value?.status
+  const newName = tierChange.value?.neu?.membership_name || 'your tier'
+  if (status === 'promoted') {
+    return {
+      title: 'Congratulations!',
+      subtitle: `You’ve been promoted to ${newName}. Enjoy your upgraded perks.`,
+    }
+  }
+  if (status === 'demoted') {
+    return {
+      title: 'You’re reset to a lower tier',
+      subtitle: `You’re now in ${newName}. It’s okay — you can climb back up this month.`,
+    }
+  }
+  return {
+    title: 'Nice work!',
+    subtitle: `You maintained your ${newName} status. Aim for a promotion next month!`,
+  }
+})
+
+/* Chips for hero quick glance */
+const heroChips = computed(() => {
+  const neu = tierChange.value?.neu
+  const chips: string[] = []
+  if (!neu) return chips
+  const pct = Number(neu.discount_per_purchase || 0)
+  const cred = Number(neu.discount_credits || 0)
+  if (pct > 0) chips.push(`${pct.toFixed(0)}% off`)
+  if (cred > 0) chips.push(`${formatPeso(cred)} credits/mo`)
+  if (neu.is_free_delivery) chips.push('Free delivery')
+  return chips.slice(0, 3)
+})
+
+async function markTierShown() {
+  if (!userId.value) return
+  try {
+    await supabase.from('users').update({ isdisplaytiershowed: true }).eq('id', userId.value)
+  } catch {}
+}
+
+async function checkTierChangeAndShow() {
+  if (!userId.value) return
+  try {
+    const { data: userRow, error: userErr } = await supabase
+      .from('users')
+      .select('membership_id, isdisplaytiershowed, "lastMembership_id"')
+      .eq('id', userId.value)
+      .maybeSingle()
+    if (userErr || !userRow) return
+
+    const currentId = (userRow as any)['membership_id'] as string | null
+    const lastId = (userRow as any)['lastMembership_id'] as string | null
+    const alreadyShown = (userRow as any)['isdisplaytiershowed'] as boolean
+    if (!lastId || !currentId || alreadyShown) return
+
+    const { data: tiers, error: tiersErr } = await supabase
+      .schema('membership')
+      .from('tiers')
+      .select(
+        `
+        id,
+        membership_name,
+        membership_tier_order,
+        icon_url,
+        discount_credits,
+        discount_per_purchase,
+        is_free_delivery,
+        purchase_requirements_for_free_delivery,
+        referral_count_requirements,
+        purchases_count
+      `,
+      )
+      .in('id', [lastId, currentId])
+
+    if (tiersErr || !tiers || tiers.length === 0) {
+      tierChange.value = { status: currentId === lastId ? 'stayed' : 'promoted' }
+      isTierModalOpen.value = true
+      await markTierShown()
+      return
+    }
+
+    const oldTier = tiers.find((t) => t.id === lastId) as TierRow | undefined
+    const newTier = tiers.find((t) => t.id === currentId) as TierRow | undefined
+    if (oldTier) oldTier.icon_signed_url = await signedUrlOrNull(oldTier.icon_url)
+    if (newTier) newTier.icon_signed_url = await signedUrlOrNull(newTier.icon_url)
+
+    let status: 'promoted' | 'demoted' | 'stayed' = 'stayed'
+    if (oldTier && newTier) {
+      if (oldTier.id === newTier.id) status = 'stayed'
+      else if ((newTier.membership_tier_order ?? 0) > (oldTier.membership_tier_order ?? 0))
+        status = 'promoted'
+      else status = 'demoted'
+    }
+
+    tierChange.value = { old: oldTier, neu: newTier, status }
+    isTierModalOpen.value = true
+    await markTierShown()
+  } catch {
+    /* swallow */
+  }
+}
+
+function closeTierModal() {
+  isTierModalOpen.value = false
+}
 </script>
 
 <style scoped>
@@ -380,7 +754,7 @@ onBeforeUnmount(() => {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.25);
-  z-index: 1080; /* above navbar & content */
+  z-index: 1080;
   display: flex;
 }
 
@@ -400,8 +774,6 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
-
-/* Slide in/out — start fully off-canvas for a clear reveal */
 .drawer-enter-active,
 .drawer-leave-active {
   transition:
@@ -428,8 +800,6 @@ onBeforeUnmount(() => {
 .drawer-panel :deep(.sidebar .sidebar-inner) {
   width: 100% !important;
 }
-
-/* Ensure navs are visible in mobile drawer (override hidden/collapsed rules) */
 .drawer-panel :deep(.sidebar nav),
 .drawer-panel :deep(.sidebar .nav),
 .drawer-panel :deep(.sidebar .navbar-nav),
@@ -439,8 +809,6 @@ onBeforeUnmount(() => {
   height: auto !important;
   opacity: 1 !important;
 }
-
-/* If UserSidebar uses a 'collapsed' class for desktop rail, neutralize it in drawer */
 .drawer-panel :deep(.sidebar.collapsed) {
   width: 100% !important;
 }
@@ -449,34 +817,9 @@ onBeforeUnmount(() => {
   display: inline !important;
   opacity: 1 !important;
 }
-
-/* 🔧 EXTRA UN-HIDE for Bootstrap utility classes often used on sidebars */
-
-.drawer-panel :deep(.d-lg-none) {
-  display: block !important;
-} /* safety */
-.drawer-panel :deep(.d-md-none) {
-  display: block !important;
-}
-.drawer-panel :deep(.d-sm-none) {
-  display: block !important;
-}
-
-/* Some sidebars hide via [hidden] or aria flags */
-.drawer-panel :deep([hidden]) {
-  display: block !important;
-}
-.drawer-panel :deep([aria-hidden='true']) {
-  display: block !important;
-  visibility: visible !important;
-}
-
-/* Keep the desktop collapse chevron hidden inside the drawer */
 .drawer-panel :deep(.toggle-btn) {
   display: none !important;
 }
-
-/* If the root .sidebar itself is hidden on mobile by media queries */
 @media (max-width: 991.98px) {
   .drawer-panel :deep(.sidebar) {
     display: block !important;
@@ -490,7 +833,7 @@ onBeforeUnmount(() => {
   bottom: 24px;
   width: 56px;
   height: 56px;
-  z-index: 1090; /* above drawer (1080) */
+  z-index: 1090;
   transition:
     transform 0.25s ease,
     opacity 0.25s ease;
@@ -501,8 +844,6 @@ onBeforeUnmount(() => {
   opacity: 0.35;
   pointer-events: none;
 }
-
-/* Slightly lift on hover for desktop */
 @media (hover: hover) {
   .notify-fab:hover {
     transform: translateY(-2px);
@@ -533,35 +874,34 @@ onBeforeUnmount(() => {
   animation: badge-pop 0.2s ease-out;
 }
 @keyframes badge-pop {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
 }
 .notify-hidden .notif-badge {
   opacity: 0;
 }
 
-/* 🔔 Notifications modal backdrop */
+/* 🔔 Notifications modal */
 .notif-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.35);
-  z-index: 1100; /* above FAB */
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1100;
   display: grid;
   place-items: center;
   padding: 12px;
+  /* subtle fade-in on mount */
+  animation: backdrop-fade 180ms ease-out both;
 }
-
-/* 🔔 Notifications modal — anchored above the FAB, bottom-right */
+@keyframes backdrop-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .notif-modal {
   position: fixed;
   right: 16px;
-  /* 24px (FAB bottom offset) + 56px (FAB height) + 12px (gap) = 92px */
   bottom: calc(24px + 56px + 12px);
   width: 420px;
   max-width: min(92vw, 420px);
@@ -569,44 +909,35 @@ onBeforeUnmount(() => {
   border-radius: 0.75rem;
   box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
   overflow: hidden;
-  z-index: 1101; /* ensure above backdrop */
-  transform-origin: bottom right; /* zoom from the FAB corner */
+  z-index: 1101;
+  transform-origin: bottom right;
+  will-change: transform, opacity, filter;
 }
-
-/* Optional little pointer "caret" from panel toward FAB */
-.notif-modal::after {
-  content: '';
-  position: absolute;
-  right: 24px;
-  bottom: -8px;
-  border-width: 8px;
-  border-style: solid;
-  border-color: #fff transparent transparent transparent;
-  filter: drop-shadow(0 -1px 2px rgba(0, 0, 0, 0.15));
+/* ✨ Upgraded modal motion */
+.notif-zoom-enter-active,
+.notif-zoom-leave-active {
+  transition:
+    transform 260ms cubic-bezier(.2,.8,.2,1),
+    opacity 260ms cubic-bezier(.2,.8,.2,1),
+    filter 260ms cubic-bezier(.2,.8,.2,1);
 }
-
+.notif-zoom-enter-from {
+  transform: translateY(10px) scale(0.96) rotate(0.001deg);
+  opacity: 0;
+  filter: blur(2px) saturate(0.9);
+}
+.notif-zoom-leave-to {
+  transform: translateY(8px) scale(0.98);
+  opacity: 0;
+  filter: blur(2px) saturate(0.9);
+}
 .notif-body {
   max-height: min(70vh, 540px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
 }
 
-/* Modal animation */
-.notif-zoom-enter-active,
-.notif-zoom-leave-active {
-  transition:
-    transform 0.18s ease,
-    opacity 0.18s ease;
-}
-.notif-zoom-enter-from,
-.notif-zoom-leave-to {
-  transform: scale(0.96);
-  opacity: 0;
-}
-
 /* ——————————————————————————————— */
-/* ✅ Make collapsed-mode icons same height as expanded */
-/* Adjust --sb-icon-h if your expanded icon size differs */
 .sidebar-shell :deep(.sidebar.collapsed .nav-link .bi),
 .drawer-panel :deep(.sidebar.collapsed .nav-link .bi) {
   height: var(--sb-icon-h);
@@ -617,8 +948,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
 }
-
-/* If you use custom wrappers for icons (optional, harmless if absent) */
 .sidebar-shell :deep(.sidebar.collapsed .tier-icon),
 .drawer-panel :deep(.sidebar.collapsed .tier-icon),
 .sidebar-shell :deep(.sidebar.collapsed .icon-ring),
@@ -631,25 +960,293 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
 }
+
+/* 🆕 Tier modal base */
+.tier-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1110;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  animation: backdrop-fade 190ms ease-out both;
+}
+.tier-modal {
+  background: #fff;
+  border-radius: 0.75rem;
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  will-change: transform, opacity, filter;
+}
+
+/* 🆕 LANDSCAPE sizing */
+.tier-modal-landscape {
+  width: 960px;
+  max-width: min(96vw, 960px);
+}
+@media (max-width: 767.98px) {
+  .tier-modal-landscape {
+    width: 100%;
+    max-width: 96vw;
+  }
+}
+
+/* 🆕 Landscape grid */
+.tier-content-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  min-height: 320px;
+}
+@media (max-width: 767.98px) {
+  .tier-content-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* 🆕 Big hero (left) */
+.tier-hero-big {
+  padding: 18px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #f8f9fa, #ffffff);
+  display: flex;
+  min-height: 100%;
+}
+.tier-hero-big.status-promoted {
+  background: linear-gradient(135deg, #e6f7ee, #ffffff);
+}
+.tier-hero-big.status-demoted {
+  background: linear-gradient(135deg, #fff3e6, #ffffff);
+}
+.tier-hero-big.status-stayed {
+  background: linear-gradient(135deg, #eef2ff, #ffffff);
+}
+
+.hero-icon-wrap {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #fff;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  /* subtle pop on open */
+  animation: rise-in 380ms cubic-bezier(.2,.8,.2,1) both 80ms;
+}
+.hero-icon-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.icon-fallback {
+  font-size: 28px;
+  color: #0d6efd;
+}
+
+.eyebrow {
+  font-size: 12px;
+  color: #6c757d;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.hero-title {
+  font-weight: 800;
+  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 100ms;
+}
+.hero-sub {
+  color: #495057;
+  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 160ms;
+}
+
+.hero-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  /* cascade-in effect */
+  animation: chip-pop 260ms cubic-bezier(.2,.8,.2,1) both;
+}
+.chip:nth-child(1){ animation-delay: 120ms; }
+.chip:nth-child(2){ animation-delay: 170ms; }
+.chip:nth-child(3){ animation-delay: 220ms; }
+
+.tier-banner {
+  margin-top: 18px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 14px;
+  padding: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 220ms;
+}
+.tier-banner .label {
+  font-size: 12px;
+  color: #6c757d;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.tier-banner .name {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+/* 🆕 Details (right) */
+.tier-details {
+  background: #fff;
+}
+.diff-block {
+  background: #fafbfc;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.diff-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.diff-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  /* stagger diff rows slightly */
+  animation: fade-slide-up 360ms cubic-bezier(.2,.8,.2,1) both;
+}
+.diff-list li:nth-child(1){ animation-delay: 80ms; }
+.diff-list li:nth-child(2){ animation-delay: 120ms; }
+.diff-list li:nth-child(3){ animation-delay: 160ms; }
+.diff-list .label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #212529;
+}
+.diff-list .vals {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: #495057;
+}
+.diff-list .before {
+  opacity: 0.8;
+  text-decoration: line-through;
+}
+.diff-list .after {
+  font-weight: 600;
+}
+
+.benefit-block {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.benefit-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.benefit-list li {
+  display: grid;
+  grid-template-columns: 18px 1fr;
+  gap: 8px;
+  align-items: start;
+  font-size: 14px;
+  color: #212529;
+}
+.benefit-list i {
+  font-size: 16px;
+  line-height: 18px;
+  color: #198754;
+}
+
+/* ✨ Upgraded tier modal motion */
+.tier-zoom-enter-active,
+.tier-zoom-leave-active {
+  transition:
+    transform 300ms cubic-bezier(.2,.8,.2,1),
+    opacity 300ms cubic-bezier(.2,.8,.2,1),
+    filter 300ms cubic-bezier(.2,.8,.2,1);
+}
+.tier-zoom-enter-from {
+  transform: translateY(12px) scale(0.965) rotate(0.001deg);
+  opacity: 0;
+  filter: blur(3px) saturate(0.92);
+}
+.tier-zoom-leave-to {
+  transform: translateY(8px) scale(0.98);
+  opacity: 0;
+  filter: blur(3px) saturate(0.92);
+}
+
+/* Keyframes for subtle elements */
+@keyframes rise-in {
+  from { transform: translateY(6px) scale(0.98); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes fade-slide-up {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes chip-pop {
+  from { transform: translateY(6px) scale(.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+/* Respect reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .notif-zoom-enter-active,
+  .notif-zoom-leave-active,
+  .tier-zoom-enter-active,
+  .tier-zoom-leave-active {
+    transition: none;
+  }
+  .notif-zoom-enter-from,
+  .notif-zoom-leave-to,
+  .tier-zoom-enter-from,
+  .tier-zoom-leave-to,
+  .hero-icon-wrap,
+  .hero-title,
+  .hero-sub,
+  .chip,
+  .tier-banner,
+  .diff-list li,
+  .notif-backdrop,
+  .tier-backdrop {
+    animation: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    filter: none !important;
+  }
+}
 </style>
 
 <!-- 🌿 Global minimalist scrollbar (no layout changes) -->
 <style>
-/* Reserve scrollbar space to avoid layout shift when locking body scroll */
 html {
   scrollbar-gutter: stable;
 }
-
 :root {
-  /* 🔧 Set your expanded icon height once; collapsed will match this */
   --sb-icon-h: 1.5rem;
-
   --sb-track: transparent;
   --sb-thumb: rgba(0, 0, 0, 0.28);
   --sb-thumb-hover: rgba(0, 0, 0, 0.45);
   --sb-thumb-active: rgba(0, 0, 0, 0.55);
 }
-
 @media (prefers-color-scheme: dark) {
   :root {
     --sb-track: transparent;
@@ -658,43 +1255,29 @@ html {
     --sb-thumb-active: rgba(255, 255, 255, 0.55);
   }
 }
-
-/* Firefox */
 * {
-  scrollbar-width: auto; /* keep default width to avoid size changes */
+  scrollbar-width: auto;
   scrollbar-color: var(--sb-thumb) var(--sb-track);
 }
-
-/* WebKit (Chrome/Edge/Safari/Opera) */
 *::-webkit-scrollbar {
-  /* no width/height here to avoid altering layout */
   background: var(--sb-track);
 }
-
 *::-webkit-scrollbar-thumb {
   background-color: var(--sb-thumb);
   border-radius: 999px;
-  border: 3px solid transparent; /* makes the thumb look thinner without changing layout */
-  background-clip: padding-box;
+  border: 3px solid transparent;
+  background-clip: padding-box; 
 }
-
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--sb-thumb-hover);
 }
-
 *::-webkit-scrollbar-thumb:active {
   background-color: var(--sb-thumb-active);
 }
-
-*::-webkit-scrollbar-track {
-  background: var(--sb-track);
-}
-
+*::-webkit-scrollbar-track,
 *::-webkit-scrollbar-corner {
   background: var(--sb-track);
 }
-
-/* Optional: hide scrollbar buttons for a cleaner look (doesn't affect size) */
 *::-webkit-scrollbar-button {
   display: none;
 }
