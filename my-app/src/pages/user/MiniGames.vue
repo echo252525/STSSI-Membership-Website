@@ -6,31 +6,108 @@
         <!-- ⭐ NEW BG: decorative, non-interactive animated background -->
         <div class="game-bg-anim" aria-hidden="true"></div>
 
-        <h2 class="h4 mb-1 game-title">
+        <h2 class="h4 mb-1 game-title breath-in">
           <span class="game-title__glow"></span>
           Mini Games
         </h2>
-        <p class="text-secondary mb-1">Join events, spin the wheel, and win purchase discounts.</p>
+        <p class="text-secondary mb-1 breath-in">Join events, spin the wheel, and win purchase discounts.</p>
         <RouterLink
           :to="{ name: 'user.minigames.tutorial' }"
-          class="text-secondary mb-1 d-inline-block text-decoration-underline"
+          class="text-secondary mb-1 d-inline-block text-decoration-underline breath-in"
           aria-label="Open tutorial: How to Play"
         >
           How to Play?
         </RouterLink>
 
-        <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center justify-content-between breath-in">
           <h3 class="h6 mb-0 game-sub mb-3">Open Events</h3>
         </div>
 
         <!-- Loading -->
         <div v-if="busy.load" class="text-center text-muted py-4">
-          <div class="spinner-border mb-2"></div>
-          <div>Loading events…</div>
+    
+          <!-- ===== SKELETON: Title Row ===== -->
+          <div class="sk-section breath-in mt-4" aria-hidden="true">
+            <div class="sk-line sk-w-40"></div>
+            <div class="sk-line sk-w-60 mt-2"></div>
+          </div>
+
+          <!-- ===== SKELETON: Slider / Card Stack ===== -->
+          <div class="slider mt-3 breath-in" tabindex="-1" aria-hidden="true">
+            <div class="slider__holder">
+              <div
+                v-for="i in skeletonCount"
+                :key="'sk-card-'+i"
+                class="slider__item"
+                :style="skeletonSlideStyle(i - 1)"
+              >
+                <div class="spin-card h-100 border rounded-4 sk-card">
+                  <div class="spin-card__halo" aria-hidden="true"></div>
+
+                  <div class="spin-card__body p-3">
+                    <!-- Header skeleton -->
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                      <div class="sk-line sk-w-50 sk-h-18"></div>
+                      <div class="sk-badge sk-w-20 sk-h-18"></div>
+                    </div>
+
+                    <!-- Wheel skeleton -->
+                    <div class="spin-wheel mb-3">
+                      <div class="spin-wheel__ring sk-ring"></div>
+                      <div class="spin-wheel__mask">
+                        <div class="sk-circle"></div>
+                      </div>
+                      <div class="spin-wheel__pointer" aria-hidden="true"></div>
+                    </div>
+
+                    <!-- Stats skeleton -->
+                    <div class="spin-stats mb-3">
+                      <div class="spin-stat">
+                        <div class="sk-line sk-w-50 sk-h-10"></div>
+                        <div class="sk-line sk-w-70 sk-h-14 mt-2"></div>
+                      </div>
+                      <div class="spin-stat">
+                        <div class="sk-line sk-w-50 sk-h-10"></div>
+                        <div class="sk-line sk-w-60 sk-h-14 mt-2"></div>
+                      </div>
+                      <div class="spin-stat">
+                        <div class="sk-line sk-w-40 sk-h-10"></div>
+                        <div class="sk-line sk-w-80 sk-h-14 mt-2"></div>
+                      </div>
+                    </div>
+
+                    <!-- Avatars skeleton -->
+                    <div class="avatar-row mb-3">
+                      <div class="avatars">
+                        <div v-for="a in 6" :key="'sk-av-'+a" class="avatar-fallback sk-avatar"></div>
+                      </div>
+                      <div class="avatar-more sk-line sk-w-20 sk-h-14"></div>
+                    </div>
+
+                    <!-- Bottom row skeleton -->
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div class="sk-line sk-w-40 sk-h-12"></div>
+                      <div class="sk-badge sk-w-18 sk-h-18"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bullets skeleton -->
+              <div class="bullets mt-3">
+                <span
+                  v-for="b in skeletonCount"
+                  :key="'sk-bullet-'+b"
+                  class="bullets__item sk-bullet"
+                  aria-hidden="true"
+                ></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Empty -->
-        <div v-else-if="openEvents.length === 0" class="text-center text-muted py-4">
+        <div v-else-if="openEvents.length === 0" class="text-center text-muted py-4 breath-in">
           <i class="bi bi-joystick" style="font-size: 1.6rem"></i>
           <div class="mt-2">No open events right now.</div>
         </div>
@@ -38,7 +115,7 @@
         <!-- Slider (replaces grid; keeps card markup intact) -->
         <div
           v-else
-          class="slider"
+          class="slider breath-in"
           @keydown.left.prevent="prev"
           @keydown.right.prevent="next"
           tabindex="0"
@@ -419,6 +496,34 @@ function slideStyle(i: number): CSSProperties {
     transition: swipe.dragging
       ? 'transform .03s linear, filter .2s ease, opacity .2s ease'
       : 'transform .3s ease, filter .3s ease, opacity .3s ease',
+  }
+}
+
+/* ====== SKELETON slide style (mirrors slideStyle but fixed indices) ====== */
+const skeletonCount = 3
+function skeletonSlideStyle(i: number): CSSProperties {
+  const step = viewportW.value <= 480 ? 18 : viewportW.value <= 768 ? 20 : 22
+  const base = viewportW.value <= 480 ? 1.0 : 0.84
+  const perStep = viewportW.value <= 480 ? 0.05 : 0.08
+  const minScale = viewportW.value <= 480 ? 0.94 : 0.72
+
+  const diff = i // center at 0, stack 0..2 visually like real
+  const distance = Math.abs(diff)
+  const x = (diff - 0) * step
+  const width =
+    viewportW.value <= 480 ? 'min(96%, 520px)' : viewportW.value <= 768 ? '92%' : 'clamp(320px, 70%, 620px)'
+  const scale = Math.max(base - distance * perStep, minScale)
+  const brightness = 1 - Math.min(distance * (viewportW.value <= 480 ? 0.12 : 0.2), viewportW.value <= 480 ? 0.45 : 0.6)
+  const z = 100 - distance
+
+  return {
+    left: '50%',
+    width,
+    transform: `translateX(calc(-50% + ${x}%)) scale(${scale})`,
+    zIndex: String(z),
+    pointerEvents: 'none',
+    filter: `brightness(${brightness})`,
+    transition: 'transform .3s ease, filter .3s ease, opacity .3s ease',
   }
 }
 
@@ -1335,10 +1440,50 @@ onUnmounted(() => {
   .spin-wheel__ring,
   .join-btn,
   .spin-card__halo,
-  .slider__item {
+  .slider__item,
+  .breath-in {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ===================== NEW: Breath-in animation (~500ms) ===================== */
+.breath-in {
+  animation: breathIn 0.5s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes breathIn {
+  from { opacity: 0; transform: translateY(6px) scale(.995); filter: blur(1.2px); }
+  60% { opacity: 1; transform: translateY(0) scale(1.002); filter: blur(.2px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+
+/* ===================== SKELETON SYSTEM ===================== */
+.sk-section { max-width: 680px; margin: 0 auto; }
+.sk-line, .sk-badge, .sk-circle, .sk-avatar, .sk-bullet, .sk-ring {
+  position: relative;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #eef1f7 25%, #f6f7fb 37%, #eef1f7 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.15s linear infinite;
+}
+.sk-line { height: 14px; }
+.sk-h-10{ height:10px; } .sk-h-12{ height:12px; } .sk-h-14{ height:14px; } .sk-h-18{ height:18px; }
+.sk-w-20{ width:20%; } .sk-w-40{ width:40%; } .sk-w-50{ width:50%; } .sk-w-60{ width:60%; } .sk-w-70{ width:70%; } .sk-w-80{ width:80%; }
+.sk-badge { height: 18px; width: 72px; border-radius: 999px; }
+.sk-circle { width: 100%; height: 100%; border-radius: 50%; }
+.sk-avatar { width: 32px; height: 32px; border-radius: 50%; }
+.sk-bullet { width: 10px; height: 10px; border-radius: 6px; display: inline-block; margin: 0 4px; }
+.sk-ring {
+  width: 84%;
+  height: 84%;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 10px #fff,
+    0 2px 10px rgba(0, 0, 0, 0.04);
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* ===================== SLIDER (inspired by your SCSS snippet) ===================== */
@@ -1511,20 +1656,12 @@ onUnmounted(() => {
 }
 @keyframes haloFloat {
   0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
+  100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
-.spin-card__title {
-  letter-spacing: 0.2px;
-}
-.spin-card__status {
-  backdrop-filter: saturate(1.2);
-}
+.spin-card__title { letter-spacing: 0.2px; }
+.spin-card__status { backdrop-filter: saturate(1.2); }
 
 /* ⭐ Slightly tighter padding on small screens for more breathing room overall */
 @media (max-width: 600px) {
@@ -1577,14 +1714,8 @@ onUnmounted(() => {
   transition: filter 0.25s ease;
   z-index: 1;
 }
-.spin-card:hover .spin-wheel__ring {
-  filter: saturate(1.1) brightness(1.02);
-}
-@keyframes ringSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+.spin-card:hover .spin-wheel__ring { filter: saturate(1.1) brightness(1.02); }
+@keyframes ringSpin { to { transform: rotate(360deg); } }
 
 /* CLICKABLE MASK micro-interactions */
 .spin-wheel__mask {
@@ -1608,9 +1739,7 @@ onUnmounted(() => {
   transform: scale(1.025);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.12);
 }
-.spin-wheel__mask.is-clickable:active {
-  transform: scale(0.995);
-}
+.spin-wheel__mask.is-clickable:active { transform: scale(0.995); }
 .spin-wheel__mask.is-clickable:focus {
   outline: 0;
   box-shadow:
@@ -1618,12 +1747,7 @@ onUnmounted(() => {
     0 8px 20px rgba(0, 0, 0, 0.1);
 }
 
-.spin-wheel__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
+.spin-wheel__img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .spin-wheel__placeholder {
   width: 100%;
   height: 100%;
@@ -1673,14 +1797,8 @@ onUnmounted(() => {
   padding: 0.5rem 0.6rem;
   text-align: center;
 }
-.spin-stat__label {
-  font-size: 0.72rem;
-  color: #6c757d;
-}
-.spin-stat__value {
-  font-size: 0.9rem;
-  font-weight: 600;
-}
+.spin-stat__label { font-size: 0.72rem; color: #6c757d; }
+.spin-stat__value { font-size: 0.9rem; font-weight: 600; }
 
 /* --- Avatars --- */
 .avatar-row {
@@ -1709,17 +1827,9 @@ onUnmounted(() => {
   overflow: hidden;
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
 }
-.avatar-img {
-  object-fit: cover;
-}
-.avatar-img:hover {
-  box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.25);
-}
-.avatar-fallback {
-  color: #94a3b8;
-  font-size: 1rem;
-  background: #f1f5f9;
-}
+.avatar-img { object-fit: cover; }
+.avatar-img:hover { box-shadow: 0 0 0 2px rgba(67, 97, 238, 0.25); }
+.avatar-fallback { color: #94a3b8; font-size: 1rem; background: #f1f5f9; }
 .avatar-more {
   font-size: 0.8rem;
   color: #6c757d;
@@ -1746,15 +1856,9 @@ onUnmounted(() => {
   animation: pulse 1.8s infinite;
 }
 @keyframes pulse {
-  0% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6);
-  }
-  70% {
-    box-shadow: 0 0 0 8px rgba(32, 201, 151, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(32, 201, 151, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(32, 201, 151, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(32, 201, 151, 0); }
 }
 
 /* --- Join button micro-interactions (kept for compatibility; button removed) --- */
@@ -1781,9 +1885,7 @@ onUnmounted(() => {
   transform: translateX(-120%);
   transition: transform 0.6s ease;
 }
-.join-btn:hover::after {
-  transform: translateX(120%);
-}
+.join-btn:hover::after { transform: translateX(120%); }
 .join-btn--disabled,
 .join-btn:disabled {
   opacity: 0.7;
@@ -1847,15 +1949,9 @@ onUnmounted(() => {
   -webkit-mask-image: radial-gradient(85% 85% at 50% 40%, #000 70%, transparent 100%);
   mask-image: radial-gradient(85% 85% at 50% 40%, #000 70%, transparent 100%);
 }
-@keyframes bgSlowSpin {
-  to {
-    transform: rotate(360deg);
-  }
-}
+@keyframes bgSlowSpin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .game-bg-anim {
-    animation: none;
-  }
+  .game-bg-anim { animation: none; }
 }
 
 /* Glossy title w/ glow underline */
@@ -1938,19 +2034,9 @@ onUnmounted(() => {
   pointer-events: none;
 }
 @keyframes popSpark {
-  from {
-    opacity: 0;
-    transform: scale(0.85);
-    filter: blur(2px);
-  }
-  30% {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-    transform: scale(1.25);
-    filter: blur(6px);
-  }
+  from { opacity: 0; transform: scale(0.85); filter: blur(2px); }
+  30% { opacity: 1; }
+  to { opacity: 0; transform: scale(1.25); filter: blur(6px); }
 }
 
 /* HUD: slot progress underline */

@@ -1,26 +1,19 @@
 <template>
   <div class="container py-4 purchases-shell">
     <!-- ===== Page Header ===== -->
-    <header class="page-header">
+    <header class="page-header breath-in">
       <div class="page-header__titles">
         <h1 class="h4 m-0">My Purchases</h1>
         <p class="text-muted small mb-0">Track your orders and delivery status.</p>
       </div>
 
       <div class="page-header__actions">
-        <button
-          class="btn btn-outline-secondary btn-sm"
-          :disabled="busy.load"
-          @click="loadPurchases"
-        >
-          <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
-          Refresh
-        </button>
+        
       </div>
     </header>
 
     <!-- ===== Sticky Tabs (compact, scrollable) ===== -->
-    <div class="tabbar sticky-top">
+    <div class="tabbar sticky-top breath-in">
       <ul class="nav nav-pills tabbar__scroll">
         <li v-for="t in tabs" :key="t.value" class="nav-item">
           <button
@@ -36,7 +29,7 @@
     </div>
 
     <!-- ===== Return/Refund Subtabs (kept hidden) ===== -->
-    <div v-if="false && activeTab === STATUS.RETURN_REFUND" class="mb-3">
+    <div v-if="false && activeTab === STATUS.RETURN_REFUND" class="mb-3 breath-in">
       <ul class="nav nav-pills flex-wrap gap-2">
         <li v-for="st in rrSubtabs" :key="st.value" class="nav-item">
           <button
@@ -51,14 +44,119 @@
       </ul>
     </div>
 
-    <!-- ===== Loading State ===== -->
-    <section v-if="busy.load" class="state state--loading">
-      <div class="spinner-border mb-3"></div>
-      <div>Loading your purchases…</div>
+    <!-- ===== Loading State (Skeletons) ===== -->
+    <section v-if="busy.load" class="state state--loading breath-in">
+      <!-- Keep original spinner node (not removed), but hide visually -->
+      <div class="spinner-border mb-3 visually-hidden"></div>
+      <div class="skel skel-header">
+        <div class="skel-line skel-w-30"></div>
+        <div class="skel-line skel-w-60 skel-sm"></div>
+      </div>
+
+      <div class="skel skel-tabs">
+        <div class="skel-pill"></div>
+        <div class="skel-pill"></div>
+        <div class="skel-pill"></div>
+        <div class="skel-pill"></div>
+      </div>
+
+      <!-- A few order-card skeletons to mimic grouped view -->
+      <div class="stack gap-3">
+        <div class="order-card skel-card">
+          <div class="order-card__header">
+            <div>
+              <div class="skel-line skel-w-25"></div>
+              <div class="skel-line skel-w-40 skel-sm"></div>
+            </div>
+            <div class="skel-badge"></div>
+          </div>
+
+          <div class="tickets-row">
+            <div class="skel-ticket"></div>
+            <div class="skel-ticket"></div>
+          </div>
+
+          <div class="order-card__items">
+            <div class="item-row">
+              <div class="skel-thumb"></div>
+              <div class="item-row__main">
+                <div class="skel-line skel-w-60"></div>
+                <div class="skel-line skel-w-45 skel-sm"></div>
+              </div>
+              <div class="item-row__price">
+                <div class="skel-line skel-w-40"></div>
+                <div class="skel-line skel-w-30 skel-sm"></div>
+              </div>
+              <div class="item-row__cta">
+                <div class="skel-btn"></div>
+              </div>
+            </div>
+
+            <div class="item-row">
+              <div class="skel-thumb"></div>
+              <div class="item-row__main">
+                <div class="skel-line skel-w-55"></div>
+                <div class="skel-line skel-w-35 skel-sm"></div>
+              </div>
+              <div class="item-row__price">
+                <div class="skel-line skel-w-40"></div>
+                <div class="skel-line skel-w-30 skel-sm"></div>
+              </div>
+              <div class="item-row__cta">
+                <div class="skel-btn"></div>
+              </div>
+            </div>
+          </div>
+
+          <footer class="order-card__footer">
+            <div class="order-card__sum text-end">
+              <div class="skel-line skel-w-30"></div>
+              <div class="skel-line skel-w-20 skel-sm"></div>
+            </div>
+            <div class="order-card__actions">
+              <div class="skel-btn"></div>
+              <div class="skel-btn"></div>
+            </div>
+          </footer>
+        </div>
+
+        <!-- 2nd card -->
+        <div class="order-card skel-card">
+          <div class="order-card__header">
+            <div>
+              <div class="skel-line skel-w-20"></div>
+              <div class="skel-line skel-w-50 skel-sm"></div>
+            </div>
+            <div class="skel-badge"></div>
+          </div>
+          <div class="order-card__items">
+            <div class="item-row">
+              <div class="skel-thumb"></div>
+              <div class="item-row__main">
+                <div class="skel-line skel-w-65"></div>
+                <div class="skel-line skel-w-40 skel-sm"></div>
+              </div>
+              <div class="item-row__price">
+                <div class="skel-line skel-w-35"></div>
+                <div class="skel-line skel-w-25 skel-sm"></div>
+              </div>
+              <div class="item-row__cta">
+                <div class="skel-btn"></div>
+              </div>
+            </div>
+          </div>
+          <footer class="order-card__footer">
+            <div class="order-card__sum text-end">
+              <div class="skel-line skel-w-25"></div>
+              <div class="skel-line skel-w-18 skel-sm"></div>
+            </div>
+          </footer>
+        </div>
+      </div>
     </section>
 
     <!-- ===== Empty State ===== -->
-    <section v-else-if="groupedFiltered.length === 0" class="state state--empty">
+    <section v-else-if="groupedFiltered.length === 0" class="state state--empty breath-in">
       <i class="bi bi-bag-x state__icon"></i>
       <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”.</div>
       <RouterLink :to="{ name: 'user.shop' }" class="btn btn-primary btn-sm mt-3">
@@ -66,12 +164,12 @@
       </RouterLink>
     </section>
 
-    <!-- ===== Grouped View (Primary) ===== -->
+    <!-- ===== Grouped View (Primary) — per reference number ===== -->
     <section v-else-if="showGrouped" class="stack gap-3">
       <article
         v-for="g in groupedFiltered"
         :key="g.ref"
-        class="order-card clickable-card"
+        class="order-card clickable-card breath-in"
         :class="{ 'order-card--highlight': g.ref === highlightRef }"
         @click="openGroupDetails(g)"
       >
@@ -178,19 +276,33 @@
                 v-if="productThumb(it)"
                 :src="productThumb(it)"
                 :alt="productName(it)"
-                class="w-100 h-100 object-fit-cover rounded"
+                class="w-100 h-100 object-fit-cover rounded cursor-pointer"
+                :title="productName(it)"
+                @click.stop.prevent="goShopFocus(it.product_id)"
               />
-              <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+              <div
+                v-else
+                class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                :title="productName(it)"
+                @click.stop.prevent="goShopFocus(it.product_id)"
+                style="cursor:pointer"
+              >
                 <i class="bi bi-image"></i>
               </div>
             </div>
 
             <div class="item-row__main">
-              <div class="item-row__title fw-semibold title-ellipsis" :title="productName(it)" :class="{ 'text-danger': !!rrStatus(it.id) }">
+              <a
+                class="item-row__title fw-semibold title-ellipsis link-ghost"
+                :title="productName(it)"
+                @click.stop.prevent="goShopFocus(it.product_id)"
+                :href="buildFocusUrl(it.product_id)"
+              >
                 {{ productName(it) }}
-              </div>
+              </a>
 
-              <div class="item-row__meta">
+              <!-- Per-item meta badges are hidden in list view; still visible in modal -->
+              <div class="item-row__meta" v-if="SHOW_ITEM_BADGES_IN_LIST">
                 <span class="badge" :class="statusClass(it.status)">
                   {{ prettyStatusWithRR(it.status, it.id) }}
                 </span>
@@ -276,8 +388,8 @@
         <!-- Totals -->
         <footer class="order-card__footer">
           <div class="order-card__sum text-end">
-            <!-- Breakdown -->
-            <div class="small text-muted price-breakdown">
+            <!-- Breakdown (hidden per request, kept in code) -->
+            <div class="small text-muted price-breakdown" v-if="SHOW_GROUP_PRICE_BREAKDOWN">
               <div>Items: ₱ {{ number(groupItemsBaseTotal(g)) }}</div>
               <div v-if="refHasDiscount(g.ref)">Discount: −₱ {{ number(groupDiscountAmount(g)) }}</div>
 
@@ -345,7 +457,7 @@
 
     <!-- ===== Fallback (single list; kept) ===== -->
     <section v-else class="stack gap-3">
-      <article v-for="p in filtered" :key="p.id" class="order-card">
+      <article v-for="p in filtered" :key="p.id" class="order-card breath-in">
         <header class="order-card__header">
           <div class="order-card__id">
             <span class="text-muted">Ref#</span>
@@ -414,17 +526,30 @@
                 v-if="productThumb(p)"
                 :src="productThumb(p)"
                 :alt="productName(p)"
-                class="w-100 h-100 object-fit-cover rounded"
+                class="w-100 h-100 object-fit-cover rounded cursor-pointer"
+                :title="productName(p)"
+                @click.stop.prevent="goShopFocus(p.product_id)"
               />
-              <div v-else class="w-100 h-100 d-flex align-items-center justify-content-center text-muted">
+              <div
+                v-else
+                class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                :title="productName(p)"
+                @click.stop.prevent="goShopFocus(p.product_id)"
+                style="cursor:pointer"
+              >
                 <i class="bi bi-image"></i>
               </div>
             </div>
 
             <div class="item-row__main">
-              <div class="item-row__title fw-semibold title-ellipsis" :title="productName(p)" :class="{ 'text-danger': !!rrStatus(p.id) }">
+              <a
+                class="item-row__title fw-semibold title-ellipsis link-ghost"
+                :title="productName(p)"
+                @click.stop.prevent="goShopFocus(p.product_id)"
+                :href="buildFocusUrl(p.product_id)"
+              >
                 {{ productName(p) }}
-              </div>
+              </a>
 
               <div class="item-row__meta">
                 <span class="badge" :class="statusClass(p.status)">
@@ -450,10 +575,10 @@
                   title="Discount applied to this item"
                 >
                   <div class="ticket-left">
-                    <i class="bi bi-ticket-perforated me-1"></i>
+                    <i class="bi bi-ticket-perforated me-1)"></i>
                     <span class="ticket-title" :title="d.title">{{ d.title }}</span>
                   </div>
-                  <div class="ticket-divider" aria-hidden="true"></div>
+                  <div class="ticket-divider"></div>
                   <div class="ticket-right">
                     <span class="ticket-value">{{ discountLabel(d) }}</span>
                     <span class="ticket-tag">APPLIED</span>
@@ -556,15 +681,19 @@
       </article>
     </section>
 
-    <!-- ===== Return/Refund Modal (unchanged logic) ===== -->
+    <!-- ===== Return/Refund Modal ===== -->
     <div v-if="showRR" class="modal-backdrop-custom2">
-      <div class="modal-card2 card shadow-lg">
+      <div class="modal-card2 card shadow-lg breath-in">
         <div class="card-header d-flex align-items-center justify-content-between">
           <strong>Return / Refund Request</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeReturnRefund">✕</button>
         </div>
 
         <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="small text-muted" v-if="rrGroup">Ref# {{ rrGroup.ref }}</div>
+          </div>
+
           <!-- Group preview -->
           <div v-if="rrGroup" class="mb-3">
             <div class="d-flex align-items-center justify-content-between">
@@ -638,7 +767,12 @@
                     />
                     <input v-else class="form-check-input" type="checkbox" checked disabled />
 
-                    <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+                    <div
+                      class="purchase-thumb ratio ratio-1x1 bg-white rounded"
+                      @click.stop.prevent="goShopFocus(it.product_id)"
+                      :title="productName(it)"
+                      style="cursor:pointer"
+                    >
                       <img
                         v-if="productThumb(it)"
                         :src="productThumb(it)"
@@ -651,9 +785,14 @@
                     </div>
 
                     <div class="flex-grow-1">
-                      <div class="fw-semibold title-ellipsis" :title="productName(it)">
+                      <a
+                        class="fw-semibold title-ellipsis link-ghost item-row__title"
+                        :title="productName(it)"
+                        @click.stop.prevent="goShopFocus(it.product_id)"
+                        :href="buildFocusUrl(it.product_id)"
+                      >
                         {{ productName(it) }}
-                      </div>
+                      </a>
                       <div v-if="!!rrStatus(it.id)" class="small text-muted">
                         Already submitted • {{ capitalize(rrStatus(it.id)!) }}
                       </div>
@@ -737,7 +876,12 @@
 
           <!-- Single purchase path -->
           <div v-else-if="rrPurchase" class="d-flex align-items-center gap-3 mb-3">
-            <div class="purchase-thumb ratio ratio-1x1 bg-light rounded">
+            <div
+              class="purchase-thumb ratio ratio-1x1 bg-light rounded"
+              @click.stop.prevent="goShopFocus(rrPurchase.product_id)"
+              :title="productName(rrPurchase)"
+              style="cursor:pointer"
+            >
               <img
                 v-if="productThumb(rrPurchase)"
                 :src="productThumb(rrPurchase)"
@@ -749,7 +893,14 @@
               </div>
             </div>
             <div class="flex-grow-1">
-              <div class="fw-semibold title-ellipsis">{{ productName(rrPurchase) }}</div>
+              <a
+                class="fw-semibold title-ellipsis link-ghost item-row__title"
+                :title="productName(rrPurchase)"
+                @click.stop.prevent="goShopFocus(rrPurchase.product_id)"
+                :href="buildFocusUrl(rrPurchase.product_id)"
+              >
+                {{ productName(rrPurchase) }}
+              </a>
               <div class="text-muted small">Ref# {{ rrPurchase.reference_number || shortId(rrPurchase.id) }}</div>
 
               <!-- Item-scoped tickets -->
@@ -838,13 +989,13 @@
       </div>
     </div>
 
-    <!-- ===== Group Details Modal (unchanged logic) ===== -->
+    <!-- ===== Group Details Modal ===== -->
     <div
       v-if="showGroupDetails && selectedGroupComputed"
       class="modal-backdrop-custom2"
       @click.self="closeGroupDetails"
     >
-      <div class="modal-card2 card shadow-lg" @click.stop>
+      <div class="modal-card2 card shadow-lg breath-in" @click.stop>
         <div class="card-header d-flex align-items-center justify-content-between">
           <strong>Order Details — Ref# {{ selectedGroupComputed!.ref }}</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeGroupDetails">✕</button>
@@ -880,7 +1031,7 @@
               title="Discount applied"
             >
               <div class="ticket-left">
-                <i class="bi bi-ticket-perforated me-1"></i>
+                <i class="bi bi-ticket-perforated me-1)"></i>
                 <span class="ticket-title" :title="d.title">{{ d.title }}</span>
               </div>
               <div class="ticket-divider" aria-hidden="true"></div>
@@ -914,7 +1065,12 @@
               :class="{ 'item-row--highlight': highlightPid === it.id }"
               :id="'pid-' + it.id"
             >
-              <div class="purchase-thumb ratio ratio-1x1 bg-white rounded">
+              <div
+                class="purchase-thumb ratio ratio-1x1 bg-white rounded"
+                @click.stop.prevent="goShopFocus(it.product_id)"
+                :title="productName(it)"
+                style="cursor:pointer"
+              >
                 <img
                   v-if="productThumb(it)"
                   :src="productThumb(it)"
@@ -927,9 +1083,14 @@
               </div>
 
               <div class="item-row__main">
-                <div class="item-row__title fw-semibold title-ellipsis" :title="productName(it)">
+                <a
+                  class="item-row__title fw-semibold title-ellipsis link-ghost"
+                  :title="productName(it)"
+                  @click.stop.prevent="goShopFocus(it.product_id)"
+                  :href="buildFocusUrl(it.product_id)"
+                >
                   {{ productName(it) }}
-                </div>
+                </a>
 
                 <div class="item-row__meta">
                   <span class="badge" :class="statusClass(it.status)">
@@ -954,7 +1115,7 @@
                     class="discount-ticket"
                   >
                     <div class="ticket-left">
-                      <i class="bi bi-ticket-perforated me-1"></i>
+                      <i class="bi bi-ticket-perforated me-1)"></i>
                       <span class="ticket-title" :title="d.title">{{ d.title }}</span>
                     </div>
                     <div class="ticket-divider" aria-hidden="true"></div>
@@ -1146,6 +1307,10 @@ const activeRR = ref<RRState>('pending')
 /** Mode flags */
 const showGrouped = true
 
+/** NEW flags per request (do not remove code, just hide UI) */
+const SHOW_ITEM_BADGES_IN_LIST = false
+const SHOW_GROUP_PRICE_BREAKDOWN = false
+
 /** UI state */
 const busy = ref<{
   load: boolean
@@ -1277,6 +1442,21 @@ function productSpecsSummary(purchase: AnyRec): string {
   let out = shown.join(' • ')
   if (entries.length > MAX_PAIRS) out += ' …'
   return truncateText(out, 180)
+}
+
+/* ====== NAV to /app/shop?focus=product_id (images & titles in modals) ====== */
+function buildFocusUrl(productId?: string) {
+  const pid = String(productId || '').trim()
+  return pid ? `/app/shop?focus=${encodeURIComponent(pid)}` : '/app/shop'
+}
+function goShopFocus(productId?: string) {
+  const pid = String(productId || '').trim()
+  if (!pid) {
+    // fallback: go to shop without focus
+    router.push({ path: '/app/shop' })
+    return
+  }
+  router.push({ path: '/app/shop', query: { focus: pid } })
 }
 
 /* ---------------- Return/Refund store (per purchase) ---------------- */
@@ -2623,7 +2803,6 @@ onMounted(async () => {
 function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   return redemptionUnitDiscount(purchase)
 }
-
 </script>
 
 <style scoped>
@@ -2682,6 +2861,7 @@ function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   overflow-x: auto;
   padding-bottom: 2px;
   scrollbar-width: thin;
+  
 }
 .tabbar__pill {
   border-radius: 999px !important;
@@ -2896,7 +3076,7 @@ function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   .ticket-divider { border-left-color: var(--border); }
   .ticket-tag {
     border-color: var(--border);
-    background: #0f141a;
+    background: #ffffff;
     color: var(--muted);
   }
   .ticket-tag--event {
@@ -2927,6 +3107,20 @@ function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.06);
 }
 
+/* A11y-friendly ghost link for titles */
+.link-ghost {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+.link-ghost:hover,
+.link-ghost:focus {
+  text-decoration: underline;
+}
+
+/* Cursor helper */
+.cursor-pointer { cursor: pointer; }
+
 /* Responsive refinement */
 @media (max-width: 576px) {
   .item-row {
@@ -2937,12 +3131,107 @@ function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   .item-row__price { min-width: 120px; }
 }
 
-/* Gentle fade-in for sections/cards */
+/* ===================== */
+/* Entrance animations   */
+/* ===================== */
 .order-card, .state, .page-header, .tabbar {
-  animation: fadeUp .28s ease both;
+  animation: fadeUp .5s ease both; /* longer ~500ms */
 }
+/* Add a gentle “breath-in” scale on top */
+.breath-in {
+  animation:
+    fadeUp .5s ease both,
+    breatheIn .6s ease-out both;
+}
+
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes breatheIn {
+  0%   { transform: scale(.985); }
+  100% { transform: scale(1); }
+}
+
+/* ===================== */
+/* Skeleton placeholders */
+/* ===================== */
+.skel { text-align: left; margin-bottom: 1rem; }
+.skel-header { display: grid; gap: .5rem; margin-bottom: .75rem; }
+.skel-tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+
+.skel-line {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-sm { height: 10px; }
+.skel-w-65 { width: 65%; }
+.skel-w-60 { width: 60%; }
+.skel-w-55 { width: 55%; }
+.skel-w-50 { width: 50%; }
+.skel-w-45 { width: 45%; }
+.skel-w-40 { width: 40%; }
+.skel-w-35 { width: 35%; }
+.skel-w-30 { width: 30%; }
+.skel-w-25 { width: 25%; }
+.skel-w-20 { width: 20%; }
+.skel-pill {
+  height: 30px; width: 88px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border: 1px solid var(--border);
+}
+.skel-card { position: relative; overflow: hidden; }
+.skel-thumb {
+  width: 64px; height: 64px; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+}
+.skel-badge {
+  height: 22px; width: 84px; border-radius: 999px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border: 1px solid var(--border);
+}
+.skel-ticket {
+  height: 36px; width: 180px; border-radius: 12px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border: 1px dashed var(--border);
+}
+.skel-btn {
+  height: 32px; width: 120px; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border: 1px solid var(--border);
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .order-card, .state, .page-header, .tabbar, .breath-in { animation: none !important; }
+  .skel-line, .skel-pill, .skel-thumb, .skel-badge, .skel-ticket, .skel-btn { animation: none !important; }
+}
+
+/* ====== NEW: Wrap long titles only inside modals ====== */
+.modal-card2 .item-row__title {
+  /* Override the .title-ellipsis in modal context */
+  max-width: 100%;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  word-break: break-word;
 }
 </style>

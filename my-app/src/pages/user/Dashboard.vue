@@ -1,7 +1,7 @@
 <template>
   <div class="dash container-xxl">
     <!-- ===== HERO ===== -->
-    <section class="hero card border-0 shadow-sm rounded-4 mb-3" v-reveal>
+    <section class="hero card border-0 shadow-sm rounded-4 mb-3 breath-in-500" v-reveal>
       <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3">
           <div class="tier-icon neon">
@@ -21,7 +21,8 @@
           <div class="qchip balance" v-reveal>
             <i class="bi bi-wallet2"></i>
             <span class="label">E-Wallet</span>
-            <span class="value">{{ peso(ewallet.balance) }}</span>
+            <!-- animated value -->
+            <span class="value">{{ peso(displayEwallet) }}</span>
             <!-- CHANGED: add ?isTopUpOpen=yes -->
             <router-link
               :to="{ path: '/app/ewallet', query: { isTopUpOpen: 'yes' } }"
@@ -37,7 +38,8 @@
           <div class="qchip balance" v-reveal style="--i: 1">
             <i class="bi bi-ticket-perforated"></i>
             <span class="label">Credits</span>
-            <span class="value">{{ peso(credits.balance) }}</span>
+            <!-- animated value -->
+            <span class="value">{{ peso(displayCredits) }}</span>
             <!-- CHANGED: add ?isCreditsOpen=yes -->
             <router-link
               :to="{ path: '/app/ewallet', query: { isCreditsOpen: 'yes' } }"
@@ -58,7 +60,7 @@
     <!-- ===== MAIN: GAMES (OPEN ONLY) + PRODUCT PREVIEW ===== -->
     <section class="grid grid-main mb-4">
       <!-- ===== Games Panel ===== -->
-      <div ref="gamesPanelEl" class="panel card border-0 shadow-sm rounded-4 games-panel" v-reveal>
+      <div ref="gamesPanelEl" class="panel card border-0 shadow-sm rounded-4 games-panel breath-in-500" v-reveal>
         <div class="card-body p-0">
           <div
             class="games-head d-flex align-items-center justify-content-between px-3 px-sm-4 pt-3"
@@ -94,7 +96,7 @@
               <div class="decor"></div>
 
               <div v-if="featureGame?.imageUrl" class="banner-art">
-                <img :src="featureGame.imageUrl" alt="Prize" />
+                <img :src="featureGame?.imageUrl || undefined" alt="Prize" />
               </div>
 
               <div class="banner-top">
@@ -137,23 +139,29 @@
 
             <!-- SCROLLABLE SIDE LIST: ALL OTHER OPEN GAMES -->
             <div class="side-wrap">
+              <!-- optional top/bottom arrows; click nudges while preserving loop -->
+
               <div
                 class="side-list scrollable"
                 ref="sideListEl"
                 :style="{ maxHeight: sideListH + 'px' }"
+                @mouseenter="hoverSide = true"
+                @mouseleave="hoverSide = false"
+                @scroll.passive="onManualSideScroll"
               >
+                <!-- 🔁 Looping list: render 3 segments (A|B|C) for endless wrap -->
                 <button
-                  v-for="g in sideListGames"
-                  :key="g.id"
+                  v-for="g in sideListLooped"
+                  :key="g._key"
                   type="button"
                   class="side-item"
                   :class="{ active: isSelected(g.id) }"
                   @click="selectFeature(g.id)"
                   :aria-selected="isSelected(g.id)"
-                  title="Preview"
+                  :title="g.title"
                 >
                   <div class="icon-slot">
-                    <img v-if="g.imageUrl" :src="g.imageUrl" alt="Prize" />
+                    <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
                     <i v-else class="bi bi-controller"></i>
                   </div>
                   <div class="body">
@@ -168,27 +176,18 @@
                   </div>
                   <i class="bi bi-chevron-right caret"></i>
                 </button>
-              </div>
-
-              <!-- ↓ Floating scroll hints -->
-              <div class="side-hint floating" v-if="sideScrollHintVisible" aria-hidden="true">
-                <i class="bi bi-arrow-down-short"></i>
-              </div>
-              <!-- ↑ Floating UP arrow -->
-              <div class="side-hint floating up" v-if="sideScrollHintUpVisible" aria-hidden="true">
-                <i class="bi bi-arrow-up-short"></i>
-              </div>
+              </div>  
             </div>
           </div>
         </div>
       </div>
 
-      <!-- ===== Product Preview (kept) ===== -->
-      <div class="panel card border-0 shadow-sm rounded-4" v-reveal style="--i: 1">
+      <!-- ===== Product Preview (REBUILT & SORTED BY LATEST) ===== -->
+      <div class="panel card border-0 shadow-sm rounded-4 breath-in-500" v-reveal style="--i: 1">
         <div class="card-body">
           <div class="panel-head">
             <h3 class="h6 m-0 d-flex align-items-center gap-2">
-              <i class="bi bi-eye"></i> Product Preview
+              <i class="bi bi-eye"></i> See Latest Products
             </h3>
             <router-link to="/app/shop" class="btn btn-outline-secondary btn-sm"
               >Go to Shop</router-link
@@ -209,13 +208,31 @@
             <div>No products to preview right now.</div>
           </div>
 
-          <!-- Preview content -->
-          <div v-else class="pp-wrap" @mouseenter="onPPHover" @mouseleave="onPPLeave">
-            <!-- arrows -->
+          <!-- Super-aesthetic story-style preview -->
+          <div
+            v-else
+            class="pp-hero"
+            @mouseenter="onPPHover"
+            @mouseleave="onPPLeave"
+            @mousedown="onPPHoldStart"
+            @mouseup="onPPHoldEnd"
+            @mouseleave.capture="onPPHoldEnd"
+            @touchstart.passive="onPPHoldStart"
+            @touchend.passive="onPPHoldEnd"
+            @click="openCurrentPreview"
+            role="link"
+            tabindex="0"
+            :style="ppBgStyle"
+          >
+            <!-- Ambient layers -->
+            <div class="pp-ambient"></div>
+            <div class="pp-vignette"></div>
+
+            <!-- Navigation (arrows) -->
             <button
               type="button"
               class="pp-nav pp-nav-left"
-              @click="prevPreview"
+              @click.stop="prevPreviewAndReset"
               aria-label="Previous product"
             >
               <i class="bi bi-chevron-left"></i>
@@ -223,81 +240,78 @@
             <button
               type="button"
               class="pp-nav pp-nav-right"
-              @click="nextPreview"
+              @click.stop="nextPreviewAndReset"
               aria-label="Next product"
             >
               <i class="bi bi-chevron-right"></i>
             </button>
 
-            <!-- Animated card -->
-            <transition name="pp-slide-fade" mode="out-in">
+            <!-- Progress line (5s) -->
+            <div class="pp-progress">
+              <div
+                class="pp-progress__bar"
+                :style="{ width: Math.round(progressPct * 100) + '%' }"
+              ></div>
+            </div>
+
+            <!-- Animated content card -->
+            <transition name="pp-zoom-pan" mode="out-in">
               <div
                 v-if="currentPreview"
-                :key="currentPreview.id"
-                class="pp-card glass bg-mode"
-                :class="{ 'is-hover': hoverActive }"
+                :key="currentPreview.id + '-' + previewIndex"
+                class="pp-hero__content glass"
               >
-                <!-- Background image layer + scrim -->
-                <div class="pp-bg" :style="ppBgStyle"></div>
-                <div class="pp-scrim"></div>
-
-                <!-- Floating badges (top-left) -->
-                <div class="pp-badges">
+                <div class="pp-hero__badges">
                   <span
-                    class="pp-chip deal"
+                    class="pp-chip pp-chip--deal"
                     v-if="currentPreview._discount_pct && currentPreview._discount_pct > 0"
                   >
                     -{{ number(currentPreview._discount_pct) }}%
                   </span>
                 </div>
 
-                <!-- Bottom-left overlay (title + prices + view) -->
-                <div class="pp-floating px-4" :class="{ 'pp-floating-up': hoverActive }">
-                  <h4 class="pp-title-overlay text-wrap mb-0" :title="currentPreview?.name">
+                <!-- Title / Price block -->
+                <div class="pp-hero__text">
+                  <h4 class="pp-hero__title text-truncate" :title="currentPreview?.name">
                     {{ currentPreview?.name }}
                   </h4>
-                  <div class="pp-price-overlay">
-                    <!-- base price line -->
+
+                  <div class="pp-hero__prices">
                     <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
                     <span v-if="hasWas(currentPreview)" class="pp-was">{{
                       peso(currentPreview?.price_was || 0)
                     }}</span>
-                    <span v-if="currentPreview?._discount_pct" class="pp-h-off"
-                      >-{{ number(currentPreview?._discount_pct) }}%</span
-                    >
+                    <span v-if="currentPreview?._discount_pct" class="pp-h-off">
+                      -{{ number(currentPreview?._discount_pct) }}%
+                    </span>
                   </div>
-                  <!-- membership discount (always show if any) -->
+
+                  <!-- membership discount -->
                   <div v-if="membershipDiscountPct > 0 && currentPreview" class="pp-member-inline">
                     <span class="pp-h-member-price">{{ peso(memberPrice(currentPreview)) }}</span>
                     <span class="pp-h-member-tag">member {{ membershipDiscountPct }}% off</span>
                   </div>
+
+                  <!-- Bullet list out of description (max 3) -->
+                  <ul v-if="previewDescItems.length" class="pp-hero__desclist">
+                    <li v-for="(d, i) in previewDescItems" :key="i">{{ d }}</li>
+                  </ul>
                 </div>
 
-                <!-- Hover overlay (dim, not solid) -->
-                <div class="pp-hover" :class="{ show: hoverActive }">
-                  <!-- FLOATING PRICES (top-right) -->
-                  <div class="pp-h-content px-5 pt-4">
-                    <div class="pp-h-title mb-3">{{ currentPreview?.name }}</div>
-                    <ul v-if="previewDescItems.length" class="pp-h-desclist">
-                      <li v-for="(d, i) in previewDescItems" :key="i">{{ d }}</li>
-                    </ul>
-                  </div>
-
-                  <!-- View button at bottom when hovered -->
-                  <div class="pp-h-actions">
-                    <router-link
-                      v-if="currentPreview"
-                      :to="{ path: '/app/shop', query: { focus: currentPreview.id } }"
-                      class="btn btn-secondary btn-sm"
-                    >
-                      View
-                    </router-link>
-                  </div>
+                <!-- CTA (disabled but preserved) -->
+                <div class="pp-hero__actions">
+                  <router-link
+                    v-if="false"
+                    :to="{ path: '/app/shop', query: { focus: currentPreview?.id } }"
+                    class="btn btn-secondary btn-sm"
+                  >
+                    View
+                  </router-link>
                 </div>
               </div>
             </transition>
 
-            <!-- Dot indicators (kept) -->
+            <!-- Dot indicators (hover bubble disabled) -->
             <div class="pp-dots">
               <button
                 v-for="(p, i) in previewProducts"
@@ -305,21 +319,24 @@
                 type="button"
                 class="pp-dot"
                 :class="{ active: i === previewIndex }"
-                @click="goToPreview(i)"
+                @click.stop="goToPreviewAndReset(i)"
                 :aria-label="'Preview ' + p.name"
+                @mouseenter="/* disabled */ null"
+                @mouseleave="/* disabled */ null"
               >
-                <div v-if="hoveredDot === i" class="pp-bubble">
+                <div v-if="false && hoveredDot === i" class="pp-bubble">
                   <div class="pp-b-thumb">
-                    <img v-if="p.thumbnail_url" :src="p.thumbnail_url" :alt="p.name" />
+                    <img v-if="p.thumbnail_url" :src="p.thumbnail_url || undefined" :alt="p.name" />
                     <div v-else class="pp-b-fallback"><i class="bi bi-image"></i></div>
                   </div>
                   <div class="pp-b-body">
                     <div class="pp-b-title text-truncate" :title="p.name">{{ p.name }}</div>
                     <div class="pp-b-price">
                       <span class="pp-b-now">{{ peso(p.price_now) }}</span>
-                      <span v-if="p.price_was && p.price_was > p.price_now" class="pp-b-was">{{
-                        peso(p.price_was)
-                      }}</span>
+                      <span v-if="(p.price_was ?? 0) > p.price_now" class="pp-b-was">
+                        {{ peso(p.price_was ?? 0) }}
+                      </span>
+
                       <span class="pp-b-off" v-if="p._discount_pct"
                         >-{{ number(p._discount_pct) }}%</span
                       >
@@ -329,12 +346,13 @@
               </button>
             </div>
           </div>
+          <!-- /pp-hero -->
         </div>
       </div>
     </section>
 
     <!-- ===== UPCOMING DISCOUNTS (kept) ===== -->
-    <section class="card border-0 shadow-sm rounded-4" v-reveal>
+    <section class="card border-0 shadow-sm rounded-4 breath-in-500" v-reveal>
       <div class="card-body p-0 discounts-panel">
         <div class="panel-head px-3 px-sm-4 pt-3 pb-2">
           <h3 class="h6 m-0 d-flex align-items-center gap-2">
@@ -369,11 +387,11 @@
             :key="featureDiscount.id"
           >
             <div class="disc-art" v-if="featureDiscount.imageUrl">
-              <img :src="featureDiscount.imageUrl" alt="Discount" />
+              <img :src="featureDiscount.imageUrl || undefined" alt="Discount" />
             </div>
 
             <div class="disc-top">
-              <span class="pill alt"><i class="bi bi-calendar-event me-1"></i> Scheduled</span>
+              <span class="pill alt"><i class="bi bi-calendar-event me-1"></i> Upcoming</span>
               <span class="pill"
                 ><i class="bi bi-cash-stack me-1"></i>{{ featureDiscount.estLabel }}</span
               >
@@ -382,17 +400,17 @@
             <h4 class="disc-title text-truncate" :title="featureDiscount.title">
               {{ featureDiscount.title }}
             </h4>
-            <p class="disc-muted" v-if="featureDiscount.shortDesc">{{ featureDiscount.shortDesc }}</p>
+            <p class="disc-muted" v-if="featureDiscount.shortDesc">
+              {{ featureDiscount.shortDesc }}
+            </p>
 
             <div class="disc-meta">
               <span class="chip">
                 <i class="bi bi-clock me-1"></i>{{ startsInLabel(featureDiscount.starts_at) }}
               </span>
               <span class="chip" v-if="featureDiscount.scope === 'product'">
-                <i class="bi bi-bag me-1"></i>{{ featureDiscount.productName || 'Specific product' }}
-              </span>
-              <span class="chip" v-else>
-                <i class="bi bi-receipt me-1"></i>Order-wide
+                <i class="bi bi-bag me-1"></i
+                >{{ featureDiscount.productName || 'Specific product' }}
               </span>
             </div>
 
@@ -422,7 +440,7 @@
                 :title="d.title"
               >
                 <div class="icon-slot">
-                  <img v-if="d.imageUrl" :src="d.imageUrl" alt="Product" />
+                  <img v-if="d.imageUrl" :src="d.imageUrl || undefined" alt="Product" />
                   <i v-else class="bi bi-ticket-perforated"></i>
                 </div>
                 <div class="body">
@@ -435,18 +453,6 @@
                 </div>
                 <i class="bi bi-chevron-right caret"></i>
               </button>
-            </div>
-
-            <!-- Scroll hints -->
-            <div class="side-hint floating" v-if="discSideScrollHintVisible" aria-hidden="true">
-              <i class="bi bi-arrow-down-short"></i>
-            </div>
-            <div
-              class="side-hint floating up"
-              v-if="discSideScrollHintUpVisible"
-              aria-hidden="true"
-            >
-              <i class="bi bi-arrow-up-short"></i>
             </div>
           </div>
         </div>
@@ -465,8 +471,10 @@ import { currentUser } from '@/lib/authState'
 const router = useRouter()
 const user = computed(() => currentUser.value)
 
-/* NEW: Welcome name from metadata/email with safe fallback */
+/* NEW: prefer full_name from public.users over auth metadata */
+const fullNameFromDB = ref<string | null>(null)
 const welcomeName = computed(() => {
+  if (fullNameFromDB.value && fullNameFromDB.value.trim()) return fullNameFromDB.value
   const u: any = user.value || {}
   const meta = u?.user_metadata || {}
   return (
@@ -504,7 +512,11 @@ const currentTier = computed(() => tiers.find((t) => t.key === memberTier.value)
 
 /** dynamic signed icon if available; fallback to static asset */
 const badgeIconSigned = ref<string | null>(null)
-const badgeIcon = computed(() => badgeIconSigned.value || iconFor(currentTier.value.key as TierKey))
+/* ✅ Ensure no null leaks to :src */
+const badgeIcon = computed<string | undefined>(() => {
+  const fallback = iconFor(currentTier.value.key as TierKey)
+  return (badgeIconSigned.value ?? fallback) || undefined
+})
 
 /* ------- Member stats / balances -------- */
 const memberStats = ref({ lifetimePurchases: 0, referrals: 0 })
@@ -515,6 +527,42 @@ const purchasesPerMonth = ref(0)
 
 /* ====== Membership discount per purchase (from membership.tiers) ====== */
 const membershipDiscountPct = ref(0)
+
+/* ====== Animated counters for wallet displays ====== */
+const displayEwallet = ref(0)
+const displayCredits = ref(0)
+
+function easeOutCubic(t: number) {
+  return 1 - Math.pow(1 - t, 3)
+}
+function animateCount(from: number, to: number, setter: (n: number) => void, ms = 900) {
+  const start = performance.now()
+  const diff = to - from
+  let raf = 0
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / ms)
+    const v = from + diff * easeOutCubic(t)
+    setter(v)
+    if (t < 1) raf = requestAnimationFrame(step)
+  }
+  cancelAnimationFrame(raf)
+  raf = requestAnimationFrame(step)
+}
+
+watch(
+  () => ewallet.value.balance,
+  (newVal, oldVal) => {
+    animateCount(Number(oldVal ?? 0), Number(newVal ?? 0), (v) => (displayEwallet.value = v))
+  },
+  { immediate: true },
+)
+watch(
+  () => credits.value.balance,
+  (newVal, oldVal) => {
+    animateCount(Number(oldVal ?? 0), Number(newVal ?? 0), (v) => (displayCredits.value = v))
+  },
+  { immediate: true },
+)
 
 /* ------- Games (OPEN ONLY) -------- */
 type GameRow = {
@@ -549,6 +597,19 @@ function isSelected(id: string) {
   return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
 }
 
+/* 🔁 Looping: render 3 segments (A|B|C) of sideListGames for seamless wrap */
+const SEGMENTS = 3 as const
+const sideListLooped = computed(() => {
+  const base = sideListGames.value
+  const out: Array<GameRow & { _key: string; _rep: number }> = []
+  for (let rep = 0; rep < SEGMENTS; rep++) {
+    for (const g of base) {
+      out.push({ ...g, _key: `${g.id}::${rep}`, _rep: rep })
+    }
+  }
+  return out
+})
+
 /* ------- Orders updates (kept) -------- */
 type OrderRow = {
   id: string
@@ -571,6 +632,7 @@ type ProdRow = {
   thumbnail_url?: string | null
   _discount_pct: number
   description?: string | null
+  created_at?: string | null
 }
 
 /* ------ Big Discounts (kept for other uses / preview fallback) ------ */
@@ -583,63 +645,128 @@ const publishedPreview = ref<ProdRow[]>([])
 /* ------- Product Preview state -------- */
 const previewIndex = ref(0)
 const hoveredDot = ref<number | null>(null)
-/** Prefer published products; fallback to bigDiscounts */
+
+/** SORT: Strictly show latest first (by created_at desc) */
+const publishedSorted = computed<ProdRow[]>(() => {
+  const list = [...publishedPreview.value]
+  return list.sort((a, b) => {
+    const at = new Date(a.created_at || 0).getTime()
+    const bt = new Date(b.created_at || 0).getTime()
+    return bt - at
+  })
+})
+
+/** Prefer published products (sorted latest), fallback to bigDiscounts */
 const previewProducts = computed<ProdRow[]>(() => {
-  return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 12)
+  const base = publishedSorted.value.length ? publishedSorted.value : bigDiscounts.value
+  return base.slice(0, 12)
 })
 const currentPreview = computed<ProdRow | null>(
   () => previewProducts.value[previewIndex.value] || null,
 )
 watch(previewProducts, () => {
   previewIndex.value = 0
+  resetAutoplay()
 })
 
+/* ====== SHOW ONLY 3 SPEC ITEMS ====== */
 const previewDescItems = computed(() => {
   const raw = currentPreview.value?.description || ''
   return raw
     .split(',')
-    .map(s => s.trim())
+    .map((s) => s.trim())
     .filter(Boolean)
-    .slice(0, 12)
+    .slice(0, 3) // limit to three
 })
 
-/* ===== Hover / Autoplay for product preview ===== */
+/* ===== Autoplay for product preview (with progress bar) ===== */
+/* ✅ ALWAYS advance every 5s even if not hovered; hover pauses temporarily */
 const hoverActive = ref(false)
-let hoverTimer: number | null = null
+const autoplayMs = 5000
+const progressPct = ref(0)
+let progressTimer: number | null = null
+let lastTickTs = 0
+let carryMs = 0
 
-function clearHoverTimer() {
-  if (hoverTimer) {
-    window.clearTimeout(hoverTimer)
-    hoverTimer = null
+function clearProgressTimer() {
+  if (progressTimer) {
+    window.clearInterval(progressTimer)
+    progressTimer = null
   }
 }
-function scheduleNext() {
-  clearHoverTimer()
-  hoverTimer = window.setTimeout(() => {
+function tickProgress() {
+  const now = Date.now()
+  if (!lastTickTs) lastTickTs = now
+  const delta = now - lastTickTs
+  lastTickTs = now
+  carryMs += delta
+  progressPct.value = Math.min(1, carryMs / autoplayMs)
+  if (progressPct.value >= 1) {
     nextPreview()
-    scheduleNext()
-  }, 5000) // 5 seconds
+    carryMs = 0
+    progressPct.value = 0
+  }
+}
+function startAutoplay() {
+  clearProgressTimer()
+  lastTickTs = 0
+  progressTimer = window.setInterval(tickProgress, 50)
+}
+function stopAutoplay() {
+  clearProgressTimer()
+}
+function resetAutoplay() {
+  carryMs = 0
+  progressPct.value = 0
+  if (!hoverActive.value) startAutoplay()
 }
 function onPPHover() {
   hoverActive.value = true
-  scheduleNext()
+  stopAutoplay() // pause while hovered
 }
 function onPPLeave() {
   hoverActive.value = false
-  clearHoverTimer()
+  startAutoplay() // resume after hover
+}
+
+/* === Hold-to-pause / release-to-continue === */
+function onPPHoldStart() {
+  stopAutoplay()
+}
+function onPPHoldEnd() {
+  if (!hoverActive.value) startAutoplay()
+}
+
+/* === Click anywhere to open (replaces View button) === */
+function openCurrentPreview() {
+  const id = currentPreview.value?.id
+  if (!id) return
+  router.push({ path: '/app/shop', query: { focus: id } })
 }
 
 function goToPreview(i: number) {
   previewIndex.value = i
 }
+function goToPreviewAndReset(i: number) {
+  goToPreview(i)
+  resetAutoplay()
+}
 function nextPreview() {
   if (previewProducts.value.length === 0) return
   previewIndex.value = (previewIndex.value + 1) % previewProducts.value.length
+}
+function nextPreviewAndReset() {
+  nextPreview()
+  resetAutoplay()
 }
 function prevPreview() {
   if (previewProducts.value.length === 0) return
   previewIndex.value =
     (previewIndex.value - 1 + previewProducts.value.length) % previewProducts.value.length
+}
+function prevPreviewAndReset() {
+  prevPreview()
+  resetAutoplay()
 }
 
 /* ------- Utils -------- */
@@ -697,14 +824,15 @@ function joinPct(g: GameRow) {
 }
 
 /* ======== helpers for Product Preview ======== */
-function hasWas(p?: ProdRow | null) {
-  if (!p) return false
-  return !!p.price_was && p.price_was > p.price_now
+function hasWas(p: ProdRow | null | undefined): p is ProdRow & { price_was: number } {
+  return !!p && typeof p.price_was === 'number' && p.price_was > p.price_now
 }
+
 function savings(p?: ProdRow | null) {
-  if (!p) return 0
-  return p.price_was && p.price_was > p.price_now ? p.price_was - p.price_now : 0
+  if (!hasWas(p)) return 0
+  return p.price_was - p.price_now
 }
+
 /** Simple "affordable" heuristic */
 function isAffordable(p?: ProdRow | null) {
   if (!p) return false
@@ -841,7 +969,7 @@ async function fetchProfileAndTier() {
   }
 }
 
-/** Pull balances & purchases_per_month from public.users */
+/** Pull balances & purchases_per_month & full_name from public.users */
 async function fetchUserWalletAndPurchases() {
   try {
     let uid = user.value?.id
@@ -853,7 +981,7 @@ async function fetchUserWalletAndPurchases() {
 
     const { data, error } = await supabase
       .from('users')
-      .select('balance, discount_credits, purchases_per_month')
+      .select('balance, discount_credits, purchases_per_month, full_name')
       .eq('id', uid)
       .maybeSingle()
 
@@ -861,6 +989,10 @@ async function fetchUserWalletAndPurchases() {
       ewallet.value.balance = Number(data.balance ?? 0)
       credits.value.balance = Number(data.discount_credits ?? 0)
       purchasesPerMonth.value = Number(data.purchases_per_month ?? 0)
+      // ✅ Prefer full_name from DB for "Welcome, ..."`
+      if (typeof data.full_name === 'string' && data.full_name.trim()) {
+        fullNameFromDB.value = data.full_name.trim()
+      }
     }
   } catch {}
 }
@@ -1006,6 +1138,7 @@ async function fetchBigDiscounts() {
         thumbnail_url: r.thumbnail_url ?? null,
         _discount_pct: pct,
         description: null,
+        created_at: null,
       } as ProdRow
     })
 
@@ -1022,7 +1155,7 @@ async function fetchBigDiscounts() {
   }
 }
 
-/* ---------- PUBLISHED PRODUCTS PREVIEW ---------- */
+/* ---------- PUBLISHED PRODUCTS PREVIEW (with created_at) ---------- */
 async function fetchPublishedProductsForPreview() {
   try {
     const { data, error } = await supabase
@@ -1049,6 +1182,7 @@ async function fetchPublishedProductsForPreview() {
         thumbnail_url: thumb,
         _discount_pct: 0,
         description: typeof r.description === 'string' ? r.description : null,
+        created_at: r.created_at || null,
       }
     })
 
@@ -1103,9 +1237,14 @@ async function loadLiveTiersAndUser() {
 
     const { data: urow } = await supabase
       .from('users')
-      .select('membership_id')
+      .select('membership_id, full_name')
       .eq('id', uid)
       .maybeSingle()
+
+    // keep full name fresh too
+    if (typeof urow?.full_name === 'string' && urow.full_name.trim()) {
+      fullNameFromDB.value = urow.full_name.trim()
+    }
 
     const memId = urow?.membership_id
     if (!memId || !byId[memId]) {
@@ -1206,10 +1345,8 @@ function selectFeatureDiscount(id: string) {
 function round2(n: number) {
   return Math.round(n * 100) / 100
 }
-function estSavingsFor(
-  r: RawDiscount,
-  productPrice?: number | null,
-): number {
+
+function estSavingsFor(r: RawDiscount, productPrice?: number | null): number {
   const t = r.type
   if (t === 'free_shipping') return 0
   if (t === 'fixed_amount') return Math.max(0, Number(r.amount_off || 0))
@@ -1286,9 +1423,13 @@ async function fetchScheduledDiscounts() {
           name: String(r.name ?? 'Unnamed'),
           price_now,
           price_was: price_was ? Number(price_was) : null,
-          thumbnail_url: r.thumbnail_url ?? (Array.isArray(r.product_url) ? r.product_url[0] : r.product_url) ?? null,
+          thumbnail_url:
+            r.thumbnail_url ??
+            (Array.isArray(r.product_url) ? r.product_url[0] : r.product_url) ??
+            null,
           _discount_pct: 0,
           description: null,
+          created_at: null,
         }
         return p
       })
@@ -1307,7 +1448,10 @@ async function fetchScheduledDiscounts() {
       return {
         id: r.id,
         title: r.title,
-        shortDesc: (r.description || '')?.length > 120 ? (r.description || '').slice(0, 118) + '…' : (r.description || ''),
+        shortDesc:
+          (r.description || '')?.length > 120
+            ? (r.description || '').slice(0, 118) + '…'
+            : r.description || '',
         type: r.type,
         scope: r.scope,
         percent_off: r.percent_off,
@@ -1474,6 +1618,113 @@ function updateSideScrollHint() {
   sideScrollHintUpVisible.value = canScroll && atBottom && !atTop
 }
 
+/* ==== Endless up & down slow-motion autoscroll for games side list ==== */
+let sideLoopRaf = 0
+let lastSideTs = 0
+const sideSpeedPxPerSec = 16 /* slow motion */
+const hoverSide = ref(false)
+let manualScrollCooldown = 0
+const sideDir = ref<1 | -1>(1) /* 1 = down, -1 = up */
+
+/* ➕ Looping math (center segment & wrap) */
+const segmentH = ref(0)      // height of ONE segment (original list)
+const viewportH = ref(0)     // visible height
+function centerSideLoop() {
+  const el = sideListEl.value
+  if (!el) return
+  viewportH.value = el.clientHeight
+  // if we rendered 3 segments, one segment height is total/3
+  segmentH.value = el.scrollHeight / SEGMENTS
+  // center on the middle segment (B)
+  el.scrollTop = segmentH.value
+}
+async function recalcAndCenter() {
+  await nextTick()
+  const el = sideListEl.value
+  if (!el) return
+  if (sideListGames.value.length === 0) {
+    segmentH.value = 0
+    return
+  }
+  centerSideLoop()
+  updateSideScrollHint()
+}
+
+/* Wrap helper: keep scrollTop inside the middle segment window */
+function wrapSideScroll() {
+  const el = sideListEl.value
+  if (!el || segmentH.value <= 0) return
+  const top = el.scrollTop
+  const total = segmentH.value * SEGMENTS
+  // If we've scrolled into segment C (bottom third), pull back by one segment
+  if (top >= segmentH.value * 2 - viewportH.value * 0.5) {
+    el.scrollTop = top - segmentH.value
+    lastSideTs = performance.now()
+  }
+  // If we've scrolled into segment A (top third), push forward by one segment
+  else if (top <= viewportH.value * 0.5) {
+    el.scrollTop = top + segmentH.value
+    lastSideTs = performance.now()
+  }
+}
+
+function sideLoop(now: number) {
+  const el = sideListEl.value
+
+  sideLoopRaf = requestAnimationFrame(sideLoop)
+
+  if (!el) {
+    lastSideTs = now
+    return
+  }
+
+  const canScroll = el.scrollHeight - el.clientHeight > 4
+  if (!canScroll) {
+    lastSideTs = now
+    updateSideScrollHint()
+    return
+  }
+
+  if (!lastSideTs) lastSideTs = now
+  const dt = (now - lastSideTs) / 1000
+  lastSideTs = now
+
+  // pause while hovering or shortly after manual scroll
+  if (hoverSide.value || manualScrollCooldown > 0) {
+    manualScrollCooldown = Math.max(0, manualScrollCooldown - dt)
+    updateSideScrollHint()
+    return
+  }
+
+  // slow motion drift + wrap
+  const dy = sideDir.value * sideSpeedPxPerSec * dt
+  el.scrollTop += dy
+  wrapSideScroll()
+
+  // subtle ping-pong within middle segment
+  const posInMiddle = el.scrollTop - segmentH.value
+  if (segmentH.value > 0) {
+    const nearTop = posInMiddle <= 6
+    const nearBottom = posInMiddle + el.clientHeight >= segmentH.value - 6
+    if (nearBottom) sideDir.value = -1
+    else if (nearTop) sideDir.value = 1
+  }
+
+  updateSideScrollHint()
+}
+
+function nudgeSide(dir: 1 | -1) {
+  const el = sideListEl.value
+  if (!el) return
+  el.scrollBy({ top: dir * 80, behavior: 'smooth' })
+  manualScrollCooldown = 1.2 /* seconds pause after manual input */
+  setTimeout(() => wrapSideScroll(), 250)
+}
+function onManualSideScroll() {
+  manualScrollCooldown = 1.2
+  wrapSideScroll()
+}
+
 /* ------- Side list height sync to banner (discounts) ------- */
 const discBannerEl = ref<HTMLElement | null>(null)
 const discSideListEl = ref<HTMLElement | null>(null)
@@ -1513,13 +1764,13 @@ onMounted(async () => {
     fetchProfileAndTier(),
     fetchOpenGames(),
     fetchOrderUpdates(),
-    fetchBigDiscounts(),                 // kept (used by preview fallback)
+    fetchBigDiscounts(), // kept (used by preview fallback)
     fetchPublishedProductsForPreview(),
   ])
 
   await Promise.all([fetchUserWalletAndPurchases(), fetchReferralCount()])
 
-  // Load membership visuals/discount
+  // Load membership visuals/discount (also refreshes full_name)
   await loadLiveTiersAndUser()
 
   // Load scheduled discounts
@@ -1536,9 +1787,16 @@ onMounted(async () => {
   }
   window.addEventListener('resize', syncSideListHeight)
   if (sideListEl.value) {
-    sideListEl.value.addEventListener('scroll', updateSideScrollHint)
+    sideListEl.value.addEventListener('scroll', onManualSideScroll)
     updateSideScrollHint()
   }
+
+  // 🔁 Compute segment height and center into the middle segment for seamless looping
+  await recalcAndCenter()
+
+  // Start endless side loop
+  lastSideTs = 0
+  sideLoopRaf = requestAnimationFrame(sideLoop)
 
   // Discounts sync
   syncDiscSideListHeight()
@@ -1551,11 +1809,16 @@ onMounted(async () => {
     discSideListEl.value.addEventListener('scroll', updateDiscSideScrollHint)
     updateDiscSideScrollHint()
   }
+
+  // ✅ Start autoplay immediately (even without hover)
+  startAutoplay()
 })
 
 watch([openGames, selectedGameId], async () => {
   await nextTick()
   updateSideScrollHint()
+  // when the set of sideListGames changes, recompute loop measurements
+  await recalcAndCenter()
 })
 
 watch(rankedScheduled, async () => {
@@ -1564,7 +1827,7 @@ watch(rankedScheduled, async () => {
 })
 
 onBeforeUnmount(() => {
-  clearHoverTimer()
+  stopAutoplay()
   if (chGames) supabase.removeChannel(chGames)
   if (chOrders) supabase.removeChannel(chOrders)
   if (chProducts) supabase.removeChannel(chProducts)
@@ -1576,20 +1839,29 @@ onBeforeUnmount(() => {
   roDiscBanner?.disconnect?.()
   window.removeEventListener('resize', syncSideListHeight)
   window.removeEventListener('resize', syncDiscSideListHeight)
-  if (sideListEl.value) sideListEl.value.removeEventListener('scroll', updateSideScrollHint)
-  if (discSideListEl.value) discSideListEl.value.removeEventListener('scroll', updateDiscSideScrollHint)
+  if (sideListEl.value) {
+    sideListEl.value.removeEventListener('scroll', onManualSideScroll)
+  }
+  if (discSideListEl.value)
+    discSideListEl.value.removeEventListener('scroll', updateDiscSideScrollHint)
+  cancelAnimationFrame(sideLoopRaf)
 })
 
-/* ===== New: reactive style for background image ===== */
+/* ===== New: reactive style for background image (blurred whole picture via overlays) ===== */
 const ppBgStyle = computed(() => {
-  const url = currentPreview.value?.thumbnail_url
+  const url = currentPreview.value?.thumbnail_url || undefined
   return url ? { backgroundImage: `url('${url}')` } : {}
 })
 
 /* ===== Date helpers for Upcoming Discounts ===== */
 function startsAtShort(iso: string) {
   const d = new Date(iso)
-  return d.toLocaleString('en-PH', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleString('en-PH', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
 }
 function startsInLabel(iso: string) {
   const now = Date.now()
@@ -1609,6 +1881,15 @@ function startsInLabel(iso: string) {
 /* ===== Base ===== */
 .dash {
   padding: 1.25rem 0 2rem;
+}
+
+/* ===== Breath-in animation (500ms) ===== */
+@keyframes breathIn {
+  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+.breath-in-500 {
+  animation: breathIn 0.5s ease both;
 }
 
 /* ===== Glass & Neon helpers ===== */
@@ -1702,7 +1983,7 @@ function startsInLabel(iso: string) {
 }
 .qchip.balance .value {
   font-weight: 900;
-  letter-spacing: .2px;
+  letter-spacing: 0.2px;
 }
 .qchip.balance .icon-btn {
   display: inline-grid;
@@ -1717,7 +1998,7 @@ function startsInLabel(iso: string) {
   margin-left: 4px;
 }
 .qchip.balance .icon-btn:hover {
-  box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
   transform: translateY(-1px);
 }
 
@@ -1790,7 +2071,12 @@ function startsInLabel(iso: string) {
   --gp-ink: #ffffff;
   --gp-muted: rgba(255, 255, 255, 0.65);
 
-  background: radial-gradient(120% 100% at 10% 0%, #20a44c 0%, #20647c 55%, #123746 100%) !important;
+  background: radial-gradient(
+    120% 100% at 10% 0%,
+    #20a44c 0%,
+    #20647c 55%,
+    #123746 100%
+  ) !important;
   color: var(--gp-ink);
 }
 
@@ -1820,8 +2106,7 @@ function startsInLabel(iso: string) {
   background:
     /* azure wash */
     linear-gradient(135deg, #20647c33, #20a44c33),
-    /* green glow on the corner */
-    radial-gradient(120% 120% at 20% 10%, #20a44c55, transparent 60%);
+    /* green glow on the corner */ radial-gradient(120% 120% at 20% 10%, #20a44c55, transparent 60%);
   border: 1px solid #ffffff22;
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.25) inset,
@@ -1846,7 +2131,7 @@ function startsInLabel(iso: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  mask-image: linear-gradient(to left, rgba(0,0,0,1), rgba(0,0,0,0));
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 1), rgba(0, 0, 0, 0));
 }
 
 .banner-art img {
@@ -1909,7 +2194,6 @@ function startsInLabel(iso: string) {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-top: 0.5rem;
 }
 .game-banner .bar {
   flex: 1;
@@ -2080,7 +2364,31 @@ function startsInLabel(iso: string) {
   }
 }
 
-/* ===== Product Preview (kept) ===== */
+/* NEW: always-visible top/bottom arrows for side list */
+.side-arrow {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(15, 23, 42, 0.25);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  color: #fff;
+  z-index: 3;
+}
+.side-arrow.up {
+  top: -8px;
+}
+.side-arrow.down {
+  bottom: -8px;
+}
+
+/* ===== Product Preview (skeleton kept) ===== */
 .pp-skeleton {
   display: grid;
   gap: 12px;
@@ -2088,11 +2396,11 @@ function startsInLabel(iso: string) {
 .pp-skel-card {
   height: 210px;
   border-radius: 16px;
-  /* FIXED: hex typo #f1f5f9 */
   background: linear-gradient(90deg, #f1f5f9, #e2e8f0, #f1f5f9);
   background-size: 200% 100%;
   animation: sk 1.2s linear infinite;
 }
+
 .pp-skel-dots {
   display: flex;
   gap: 10px;
@@ -2113,329 +2421,242 @@ function startsInLabel(iso: string) {
   }
 }
 
-.pp-wrap {
+/* =================================================================== */
+/* ================= SUPER AESTHETIC STORY-STYLE PREVIEW ============== */
+/* =================================================================== */
+.pp-hero {
   position: relative;
-  display: block;
-  min-height: 320px;
+  min-height: 340px;
+  border-radius: 18px;
+  overflow: hidden;
+  background-color: #0b1220;
+  background-size: cover;
+  background-position: center;
+  border: 1px solid rgba(233, 238, 243, 0.35);
+  cursor: pointer; /* whole area clickable */
+}
+.pp-ambient {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(40% 60% at 15% 85%, rgba(14, 165, 233, 0.25), transparent 60%),
+    radial-gradient(40% 60% at 85% 15%, rgba(34, 197, 94, 0.25), transparent 60%);
+  filter: saturate(1.1);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+.pp-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 120% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
+  pointer-events: none;
 }
 
-/* nav arrows */
+/* Card content floating on top */
+.pp-hero__content {
+  position: relative;
+  z-index: 4;
+  margin: 14px;
+  border-radius: 16px;
+  padding: 16px;
+  min-height: 240px;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  background: rgba(11, 18, 32, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.pp-hero__badges {
+  display: flex;
+  gap: 6px;
+}
+.pp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+.pp-chip--deal {
+  background: rgba(34, 197, 94, 0.18);
+  color: #eafff2;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+.pp-hero__text {
+  margin-top: 6px;
+}
+.pp-hero__title {
+  font-weight: 900;
+  font-size: 1.15rem;
+  letter-spacing: 0.2px;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+}
+.pp-hero__prices {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.pp-hero__desclist {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: #e2e8f0;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  max-height: 120px;
+  overflow: hidden; /* prevent scrollbar noise */
+}
+
+.pp-hero__actions {
+  margin-top: 0.6rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Progress line (5s story bar) */
+.pp-progress {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  overflow: hidden;
+  z-index: 6;
+}
+.pp-progress__bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #22d3ee, #38bdf8, #0ea5e9);
+  border-radius: 999px;
+  transition: width 0.05s linear;
+}
+
+/* Zoom/Pan transition */
+.pp-zoom-pan-enter-active,
+.pp-zoom-pan-leave-active {
+  transition: all 0.45s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.pp-zoom-pan-enter-from {
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  filter: saturate(0.9);
+}
+.pp-zoom-pan-leave-to {
+  opacity: 0;
+  transform: translateY(-8px) scale(1.01);
+  filter: saturate(0.9);
+}
+
+/* nav arrows (reuse from earlier, slightly elevated) */
 .pp-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(15, 23, 42, 0.1);
+  background: rgba(15, 23, 42, 0.15);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   display: grid;
   place-items: center;
-  z-index: 30;
+  z-index: 7;
   color: #fff;
   cursor: pointer;
   transition:
     opacity 0.2s ease,
     transform 0.2s ease;
-  opacity: 0.6;
+  opacity: 0.85;
 }
 .pp-nav:hover {
   opacity: 1;
-  transform: translateY(-50%) scale(1.02);
+  transform: translateY(-50%);
 }
 .pp-nav-left {
-  left: 3px;
+  left: 10px;
 }
 .pp-nav-right {
-  right: 3px;
+  right: 10px;
 }
 
-/* Base card layout kept */
-.pp-card {
-  position: relative;
-  display: block;
-  padding: 0;
-  border-radius: 16px;
-  border: 1px solid rgba(233, 238, 243, 0.35);
-  background: rgba(255, 255, 255, 0.9);
-  transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease;
-  min-height: 320px;
-  overflow: hidden;
-}
-.pp-card.glass:hover {
-  transform: translateY(-2px) scale(1.01);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
-}
-
-.pp-card.bg-mode .pp-bg {
-  position: absolute;
-  inset: 0;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  z-index: 0;
-}
-.pp-card.bg-mode .pp-scrim {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: linear-gradient(
-    to top,
-    rgba(0, 0, 0, 0.62) 0%,
-    rgba(0, 0, 0, 0.45) 35%,
-    rgba(0, 0, 0, 0.22) 60%,
-    rgba(0, 0, 0, 0) 100%
-  );
-}
-.pp-card.bg-mode .pp-badges {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  z-index: 3;
-  display: flex;
-  gap: 6px;
-}
-.pp-card.bg-mode .pp-floating {
-  position: absolute;
-  left: 12px;
-  right: 12px;
-  bottom: 40px;
-  z-index: 2;
-  color: #fff;
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  transition:
-    transform 0.35s ease,
-    opacity 0.35s ease;
-}
-.pp-floating-up {
-  transform: translateY(-24px);
-}
-.pp-title-overlay {
-  font-weight: 900;
-  font-size: 1.15rem;
-  letter-spacing: 0.2px;
-}
-.pp-price-overlay {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-.pp-card.bg-mode .pp-now {
+/* price colors on dark */
+.pp-now {
   color: #fff;
   font-weight: 900;
 }
-.pp-card.bg-mode .pp-was {
+.pp-was {
   color: #e2e8f0;
   opacity: 0.95;
   text-decoration: line-through;
 }
-.pp-card.bg-mode .pp-h-off {
+.pp-h-off {
   color: #fde047;
 }
 
-/* membership mini line (non-hover) */
+/* membership inline carries over (dark-tuned) */
 .pp-member-inline {
-  background: rgba(15, 23, 42, 0.3);
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 0.6rem;
   padding: 0.25rem 0.65rem;
   display: inline-flex;
   gap: 6px;
   align-items: center;
   width: fit-content;
+  margin-top: 6px;
 }
 .pp-h-member-price {
   font-weight: 700;
   color: #fef9c3;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
 }
 .pp-h-member-tag {
-  font-size: 0.6rem;
-  color: rgba(248, 250, 252, 0.7);
-}
-
-/* Hide original inner layout when in bg-mode */
-.pp-card.bg-mode .pp-thumb,
-.pp-card.bg-mode .pp-body {
-  display: none !important;
-}
-.pp-title-overlay,
-.pp-price-overlay,
-.pp-member-inline {
-  transition: opacity .25s ease, transform .25s ease;
-}
-.pp-card.is-hover .pp-title-overlay,
-.pp-card.is-hover .pp-price-overlay,
-.pp-card.is-hover .pp-member-inline  {
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-}
-
-/* Hover overlay (dim) */
-.pp-hover {
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  background: rgba(5, 10, 12, 0.534);
-  border: 1px solid rgba(233, 238, 243, 0.12);
-  opacity: 0;
-  transform: translateY(6px) scale(0.995);
-  transition:
-    opacity 0.25s ease,
-    transform 0.25s ease;
-  pointer-events: none;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  z-index: 5;
-  backdrop-filter: blur(4px);
-}
-.pp-hover.show {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-  pointer-events: auto;
-}
-
-/* floating prices (hover) */
-.pp-h-prices {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  z-index: 9;
-}
-.pp-h-price-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(15, 23, 42, 0.25);
-  backdrop-filter: blur(4px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 0.25rem 0.6rem;
-}
-.pp-h-price-line .pp-now {
-  color: #fff;
-  font-weight: 800;
-  font-size: 0.95rem;
-}
-.pp-h-price-line .pp-was {
-  color: rgba(248, 250, 252, 0.7);
-  text-decoration: line-through;
   font-size: 0.7rem;
-}
-.pp-h-member-inline {
-  background: rgba(7, 16, 26, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 0.6rem;
-  padding: 0.15rem 0.5rem 0.25rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-.pp-h-member-price {
-  font-weight: 700;
-  font-size: 0.72rem;
-  color: #fef9c3;
-}
-.pp-h-member-tag {
-  font-size: 0.6rem;
-  color: rgba(248, 250, 252, 0.6);
+  color: rgba(248, 250, 252, 0.8);
 }
 
-/* hover content */
-.pp-h-content {
-  padding: 14px 14px 0 14px;
-  max-height: 100%;
-  overflow: auto;
-  padding-right: 90px;
-  line-height: 1;
-}
-.pp-h-title {
-  font-weight: 700;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
-  color: #fff;
-}
-.pp-h-desc {
-  color: #e2e8f0;
-  margin-bottom: 0.5rem;
-  font-size: 0.85rem;
-}
-.pp-h-desclist {
-  margin: 0.35rem 0 0.6rem;
-  padding-left: 1.1rem;
-  color: #e2e8f0;
-  font-size: 0.85rem;
-  line-height: 1.25;
-  overflow: auto;
-}
-.pp-h-desclist li {
-  margin: 0.15rem 0;
-}
-
-/* hover actions bottom */
-.pp-h-actions {
-  padding: 0 14px 14px 14px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 0.3rem 0 0.3rem 0;
-}
-
-/* dot indicators */
+/* Dots — bubble preview DISABLED */
 .pp-dots {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  bottom: 6px;
+  bottom: 14px;
   display: flex;
   gap: 6px;
   justify-content: center;
-  z-index: 20;
+  z-index: 8;
 }
 .pp-dot {
   position: relative;
-  height: 5px;
+  width: 14px;
+  height: 6px;
   border-radius: 999px;
-  background: #e2e8f0;
-  border: 1px solid #cbd5e1;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  transition: transform 0.15s ease;
 }
 .pp-dot.active {
   background: #0ea5e9;
   border-color: #0284c7;
+  transform: none;
 }
 .pp-bubble {
   display: none !important;
 }
 
-/* slide animation for product switching */
-.pp-slide-fade-enter-active,
-.pp-slide-fade-leave-active {
-  transition: all 0.35s ease;
-}
-.pp-slide-fade-enter-from {
-  opacity: 0;
-  transform: translateX(12px);
-}
-.pp-slide-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-12px);
+@media (max-width: 576px) {
+  .pp-nav {
+    display: none;
+  }
 }
 
-/* ===== Products scroll (kept styles) ===== */
+/* ===== Products scroll (kept styles that may be reused elsewhere) ===== */
 .products-scroll {
   display: grid;
   gap: 10px;
@@ -2568,26 +2789,13 @@ function startsInLabel(iso: string) {
   animation: sk 1.25s linear infinite;
 }
 
-@media (max-width: 576px) {
-  .pp-nav {
-    display: none;
-  }
-  .pp-h-prices {
-    right: 6px;
-    top: 6px;
-  }
-  .pp-h-content {
-    padding-right: 6px;
-  }
-}
-
 /* =================================================================== */
 /* ====================  UPCOMING DISCOUNTS PANEL  ==================== */
 /* =================================================================== */
 .discounts-panel {
   --dk-ink: #0f172a;
   --dk-muted: #64748b;
-  --dk-card: rgba(255,255,255,0.9);
+  --dk-card: rgba(255, 255, 255, 0.9);
   --dk-edge: #e9eef3;
   --dk-acc: #0ea5e9; /* accent for pills */
   padding: 0;
@@ -2635,7 +2843,7 @@ function startsInLabel(iso: string) {
   color: var(--dk-ink);
   background:
     linear-gradient(135deg, #f8fafc, #ffffff),
-    radial-gradient(120% 120% at 20% 10%, rgba(14,165,233,0.12), transparent 60%);
+    radial-gradient(120% 120% at 20% 10%, rgba(14, 165, 233, 0.12), transparent 60%);
   border: 1px solid var(--dk-edge);
   box-shadow:
     0 8px 24px rgba(2, 6, 23, 0.06) inset,
@@ -2649,13 +2857,13 @@ function startsInLabel(iso: string) {
   display: flex;
   align-items: center;
   justify-content: center;
-  mask-image: linear-gradient(to left, rgba(0,0,0,.9), rgba(0,0,0,0));
+  mask-image: linear-gradient(to left, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0));
 }
 .disc-art img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: .14;
+  opacity: 0.14;
 }
 
 .disc-top {
@@ -2691,7 +2899,7 @@ function startsInLabel(iso: string) {
 }
 
 .disc-meta .chip {
-  background: rgba(2,6,23,0.04);
+  background: rgba(2, 6, 23, 0.04);
   border: 1px solid #e5e7eb;
   color: #0f172a;
   padding: 0.2rem 0.6rem;

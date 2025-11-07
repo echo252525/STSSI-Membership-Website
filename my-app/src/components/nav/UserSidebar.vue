@@ -76,7 +76,16 @@
       </div>
 
       <!-- Profile (hidden when collapsed) -->
-      <div class="d-flex align-items-center justify-content-center">
+      <div
+        class="d-flex align-items-center justify-content-center"
+        role="link"
+        tabindex="0"
+        @click="goAbout"
+        @keydown.enter.prevent="goAbout"
+        @keydown.space.prevent="goAbout"
+        :title="'About Us'"
+        style="cursor: pointer"
+      >
         <img
           src="/STSSI_logo.png"
           class="m-5"
@@ -465,6 +474,18 @@ function goSettings() {
     closeOffcanvasIfMobile()
   }
 }
+
+/* ✅ NEW: go to About Us when logo clicked */
+/* ✅ NEW: go to About Us (user scope) when logo clicked */
+function goAbout() {
+  try {
+    router.push({ name: 'user.about' }) // <-- now points to /app/about
+  } finally {
+    closeMenu()
+    closeOffcanvasIfMobile()
+  }
+}
+
 
 /* --------------------------------------------------------------------
    🔽 ADDED: Use membership.tiers + users.membership_id to get live tier

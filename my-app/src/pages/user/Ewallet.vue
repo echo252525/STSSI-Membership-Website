@@ -1,13 +1,14 @@
 <template>
   <div class="container py-4">
     <!-- ===== Tabs (New) ===== -->
-    <ul class="nav nav-pills mb-3">
+    <ul class="nav nav-pills mb-3" :class="booting ? 'breath-in' : ''">
       <li class="nav-item">
         <button
           class="nav-link"
           :class="activeTab === 'wallet' ? 'active' : ''"
           @click="activeTab = 'wallet'"
         >
+          <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>
           E-Wallet
         </button>
       </li>
@@ -17,15 +18,21 @@
           :class="activeTab === 'discount' ? 'active' : ''"
           @click="activeTab = 'discount'"
         >
+          <i class="bi bi-percent me-2" aria-hidden="true"></i>
           Discount Credits
         </button>
       </li>
     </ul>
 
     <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3" :class="booting ? 'breath-in' : ''">
       <h1 class="h4 m-0">
-        {{ activeTab === 'wallet' ? 'E-Wallet' : 'Discount Credits' }}
+        <span v-if="activeTab === 'wallet'">
+          <i class="bi bi-cash-coin me-2 text-success" aria-hidden="true"></i>E-Wallet
+        </span>
+        <span v-else>
+          <i class="bi bi-ticket-perforated me-2 text-primary" aria-hidden="true"></i>Discount Credits
+        </span>
       </h1>
       <button
         v-if="activeTab === 'wallet'"
@@ -41,69 +48,161 @@
     <!-- ===== WALLET VIEW ===== -->
     <template v-if="activeTab === 'wallet'">
       <!-- Balance Card -->
-      <div class="card shadow-sm mb-4">
+      <div class="card shadow-sm mb-4" :class="booting ? 'breath-in' : ''">
         <div class="card-body d-flex align-items-center justify-content-between">
-          <div>
-            <div class="text-muted small">Current Balance</div>
-            <!-- 🔹 uses usersBalance if available; falls back to previous local balance -->
-            <div class="fs-3 fw-semibold">₱ {{ formattedBalance }}</div>
-          </div>
-          <div class="text-end">
-            <div class="text-muted small">Last Updated (Disbursed)</div>
-            <!-- 🔹 now shows the latest updated_at among disbursed rows -->
-            <div class="fw-medium">{{ lastDisbursedText }}</div>
-          </div>
+          <!-- ✅ Skeleton for balance -->
+          <template v-if="busyInit">
+            <div class="flex-grow-1 d-flex align-items-center justify-content-between w-100">
+              <div class="w-50 pe-3">
+                <div class="skel-line skel-sm w-50 mb-2"></div>
+                <div class="skel-line w-75"></div>
+              </div>
+              <div class="w-50 ps-3 text-end">
+                <div class="skel-line skel-sm w-50 ms-auto mb-2"></div>
+                <div class="skel-line w-50 ms-auto"></div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div>
+              <div class="text-muted small">
+                <i class="bi bi-wallet2 me-1" aria-hidden="true"></i>
+                Current Balance
+              </div>
+              <div class="fs-3 fw-semibold">₱ {{ formattedBalance }}</div>
+            </div>
+            <div class="text-end">
+              <div class="text-muted small">
+                <i class="bi bi-clock-history me-1" aria-hidden="true"></i>
+                Last Updated (Disbursed)
+              </div>
+              <div class="fw-medium">{{ lastDisbursedText }}</div>
+            </div>
+          </template>
         </div>
       </div>
 
       <!-- Transactions -->
-      <div class="card shadow-sm">
+      <div class="card shadow-sm" :class="booting ? 'breath-in' : ''">
         <div class="card-header bg-white d-flex align-items-center justify-content-between">
-          <strong>Recent Transactions</strong>
+          <strong>
+            <i class="bi bi-receipt-cutoff me-2" aria-hidden="true"></i>
+            Recent Transactions
+          </strong>
 
-          <!-- 🔹 Filter controls -->
-          <div class="btn-group btn-group-sm" role="group" aria-label="Filter by status">
-            <button
-              type="button"
-              class="btn"
-              :class="filter === 'all' ? 'btn-primary' : 'btn-outline-primary'"
-              @click="setFilter('all')"
-              aria-label="Show all transactions"
+          <!-- 🔹 Filters (Dropdown LIST - vertical) -->
+          <div class="filter-shell">
+            <div
+              ref="filterDropdownEl"
+              class="dropdown filter-dropdown"
+              :class="{ 'show': showFilters }"
             >
-              All
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="filter === 'pending' ? 'btn-warning text-dark border-warning' : 'btn-outline-warning'"
-              @click="setFilter('pending')"
-              aria-label="Show pending"
-            >
-              Pending
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="filter === 'disbursed' ? 'btn-success' : 'btn-outline-success'"
-              @click="setFilter('disbursed')"
-              aria-label="Show disbursed"
-            >
-              Disbursed
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="filter === 'rejected' ? 'btn-danger' : 'btn-outline-danger'"
-              @click="setFilter('rejected')"
-              aria-label="Show rejected"
-            >
-              Rejected
-            </button>
+              <button
+                class="btn btn-outline-secondary btn-sm d-inline-flex align-items-center gap-2 dropdown-toggle pretty-toggle"
+                type="button"
+                @click="toggleFilters"
+                :aria-expanded="showFilters"
+                aria-controls="filterMenu"
+              >
+                <i class="bi bi-funnel" aria-hidden="true"></i>
+                {{ filterLabel }}
+                <i class="bi" :class="showFilters ? 'bi-chevron-up' : 'bi-chevron-down'" aria-hidden="true"></i>
+              </button>
+
+              <transition name="fade">
+                <div
+                  v-show="showFilters"
+                  id="filterMenu"
+                  class="dropdown-menu dropdown-menu-end p-2 rounded-3 shadow smooth-menu show"
+                  role="menu"
+                  aria-label="Filter by status"
+                >
+                  
+
+                  <!-- ✅ Vertical list (not sideways) -->
+                  <ul class="list-unstyled m-0 py-1 filter-list" role="menu">
+                    <li>
+                      <button
+                        type="button"
+                        class="filter-item"
+                        role="menuitemradio"
+                        :aria-checked="filter === 'all'"
+                        @click="applyFilter('all')"
+                      >
+                        <span class="left">
+                          <i class="bi bi-layers me-2"></i>All
+                        </span>
+                        <i v-if="filter === 'all'" class="bi bi-check2-circle text-primary"></i>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        class="filter-item"
+                        role="menuitemradio"
+                        :aria-checked="filter === 'pending'"
+                        @click="applyFilter('pending')"
+                      >
+                        <span class="left">
+                          <i class="bi bi-hourglass-split text-warning me-2"></i>Pending
+                        </span>
+                        <i v-if="filter === 'pending'" class="bi bi-check2-circle text-primary"></i>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        class="filter-item"
+                        role="menuitemradio"
+                        :aria-checked="filter === 'disbursed'"
+                        @click="applyFilter('disbursed')"
+                      >
+                        <span class="left">
+                          <i class="bi bi-check-circle text-success me-2"></i>Disbursed
+                        </span>
+                        <i v-if="filter === 'disbursed'" class="bi bi-check2-circle text-primary"></i>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        type="button"
+                        class="filter-item"
+                        role="menuitemradio"
+                        :aria-checked="filter === 'rejected'"
+                        @click="applyFilter('rejected')"
+                      >
+                        <span class="left">
+                          <i class="bi bi-x-circle text-danger me-2"></i>Rejected
+                        </span>
+                        <i v-if="filter === 'rejected'" class="bi bi-check2-circle text-primary"></i>
+                      </button>
+                    </li>
+                  </ul>
+                </div>
+              </transition>
+            </div>
           </div>
         </div>
 
         <div class="card-body p-0">
-          <div v-if="transactions.length === 0" class="p-4 text-center text-muted">
+          <!-- ✅ Skeleton while loading transactions -->
+          <div v-if="busyTx" class="p-2">
+            <ul class="list-group list-group-flush">
+              <li v-for="n in 6" :key="'skel-tx-'+n" class="list-group-item">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="flex-grow-1 pe-3">
+                    <div class="skel-line w-50 mb-2"></div>
+                    <div class="skel-line skel-sm w-75"></div>
+                  </div>
+                  <div class="w-25">
+                    <div class="skel-line w-100"></div>
+                  </div>
+                </div>
+              </li>
+            </ul>
+          </div>
+
+          <div v-else-if="transactions.length === 0" class="p-4 text-center text-muted">
             No transactions yet.
           </div>
 
@@ -122,7 +221,6 @@
               <div class="d-flex align-items-center gap-3">
                 <div>
                   <div class="fw-medium d-flex align-items-center gap-2">
-                    <!-- 🔹 status icon to the left of label -->
                     <i :class="statusIconClass(tx)" aria-hidden="true"></i>
 
                     <span>Top Up – {{ prettyBank(tx.bank_name) }}</span>
@@ -137,7 +235,6 @@
                       {{ capitalize(tx.status) }}
                     </span>
 
-                    <!-- 🔹 Icon-only action (edit ref) for rejected -->
                     <button
                       v-if="tx.status === 'rejected'"
                       type="button"
@@ -150,17 +247,16 @@
                     </button>
                   </div>
 
-                  <!-- 🔹 Ref + created time -->
                   <div class="text-muted small d-flex align-items-center gap-2">
                     <span>
+                      <i class="bi bi-hash me-1" aria-hidden="true"></i>
                       Ref: <span class="font-monospace">{{ tx.reference_number }}</span> •
-                      {{ formatDate(tx.created_at) }}
+                      <i class="bi bi-calendar-event ms-2 me-1" aria-hidden="true"></i>{{ formatDate(tx.created_at) }}
                     </span>
                   </div>
                 </div>
               </div>
 
-              <!-- 🔹 Amount display depends on status (NO icon here) -->
               <div
                 class="fw-semibold d-flex align-items-center gap-2"
                 :class="amountStyle(tx).cls"
@@ -177,21 +273,41 @@
     <!-- ===== DISCOUNT CREDITS VIEW ===== -->
     <template v-else>
       <!-- Balance Card for Discount Credits -->
-      <div class="card shadow-sm mb-4">
+      <div class="card shadow-sm mb-4" :class="booting ? 'breath-in' : ''">
         <div class="card-body d-flex align-items-center justify-content-between">
-          <div>
-            <div class="text-muted small">Current Discount Credits</div>
-            <div class="fs-3 fw-semibold">₱ {{ formattedDiscountCredits }}</div>
-          </div>
-          <div class="text-end">
-            <div class="text-muted small">Last Updated</div>
-            <div class="fw-medium">{{ lastUpdatedText }}</div>
-          </div>
+          <template v-if="busyInit">
+            <div class="flex-grow-1 d-flex align-items-center justify-content-between w-100">
+              <div class="w-50 pe-3">
+                <div class="skel-line skel-sm w-50 mb-2"></div>
+                <div class="skel-line w-75"></div>
+              </div>
+              <div class="w-50 ps-3 text-end">
+                <div class="skel-line skel-sm w-50 ms-auto mb-2"></div>
+                <div class="skel-line w-50 ms-auto"></div>
+              </div>
+            </div>
+          </template>
+          <template v-else>
+            <div>
+              <div class="text-muted small">
+                <i class="bi bi-percent me-1" aria-hidden="true"></i>
+                Current Discount Credits
+              </div>
+              <div class="fs-3 fw-semibold">₱ {{ formattedDiscountCredits }}</div>
+            </div>
+            <div class="text-end">
+              <div class="text-muted small">
+                <i class="bi bi-clock me-1" aria-hidden="true"></i>
+                Last Updated
+              </div>
+              <div class="fw-medium">{{ lastUpdatedText }}</div>
+            </div>
+          </template>
         </div>
       </div>
 
       <!-- Helper card -->
-      <div class="card shadow-sm">
+      <div class="card shadow-sm" :class="booting ? 'breath-in' : ''">
         <div class="card-body">
           <div class="d-flex align-items-start gap-3">
             <i class="bi bi-info-circle fs-4"></i>
@@ -206,10 +322,13 @@
         </div>
       </div>
 
-      <!-- ✅ Discount Credits Activity (rows from ewallet.discount_credits_receipt) -->
-      <div class="card shadow-sm mt-4">
+      <!-- ✅ Discount Credits Activity -->
+      <div class="card shadow-sm mt-4" :class="booting ? 'breath-in' : ''">
         <div class="card-header bg-white d-flex align-items-center justify-content-between">
-          <strong>Discount Credits Activity</strong>
+          <strong>
+            <i class="bi bi-list-check me-2" aria-hidden="true"></i>
+            Discount Credits Activity
+          </strong>
           <button class="btn btn-outline-secondary btn-sm" :disabled="busyDcr" @click="loadMyDiscountReceipts">
             <span v-if="busyDcr" class="spinner-border spinner-border-sm me-2"></span>
             Refresh
@@ -218,9 +337,24 @@
         <div class="card-body p-0">
           <div v-if="dcrError" class="alert alert-danger m-3">{{ dcrError }}</div>
 
-          <div v-else-if="busyDcr" class="p-4 text-center text-muted">
-            <div class="spinner-border mb-2"></div>
-            <div>Loading discount credits…</div>
+          <div v-else-if="busyDcr" class="p-3">
+            <div class="d-flex align-items-center text-muted">
+              <div class="spinner-border me-2"></div>
+              <div>Loading discount credits…</div>
+            </div>
+            <ul class="list-group list-group-flush mt-3">
+              <li v-for="n in 5" :key="'skel-dcr-'+n" class="list-group-item">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="flex-grow-1 pe-3">
+                    <div class="skel-line w-50 mb-2"></div>
+                    <div class="skel-line skel-sm w-75"></div>
+                  </div>
+                  <div class="w-25">
+                    <div class="skel-line w-100"></div>
+                  </div>
+                </div>
+              </li>
+            </ul>
           </div>
 
           <div v-else-if="dcrList.length === 0" class="p-4 text-center text-muted">
@@ -246,8 +380,9 @@
                   <span class="badge text-bg-secondary">Receipt</span>
                 </div>
                 <div class="text-muted small">
+                  <i class="bi bi-hash me-1" aria-hidden="true"></i>
                   Ref: <span class="font-monospace">{{ row.reference_number }}</span> •
-                  {{ formatDate(row.created_at) }}
+                  <i class="bi bi-calendar-event ms-2 me-1" aria-hidden="true"></i>{{ formatDate(row.created_at) }}
                 </div>
               </div>
 
@@ -414,7 +549,7 @@
     </div>
     <!-- /Edit Reference Modal -->
 
-    <!-- ✅ Transaction Details Modal (click any row to open) -->
+    <!-- ✅ Transaction Details Modal -->
     <div
       class="modal fade"
       id="txDetailsModal"
@@ -476,7 +611,6 @@
           </div>
 
           <div class="modal-footer">
-            <!-- Show Edit Ref button if rejected -->
             <button
               v-if="selectedTx.status === 'rejected'"
               type="button"
@@ -493,7 +627,7 @@
     </div>
     <!-- /Transaction Details Modal -->
 
-    <!-- ✅ NEW: Discount Credits Receipt Details Modal -->
+    <!-- ✅ Discount Credits Receipt Details Modal -->
     <div
       class="modal fade"
       id="dcrDetailsModal"
@@ -560,6 +694,9 @@ const router = useRouter()
 const route = useRoute() // 🔗 URL ref: current route
 const user = computed(() => currentUser.value)
 
+/** 🔹 New: one-time boot flag to drive the “breath-in” section animation */
+const booting = ref(true)
+
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
@@ -611,13 +748,37 @@ const dcrError = ref<string>('')
 /** Track latest disbursed update time */
 const lastDisbursedAt = ref<Date | null>(null)
 
+/** Busy flags for skeletons */
+const busyInit = ref(true)
+const busyTx = ref(false)
+
 // Filter state
 const filter = ref<'all' | Status>('all')
 const setFilter = (f: 'all' | Status) => { filter.value = f }
+const filterLabel = computed(() => {
+  if (filter.value === 'all') return 'All'
+  return filter.value.charAt(0).toUpperCase() + filter.value.slice(1)
+})
 const filteredTransactions = computed(() => {
   if (filter.value === 'all') return transactions.value
   return transactions.value.filter(t => t.status === filter.value)
 })
+
+/* ====== Dropdown filter toggle + outside click ====== */
+const showFilters = ref(false)
+const filterDropdownEl = ref<HTMLElement | null>(null)
+const toggleFilters = () => { showFilters.value = !showFilters.value }
+const applyFilter = (f: 'all' | Status) => { setFilter(f); showFilters.value = false }
+
+const onDocClick = (e: MouseEvent) => {
+  if (!showFilters.value) return
+  const target = e.target as Node
+  if (filterDropdownEl.value && !filterDropdownEl.value.contains(target)) {
+    showFilters.value = false
+  }
+}
+
+document.addEventListener('click', onDocClick)
 
 // Modal state (Top Up)
 const topUpAmount = ref<number | null>(null)
@@ -798,7 +959,7 @@ const openTopUp = () => {
       : null
     if (vAmt && vRef && vBank) {
       const amt = Number(vAmt)
-      const bank = vBank.toLowerCase() as BankName
+      const bank = (vBank as string).toLowerCase() as BankName
       if (!isNaN(amt) && amt > 0 && ['gcash', 'maya', 'gotyme'].includes(bank)) {
         // we still reflect intent in the URL for parity
         setQueryFlag('isTopUpOpen', 'yes')
@@ -1010,9 +1171,10 @@ const loadMyUsersBalance = async () => {
 
 // Load existing rows
 const loadMyTransactions = async () => {
+  busyTx.value = true
   const { data: auth } = await supabase.auth.getUser()
   const user = auth?.user
-  if (!user) return
+  if (!user) { busyTx.value = false; return }
 
   const { data, error } = await supabase
     .schema('ewallet')
@@ -1027,6 +1189,7 @@ const loadMyTransactions = async () => {
     lastUpdated.value = transactions.value[0] ? new Date(transactions.value[0].created_at) : null
     recomputeLastDisbursed()
   }
+  busyTx.value = false
 }
 
 /** ✅ Load discount credits receipts */
@@ -1156,6 +1319,7 @@ const copyRef = async () => {
     copyOk.value = true
     setTimeout(() => (copyOk.value = false), 1200)
   } catch {}
+
 }
 
 // ✅ NEW: DCR open/close/copy
@@ -1186,6 +1350,7 @@ const copyDcrRef = async () => {
     copyDcrOk.value = true
     setTimeout(() => (copyDcrOk.value = false), 1200)
   } catch {}
+
 }
 
 // 🔗 URL ref: try open by reference number (will check TX first, then DCR)
@@ -1250,6 +1415,7 @@ onMounted(async () => {
     loadMyTransactions(),
     loadMyDiscountReceipts(), // ✅ ensure DCRs are available for deep link
   ])
+  busyInit.value = false
   await subscribeUsersBalance()
   await subscribeMyTransactions()
 
@@ -1269,6 +1435,9 @@ onMounted(async () => {
     const m = ensureTopUpModal()
     m?.show()
   }
+
+  /** 🔹 Finish the one-time breath-in entrance after ~500ms */
+  setTimeout(() => { booting.value = false }, 520)
 })
 
 // 🔗 Keep URL in sync with tab (ADDED)
@@ -1297,6 +1466,7 @@ watch(
 onBeforeUnmount(() => {
   if (usersChannel) supabase.removeChannel(usersChannel)
   if (txChannel) supabase.removeChannel(txChannel)
+  document.removeEventListener('click', onDocClick)
 })
 </script>
 
@@ -1338,9 +1508,83 @@ onBeforeUnmount(() => {
   border-color: #d5dde6;
 }
 
-/* ✅ Make rows feel clickable (used for both TX and DCR lists) */
+/* ✅ Clickable rows */
 .tx-row { cursor: pointer; }
 .tx-row:hover { background: rgba(0,0,0,.02); }
+
+/* ====== Filters: Dropdown LIST (vertical) ====== */
+.filter-shell { position: relative; }
+.filter-dropdown .pretty-toggle {
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #fafcff 100%);
+  border-color: #e6edf5;
+}
+.filter-dropdown .pretty-toggle:hover { border-color: #d7e1ec; }
+.smooth-menu {
+  min-width: 260px;
+  border: 1px solid #e9eef5;
+  background: #fff;
+}
+
+/* Vertical list items */
+.filter-list .filter-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: .6rem .8rem;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: 10px;
+  font-size: .92rem;
+  transition: background .15s ease, border-color .15s ease, transform .06s ease;
+}
+.filter-list .filter-item .left { display: inline-flex; align-items: center; }
+.filter-list .filter-item:hover {
+  background: #f7faff;
+  border-color: #e5eefc;
+}
+.filter-list .filter-item[aria-checked="true"] {
+  background: #eef5ff;
+  border-color: #d6e6ff;
+}
+
+/* ====== Skeleton styles ====== */
+@keyframes shimmer {
+  0% { background-position: -468px 0; }
+  100% { background-position: 468px 0; }
+}
+.skel-line {
+  height: 16px;
+  border-radius: 8px;
+  background: #eef2f7;
+  background-image: linear-gradient(90deg, #eef2f7 0px, #f7f9fc 40px, #eef2f7 80px);
+  background-size: 600px 100%;
+  animation: shimmer 1.1s infinite linear forwards;
+}
+.skel-sm { height: 12px; }
+
+/* ====== Fade (existing) ====== */
+.fade-enter-active, .fade-leave-active { transition: opacity .16s ease; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
+
+/* ====== New: Breath-in entrance (≈500ms) ======
+   Slight scale + opacity rise for a soft “breathe” effect. */
+@keyframes breathIn {
+  0%   { opacity: 0; transform: translateY(6px) scale(.985); filter: saturate(.96); }
+  60%  { opacity: 1; transform: translateY(0)  scale(1.005); }
+  100% { opacity: 1; transform: translateY(0)  scale(1); filter: saturate(1); }
+}
+.breath-in {
+  animation: breathIn 0.5s cubic-bezier(.2,.7,.2,1) both;
+  will-change: transform, opacity, filter;
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .breath-in { animation: none !important; }
+}
 </style>
 
 <!-- 🔸 Global (non-scoped) CSS to guarantee a dim backdrop -->

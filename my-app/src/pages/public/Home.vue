@@ -396,7 +396,7 @@
         <div>© {{ new Date().getFullYear() }} STSSI. All rights reserved.</div>
         <div class="d-flex gap-3">
           <a href="#features" class="link-light link-underline-opacity-0">Features</a>
-          <a href="#pricing" class="link-light link-underline-opacity-0">Pricing</a>
+          <a href="#pricing" class="link-light link-underline-opacity-0">Tiers</a>
           <a href="#faq" class="link-light link-underline-opacity-0">FAQ</a>
         </div>
       </div>

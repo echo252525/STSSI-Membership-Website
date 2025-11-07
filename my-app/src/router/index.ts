@@ -12,6 +12,9 @@ import AdminLogin from '@/pages/public/AdminLogin.vue'
 import AdminSignup from '@/pages/public/AdminSignup.vue'
 import ForgotPassword from '@/pages/public/ForgotPassword.vue' // adjust path if needed
 
+// ✅ About Us now under user pages
+import AboutUs from '@/pages/user/AboutUs.vue'
+
 import UserDashboard from '@/pages/user/Dashboard.vue'
 import Membership from '@/pages/user/Membership.vue'
 import MiniGames from '@/pages/user/MiniGames.vue'
@@ -74,14 +77,11 @@ const routes: RouteRecordRaw[] = [
 
       // 👉 Waiting page WITHOUT UserLayout sidebar (public layout wrapper)
       { path: 'waiting', name: 'user.waiting', component: WaitingArea },
-      // ✅ New event page (matches your redirect URL /app/mini-games/event?eventId=...)
       {
         path: 'mini-games/event',
         name: 'user.minigames.event',
         component: GamesEvent,
-        alias: ['minigames/event'], // also allow /app/minigames/event
-        // (optional) if you want to receive eventId as a prop:
-        // props: route => ({ eventId: route.query.eventId })
+        alias: ['minigames/event'],
       },
       { path: 'winner', name: 'user.winner', component: Winner },
       { path: 'loser', name: 'user.loser', component: Loser },
@@ -92,11 +92,12 @@ const routes: RouteRecordRaw[] = [
     component: UserLayout,
     children: [
       { path: '', name: 'user.dashboard', component: UserDashboard },
+      { path: 'about', name: 'user.about', component: AboutUs }, // ✅ NEW: /app/about
       { path: 'membership', name: 'user.membership', component: Membership },
       { path: 'minigames', name: 'user.minigames', component: MiniGames },
-      { path: 'deals', name: 'user.deals', component: DealsRewards }, // ✅ new route
-      { path: 'shop', name: 'user.shop', component: Shop }, // 🆕 Shop
-{ path: 'minigames/tutorial', name: 'user.minigames.tutorial', component: Tutorial },
+      { path: 'deals', name: 'user.deals', component: DealsRewards },
+      { path: 'shop', name: 'user.shop', component: Shop },
+      { path: 'minigames/tutorial', name: 'user.minigames.tutorial', component: Tutorial },
 
       // 🆕 My Purchases (ADDED)
       { path: 'purchases', name: 'user.mypurchase', component: MyPurchase },
@@ -107,18 +108,16 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/admin',
-    component: AdminLayout, // 👈 new admin layout
+    component: AdminLayout,
     children: [
       { path: 'dashboard', name: 'admin.dashboard', component: AdminDashboard },
       { path: 'mini-games', name: 'admin.minigames', component: AdminMiniGames },
       { path: 'products', name: 'admin.products', component: AdminProducts },
       { path: 'AdminMemberships', name: 'admin.memberships', component: AdminMemberships },
       { path: 'Transactions', name: 'admin.transactions', component: Transactions },
-      { path: 'orders', name: 'admin.orders', component: Orders }, // 🆕 Orders page
+      { path: 'orders', name: 'admin.orders', component: Orders },
       { path: 'settings', name: 'admin.settings', component: AdminSettings },
-
-      // 🆕 Discounts page route (works with your sidebar link)
-      { path: 'discounts', name: 'admin.discounts', component: AdminDiscounts }, // 🆕
+      { path: 'discounts', name: 'admin.discounts', component: AdminDiscounts },
     ],
   },
 ]
@@ -129,9 +128,7 @@ const router = createRouter({
 })
 
 /**
- * 🔒 Admin-gate guard:
- * Blocks any route that has `requiresAdminGate` on ANY matched record.
- * This catches nested/aliased cases reliably.
+ * 🔒 Admin-gate guard
  */
 router.beforeEach((to, _from, next) => {
   const needsGate = to.matched.some(record => record.meta?.requiresAdminGate)
@@ -142,4 +139,3 @@ router.beforeEach((to, _from, next) => {
 })
 
 export default router
-  
