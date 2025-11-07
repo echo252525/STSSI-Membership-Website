@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- ====================== NAVBAR (Glassy) ====================== -->
-    <nav class="navbar navbar-expand-lg navbar-light glassy-nav sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-light glassy-nav sticky-top breath-in">
       <div class="container-xl">
         <router-link
           class="navbar-brand fw-bold d-flex align-items-center gap-2"
@@ -117,11 +117,11 @@
     </transition>
 
     <!-- ====================== HERO (Gradient) ====================== -->
-    <header class="hero-wrap border-bottom">
+    <header class="hero-wrap border-bottom breath-in" v-reveal>
       <div class="container-xl">
         <div class="row align-items-center gy-4">
           <!-- Text -->
-          <div class="col-12 col-lg-6">
+          <div class="col-12 col-lg-6" v-reveal="{ effect: 'left' }">
             <h1 class="display-5 fw-bold mt-3">
               Level up your <span class="grad-text">membership</span> experience
             </h1>
@@ -153,7 +153,7 @@
           </div>
 
           <!-- Visual -->
-          <div class="col-12 col-lg-6">
+          <div class="col-12 col-lg-6" v-reveal="{ effect: 'right' }">
             <div class="showcase-card rounded-4 shadow-sm bg-white">
               <div class="glow"></div>
               <div class="p-4 p-lg-5">
@@ -161,9 +161,13 @@
                   <h5 class="fw-semibold mb-0">Membership Dashboard</h5>
                   <span class="badge rounded-pill text-bg-light border">Preview</span>
                 </div>
-                <div class="row g-3">
+                <div class="row g-3 stagger">
                   <div class="col-6">
-                    <div class="mini-card">
+                    <div
+                      class="mini-card reveal"
+                      v-reveal
+                      style="--delay: 0ms"
+                    >
                       <i class="bi bi-graph-up-arrow"></i>
                       <div>
                         <div class="mini-title">Membership</div>
@@ -172,7 +176,11 @@
                     </div>
                   </div>
                   <div class="col-6">
-                    <div class="mini-card">
+                    <div
+                      class="mini-card reveal"
+                      v-reveal
+                      style="--delay: 120ms"
+                    >
                       <i class="bi bi-people"></i>
                       <div>
                         <div class="mini-title">Deals &amp; Rewards</div>
@@ -181,7 +189,11 @@
                     </div>
                   </div>
                   <div class="col-6">
-                    <div class="mini-card">
+                    <div
+                      class="mini-card reveal"
+                      v-reveal
+                      style="--delay: 240ms"
+                    >
                       <i class="bi bi-journal-code"></i>
                       <div>
                         <div class="mini-title">Mini Games</div>
@@ -190,7 +202,11 @@
                     </div>
                   </div>
                   <div class="col-6">
-                    <div class="mini-card">
+                    <div
+                      class="mini-card reveal"
+                      v-reveal
+                      style="--delay: 360ms"
+                    >
                       <i class="bi bi-gift"></i>
                       <div>
                         <div class="mini-title">E-Wallet</div>
@@ -198,7 +214,7 @@
                       </div>
                     </div>
                   </div>
-                </div>
+                </div><!-- /stagger -->
               </div>
             </div>
           </div>
@@ -208,9 +224,9 @@
     </header>
 
     <!-- ====================== FEATURES ====================== -->
-    <section id="features" class="section-pad">
+    <section id="features" class="section-pad breath-in" v-reveal>
       <div class="container-xl">
-        <div class="section-head">
+        <div class="section-head" v-reveal>
           <h2 class="fw-bold">Everything you need in one place</h2>
           <p class="text-secondary mb-0">
             Built for STSSI members—rewards and benefits made simple.
@@ -219,28 +235,28 @@
 
         <div class="row g-4">
           <div class="col-12 col-sm-6 col-lg-3">
-            <div class="feature-card h-100">
+            <div class="feature-card h-100 reveal" v-reveal style="--delay: 0ms">
               <div class="icon-wrap"><i class="bi bi-bar-chart-line"></i></div>
               <h5 class="card-title mb-2">Track Progress</h5>
               <p class="text-secondary mb-3">Monitor purchases & referrals.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
-            <div class="feature-card h-100">
+            <div class="feature-card h-100 reveal" v-reveal style="--delay: 120ms">
               <div class="icon-wrap"><i class="bi bi-graph-up-arrow"></i></div>
               <h5 class="card-title mb-2">Tier Upgrades</h5>
               <p class="text-secondary mb-3">Unlock higher membership levels.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
-            <div class="feature-card h-100">
+            <div class="feature-card h-100 reveal" v-reveal style="--delay: 240ms">
               <div class="icon-wrap"><i class="bi bi-gift"></i></div>
               <h5 class="card-title mb-2">Bigger Discounts</h5>
               <p class="text-secondary mb-3">Higher tiers = bigger savings.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
-            <div class="feature-card h-100">
+            <div class="feature-card h-100 reveal" v-reveal style="--delay: 360ms">
               <div class="icon-wrap"><i class="bi bi-unlock2"></i></div>
               <h5 class="card-title mb-2">Exclusive Vouchers</h5>
               <p class="text-secondary mb-3">Tier-locked rewards and credits.</p>
@@ -251,16 +267,16 @@
     </section>
 
     <!-- ====================== MEMBERSHIP ====================== -->
-    <section id="pricing" class="section-pad bg-section">
+    <section id="pricing" class="section-pad bg-section breath-in" v-reveal>
       <div class="container-xl">
-        <div class="section-head">
+        <div class="section-head" v-reveal>
           <h2 class="fw-bold">Membership Tiers & Benefits</h2>
           <p class="text-secondary mb-0">More perks as you progress.</p>
         </div>
 
         <div class="row g-4 align-items-stretch">
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 highlight border-success-subtle">
+            <div class="price-card h-100 highlight border-success-subtle reveal" v-reveal style="--delay: 0ms">
               <div class="price-head text-success">Regular</div>
               <div class="tier-logoDiv border-bottom pb-4">
                 <img src="/regular.png" alt="tier_logo" class="tier-logo img-fluid" />
@@ -273,7 +289,7 @@
             </div>
           </div>
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 highlight border-primary-subtle">
+            <div class="price-card h-100 highlight border-primary-subtle reveal" v-reveal style="--delay: 120ms">
               <div class="price-head text-primary">Silver</div>
               <div class="tier-logoDiv border-bottom pb-4">
                 <img src="/silver.png" alt="tier_logo" class="tier-logo img-fluid" />
@@ -287,7 +303,7 @@
             </div>
           </div>
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-warning-subtle">
+            <div class="price-card h-100 border-warning-subtle reveal" v-reveal style="--delay: 240ms">
               <div class="price-head text-warning">Gold</div>
               <div class="tier-logoDiv border-bottom pb-4">
                 <img src="/gold.png" alt="tier_logo" class="tier-logo img-fluid" />
@@ -302,7 +318,7 @@
             </div>
           </div>
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-dark-subtle">
+            <div class="price-card h-100 border-dark-subtle reveal" v-reveal style="--delay: 360ms">
               <div class="price-head text-dark">Platinum</div>
               <div class="tier-logoDiv border-bottom pb-4">
                 <img src="/platinum.png" alt="tier_logo" class="tier-logo img-fluid" />
@@ -317,7 +333,7 @@
             </div>
           </div>
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-info-subtle">
+            <div class="price-card h-100 border-info-subtle reveal" v-reveal style="--delay: 480ms">
               <div class="price-head text-info">Diamond</div>
               <div class="tier-logoDiv border-bottom pb-4">
                 <img src="/diamond.png" alt="tier_logo" class="tier-logo img-fluid" />
@@ -337,15 +353,15 @@
     </section>
 
     <!-- ====================== FAQ ====================== -->
-    <section id="faq" class="section-pad bg-section">
+    <section id="faq" class="section-pad bg-section breath-in" v-reveal>
       <div class="container-xl">
-        <div class="section-head">
+        <div class="section-head" v-reveal>
           <h2 class="fw-bold">Frequently Asked Questions</h2>
           <p class="text-secondary mb-0">Quick answers about membership &amp; features.</p>
         </div>
 
         <div class="accordion modern-acc" id="faqAcc">
-          <div class="accordion-item" v-for="q in faqs" :key="q.id">
+          <div class="accordion-item reveal" v-for="q in faqs" :key="q.id" v-reveal>
             <h2 class="accordion-header" :id="'q' + q.id">
               <button
                 class="accordion-button"
@@ -373,9 +389,10 @@
 
     <!-- ====================== CTA ====================== -->
     <section
-      class="section-pad text-center cta-grad d-flex justify-content-center align-items-center"
+      class="section-pad text-center cta-grad d-flex justify-content-center align-items-center breath-in"
+      v-reveal
     >
-      <div class="container-xl">
+      <div class="container-xl" v-reveal>
         <h1 class="fw-bold mb-3 fs-3">Ready to join?</h1>
         <p class="text-secondary mb-5">
           Create your account and start exploring member perks today.
@@ -468,6 +485,48 @@ function onKeydown(e: KeyboardEvent) {
 }
 onMounted(() => window.addEventListener('keydown', onKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+
+/* ===== Scroll reveal directive (intersection observer) ===== */
+const makeObserver = () =>
+  new IntersectionObserver(
+    (entries, obs) => {
+      entries.forEach((entry) => {
+        const el = entry.target as HTMLElement
+        if (entry.isIntersecting) {
+          el.classList.add('in-view')
+          // Unobserve if we only want to animate once
+          obs.unobserve(el)
+        }
+      })
+    },
+    { threshold: 0.12, rootMargin: '0px 0px -10% 0px' }
+  )
+
+const vReveal = {
+  mounted(el: HTMLElement, binding: any) {
+    // base reveal class
+    el.classList.add('reveal')
+    // effect: 'up' | 'left' | 'right' | 'fade'
+    const val = binding?.value
+    const effect = typeof val === 'string' ? val : val?.effect || 'up'
+    el.classList.add(`reveal-${effect}`)
+    // optional delay (ms) via binding.value.delay OR style="--delay: ..."
+    if (val?.delay != null) el.style.setProperty('--delay', `${val.delay}ms`)
+    // observe
+    const observer = makeObserver()
+    observer.observe(el)
+  },
+}
+
+defineExpose({})
+</script>
+
+<script lang="ts">
+export default {
+  directives: {
+    reveal: () => {},
+  },
+}
 </script>
 
 <style scoped>
@@ -510,9 +569,10 @@ html {
   backdrop-filter: blur(2px);
   z-index: 1065;
 }
+/* slowed slightly */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity 0.26s ease;
 }
 .fade-enter-from,
 .fade-leave-to {
@@ -555,15 +615,12 @@ html {
 }
 .drawer-close i { font-size: 1.25rem; }
 
-
-
-
-/* Slide transition */
+/* Slide transition (slowed a bit) */
 .slide-drawer-enter-active,
 .slide-drawer-leave-active {
   transition:
-    transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1),
-    opacity 0.22s ease;
+    transform 0.32s cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 0.32s ease;
 }
 .slide-drawer-enter-from,
 .slide-drawer-leave-to {
@@ -603,7 +660,7 @@ html {
   background: currentColor;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.2s ease;
+  transition: transform 0.22s ease; /* tiny slow */
   opacity: 0.35;
 }
 .modern-link:hover::after {
@@ -662,8 +719,8 @@ html {
 }
 .btn-modern.--lift {
   transition:
-    transform 0.15s,
-    box-shadow 0.15s;
+    transform 0.18s,
+    box-shadow 0.18s;
 }
 .btn-modern.--lift:hover {
   transform: translateY(-2px);
@@ -672,13 +729,14 @@ html {
 .--pulse {
   position: relative;
 }
+/* pulse slowed */
 .--pulse::after {
   content: '';
   position: absolute;
   inset: -6px;
   border-radius: 999px;
   border: 2px solid var(--ring);
-  animation: pulse 1.8s ease-out infinite;
+  animation: pulse 2.2s ease-out infinite;
   pointer-events: none;
 }
 @keyframes pulse {
@@ -759,8 +817,8 @@ html {
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
     rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
   transition:
-    transform 0.15s,
-    box-shadow 0.15s;
+    transform 0.18s,
+    box-shadow 0.18s;
 }
 .price-card:hover {
   transform: translateY(-2px);
@@ -811,4 +869,39 @@ html {
 .text-secondary {
   color: #6c757d !important;
 }
+
+/* ===================== ANIMATIONS (slowed subtly) ===================== */
+
+/* Page-load "breath in" */
+.breath-in {
+  animation: breathIn 780ms cubic-bezier(.2,.8,.2,1) both; /* was 620ms */
+}
+@keyframes breathIn {
+  0% { opacity: 0; transform: translateY(8px) scale(.985); filter: saturate(.9); }
+  100% { opacity: 1; transform: none; filter: none; }
+}
+
+/* Scroll reveal (base) */
+.reveal {
+  opacity: 0;
+  transform: translateY(16px);
+  transition:
+    opacity .85s cubic-bezier(.2,.8,.2,1), /* was .6s */
+    transform .85s cubic-bezier(.2,.8,.2,1);
+  transition-delay: var(--delay, 0ms);
+  will-change: transform, opacity;
+}
+.reveal.reveal-left { transform: translateX(-24px); }
+.reveal.reveal-right { transform: translateX(24px); }
+.reveal.reveal-up { transform: translateY(24px); }
+.reveal.reveal-fade { transform: none; }
+
+.reveal.in-view {
+  opacity: 1;
+  transform: none;
+}
+
+/* Stagger container helper (optional visual spacing) */
+.stagger > [class*="col-"] { contain: layout style; }
+
 </style>
