@@ -442,7 +442,6 @@
                       Up to ₱{{ money(d.max_discount_amount) }} OFF
                     </span>
                     <span class="pd-type" v-else>Special discount</span>
-                    <span class="pd-pill">Product only</span>
                   </div>
 
                   <div class="pd-thumb-wrap" v-if="d.product_img_url">
