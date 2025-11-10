@@ -102,6 +102,9 @@ type CancelledEwalletReceiptRow = { id: string; amount: string | number; created
 type CancelledEwalletGroup = { reference_number: string; latest_when: string; total_amount: number; purchase_id?: string | null }
 type PrizePurchase = { id: string; user_id: string; reference_number: string; discounted_price: string | number }
 
+/* 🆕 referrals from public.referrals */
+type ReferralRow = { referrer_id: string; referee_id: string; created_at: string }
+
 type UiRow = {
   id: string
   reference_number: string
@@ -180,6 +183,22 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' })
 }
 
+/* 🆕 helpers for referral ref formatting */
+function yyyymmdd(iso: string): string {
+  const d = new Date(iso)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${y}${m}${dd}`
+}
+function firstUuidGroup(id: string): string {
+  const seg = (id || '').split('-')[0] || ''
+  return seg || (id || '').slice(0, 8)
+}
+function makeReferralRef(refereeId: string, createdAt: string): string {
+  return `REF-${firstUuidGroup(refereeId)}-${yyyymmdd(createdAt)}`
+}
+
 function toSentence(tx: TxRow): string {
   const amt = peso(tx.amount)
   const date = fmtDate(tx.updated_at ?? tx.created_at)
@@ -242,6 +261,13 @@ function cancelledEwalletGroupSentence(total: number, ref: string, whenIso: stri
   return `8. Your e-wallet payment for order #${ref} was cancelled on ${date}. The total amount of ${amt} will no longer be deducted.`
 }
 
+/* 🆕 referral bonus sentence */
+function referralSentence(createdAt: string): string {
+  const date = fmtDate(createdAt)
+  const bonus = peso(200) // fixed +200 per referral
+  return `10. You earned ${bonus} in discount credits on ${date} for successfully referring a new member.`
+}
+
 function txIconClass(s: string) {
   switch (s) {
     case 'approved': return 'bi bi-check-circle-fill text-success'
@@ -256,6 +282,8 @@ function txIconClass(s: string) {
     case 'discount_credits': return 'bi bi-percent text-success'
     case 'cancelled_cod': return 'bi bi-bag-x-fill text-danger'
     case 'cancelled_ewallet': return 'bi bi-wallet2 text-danger'
+    /* 🆕 icon for referral bonus */
+    case 'referral_bonus': return 'bi bi-people-fill text-success'
     default: return 'bi bi-bell'
   }
 }
@@ -403,6 +431,22 @@ function cancelledReceiptToUiRow(c: CancelledReceiptRow): UiRow {
   }
 }
 
+/* 🆕 referral row → UiRow (with formatted reference_number) */
+function referralToUiRow(r: ReferralRow): UiRow {
+  const ref = makeReferralRef(r.referee_id, r.created_at)
+  return {
+    id: `referral_${r.referrer_id}_${r.referee_id}`,
+    reference_number: ref, // 🆕 REF-<first-uuid-segment>-<YYYYMMDD>
+    bank_name: '—',
+    status: 'referral_bonus',
+    when: r.created_at,
+    message: referralSentence(r.created_at),
+    raw: r,
+    purchase_id: null,
+    source: 'public.referrals'
+  }
+}
+
 async function fetchPage(initial = false) {
   if (!userId.value) return
   if (initial) busy.value.load = true
@@ -436,7 +480,8 @@ async function fetchPage(initial = false) {
         gameItems,
         discountCreditTotals,
         cancelledGroupedItems,
-        cancelledEwalletGroupedItems
+        cancelledEwalletGroupedItems,
+        referralItems
       ] = await Promise.all([
         fetchRecentOrderTransactions(),
         fetchRecentRefundReceipts(),
@@ -444,7 +489,8 @@ async function fetchPage(initial = false) {
         fetchRecentGameReceipts(),
         fetchRecentDiscountCreditsTotals(),
         fetchRecentCancelledReceiptTotals(),
-        fetchRecentCancelledEwalletReceiptTotals()
+        fetchRecentCancelledEwalletReceiptTotals(),
+        fetchRecentReferralCredits()
       ])
       const merged = [
         ...items.value,
@@ -454,7 +500,8 @@ async function fetchPage(initial = false) {
         ...gameItems,
         ...discountCreditTotals,
         ...cancelledGroupedItems,
-        ...cancelledEwalletGroupedItems
+        ...cancelledEwalletGroupedItems,
+        ...referralItems
       ].sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime())
       items.value = merged
     }
@@ -731,6 +778,25 @@ async function fetchRecentCancelledEwalletReceiptTotals(): Promise<UiRow[]> {
   return ui
 }
 
+/* 🆕 fetch referral-based discount credit events */
+async function fetchRecentReferralCredits(): Promise<UiRow[]> {
+  if (!userId.value) return []
+  const { data, error } = await supabase
+    .schema('public') // explicit, though default is public
+    .from('referrals')
+    .select('referrer_id,referee_id,created_at')
+    .eq('referrer_id', userId.value)
+    .order('created_at', { ascending: false })
+    .limit(PAGE_SIZE)
+  if (error) {
+    console.error('referrals fetch error:', error)
+    return []
+  }
+  const rows = (data ?? []) as ReferralRow[]
+  if (!rows.length) return []
+  return rows.map(referralToUiRow)
+}
+
 async function reload() { cursor = null; await fetchPage(true) }
 async function loadMore() { await fetchPage(false) }
 
@@ -965,7 +1031,7 @@ function bindRealtime() {
           prize = await getPrizeByEventRef(gr.event_id)
         }
       }
-      const evSafe: EventLite = ev ?? { id:'—', title:'Mini Game', entry_fee:0, user_id_winner:null, winner_refund_amount:0, loser_refund_amount:0, created_at:gr.created_at, updated_at:gr.updated_at }
+      const evSafe: EventLite = ev ?? { id: '—', title: 'Mini Game', entry_fee: 0, user_id_winner: null, winner_refund_amount: 0, loser_refund_amount: 0, created_at: gr.created_at, updated_at: gr.updated_at }
       const isWinner = !!ev && ev.user_id_winner === userId.value
       upsertItem(gameReceiptToUiRow(payload.new as GameReceiptRow, evSafe, isWinner, prize))
     })
@@ -986,13 +1052,31 @@ function bindRealtime() {
       await upsertCancelledEwalletGroupFromRow(c)
     })
 
+  /* 🆕 referrals → referral_bonus notifications */
+  rtChannel
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'referrals', filter: `referrer_id=eq.${userId.value}` }, payload => {
+      const r = payload.new as ReferralRow
+      upsertItem(referralToUiRow(r))
+    })
+
   rtChannel.subscribe()
 }
 
 /* Clickability + routing */
-function isClickable(n: UiRow) { return !!n.reference_number && n.reference_number !== '—' }
-function isTransactionRow(n: UiRow) { return n.source === 'ewallet.transactions' || ['approved','disbursed','pending','rejected','failed'].includes(n.status) }
+function isClickable(n: UiRow) {
+  // ✅ Allow referral bonus notifications to be clickable (use generated reference_number)
+  return !!n.reference_number && n.reference_number !== '—'
+}
+function isTransactionRow(n: UiRow) { return n.source === 'ewallet.transactions' || ['approved', 'disbursed', 'pending', 'rejected', 'failed'].includes(n.status) }
 function buildTargetUrl(n: UiRow) {
+  // 🆕 Referral bonus → open e-wallet with credits tab expanded + ref
+  if (n.status === 'referral_bonus') {
+    const qs = new URLSearchParams()
+    qs.set('isCreditsOpen', 'yes')
+    qs.set('ref', n.reference_number)
+    return `/app/ewallet?${qs.toString()}`
+  }
+
   if (isTransactionRow(n)) {
     const qs = new URLSearchParams(); qs.set('ref', n.reference_number); return `/app/ewallet?${qs.toString()}`
   }
@@ -1021,7 +1105,7 @@ function addNavStamp(url: string): string {
   const stamp = `_nav=${Date.now()}`
   if (/[?&]_nav=\d+/.test(url)) {
     return url.replace(/([?&]_nav=)\d+/, `$1${Date.now()}`)
-    }
+  }
   return url + (url.includes('?') ? '&' : '?') + stamp
 }
 

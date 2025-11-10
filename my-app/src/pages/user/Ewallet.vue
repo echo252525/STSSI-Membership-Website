@@ -361,6 +361,7 @@
             No discount credits yet.
           </div>
 
+          <!-- ⬇️ Same list, now also shows Referral Bonus rows (no second list created) -->
           <ul v-else class="list-group list-group-flush">
             <li
               v-for="row in dcrList"
@@ -374,11 +375,19 @@
               @keydown.space.prevent="openDcrDetails(row)"
             >
               <div>
-                <div class="fw-medium d-flex align-items-center gap-2">
+                <!-- Receipt row (existing UI preserved) -->
+                <div v-if="row.kind === 'receipt'" class="fw-medium d-flex align-items-center gap-2">
                   <i class="bi bi-ticket-perforated text-primary" aria-hidden="true"></i>
                   <span>Discount Applied</span>
                   <span class="badge text-bg-secondary">Receipt</span>
                 </div>
+                <!-- ✅ Referral bonus row (added) -->
+                <div v-else class="fw-medium d-flex align-items-center gap-2">
+                  <i class="bi bi-person-plus text-success" aria-hidden="true"></i>
+                  <span>Referral Bonus</span>
+                  <span class="badge text-bg-success">Referral</span>
+                </div>
+
                 <div class="text-muted small">
                   <i class="bi bi-hash me-1" aria-hidden="true"></i>
                   Ref: <span class="font-monospace">{{ row.reference_number }}</span> •
@@ -386,11 +395,15 @@
                 </div>
               </div>
 
-              <div
-                class="fw-semibold text-danger"
-                :title="`Applied to purchase ${row.purchase_id}`"
-              >
+              <!-- Right-side amount -->
+              <!-- Original receipt amount block kept; referral has its own positive display -->
+              <div v-if="row.kind === 'receipt'"
+                   class="fw-semibold text-danger"
+                   :title="`Applied to purchase ${row.purchase_id}`">
                 –₱ {{ formatAmount(row.amount_discounted) }}
+              </div>
+              <div v-else class="fw-semibold text-success" :title="'Referral credited'">
+                +₱ {{ formatAmount(row.amount_referral) }}
               </div>
             </li>
           </ul>
@@ -642,8 +655,15 @@
         <div class="modal-content" v-if="selectedDcr">
           <div class="modal-header">
             <h5 class="modal-title d-flex align-items-center gap-2" id="dcrDetailsLabel">
-              <i class="bi bi-ticket-perforated text-primary" aria-hidden="true"></i>
-              Discount Credits Receipt
+              <!-- Title differs by kind -->
+              <template v-if="selectedDcr.kind === 'receipt'">
+                <i class="bi bi-ticket-perforated text-primary" aria-hidden="true"></i>
+                Discount Credits Receipt
+              </template>
+              <template v-else>
+                <i class="bi bi-person-plus text-success" aria-hidden="true"></i>
+                Referral Bonus
+              </template>
             </h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
@@ -658,13 +678,29 @@
                 </button>
               </dd>
 
-              <dt class="col-sm-4">Amount Applied</dt>
-              <dd class="col-sm-8 fw-semibold text-danger">
-                –₱ {{ formatAmount(selectedDcr.amount_discounted) }}
-              </dd>
+              <!-- Receipt details -->
+              <template v-if="selectedDcr.kind === 'receipt'">
+                <dt class="col-sm-4">Amount Applied</dt>
+                <dd class="col-sm-8 fw-semibold text-danger">
+                  –₱ {{ formatAmount(selectedDcr.amount_discounted) }}
+                </dd>
 
-              <dt class="col-sm-4">Purchase ID</dt>
-              <dd class="col-sm-8 font-monospace">{{ selectedDcr.purchase_id }}</dd>
+                <dt class="col-sm-4">Purchase ID</dt>
+                <dd class="col-sm-8 font-monospace">{{ selectedDcr.purchase_id }}</dd>
+              </template>
+
+              <!-- ✅ Referral details -->
+              <template v-else>
+                <dt class="col-sm-4">Bonus Amount</dt>
+                <dd class="col-sm-8 fw-semibold text-success">
+                  +₱ {{ formatAmount(selectedDcr.amount_referral) }}
+                </dd>
+
+                <dt class="col-sm-4">Referee</dt>
+                <dd class="col-sm-8 font-monospace">
+                  {{ maskId(selectedDcr.referee_id) }}
+                </dd>
+              </template>
 
               <dt class="col-sm-4">Created</dt>
               <dd class="col-sm-8">{{ formatDate(selectedDcr.created_at) }}</dd>
@@ -689,6 +725,27 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter, useRoute } from 'vue-router' // 🔗 URL ref: import useRoute
 import { currentUser } from '@/lib/authState'
+import Swal from 'sweetalert2' // ✅ SweetAlert2
+
+/* ===========================================================
+   SweetAlert helpers (friendly, consistent messaging)
+   =========================================================== */
+const swSuccess = (message: string, title = 'Success') =>
+  Swal.fire({ icon: 'success', title, text: message })
+const swError = (message: string, title = 'Something went wrong') =>
+  Swal.fire({ icon: 'error', title, text: message })
+const swWarn = (message: string, title = 'Please check') =>
+  Swal.fire({ icon: 'warning', title, text: message })
+const swToast = async (message: string, icon: 'success'|'error'|'info'|'warning' = 'success') =>
+  Swal.fire({
+    toast: true,
+    position: 'top-end',
+    icon,
+    title: message,
+    showConfirmButton: false,
+    timer: 1400,
+    timerProgressBar: true
+  })
 
 const router = useRouter()
 const route = useRoute() // 🔗 URL ref: current route
@@ -727,6 +784,21 @@ type Dcr = {
   reference_number: string
 }
 
+/** ✅ Activity union so we can render receipts and referrals in ONE list */
+type DcrReceipt = Dcr & { kind: 'receipt' }
+type ReferralActivity = {
+  kind: 'referral'
+  id: string
+  created_at: string
+  updated_at: string
+  reference_number: string
+  amount_referral: number
+  referee_id: string
+  purchase_id?: undefined
+  amount_discounted?: undefined
+}
+type ActivityRow = DcrReceipt | ReferralActivity
+
 // ===== New: Tab State =====
 const activeTab = ref<'wallet' | 'discount'>('wallet')
 
@@ -740,8 +812,8 @@ const currentUserId = ref<string | null>(null)
 // New: Discount Credits Balance
 const discountCredits = ref<number>(0)
 
-/** ✅ NEW: Discount Credits Receipts list + flags */
-const dcrList = ref<Dcr[]>([])
+/** ✅ NEW: Discount Credits Activity list + flags (merged: receipts + referrals in one list) */
+const dcrList = ref<ActivityRow[]>([])
 const busyDcr = ref(false)
 const dcrError = ref<string>('')
 
@@ -788,10 +860,12 @@ const topUpModalEl = ref<HTMLDivElement | null>(null)
 let bsModal: any = null
 let usersChannel: ReturnType<typeof supabase.channel> | null = null
 let txChannel: ReturnType<typeof supabase.channel> | null = null
+// ✅ REFERRALS: realtime channel
+let referralsChannel: ReturnType<typeof supabase.channel> | null = null
 
 const submitting = ref(false)
-const errorMsg = ref<string>('')
-const okMsg = ref<string>('')
+const errorMsg = ref<string>('')   // (kept for UI, but SweetAlert is primary)
+const okMsg = ref<string>('')       // (kept for UI, but SweetAlert is primary)
 
 // Edit Ref state
 const editRefModalEl = ref<HTMLDivElement | null>(null)
@@ -799,8 +873,8 @@ let bsEditModal: any = null
 const currentEdit = ref<Tx | null>(null)
 const editRef = ref<string>('')
 const editSubmitting = ref(false)
-const editErrorMsg = ref<string>('')
-const editOkMsg = ref<string>('')
+const editErrorMsg = ref<string>('') // (kept)
+const editOkMsg = ref<string>('')    // (kept)
 
 // ✅ Transaction Details modal state
 const txDetailsModalEl = ref<HTMLDivElement | null>(null)
@@ -808,10 +882,10 @@ let bsTxModal: any = null
 const selectedTx = ref<Tx | null>(null)
 const copyOk = ref(false)
 
-// ✅ NEW: DCR Details modal state
+// ✅ NEW: DCR Details modal state (union)
 const dcrDetailsModalEl = ref<HTMLDivElement | null>(null)
 let bsDcrModal: any = null
-const selectedDcr = ref<Dcr | null>(null)
+const selectedDcr = ref<ActivityRow | null>(null)
 const copyDcrOk = ref(false)
 
 // 🔹 Shared date-time options (no seconds)
@@ -965,7 +1039,8 @@ const openTopUp = () => {
         setQueryFlag('isTopUpOpen', 'yes')
         confirmTopUpFallback(amt, vRef.trim(), bank)
       } else {
-        alert('Invalid inputs.')
+        // ✅ SweetAlert warning for invalid inputs
+        swWarn('Please enter a valid amount and bank (GCash, Maya, or GoTyme).')
       }
     }
   }
@@ -980,19 +1055,24 @@ const confirmTopUpFallback = async (amount: number, refno: string, bank: BankNam
 
 // Insert top-up
 const confirmTopUp = async () => {
+  // Clear inline flags (kept for UI integrity)
   errorMsg.value = ''
   okMsg.value = ''
-  // 🔹 Enforce minimum top up (and ensure value exists)
+
+  // 🔹 Enforce minimum top up (and ensure value exists) — show SweetAlert messages
   if (!topUpAmount.value || topUpAmount.value < 200) {
     errorMsg.value = 'Minimum top-up is ₱200.'
+    swWarn('Minimum top-up is ₱200. Please increase the amount and try again.')
     return
   }
   if (!topUpRef.value) {
     errorMsg.value = 'Reference number is required.'
+    swWarn('Please enter your payment reference number.')
     return
   }
   if (!['gcash', 'maya', 'gotyme'].includes(topUpBank.value)) {
     errorMsg.value = 'Bank name must be GCash, Maya, or GoTyme.'
+    swWarn('Bank/Wallet must be GCash, Maya, or GoTyme.')
     return
   }
 
@@ -1002,6 +1082,7 @@ const confirmTopUp = async () => {
     const user = auth?.user
     if (!user) {
       errorMsg.value = 'Not authenticated.'
+      swError('You need to sign in to submit a top-up.')
       return
     }
 
@@ -1023,8 +1104,10 @@ const confirmTopUp = async () => {
       // 🔹 Show friendly message for duplicate reference number
       if (isDuplicateRefError(error)) {
         errorMsg.value = 'That reference number is already used. Please enter a different one.'
+        swError('That reference number has already been used. Please double-check and enter a different one.')
       } else {
         errorMsg.value = 'We couldn’t save your top-up. Please try again.'
+        swError('We couldn’t save your top-up right now. Please try again in a moment.')
       }
       return
     }
@@ -1035,18 +1118,24 @@ const confirmTopUp = async () => {
       addTxIfMissingToTop(tx)
       lastUpdated.value = new Date()
       okMsg.value = 'Top-up recorded successfully (pending).'
-      topUpAmount.value = null // 🔹 clear to remove any default value
+      // ✅ SweetAlert success (user-friendly)
+      swSuccess('Your top-up was submitted and is now pending verification. You’ll see it here once verified.', 'Top-up submitted')
+
+      // Clear form
+      topUpAmount.value = null
       topUpRef.value = ''
       if (bsModal) bsModal.hide()
-      // Keep UI derived values fresh
+      // Derived UI bits
       recalcLocalBalance()
       recomputeLastDisbursed()
     }
   } catch (e: any) {
     if (isDuplicateRefError(e)) {
       errorMsg.value = 'That reference number is already used. Please enter a different one.'
+      swError('That reference number has already been used. Please enter a new one.')
     } else {
       errorMsg.value = 'Something went wrong. Please try again.'
+      swError('Unexpected error while saving your top-up. Please try again.')
     }
   } finally {
     submitting.value = false
@@ -1085,10 +1174,12 @@ const confirmEditRef = async () => {
   const row = currentEdit.value
   if (!row) {
     editErrorMsg.value = 'No transaction selected.'
+    swError('No transaction selected to update.')
     return
   }
   if (!editRef.value) {
     editErrorMsg.value = 'Reference number is required.'
+    swWarn('Please enter a new reference number.')
     return
   }
 
@@ -1098,6 +1189,7 @@ const confirmEditRef = async () => {
     const user = auth?.user
     if (!user) {
       editErrorMsg.value = 'Not authenticated.'
+      swError('You need to sign in to update this reference number.')
       return
     }
 
@@ -1116,8 +1208,10 @@ const confirmEditRef = async () => {
     if (error) {
       if (isDuplicateRefError(error)) {
         editErrorMsg.value = 'That reference number is already used. Please enter a different one.'
+        swError('That reference number is already in use. Please try a different one.')
       } else {
         editErrorMsg.value = 'We couldn’t update this reference number. Please try again.'
+        swError('We couldn’t update the reference number right now. Please try again.')
       }
       return
     }
@@ -1128,6 +1222,9 @@ const confirmEditRef = async () => {
       if (i !== -1) transactions.value[i] = updated
       lastUpdated.value = new Date()
       editOkMsg.value = 'Reference updated. Status set to pending.'
+      // ✅ SweetAlert success
+      swSuccess('Reference updated. We’ll re-verify this top-up shortly.', 'Reference updated')
+
       // 🔗 URL ref: if the details modal is on this tx, refresh URL ref to new value
       if (selectedTx.value && selectedTx.value.id === updated.id) {
         selectedTx.value = updated
@@ -1142,8 +1239,10 @@ const confirmEditRef = async () => {
   } catch (e: any) {
     if (isDuplicateRefError(e)) {
       editErrorMsg.value = 'That reference number is already used. Please enter a different one.'
+      swError('That reference number is already in use. Please try a different one.')
     } else {
       editErrorMsg.value = 'Something went wrong. Please try again.'
+      swError('Unexpected error while updating the reference number.')
     }
   } finally {
     editSubmitting.value = false
@@ -1192,35 +1291,84 @@ const loadMyTransactions = async () => {
   busyTx.value = false
 }
 
-/** ✅ Load discount credits receipts */
+/** ====== REFERRAL BONUS CONFIG ======
+ * Adjust this to your actual per-successful-referral bonus amount (PHP).
+ */
+const REFERRAL_BONUS_PHP = 200
+
+/** ✅ Helper: build a stable synthetic reference number for a referral row */
+const makeReferralRef = (referee_id: string, created_at: string) =>
+  `REF-${referee_id.slice(0, 8)}-${created_at.slice(0, 10).replace(/-/g, '')}`
+
+/** ✅ Helper: mask a UUID-ish id for display */
+const maskId = (id: string) => `${id.slice(0, 8)}…${id.slice(-4)}`
+
+/** ✅ Load discount credits receipts (existing) + merge referral bonuses (ADDED) */
 const loadMyDiscountReceipts = async () => {
   dcrError.value = ''
   busyDcr.value = true
   try {
-    // RLS should scope to current user's receipts via your policies
-    const { data, error } = await supabase
+    const { data: auth } = await supabase.auth.getUser()
+    const user = auth?.user
+    if (!user) throw new Error('Not authenticated.')
+
+    // 1) Receipts (existing)
+    const { data: recData, error: recErr } = await supabase
       .schema('ewallet')
       .from('discount_credits_receipt')
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) throw error
-    dcrList.value = (data || []).map((r: any) => ({
+    if (recErr) throw recErr
+    const receipts: DcrReceipt[] = (recData || []).map((r: any) => ({
       ...r,
       amount_discounted: Number(r.amount_discounted ?? 0),
-    })) as Dcr[]
-    if (dcrList.value.length > 0) {
-      // reflect freshness on the Discount Credits tab's "Last Updated"
-      lastUpdated.value = new Date(dcrList.value[0].created_at)
+      kind: 'receipt' as const,
+    }))
+
+    // 2) ✅ Referrals (added): show positive bonus rows
+    const { data: refData, error: refErr } = await supabase
+      .from('referrals')
+      .select('referee_id, referrer_id, created_at')
+      .eq('referrer_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (refErr) throw refErr
+
+    const referrals: ReferralActivity[] = (refData || []).map((r: any) => {
+      const refno = makeReferralRef(r.referee_id, r.created_at)
+      return {
+        kind: 'referral',
+        id: `referral-${r.referee_id}-${r.created_at}`,
+        created_at: r.created_at,
+        updated_at: r.created_at, // no explicit updated_at in referrals; mirror created_at
+        reference_number: refno,
+        amount_referral: REFERRAL_BONUS_PHP,
+        referee_id: r.referee_id,
+      }
+    })
+
+    // 3) Merge into ONE list (no second list created), latest first
+    const combined: ActivityRow[] = [...receipts, ...referrals].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+
+    dcrList.value = combined
+
+    if (combined.length > 0) {
+      // reflect freshness on "Last Updated"
+      lastUpdated.value = new Date(combined[0].created_at)
     }
   } catch (e) {
-    dcrError.value = 'Could not load discount credit receipts.'
+    dcrError.value = 'Could not load discount credit activity.'
+    // ✅ SweetAlert error
+    swError('We couldn’t load your Discount Credits right now. Please try again in a moment.')
   } finally {
     busyDcr.value = false
   }
 }
 
-// Realtime subs
+/** ✅ Realtime subs */
 const subscribeUsersBalance = async () => {
   const { data: auth } = await supabase.auth.getUser()
   const user = auth?.user
@@ -1282,6 +1430,40 @@ const subscribeMyTransactions = async () => {
     .subscribe()
 }
 
+/** ✅ REFERRALS realtime: add new referral bonus rows to the same list */
+const subscribeMyReferrals = async () => {
+  const { data: auth } = await supabase.auth.getUser()
+  const user = auth?.user
+  if (!user) return
+
+  referralsChannel = supabase
+    .channel('my-referrals')
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'referrals', filter: `referrer_id=eq.${user.id}` },
+      (payload) => {
+        const r = payload.new as { referee_id: string; created_at: string }
+        const refno = makeReferralRef(r.referee_id, r.created_at)
+        const row: ReferralActivity = {
+          kind: 'referral',
+          id: `referral-${r.referee_id}-${r.created_at}`,
+          created_at: r.created_at,
+          updated_at: r.created_at,
+          reference_number: refno,
+          amount_referral: REFERRAL_BONUS_PHP,
+          referee_id: r.referee_id,
+        }
+        // Insert on top and keep list sorted by created_at desc
+        dcrList.value.unshift(row)
+        dcrList.value.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        )
+        lastUpdated.value = new Date()
+      }
+    )
+    .subscribe()
+}
+
 /* ========= Details: open/close (with dim backdrop) ========= */
 
 // 🔗 URL ref: helper to set/clear ?ref= in the URL (no history spam)
@@ -1317,13 +1499,16 @@ const copyRef = async () => {
   try {
     await navigator.clipboard.writeText(selectedTx.value.reference_number)
     copyOk.value = true
+    // ✅ SweetAlert toast for copy
+    swToast('Reference copied')
     setTimeout(() => (copyOk.value = false), 1200)
-  } catch {}
-
+  } catch {
+    swToast('Could not copy', 'error')
+  }
 }
 
 // ✅ NEW: DCR open/close/copy
-const openDcrDetails = (row: Dcr) => {
+const openDcrDetails = (row: ActivityRow) => {
   selectedDcr.value = row
   selectedTx.value = null // ensure only one modal type is active
   setRefInUrl(row.reference_number)
@@ -1348,9 +1533,12 @@ const copyDcrRef = async () => {
   try {
     await navigator.clipboard.writeText(selectedDcr.value.reference_number)
     copyDcrOk.value = true
+    // ✅ SweetAlert toast for copy
+    swToast('Reference copied')
     setTimeout(() => (copyDcrOk.value = false), 1200)
-  } catch {}
-
+  } catch {
+    swToast('Could not copy', 'error')
+  }
 }
 
 // 🔗 URL ref: try open by reference number (will check TX first, then DCR)
@@ -1413,13 +1601,14 @@ onMounted(async () => {
   await Promise.all([
     loadMyUsersBalance(),
     loadMyTransactions(),
-    loadMyDiscountReceipts(), // ✅ ensure DCRs are available for deep link
+    loadMyDiscountReceipts(), // ✅ ensure receipts + referrals are available for deep link
   ])
   busyInit.value = false
   await subscribeUsersBalance()
   await subscribeMyTransactions()
+  await subscribeMyReferrals() // ✅ realtime referrals
 
-  // 🔗 URL ref: if arriving with ?ref=..., open it (TX first, else DCR)
+  // 🔗 URL ref: if arriving with ?ref=..., open it (TX first, else merged DCR)
   const initialRef = (route.query?.ref ?? '') as string
   if (initialRef) {
     setTimeout(() => openByRef(initialRef), 0)
@@ -1466,6 +1655,7 @@ watch(
 onBeforeUnmount(() => {
   if (usersChannel) supabase.removeChannel(usersChannel)
   if (txChannel) supabase.removeChannel(txChannel)
+  if (referralsChannel) supabase.removeChannel(referralsChannel) // ✅
   document.removeEventListener('click', onDocClick)
 })
 </script>

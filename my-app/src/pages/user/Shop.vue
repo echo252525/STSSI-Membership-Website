@@ -309,12 +309,12 @@
                 <!-- admin shipping & button -->
                 <div class="d-flex align-items-center justify-content-between">
                   <div class="small">
-                    Admin shipping fee:
-                    <strong v-if="g.highestShippingFee > 0"
-                      >₱ {{ number(g.highestShippingFee) }}</strong
-                    >
-                    <span v-else class="text-warning">awaiting…</span>
-                  </div>
+  Admin shipping fee:
+  <strong v-if="g.hasFreeShipping">Free Shipping</strong>
+  <strong v-else-if="g.highestShippingFee > 0">₱ {{ number(g.highestShippingFee) }}</strong>
+  <span v-else class="text-warning">awaiting…</span>
+</div>
+
                   <button
                     class="btn btn-sm btn-primary"
                     :disabled="placingOrder || g.itemsCount === 0"
@@ -3462,6 +3462,8 @@ const pendingGroups = ref<
     itemsTotal: number
     sampleName: string
     sampleImageUrl: string | null
+    hasFreeShipping: boolean               // ✅ NEW
+    shippingStatusLabel: string  
     displayTotal?: number
   }>
 >([])
@@ -3499,142 +3501,193 @@ async function resolveFirstImageUrl(prod: {
 async function loadPendingOrders() {
   pendingLoading.value = true
   try {
-  const uid = await ensureUser()
-  if (!uid) return
-  const { data, error } = await supabase
-    .schema('games')
-    .from('purchases')
-    .select(
-      'id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, is_free_shipping',
-    )
-    .eq('user_id', uid)
-    .eq('status', 'pending')
-    .order('created_at', { ascending: false })
-  if (error) {
-    console.warn('[loadPendingOrders] error:', error.message)
-    pendingGroups.value = []
-    return
-  }
-  const rows = (data || []) as PurchaseRow[]
-  const rowsByRef = new Map<string, PurchaseRow[]>()
-  const purchaseIdToRef = new Map<string, string>()
-  const aggregate = new Map<
-    string,
-    {
+    const uid = await ensureUser()
+    if (!uid) return
+
+    const { data, error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select(
+        'id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, is_free_shipping',
+      )
+      .eq('user_id', uid)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.warn('[loadPendingOrders] error:', error.message)
+      pendingGroups.value = []
+      return
+    }
+
+    const rows = (data || []) as PurchaseRow[]
+    const rowsByRef = new Map<string, PurchaseRow[]>()
+    const purchaseIdToRef = new Map<string, string>()
+
+    const aggregate = new Map<
+      string,
+      {
+        created_at: string
+        itemsCount: number
+        totalQty: number
+        highestShippingFee: number
+        itemsTotal: number
+        firstProductId?: string
+      }
+    >()
+
+    for (const r of rows) {
+      const g = aggregate.get(r.reference_number) || {
+        created_at: r.created_at,
+        itemsCount: 0,
+        totalQty: 0,
+        highestShippingFee: 0,
+        itemsTotal: 0,
+        firstProductId: undefined,
+      }
+
+      if (!g.firstProductId) g.firstProductId = r.product_id
+      g.created_at = g.created_at || r.created_at
+      g.itemsCount += 1
+      g.totalQty += Number(r.qty || 0)
+
+      const sf = Number(r.shipping_fee ?? 0)
+      if (sf > g.highestShippingFee) g.highestShippingFee = sf
+
+      const unit = Number(r.discounted_price ?? 0)
+      g.itemsTotal += unit * Number(r.qty || 0)
+
+      aggregate.set(r.reference_number, g)
+
+      const bucket = rowsByRef.get(r.reference_number) ?? []
+      bucket.push(r)
+      rowsByRef.set(r.reference_number, bucket)
+
+      purchaseIdToRef.set(r.id, r.reference_number)
+    }
+
+    // Load sample product(s) for thumbnails/names
+    const sampleIds = Array.from(
+      new Set(
+        Array.from(aggregate.values())
+          .map((v) => v.firstProductId)
+          .filter(Boolean),
+      ),
+    ) as string[]
+
+    const prodMap = new Map<string, { name: string; product_url: string[] | string | null }>()
+    if (sampleIds.length > 0) {
+      const { data: prods } = await supabase
+        .schema('games')
+        .from('products')
+        .select('id,name,product_url')
+      .in('id', sampleIds)
+
+      for (const p of (prods || []) as Array<{ id: string; name: string; product_url: string[] | string | null }>) {
+        prodMap.set(p.id, { name: p.name, product_url: p.product_url })
+      }
+    }
+
+    const resolveFirstImageUrl = async (prod: {
+      id: string
+      product_url: string[] | string | null
+    }): Promise<string | null> => {
+      const raw = firstUrl(prod.product_url)
+      if (!raw) return null
+      if (!isStoragePath(raw)) return raw
+      try {
+        const { data } = await supabase.storage.from('prize_product').createSignedUrl(raw, 3600)
+        return data?.signedUrl ?? null
+      } catch {
+        return null
+      }
+    }
+
+    const groups: Array<{
+      ref: string
       created_at: string
       itemsCount: number
       totalQty: number
       highestShippingFee: number
       itemsTotal: number
-      firstProductId?: string
-    }
-  >()
-  for (const r of rows) {
-    const g = aggregate.get(r.reference_number) || {
-      created_at: r.created_at,
-      itemsCount: 0,
-      totalQty: 0,
-      highestShippingFee: 0,
-      itemsTotal: 0,
-      firstProductId: undefined,
-    }
-    if (!g.firstProductId) g.firstProductId = r.product_id
-    g.created_at = g.created_at || r.created_at
-    g.itemsCount += 1
-    g.totalQty += Number(r.qty || 0)
-    const sf = Number(r.shipping_fee ?? 0)
-    if (sf > g.highestShippingFee) g.highestShippingFee = sf
-    const unit = Number(r.discounted_price ?? 0)
-    g.itemsTotal += unit * Number(r.qty || 0)
-    aggregate.set(r.reference_number, g)
-    const bucket = rowsByRef.get(r.reference_number) ?? []
-    bucket.push(r)
-    rowsByRef.set(r.reference_number, bucket)
-    purchaseIdToRef.set(r.id, r.reference_number)
-  }
-  const sampleIds = Array.from(
-    new Set(
-      Array.from(aggregate.values())
-        .map((v) => v.firstProductId)
-        .filter(Boolean),
-    ),
-  ) as string[]
-  const prodMap = new Map<string, { name: string; product_url: string[] | string | null }>()
-  if (sampleIds.length > 0) {
-    const { data: prods } = await supabase
-      .schema('games')
-      .from('products')
-      .select('id,name,product_url')
-      .in('id', sampleIds)
-    for (const p of (prods || []) as Array<{
-      id: string
-      name: string
-      product_url: string[] | string | null
-    }>) {
-      prodMap.set(p.id, { name: p.name, product_url: p.product_url })
-    }
-  }
-  const groups: Array<{
-    ref: string
-    created_at: string
-    itemsCount: number
-    totalQty: number
-    highestShippingFee: number
-    itemsTotal: number
-    sampleName: string
-    sampleImageUrl: string | null
-    displayTotal?: number
-  }> = []
-  for (const [ref, g] of aggregate.entries()) {
-    const p = g.firstProductId ? prodMap.get(g.firstProductId) : null
-    let sampleImageUrl: string | null = null
-    if (p) {
-      sampleImageUrl = await resolveFirstImageUrl({
-        id: g.firstProductId as string,
-        product_url: p.product_url,
+      sampleName: string
+      sampleImageUrl: string | null
+      hasFreeShipping: boolean
+      shippingStatusLabel: string
+      displayTotal?: number
+    }> = []
+
+    for (const [ref, g] of aggregate.entries()) {
+      const p = g.firstProductId ? prodMap.get(g.firstProductId) : null
+      let sampleImageUrl: string | null = null
+      if (p) {
+        sampleImageUrl = await resolveFirstImageUrl({
+          id: g.firstProductId as string,
+          product_url: p.product_url,
+        })
+      }
+
+      // ✅ NEW: detect if ANY line of this group has free shipping
+      const groupRows = rowsByRef.get(ref) ?? []
+      const hasFreeShipping = groupRows.some((r) => r.is_free_shipping === true)
+
+      // ✅ NEW: ready-to-render label for your template
+      const shippingStatusLabel = hasFreeShipping
+        ? 'Free Shipping'
+        : g.highestShippingFee > 0
+          ? `₱ ${number(g.highestShippingFee)}`
+          : 'Awaiting'
+
+      groups.push({
+        ref,
+        created_at: g.created_at,
+        itemsCount: g.itemsCount,
+        totalQty: g.totalQty,
+        highestShippingFee: g.highestShippingFee,
+        itemsTotal: Number(g.itemsTotal.toFixed(2)),
+        sampleName: p?.name || '',
+        sampleImageUrl,
+        hasFreeShipping,
+        shippingStatusLabel,
       })
     }
-    groups.push({
-      ref,
-      created_at: g.created_at,
-      itemsCount: g.itemsCount,
-      totalQty: g.totalQty,
-      highestShippingFee: g.highestShippingFee,
-      itemsTotal: Number(g.itemsTotal.toFixed(2)),
-      sampleName: p?.name || '',
-      sampleImageUrl,
-    })
-  }
-  const allPurchaseIds = rows.map((r) => r.id)
-  const redemptionSumByRef = new Map<string, number>()
-  if (allPurchaseIds.length > 0) {
-    const { data: reds, error: rErr } = await supabase
-      .schema('rewards')
-      .from('discount_redemptions')
-      .select('purchase_id, redeemed_amount')
-      .eq('user_id', uid)
-      .in('purchase_id', allPurchaseIds)
-    if (!rErr && reds) {
-      for (const rec of reds as Array<{ purchase_id: string; redeemed_amount: number }>) {
-        const ref = purchaseIdToRef.get(rec.purchase_id)
-        if (!ref) continue
-        const prev = redemptionSumByRef.get(ref) ?? 0
-        redemptionSumByRef.set(ref, Number((prev + Number(rec.redeemed_amount || 0)).toFixed(2)))
+
+    // Sum already-recorded discount redemptions (so displayTotal shows net)
+    const allPurchaseIds = rows.map((r) => r.id)
+    const redemptionSumByRef = new Map<string, number>()
+    if (allPurchaseIds.length > 0) {
+      const { data: reds, error: rErr } = await supabase
+        .schema('rewards')
+        .from('discount_redemptions')
+        .select('purchase_id, redeemed_amount')
+        .eq('user_id', uid)
+        .in('purchase_id', allPurchaseIds)
+
+      if (!rErr && reds) {
+        for (const rec of reds as Array<{ purchase_id: string; redeemed_amount: number }>) {
+          const ref = purchaseIdToRef.get(rec.purchase_id)
+          if (!ref) continue
+          const prev = redemptionSumByRef.get(ref) ?? 0
+          redemptionSumByRef.set(ref, Number((prev + Number(rec.redeemed_amount || 0)).toFixed(2)))
+        }
       }
     }
-  }
-  for (const grp of groups) {
-    const red = redemptionSumByRef.get(grp.ref) ?? 0
-    const fee = Number(grp.highestShippingFee || 0)
-    const base = grp.itemsTotal
-    const itemsAfter = Number(Math.max(0, base - red).toFixed(2))
-    grp.displayTotal = Number((itemsAfter + (fee > 0 ? fee : 0)).toFixed(2))
-  }
-  pendingGroups.value = groups
+
+    // ✅ displayTotal respects Free Shipping (fee = 0)
+    for (const grp of groups) {
+      const red = redemptionSumByRef.get(grp.ref) ?? 0
+      const base = grp.itemsTotal
+      const itemsAfter = Number(Math.max(0, base - red).toFixed(2))
+      const fee = grp.hasFreeShipping ? 0 : Number(grp.highestShippingFee || 0)
+      grp.displayTotal = Number((itemsAfter + (fee > 0 ? fee : 0)).toFixed(2))
+    }
+
+    pendingGroups.value = groups
   } finally {
     pendingLoading.value = false
   }
 }
+
 
 async function openPlacePending(refNumber: string) {
   pendingPlaceLoading.value = true
@@ -3815,8 +3868,11 @@ async function placePendingOrder() {
     await swWarn('Please complete your delivery details first.')
     return
   }
+
+  // ✅ NEW: close the review/place modal before showing the Swal
   if (pendingHighestShippingFee.value <= 0 && !pendingHasFreeShipping.value) {
-    await swInfo('Shipping fee not yet set by admin.')
+    await preConfirmClosePlaceModals()                 // <— closes overlays cleanly
+    await swInfo('Shipping fee not yet set by admin.') // <— Swal now visible
     return
   }
 
@@ -4242,7 +4298,9 @@ async function placePendingOrder() {
     if (isEwallet) {
       await swSuccess('Payment successful! Your order is now set to ship.')
     } else {
+      await preConfirmClosePlaceModals();
       await swSuccess('Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.')
+      
     }
   } finally {
     placingOrder.value = false

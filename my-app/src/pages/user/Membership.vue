@@ -185,7 +185,7 @@
                 <div>
                   <div class="small text-secondary">This period ends</div>
                   <div class="fw-semibold">
-                    in {{ daysLeft }} day<span v-if="daysLeft !== 1">s</span>
+                    in {{ daysLeft }} day<span v-if="daysLeft !== 1">s </span>
                     <span class="text-secondary">({{ periodEndsOnStr }})</span>
                   </div>
                 </div>

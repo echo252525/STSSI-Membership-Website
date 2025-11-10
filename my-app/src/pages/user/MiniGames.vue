@@ -280,10 +280,7 @@
                     {{ money(Number(ev.entry_fee) - Number(userBalance ?? 0)) }} more)
                   </div>
 
-                  <!-- Messages -->
-                  <div v-if="joinErr[ev.id]" class="text-danger small mt-2">
-                    {{ joinErr[ev.id] }}
-                  </div>
+                 
                   <div v-if="joinOk[ev.id]" class="text-success small mt-2">Joined! 🎉</div>
                 </div>
               </div>

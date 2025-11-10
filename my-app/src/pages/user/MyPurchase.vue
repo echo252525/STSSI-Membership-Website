@@ -914,7 +914,7 @@
                   class="discount-ticket"
                 >
                   <div class="ticket-left">
-                    <i class="bi bi-ticket-perforated me-1"></i>
+                    <i class="bi bi-ticket-perforated me-1)"></i>
                     <span class="ticket-title" :title="d.title">{{ d.title }}</span>
                   </div>
                   <div class="ticket-divider"></div>
@@ -1255,6 +1255,34 @@ import { onMounted, ref, computed, reactive, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
+import Swal from 'sweetalert2'
+
+/* ========================================================================
+   SWEETALERT HELPERS
+   ======================================================================== */
+async function swInfo(message: string, title = 'Heads up') {
+  await Swal.fire({ icon: 'info', title, text: message })
+}
+async function swError(message: string, title = 'Something went wrong') {
+  await Swal.fire({ icon: 'error', title, text: message })
+}
+async function swSuccess(message: string, title = 'Success') {
+  await Swal.fire({ icon: 'success', title, text: message })
+}
+async function swWarn(message: string, title = 'Please check') {
+  await Swal.fire({ icon: 'warning', title, text: message })
+}
+async function swConfirm(message: string, title = 'Are you sure?'): Promise<boolean> {
+  const res = await Swal.fire({
+    icon: 'question',
+    title,
+    text: message,
+    showCancelButton: true,
+    confirmButtonText: 'Yes',
+    cancelButtonText: 'No',
+  })
+  return !!res.isConfirmed
+}
 
 const routers = useRouter()
 const user = computed(() => currentUser.value)
@@ -1521,6 +1549,10 @@ async function autocloseOverdue(uid: string) {
     const updatedIds = new Set(updatedRows.map((r: AnyRec) => r.id))
     for (const row of purchases.value) if (updatedIds.has(row.id)) row.status = STATUS.COMPLETED
     await createOrderReceiptForIds(Array.from(updatedIds))
+    await swInfo(
+      `We marked ${updatedRows.length} item${updatedRows.length > 1 ? 's' : ''} as Completed because they were delivered over 7 days ago.`,
+      'Auto-completed orders'
+    )
   }
 }
 
@@ -1703,6 +1735,7 @@ async function loadPurchases() {
       Object.keys(refEventTitle).forEach((k) => delete refEventTitle[k])
       Object.keys(perPurchaseRedeemedTotal).forEach((k) => delete perPurchaseRedeemedTotal[k])
       Object.keys(purchaseDiscountIds).forEach((k) => delete purchaseDiscountIds[k])
+      await swError(`We couldn't load your purchases. Please try again.\n(${error.message})`, 'Load failed')
       return
     }
     purchases.value = Array.isArray(data) ? data : []
@@ -2300,7 +2333,7 @@ function isSelectableForRR(it: AnyRec): boolean {
 
 function openReturnRefundGroup(g: Group) {
   if (groupHasAnyRR(g)) {
-    alert('Return/Refund can only be submitted once for this order.')
+    swWarn('Return/Refund can only be submitted once for this order.', 'Already submitted')
     return
   }
   rrGroup.value = g
@@ -2327,7 +2360,7 @@ function openReturnRefundGroup(g: Group) {
 function openReturnRefund(purchase: AnyRec) {
   const ref = purchase?.reference_number || purchase?.id
   if (refHasAnyRR(ref)) {
-    alert('Return/Refund can only be submitted once for this order.')
+    swWarn('Return/Refund can only be submitted once for this order.', 'Already submitted')
     return
   }
   rrGroup.value = null
@@ -2379,7 +2412,7 @@ async function submitReturnRefund() {
     const { data: auth } = await supabase.auth.getUser()
     const uid = auth?.user?.id
     if (!uid) {
-      alert('Please log in to submit a return/refund request.')
+      await swInfo('Please log in to submit a return/refund request.')
       return
     }
 
@@ -2388,7 +2421,7 @@ async function submitReturnRefund() {
 
     if (rrGroup.value) {
       if (rrForm.purchase_ids.length === 0) {
-        alert('Please select at least one item to return/refund.')
+        await swWarn('Please select at least one item to return or refund.')
         return
       }
       for (const pid of rrForm.purchase_ids) {
@@ -2396,7 +2429,7 @@ async function submitReturnRefund() {
         if (!row) continue
         const per = rrItemForms[pid] || { reason: '', details: '' }
         if (!per.reason) {
-          alert('Please choose a reason for each selected item.')
+          await swWarn('Please choose a reason for each selected item.')
           return
         }
         const p: Record<string, any> = {
@@ -2413,7 +2446,7 @@ async function submitReturnRefund() {
       }
     } else if (rrPurchase.value) {
       if (!rrForm.reason) {
-        alert('Please select a reason.')
+        await swWarn('Please select a reason.')
         return
       }
       const basePayload: Record<string, any> = {
@@ -2431,7 +2464,7 @@ async function submitReturnRefund() {
 
     const { error: insErr } = await supabase.schema('games').from('return_refunds').insert(payloads)
     if (insErr) {
-      alert(insErr.message)
+      await swError(`We couldn't submit your request. Please try again.\n(${insErr.message})`)
       return
     }
 
@@ -2442,7 +2475,7 @@ async function submitReturnRefund() {
       .in('id', purchaseIdsToMark)
       .eq('user_id', uid)
     if (upErr) {
-      alert(upErr.message)
+      await swError(`Your request was saved, but we couldn't update the item status.\n(${upErr.message})`)
       return
     }
 
@@ -2460,7 +2493,7 @@ async function submitReturnRefund() {
     }
 
     closeReturnRefund()
-    alert('Return/Refund request submitted.')
+    await swSuccess('Your return/refund request was submitted. We’ll notify you as soon as there’s an update.')
   } finally {
     rrBusy.value = false
   }
@@ -2468,6 +2501,9 @@ async function submitReturnRefund() {
 
 /** Per-row actions */
 async function cancelPurchase(purchaseId: string) {
+  const ok = await swConfirm('Cancel this item? Stock will be restored if possible.', 'Cancel item?')
+  if (!ok) return
+
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
   if (!uid) return
@@ -2480,7 +2516,7 @@ async function cancelPurchase(purchaseId: string) {
       .eq('id', purchaseId)
       .eq('user_id', uid)
     if (error) {
-      alert(error.message)
+      await swError(`We couldn't cancel this item.\n(${error.message})`)
       return
     }
 
@@ -2494,12 +2530,20 @@ async function cancelPurchase(purchaseId: string) {
         await restoreStock([{ product_id: pid, qty }])
       }
     }
+    await swSuccess('The item was cancelled successfully.')
   } finally {
     busy.value.cancel[purchaseId] = false
   }
 }
 
 async function cancelGroup(g: Group) {
+  const count = g.items.length
+  const ok = await swConfirm(
+    `Cancel the entire order? This will cancel ${count} item${count > 1 ? 's' : ''} and restore stock when applicable.`,
+    'Cancel order?'
+  )
+  if (!ok) return
+
   const { data: auth } = await supabase.auth.getUser()
   const uid = auth?.user?.id
   if (!uid) return
@@ -2513,7 +2557,7 @@ async function cancelGroup(g: Group) {
       .in('id', ids)
       .eq('user_id', uid)
     if (error) {
-      alert(error.message)
+      await swError(`We couldn't cancel this order.\n(${error.message})`)
       return
     }
 
@@ -2525,6 +2569,7 @@ async function cancelGroup(g: Group) {
     if (entries.length) {
       await restoreStock(entries)
     }
+    await swSuccess('The order was cancelled successfully.')
   } finally {
     groupBusy.cancel[g.ref] = false
   }
@@ -2543,7 +2588,7 @@ async function createOrderReceiptForGroup(g: Group) {
       })
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
-    if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+    if (recErr) await swWarn(`Order was completed, but creating receipts failed.\n(${recErr.message})`, 'Partial success')
 
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
@@ -2567,7 +2612,7 @@ async function createOrderReceiptForGroupCompleted(g: Group, ids: string[]) {
       })
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
-    if (recErr) alert(`Order was completed, but creating receipts failed: ${recErr.message}`)
+    if (recErr) await swWarn(`Order was completed, but creating receipts failed.\n(${recErr.message})`, 'Partial success')
 
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
@@ -2602,7 +2647,7 @@ async function createOrderReceiptForIds(ids: string[]) {
 
     if (!rows.length) return
     const { error: recErr } = await supabase.schema('ewallet').from('order_receipt').insert(rows)
-    if (recErr) alert(`Auto-complete succeeded, but creating receipts failed: ${recErr.message}`)
+    if (recErr) await swWarn(`Auto-complete succeeded, but creating receipts failed.\n(${recErr.message})`, 'Partial success')
 
     const total = rows.reduce((s, r) => s + Number(r.amount || 0), 0)
     await addToUserPurchasesMonthly(total)
@@ -2673,6 +2718,12 @@ async function restoreStock(entries: Array<{ product_id: string; qty: number }>)
 async function orderReceivedGroup(g: Group) {
   const toReceiveIds = g.items.filter((it) => it.status === STATUS.TO_RECEIVE).map((it) => it.id)
   if (!toReceiveIds.length) return
+  const ok = await swConfirm(
+    `Mark ${toReceiveIds.length} item${toReceiveIds.length > 1 ? 's' : ''} as received?`,
+    'Confirm received'
+  )
+  if (!ok) return
+
   groupBusy.received[g.ref] = true
   try {
     const { data, error } = await supabase
@@ -2682,7 +2733,7 @@ async function orderReceivedGroup(g: Group) {
       .in('id', toReceiveIds)
       .select('id')
     if (error) {
-      alert(error.message)
+      await swError(`We couldn't update the status.\n(${error.message})`)
       return
     }
     const updatedIds: string[] = Array.isArray(data) ? data.map((r: AnyRec) => r.id) : toReceiveIds
@@ -2696,6 +2747,9 @@ async function orderReceivedGroup(g: Group) {
     }
 
     await createOrderReceiptForGroupCompleted(g, updatedIds)
+    await swSuccess(
+      `${updatedIds.length} item${updatedIds.length > 1 ? 's' : ''} marked as received.`
+    )
   } finally {
     groupBusy.received[g.ref] = false
   }

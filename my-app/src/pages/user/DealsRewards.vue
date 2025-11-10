@@ -147,7 +147,9 @@
             <ul class="ref-list">
               <li class="ref-item">
                 <div class="ref-left">
-                  <div class="skel-avatar"></div>
+                  <div class="ref-avatar-wrap">
+                    <div class="skel-avatar"></div>
+                  </div>
                   <div>
                     <div class="skel-line w-40 mb-1"></div>
                     <div class="skel-line w-25 xs"></div>
@@ -166,7 +168,9 @@
 
               <li class="ref-item">
                 <div class="ref-left">
-                  <div class="skel-avatar"></div>
+                  <div class="ref-avatar-wrap">
+                    <div class="skel-avatar"></div>
+                  </div>
                   <div>
                     <div class="skel-line w-50 mb-1"></div>
                     <div class="skel-line w-30 xs"></div>
@@ -527,12 +531,23 @@
             <ul v-else class="ref-list">
               <li v-for="r in referees" :key="r.id" class="ref-item">
                 <div class="ref-left">
+                  <!-- EXISTING <img> KEPT, with a fallback initials avatar -->
                   <img
+                    v-if="r.avatar_url"
                     :src="r.avatar_url || defaultAvatar"
                     class="ref-avatar"
                     alt=""
                     referrerpolicy="no-referrer"
                   />
+                  <div
+                    v-else
+                    class="ref-avatar ref-avatar--initials"
+                    :style="{ background: avatarBg(r.id) }"
+                    aria-hidden="true"
+                  >
+                    {{ initials(r.full_name) }}
+                  </div>
+
                   <div>
                     <p class="ref-name">{{ r.full_name || 'Unnamed User' }}</p>
                     <p class="ref-sub">Joined via your link</p>
@@ -1261,6 +1276,23 @@ async function loadReferees(uid: string) {
   } finally {
     busyReferees.value = false
   }
+}
+
+/* === NEW HELPERS: initials + consistent background color for fallback avatar === */
+function initials(name: string | null): string {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const first = parts[0]?.[0] || ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase() || 'U'
+}
+function avatarBg(seed: string): string {
+  // lightweight deterministic hash → hue
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  const hue = h % 360
+  // pleasant, not too bright/dark
+  return `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 30) % 360} 75% 55%))`
 }
 
 function pctNumber(r: RefereeRow): number {
@@ -2299,12 +2331,12 @@ async function fetchReferralCount() {
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
   /* make it scroll */
-  max-height: 50vh;        /* or any height you like (e.g., 480px) */
+  max-height: 50vh;
   overflow-y: auto;
-  padding-right: 4px;      /* keeps content from touching the scrollbar */
+  padding-right: 4px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  min-height: 0;           /* important if parent is flex */
+  min-height: 0;
 }
 .discount-card {
   background: #f8fafc;
@@ -2459,28 +2491,28 @@ async function fetchReferralCount() {
 
 /* Scrollable grid for upcoming product-specific discounts */
 .pd-grid-scroll {
-  max-height: 60vh;          /* adjust as you like */
+  max-height: 60vh;
   overflow-y: auto;
-  padding-right: 4px;        /* breathing room near scrollbar */
+  padding-right: 4px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  min-height: 0;             /* keeps it shrinkable in flex/stack parents */
+  min-height: 0;
 }
 
 /* Make just the Product-Specific panel a capped, internal-scrolling layout */
 .pd-panel {
-  display: flex;              /* header stays on top */
+  display: flex;
   flex-direction: column;
-  max-height: 80vh;           /* <= adjust if you want a taller/shorter panel */
-  min-height: 0;              /* crucial for scroll to work inside */
+  max-height: 80vh;
+  min-height: 0;
 }
 
 /* The grid itself becomes the scrolling region */
 .pd-panel .product-discount-grid {
   flex: 1 1 auto;
-  min-height: 0;              /* mandatory in flex children for overflow */
-  overflow-y: auto;           /* this is the scrollbar */
-  padding-right: 4px;         /* keeps content from touching the scrollbar */
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
@@ -2681,6 +2713,9 @@ async function fetchReferralCount() {
   gap: 0.6rem;
   align-items: center;
 }
+/* wrap kept for skeleton above */
+.ref-avatar-wrap { display: contents; }
+
 .ref-avatar {
   width: 40px;
   height: 40px;
@@ -2688,6 +2723,18 @@ async function fetchReferralCount() {
   object-fit: cover;
   border: 1px solid rgba(15, 23, 42, 0.05);
 }
+
+/* NEW: initials fallback style */
+.ref-avatar--initials {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #fff;
+  user-select: none;
+}
+
 .ref-name {
   font-size: 0.9rem;
   font-weight: 600;
@@ -3032,5 +3079,4 @@ async function fetchReferralCount() {
     grid-template-columns: 1fr 1fr;
   }
 }
-
 </style>

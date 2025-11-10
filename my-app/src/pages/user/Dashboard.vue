@@ -159,6 +159,8 @@
                   @click="selectFeature(g.id)"
                   :aria-selected="isSelected(g.id)"
                   :title="g.title"
+                  :data-gid="g.id"
+                  :data-rep="g._rep"
                 >
                   <div class="icon-slot">
                     <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
@@ -1723,6 +1725,7 @@ function nudgeSide(dir: 1 | -1) {
 function onManualSideScroll() {
   manualScrollCooldown = 1.2
   wrapSideScroll()
+  pauseSideSlideshowTemp(4) // pause slideshow briefly after manual scroll
 }
 
 /* ------- Side list height sync to banner (discounts) ------- */
@@ -1753,6 +1756,85 @@ function updateDiscSideScrollHint() {
 
   discSideScrollHintVisible.value = canScroll && !atBottom
   discSideScrollHintUpVisible.value = canScroll && atBottom && !atTop
+}
+
+/* ============= NEW: Mini-games side list slideshow (step-by-step) ============= */
+const slideEveryMs = 4000
+let sideSlideTimer: number | null = null
+let sideSlideIdx = 0
+const slideshowActive = ref(true)
+
+/** center the middle segment (rep=1) item with given id */
+async function centerOnSideItemById(id: string) {
+  await nextTick()
+  const el = sideListEl.value
+  if (!el) return
+  // Prefer the element from the middle replica (rep=1)
+  const target = el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"][data-rep="1"]`)
+    || el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"]`)
+  if (!target) return
+
+  const contRect = el.getBoundingClientRect()
+  const childRect = target.getBoundingClientRect()
+  const delta = childRect.top - contRect.top
+  const targetTop = el.scrollTop + delta - 6 /* small padding */
+  el.scrollTo({ top: targetTop, behavior: 'smooth' })
+
+  // Keep within middle segment window
+  setTimeout(() => wrapSideScroll(), 300)
+}
+
+/** advance slideshow to next side item; loops */
+function advanceSideSlide() {
+  const list = sideListGames.value
+  if (!list.length) return
+  sideSlideIdx = (sideSlideIdx + 1) % list.length
+  const next = list[sideSlideIdx]
+  // set selected + center it
+  selectFeature(next.id)
+  centerOnSideItemById(next.id)
+}
+
+/** start slideshow; also pause the drift loop by cancelling RAF */
+function startSideSlideshow() {
+  stopSideSlideshow()
+  const list = sideListGames.value
+  if (list.length <= 1) return
+  slideshowActive.value = true
+
+  // align index with current selection
+  const currId = selectedGameId.value || openGames.value[0]?.id || list[0].id
+  const currIdx = Math.max(0, list.findIndex(g => g.id === currId))
+  sideSlideIdx = currIdx
+
+  // make sure we're centered on current
+  centerOnSideItemById(currId)
+
+  // stop the drift loop so slideshow owns the motion
+  if (sideLoopRaf) {
+    cancelAnimationFrame(sideLoopRaf)
+    sideLoopRaf = 0
+  }
+
+  sideSlideTimer = window.setInterval(advanceSideSlide, slideEveryMs)
+}
+
+/** stop slideshow (no state loss) */
+function stopSideSlideshow() {
+  if (sideSlideTimer) {
+    window.clearInterval(sideSlideTimer)
+    sideSlideTimer = null
+  }
+}
+
+/** temporarily pause slideshow, resume after N seconds */
+function pauseSideSlideshowTemp(seconds = 3) {
+  if (!slideshowActive.value) return
+  stopSideSlideshow()
+  window.setTimeout(() => {
+    // only resume if still relevant
+    if (sideListGames.value.length > 1) startSideSlideshow()
+  }, seconds * 1000)
 }
 
 /* ------- Lifecycle ------- */
@@ -1788,15 +1870,21 @@ onMounted(async () => {
   window.addEventListener('resize', syncSideListHeight)
   if (sideListEl.value) {
     sideListEl.value.addEventListener('scroll', onManualSideScroll)
+    // also pause/resume slideshow on hover to give user control
+    sideListEl.value.addEventListener('mouseenter', () => stopSideSlideshow())
+    sideListEl.value.addEventListener('mouseleave', () => startSideSlideshow())
     updateSideScrollHint()
   }
 
   // 🔁 Compute segment height and center into the middle segment for seamless looping
   await recalcAndCenter()
 
-  // Start endless side loop
+  // Start endless side loop (kept), then immediately start slideshow which pauses it
   lastSideTs = 0
   sideLoopRaf = requestAnimationFrame(sideLoop)
+
+  // ✅ Start slideshow auto-scroll (like a step-by-step carousel)
+  startSideSlideshow()
 
   // Discounts sync
   syncDiscSideListHeight()
@@ -1812,6 +1900,12 @@ onMounted(async () => {
 
   // ✅ Start autoplay immediately (even without hover)
   startAutoplay()
+
+  // Pause slideshow when tab hidden; resume when visible
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stopSideSlideshow()
+    else startSideSlideshow()
+  })
 })
 
 watch([openGames, selectedGameId], async () => {
@@ -1819,6 +1913,10 @@ watch([openGames, selectedGameId], async () => {
   updateSideScrollHint()
   // when the set of sideListGames changes, recompute loop measurements
   await recalcAndCenter()
+
+  // keep slideshow in sync with new list / selection
+  if (sideListGames.value.length > 1) startSideSlideshow()
+  else stopSideSlideshow()
 })
 
 watch(rankedScheduled, async () => {
@@ -1828,6 +1926,7 @@ watch(rankedScheduled, async () => {
 
 onBeforeUnmount(() => {
   stopAutoplay()
+  stopSideSlideshow()
   if (chGames) supabase.removeChannel(chGames)
   if (chOrders) supabase.removeChannel(chOrders)
   if (chProducts) supabase.removeChannel(chProducts)
@@ -2678,7 +2777,8 @@ function startsInLabel(iso: string) {
     box-shadow 0.12s ease;
 }
 .prod-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-2px)
+  ;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 .thumb {
