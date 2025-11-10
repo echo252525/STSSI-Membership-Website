@@ -21,6 +21,18 @@
 
         <div class="d-flex align-items-center justify-content-between breath-in">
           <h3 class="h6 mb-0 game-sub mb-3">Open Events</h3>
+
+          <!-- ===================== NEW: History Button (top-right) ===================== -->
+          <button
+            type="button"
+            class="btn btn-outline-primary btn-sm history-btn"
+            @click="openHistory"
+            aria-haspopup="dialog"
+            aria-controls="historyModal"
+          >
+            <i class="bi bi-clock-history me-1"></i>
+            History
+          </button>
         </div>
 
         <!-- Loading -->
@@ -310,6 +322,123 @@
       </div>
     </div>
   </div>
+
+  <!-- ===================== NEW: History Modal ===================== -->
+  <div
+    v-if="history.show"
+    id="historyModal"
+    class="hx-modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="historyTitle"
+    @keydown.esc.prevent.stop="closeHistory"
+  >
+    <div class="hx-backdrop" @click.self="closeHistory"></div>
+    <div class="hx-panel breath-in-quick" tabindex="-1" ref="historyPanelRef">
+      <div class="hx-header">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-clock-history"></i>
+          <h4 id="historyTitle" class="m-0">Game History</h4>
+        </div>
+        <button class="btn btn-light btn-sm hx-close" @click="closeHistory" aria-label="Close history">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <div class="hx-body">
+        <!-- Loading state -->
+        <div v-if="history.busy" class="hx-loading">
+          <div class="sk-line sk-w-60 mb-2"></div>
+          <div class="sk-line sk-w-80 mb-2"></div>
+          <div class="sk-line sk-w-70 mb-2"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="history.items.length === 0" class="text-center text-muted py-4">
+          <i class="bi bi-emoji-neutral" style="font-size: 1.6rem"></i>
+          <div class="mt-2">No game history yet.</div>
+        </div>
+
+        <!-- List -->
+        <div v-else class="hx-list">
+          <article
+            v-for="it in history.items"
+            :key="it.id"
+            class="hx-item"
+          >
+            <div class="hx-thumb">
+              <img v-if="it.product_image" :src="it.product_image" alt="" />
+              <div v-else class="hx-thumb__placeholder">
+                <i class="bi bi-gift"></i>
+              </div>
+            </div>
+
+            <div class="hx-main">
+              <div class="hx-row1">
+                <h5 class="hx-title m-0" :title="it.event_title || 'Event'">
+                  {{ it.event_title || 'Event' }}
+                </h5>
+                <span
+                  class="badge"
+                  :class="it.outcome === 'Won' ? 'text-bg-success' : (it.outcome === 'Lost' ? 'text-bg-secondary' : 'text-bg-light')"
+                  :title="`You ${it.outcome.toLowerCase()}`"
+                >
+                  {{ it.outcome }}
+                </span>
+              </div>
+
+              <div class="hx-row2 text-muted">
+                <i class="bi bi-calendar3 me-1"></i>
+                {{ dtFriendly(it.created_at) }}
+              </div>
+
+              <div class="hx-row3">
+                <!-- Winner (avatar + name) -->
+                <div class="hx-field">
+                  <div class="hx-label">Winner</div>
+                  <div class="hx-value d-flex align-items-center gap-2">
+                    <span class="hx-avatar">
+                      <img
+                        v-if="it.winner_avatar"
+                        :src="it.winner_avatar"
+                        :alt="it.winner_name || 'Winner'"
+                      />
+                      <span v-else class="hx-avatar__fallback" aria-label="No profile photo">
+                        <i class="bi bi-person"></i>
+                      </span>
+                    </span>
+                    <span>{{ it.winner_name || '—' }}</span>
+                  </div>
+                </div>
+
+                <!-- Players (avatar chips + existing names list) -->
+                <div class="hx-field">
+                  <div class="hx-label">Players</div>
+                  <div class="hx-value">
+                    <template v-if="it.players && it.players.length">
+                      <div class="hx-avatars">
+                        <template v-for="p in it.players_detail" :key="p.id">
+                          <span class="hx-avatar" :title="p.name || 'Player'">
+                            <img v-if="p.avatarUrl" :src="p.avatarUrl" :alt="p.name || 'Player'" />
+                            <span v-else class="hx-avatar__fallback" aria-label="No profile photo">
+                              <i class="bi bi-person"></i>
+                            </span>
+                          </span>
+                        </template>
+                      </div>
+                    </template>
+                    <template v-else>—</template>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </div>
+      </div>
+
+      <!-- no refresh button per request -->
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -368,6 +497,40 @@ type AvatarInfo = {
   avatarUrl: string | null
 }
 
+/* ===================== NEW: History types/state ===================== */
+type HistoryPlayer = {
+  id: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+type HistoryItem = {
+  id: string
+  event_id: string | null
+  entry_id: string | null
+  created_at: string
+  event_title?: string | null
+  product_image?: string | null
+  winner_id?: string | null
+  winner_name?: string | null
+  /** NEW: winner avatar */
+  winner_avatar?: string | null
+  /** keeps original names for compatibility */
+  players: string[]
+  /** NEW: players with avatars */
+  players_detail?: HistoryPlayer[]
+  outcome: 'Won' | 'Lost' | '—'
+}
+
+const history = reactive({
+  show: false,
+  busy: false,
+  items: [] as HistoryItem[],
+})
+
+const historyPanelRef = ref<HTMLElement | null>(null)
+
+/* ==================== ROUTER ==================== */
 const router = useRouter()
 const route = useRoute() // ⭐ route access for ?focus
 
@@ -1415,6 +1578,164 @@ onUnmounted(() => {
     } catch {}
   })
 })
+
+/* ===================== NEW: History logic ===================== */
+function dtFriendly(iso: string) {
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return '—'
+  return d.toLocaleString(undefined, {
+    weekday: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function openHistory() {
+  history.show = true
+  nextTick(() => historyPanelRef.value?.focus?.())
+  loadHistory()
+}
+function closeHistory() {
+  history.show = false
+}
+
+async function loadHistory() {
+  history.busy = true
+  history.items = []
+  try {
+    const { data: auth } = await supabase.auth.getUser()
+    const uid = auth?.user?.id
+    if (!uid) {
+      history.busy = false
+      return
+    }
+
+    // 1) receipts for this user
+    const { data: recs, error: recErr } = await supabase
+      .schema('ewallet')
+      .from('game_receipt')
+      .select('id, event_id, entry_id, created_at')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false })
+
+    if (recErr) throw recErr
+    const receipts = (recs ?? []) as Array<{ id: string; event_id: string | null; entry_id: string | null; created_at: string }>
+
+    if (receipts.length === 0) {
+      history.items = []
+      return
+    }
+
+    // 2) fetch related events
+    const eventIds = Array.from(new Set(receipts.map(r => r.event_id).filter(Boolean))) as string[]
+    let eventsMap = new Map<string, EventRow>()
+    let entriesByEvent = new Map<string, string[]>() // event_id -> user_ids
+
+    // NEW maps for names & avatar URLs
+    const userDetails = new Map<string, { name: string | null; avatarUrl: string | null }>()
+    const namesMap = new Map<string, string | null>()
+
+    if (eventIds.length > 0) {
+      // events
+      const { data: evs, error: evErr } = await supabase
+        .schema('games')
+        .from('event')
+        .select('id, title, product_id, user_id_winner, created_at, status, player_cap, player_count, interest_per_player, winner_refund_amount, loser_refund_amount')
+        .in('id', eventIds)
+      if (evErr) throw evErr
+      const eventsArr = (evs ?? []) as EventRow[]
+      await attachPrizeImages(eventsArr) // adds imageUrl
+      // price is not essential for history; skip to avoid extra round-trip
+
+      for (const e of eventsArr) eventsMap.set(e.id, e)
+
+      // entries (players)
+      const { data: ents, error: entErr } = await supabase
+        .schema('games')
+        .from('entry')
+        .select('event_id, user_id')
+        .in('event_id', eventIds)
+      if (entErr) throw entErr
+
+      const evToUsers = new Map<string, string[]>()
+      const userIds = new Set<string>()
+      for (const row of (ents ?? []) as Array<{ event_id: string; user_id: string }>) {
+        if (!evToUsers.has(row.event_id)) evToUsers.set(row.event_id, [])
+        evToUsers.get(row.event_id)!.push(row.user_id)
+        userIds.add(row.user_id)
+      }
+      entriesByEvent = evToUsers
+
+      // add winners too (ensure names & avatars available)
+      for (const e of eventsArr) {
+        if (e.user_id_winner) userIds.add(e.user_id_winner)
+      }
+
+      // users -> names + avatar urls
+      if (userIds.size > 0) {
+        const { data: users, error: usersErr } = await supabase
+          .schema('public')
+          .from('users')
+          .select('id, full_name, profile_url')
+          .in('id', Array.from(userIds))
+        if (usersErr) throw usersErr
+
+        // sign avatars (if path-based)
+        for (const u of (users ?? []) as Array<{ id: string; full_name: string | null; profile_url: string | null }>) {
+          const name = u.full_name ?? null
+          namesMap.set(u.id, name)
+          const path = normalizeToPath(u.profile_url)
+          let avatarUrl: string | null = null
+          if (path) {
+            avatarUrl = await signUserProfileUrl(path)
+          }
+          userDetails.set(u.id, { name, avatarUrl })
+        }
+      }
+    }
+
+    // 3) build display items
+    const items: HistoryItem[] = receipts.map(r => {
+      const ev = r.event_id ? eventsMap.get(r.event_id) : undefined
+      const uids = r.event_id ? (entriesByEvent.get(r.event_id) || []) : []
+      const players = uids.map(id => namesMap.get(id) || 'Player')
+      const players_detail: HistoryPlayer[] = uids.map(id => {
+        const info = userDetails.get(id) || { name: null, avatarUrl: null }
+        return { id, name: info.name ?? null, avatarUrl: info.avatarUrl ?? null }
+      })
+      const winnerId = ev?.user_id_winner || null
+      const winnerName = winnerId ? (userDetails.get(winnerId)?.name ?? namesMap.get(winnerId) ?? '—') : null
+      const winnerAvatar = winnerId ? (userDetails.get(winnerId)?.avatarUrl ?? null) : null
+      const outcome: 'Won' | 'Lost' | '—' =
+        winnerId ? (winnerId === uid ? 'Won' : 'Lost') : '—'
+
+      return {
+        id: r.id,
+        event_id: r.event_id,
+        entry_id: r.entry_id,
+        created_at: r.created_at,
+        event_title: ev?.title ?? null,
+        product_image: ev?.imageUrl ?? null,
+        winner_id: winnerId,
+        winner_name: winnerName,
+        winner_avatar: winnerAvatar,
+        players,
+        players_detail,
+        outcome,
+      }
+    })
+
+    history.items = items
+  } catch (e: any) {
+    console.error('[HISTORY] load failed:', e?.message || e)
+    history.items = []
+  } finally {
+    history.busy = false
+  }
+}
 </script>
 
 <style scoped>
@@ -1451,6 +1772,14 @@ onUnmounted(() => {
 @keyframes breathIn {
   from { opacity: 0; transform: translateY(6px) scale(.995); filter: blur(1.2px); }
   60% { opacity: 1; transform: translateY(0) scale(1.002); filter: blur(.2px); }
+  to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+/* quicker variant for modal panel */
+.breath-in-quick {
+  animation: breathInQuick .35s cubic-bezier(.22, .61, .36, 1) both;
+}
+@keyframes breathInQuick {
+  from { opacity: 0; transform: translateY(8px) scale(.985); filter: blur(1px); }
   to { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 
@@ -2064,5 +2393,223 @@ onUnmounted(() => {
   box-shadow: 0 8px 26px rgba(67, 97, 238, 0.22);
 }
 
+/* ===================== NEW: History modal styles ===================== */
+.history-btn {
+  line-height: 1.2;
+}
+
+.hx-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+}
+.hx-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(12, 18, 28, 0.5);
+  backdrop-filter: blur(6px);
+}
+.hx-panel {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(920px, 96vw);
+  max-height: 82vh;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 18px 60px rgba(0,0,0,0.2);
+  display: flex;
+  flex-direction: column;
+  outline: none;
+}
+@media (max-width: 600px) {
+  .hx-panel {
+    width: 96vw;
+    max-height: 86vh;
+    border-radius: 14px;
+  }
+}
+
+.hx-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+.hx-close {
+  border-radius: 10px;
+}
+
+.hx-body {
+  padding: 12px 16px 16px;
+  overflow: auto;
+}
+.hx-loading .sk-line { display: block; }
+
+.hx-list {
+  display: grid;
+  gap: 12px;
+}
+.hx-item {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 12px;
+  background: #fff;
+}
+@media (max-width: 480px) {
+  .hx-item {
+    grid-template-columns: 74px 1fr;
+  }
+}
+.hx-thumb {
+  width: 100%;
+  aspect-ratio: 1/1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f6f7fb;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.hx-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.hx-thumb__placeholder {
+  color: #94a3b8;
+  font-size: 1.4rem;
+}
+
+.hx-main { min-width: 0; }
+.hx-row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.hx-title {
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.hx-row2 {
+  font-size: 0.85rem;
+  margin-top: 2px;
+}
+.hx-row3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+  margin-top: 8px;
+}
+@media (max-width: 540px) {
+  .hx-row3 { grid-template-columns: 1fr; }
+}
+.hx-field .hx-label {
+  font-size: 0.72rem;
+  color: #6c757d;
+}
+.hx-field .hx-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+/* ===== NEW: avatar chips in History (winner + players) ===== */
+.hx-avatars {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.hx-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #fff;
+}
+.hx-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.hx-avatar__fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  background: #f1f5f9;
+  font-size: .9rem;
+}
+
 /* ===================== END NEW ===================== */
+
+/* ===================== ⭐ RESPONSIVE SAFEGUARDS (no overflow) ===================== */
+/* No code removed—these are additive overrides to ensure the panel never exceeds the viewport */
+:root {
+  --hx-safe-t: env(safe-area-inset-top, 0px);
+  --hx-safe-b: env(safe-area-inset-bottom, 0px);
+  --hx-safe-l: env(safe-area-inset-left, 0px);
+  --hx-safe-r: env(safe-area-inset-right, 0px);
+  --hx-gap: 16px;
+  --hx-pad: max(12px, var(--hx-gap));
+}
+
+/* Center via grid + add padding so panel can't touch edges */
+.hx-modal {
+  display: grid;
+  place-items: center;
+  padding:
+    calc(var(--hx-pad) + var(--hx-safe-t))
+    calc(var(--hx-pad) + var(--hx-safe-r))
+    calc(var(--hx-pad) + var(--hx-safe-b))
+    calc(var(--hx-pad) + var(--hx-safe-l));
+  box-sizing: border-box;
+}
+
+/* Override absolute centering with robust sizing that respects 100dvh/100dvw */
+.hx-panel {
+  position: relative;
+  top: auto; left: auto; transform: none;
+  width: min(920px, calc(100dvw - (var(--hx-pad) + var(--hx-safe-l) + var(--hx-safe-r)) * 2));
+  max-height: calc(100dvh - (var(--hx-pad) + var(--hx-safe-t) + var(--hx-safe-b)) * 2);
+  contain: layout paint;
+  outline-offset: 2px;
+}
+
+.hx-body {
+  /* Make inner scroll smooth and avoid layout jumps */
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable both-edges;
+}
+
+/* Tighter on very small phones */
+@media (max-width: 380px) {
+  .hx-title { font-size: .95rem; }
+  .hx-row2 { font-size: .82rem; }
+  .hx-panel { border-radius: 12px; }
+}
+
+/* Slightly denser list on short viewports so we keep things visible */
+@media (max-height: 560px) {
+  .hx-item { padding: 8px; gap: 10px; }
+  .hx-header { padding: 12px 14px; }
+  .hx-body { padding: 10px 14px 14px; }
+}
 </style>

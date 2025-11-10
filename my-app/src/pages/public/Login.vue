@@ -1,7 +1,9 @@
 <template>
   <div class="body min-vh-100 d-flex align-items-center justify-content-center bg-body-tertiary">
-    <div class="card shadow-lg border-0 rounded-4">
+    <div class="card shadow-lg border-0 rounded-4 breath-in">
       <div class="card-body p-4 p-md-5">
+
+        <!-- Header -->
         <div class="mb-4 d-flex align-items-center justify-content-center gap-4">
           <div>
             <img
@@ -16,14 +18,37 @@
           </div>
         </div>
 
-        <form @submit.prevent="onSubmit" class="row g-3">
+        <!-- ===== Skeleton overlay (shown only while fetching) ===== -->
+        <transition name="fade-fast">
+          <div v-show="loading" class="skeleton-overlay" aria-hidden="true">
+            <div class="sk-row mb-4">
+              <div class="sk-avatar"></div>
+              <div class="sk-lines">
+                <div class="sk-line" style="width: 180px;"></div>
+                <div class="sk-line sm" style="width: 140px;"></div>
+              </div>
+            </div>
+            <div class="sk-input mb-3"></div>
+            <div class="sk-input mb-4"></div>
+            <div class="d-flex flex-column flex-sm-row gap-2">
+              <div class="sk-btn flex-fill"></div>
+              <div class="sk-btn flex-fill"></div>
+            </div>
+          </div>
+        </transition>
+
+        <!-- ===== Your original form (unchanged) ===== -->
+        <form @submit.prevent="onSubmit" class="row g-3" :aria-busy="loading">
           <div class="col-12">
             <label for="email" class="form-label">Email</label>
             <input
+              id="email"
               v-model.trim="email"
               type="email"
               class="form-control"
               required
+              :disabled="loading"
+              autocomplete="email"
             />
           </div>
 
@@ -36,11 +61,13 @@
                 class="form-control"
                 id="password"
                 required
+                :disabled="loading"
+                autocomplete="current-password"
               />
               <span
                 class="input-group-text bg-white password-toggle"
                 role="button"
-                @click="togglePassword"
+                @click="!loading && togglePassword()"
                 :aria-label="showPassword ? 'Hide password' : 'Show password'"
               >
                 <span class="material-symbols-outlined">
@@ -179,19 +206,46 @@ const onSubmit = async () => {
   --blue: #30ace4;
   --azure: #20647c;
 }
+
+/* ===== Breath-in entrance animation (~250ms) ===== */
+@keyframes breathIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+.breath-in {
+  animation: breathIn 250ms cubic-bezier(.2,.7,.3,1) both;
+}
+
+/* ===== Skeleton shimmer ===== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
 .body {
   min-height: 100vh;
   background: linear-gradient(135deg, #a4e7ff, #f7fcff 50%, #afffca);
 }
+
 .card {
   max-width: 520px;
   width: 100%;
   backdrop-filter: blur(6px);
 }
+
 .login-logo {
   height: 58px;
   width: auto;
 }
+
 .password-toggle {
   cursor: pointer;
   border-left: 0;
@@ -199,6 +253,84 @@ const onSubmit = async () => {
 .password-toggle:hover {
   background: #f6f8fa;
 }
+
+/* ===== Overlay container to block interaction while fetching ===== */
+.card-body {
+  position: relative;
+}
+.skeleton-overlay {
+  position: absolute;
+  inset: 0;
+  border-radius: 1rem; /* match .rounded-4 */
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  pointer-events: none; /* let clicks fall through but form is disabled anyway */
+}
+
+/* ===== Skeleton atoms ===== */
+.sk-line,
+.sk-input,
+.sk-btn,
+.sk-avatar {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 25%,
+    rgba(0,0,0,0.12) 37%,
+    rgba(0,0,0,0.06) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.2s infinite linear;
+  border-radius: 10px;
+}
+
+.sk-row {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.sk-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 12px;
+}
+
+.sk-lines {
+  flex: 1;
+  display: grid;
+  gap: .5rem;
+}
+.sk-line {
+  height: 14px;
+}
+.sk-line.sm {
+  height: 10px;
+  opacity: .85;
+}
+
+.sk-input {
+  height: 44px;
+  border-radius: 12px;
+}
+
+.sk-btn {
+  height: 40px;
+  border-radius: 999px;
+}
+
+/* ===== Fade transition for skeleton mount/unmount ===== */
+.fade-fast-enter-active,
+.fade-fast-leave-active {
+  transition: opacity .25s ease;
+}
+.fade-fast-enter-from,
+.fade-fast-leave-to {
+  opacity: 0;
+}
+
 @media only screen and (max-width: 431px) {
   .card {
     max-width: 400px;

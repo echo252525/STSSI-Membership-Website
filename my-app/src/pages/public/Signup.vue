@@ -1,8 +1,8 @@
 <template>
   <div class="body min-vh-100 d-flex align-items-center justify-content-center bg-body-tertiary">
-    <div class="card shadow-lg border-0 rounded-4">
+    <div class="card shadow-lg border-0 rounded-4 breath-in">
       <div class="card-body p-4 p-md-5">
-        <div class="mb-4 d-flex align-items-center justify-content-center gap-4">
+        <div class="mb-4 d-flex align-items-center justify-content-center gap-4 breath-in">
           <div>
             <img
               src="../../../public/STSSI_logo.png"
@@ -19,7 +19,7 @@
         <!-- NEW: Referral notice (shown only when ?ref= is in the URL) -->
         <div
           v-if="referralCode"
-          class="alert alert-info d-flex align-items-center gap-2 mb-4"
+          class="alert alert-info d-flex align-items-center gap-2 mb-4 breath-in delay-100"
           role="alert"
           aria-live="polite"
         >
@@ -29,22 +29,22 @@
 
         <form @submit.prevent="onSubmit" class="row g-3">
           <!-- Basic -->
-          <div class="col-12">
+          <div class="col-12 breath-in">
             <label class="form-label">First Name *</label>
             <input v-model.trim="firstName" type="text" class="form-control" placeholder="Firstname" required />
           </div>
 
-          <div class="col-12">
+          <div class="col-12 breath-in">
             <label class="form-label">Last Name *</label>
             <input v-model.trim="lastName" type="text" class="form-control" placeholder="Lastname" required />
           </div>
 
-          <div class="col-12">
+          <div class="col-12 breath-in">
             <label for="email" class="form-label">Email *</label>
             <input v-model.trim="email" type="email" class="form-control" required />
           </div>
 
-          <div class="col-12">
+          <div class="col-12 breath-in">
             <label for="phone" class="form-label">Phone Number</label>
             <input
               v-model.trim="phone"
@@ -58,7 +58,7 @@
             <div class="form-text">We’ll use this for delivery and support updates.</div>
           </div>
 
-          <div class="password-div d-flex justify-content-between gap-2">
+          <div class="password-div d-flex justify-content-between gap-2 breath-in">
             <div class="position-relative flex-fill">
               <label for="password" class="form-label">Password *</label>
               <div class="input-group">
@@ -81,126 +81,148 @@
           </div>
 
           <!-- Address (PH order without province) -->
-          <!-- Region -->
-          <div class="col-md-6 position-relative">
-            <label class="form-label">Region *</label>
-            <input
-              v-model.trim="addrRegion"
-              type="text"
-              class="form-control"
-              placeholder="Type to search region…"
-              required
-              @focus="showRegionSuggest = true"
-              @input="onRegionInput"
-            />
-            <div v-if="showRegionSuggest && filteredRegions.length" class="typeahead-menu list-group shadow position-absolute w-100">
-              <button
-                v-for="r in filteredRegions"
-                :key="r.code"
-                type="button"
-                class="list-group-item list-group-item-action"
-                @mousedown.prevent="pickRegion(r)"
-              >
-                {{ r.name }}
-              </button>
+          <!-- NOTE: Only the address-dependent fields show skeleton while PSGC data is loading -->
+          <template v-if="!isBooting">
+            <!-- Region -->
+            <div class="col-md-6 position-relative breath-in">
+              <label class="form-label">Region *</label>
+              <input
+                v-model.trim="addrRegion"
+                type="text"
+                class="form-control"
+                placeholder="Type to search region…"
+                required
+                @focus="showRegionSuggest = true"
+                @input="onRegionInput"
+              />
+              <div v-if="showRegionSuggest && filteredRegions.length" class="typeahead-menu list-group shadow position-absolute w-100">
+                <button
+                  v-for="r in filteredRegions"
+                  :key="r.code"
+                  type="button"
+                  class="list-group-item list-group-item-action"
+                  @mousedown.prevent="pickRegion(r)"
+                >
+                  {{ r.name }}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- City / Municipality -->
-          <div class="col-md-6 position-relative">
-            <label class="form-label">City / Municipality *</label>
-            <input
-              v-model.trim="addrCity"
-              type="text"
-              class="form-control"
-              placeholder="Type to search (e.g., Quezon City)"
-              required
-              @focus="showCitySuggest = true"
-              @input="onCityInput"
-            />
-            <div v-if="showCitySuggest && filteredLGUs.length" class="typeahead-menu list-group shadow position-absolute w-100">
-              <button
-                v-for="l in filteredLGUs"
-                :key="l.code"
-                type="button"
-                class="list-group-item list-group-item-action"
-                @mousedown.prevent="pickLGU(l)"
-              >
-                {{ l.name }} <span class="text-muted">• {{ l.isCity ? 'City' : 'Municipality' }}</span>
-                <span v-if="regionNameForLGU(l)" class="text-muted"> — {{ regionNameForLGU(l) }}</span>
-              </button>
+            <!-- City / Municipality -->
+            <div class="col-md-6 position-relative breath-in delay-050">
+              <label class="form-label">City / Municipality *</label>
+              <input
+                v-model.trim="addrCity"
+                type="text"
+                class="form-control"
+                placeholder="Type to search (e.g., Quezon City)"
+                required
+                @focus="showCitySuggest = true"
+                @input="onCityInput"
+              />
+              <div v-if="showCitySuggest && filteredLGUs.length" class="typeahead-menu list-group shadow position-absolute w-100">
+                <button
+                  v-for="l in filteredLGUs"
+                  :key="l.code"
+                  type="button"
+                  class="list-group-item list-group-item-action"
+                  @mousedown.prevent="pickLGU(l)"
+                >
+                  {{ l.name }} <span class="text-muted">• {{ l.isCity ? 'City' : 'Municipality' }}</span>
+                  <span v-if="regionNameForLGU(l)" class="text-muted"> — {{ regionNameForLGU(l) }}</span>
+                </button>
+              </div>
             </div>
-           
-          </div>
 
-          <!-- Barangay -->
-          <div class="col-md-6 position-relative">
-            <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
-            <input
-              v-model.trim="addrLine2"
-              type="text"
-              class="form-control"
-              placeholder="Type to search barangay…"
-              @focus="showBarangaySuggest = true"
-              @input="onBarangayInput"
-            />
-            <div v-if="showBarangaySuggest && filteredBarangays.length" class="typeahead-menu list-group shadow position-absolute w-100">
-              <button
-                v-for="b in filteredBarangays"
-                :key="b.code"
-                type="button"
-                class="list-group-item list-group-item-action"
-                @mousedown.prevent="pickBarangay(b)"
-              >
-                {{ b.name }}
-              </button>
+            <!-- Barangay -->
+            <div class="col-md-6 position-relative breath-in">
+              <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
+              <input
+                v-model.trim="addrLine2"
+                type="text"
+                class="form-control"
+                placeholder="Type to search barangay…"
+                @focus="showBarangaySuggest = true"
+                @input="onBarangayInput"
+              />
+              <div v-if="showBarangaySuggest && filteredBarangays.length" class="typeahead-menu list-group shadow position-absolute w-100">
+                <button
+                  v-for="b in filteredBarangays"
+                  :key="b.code"
+                  type="button"
+                  class="list-group-item list-group-item-action"
+                  @mousedown.prevent="pickBarangay(b)"
+                >
+                  {{ b.name }}
+                </button>
+              </div>
             </div>
-          </div>
 
-          <!-- ZIP -->
-          <div class="col-md-3">
-            <label class="form-label">ZIP *</label>
-            <input
-              v-model.trim="addrZip"
-              type="text"
-              class="form-control"
-              placeholder="e.g., 1100"
-              required
-              pattern="\d{4}"
-              title="Enter a valid postal code"
-            />
-          </div>
+            <!-- ZIP -->
+            <div class="col-md-3 breath-in delay-050">
+              <label class="form-label">ZIP *</label>
+              <input
+                v-model.trim="addrZip"
+                type="text"
+                class="form-control"
+                placeholder="e.g., 1100"
+                required
+                pattern="\d{4}"
+                title="Enter a valid postal code"
+              />
+            </div>
 
-          <!-- Detailed Address (House/Street) -->
-          <div class="col-md-9">
-            <label class="form-label">House/Unit & Street *</label>
-            <input
-              v-model.trim="addrLine1"
-              type="text"
-              class="form-control"
-              placeholder="e.g., Unit 2B, 123 Sampaguita St."
-              required
-            />
-          </div>
+            <!-- Detailed Address (House/Street) -->
+            <div class="col-md-9 breath-in">
+              <label class="form-label">House/Unit & Street *</label>
+              <input
+                v-model.trim="addrLine1"
+                type="text"
+                class="form-control"
+                placeholder="e.g., Unit 2B, 123 Sampaguita St."
+                required
+              />
+            </div>
+          </template>
+          <template v-else>
+            <!-- Skeletons ONLY while fetching PSGC datasets -->
+            <div class="col-md-6">
+              <div class="skel-label w-25 mb-2"></div>
+              <div class="skel-input"></div>
+            </div>
+            <div class="col-md-6">
+              <div class="skel-label w-50 mb-2"></div>
+              <div class="skel-input"></div>
+            </div>
+            <div class="col-md-6">
+              <div class="skel-label w-40 mb-2"></div>
+              <div class="skel-input"></div>
+            </div>
+            <div class="col-md-3">
+              <div class="skel-label w-25 mb-2"></div>
+              <div class="skel-input"></div>
+            </div>
+            <div class="col-md-9">
+              <div class="skel-label w-50 mb-2"></div>
+              <div class="skel-input"></div>
+            </div>
+          </template>
 
-          <!-- (Removed) Landmark / Extra details per request -->
-          <!-- (Removed) Address (Auto-filled) display per request -->
-
-          <div class="col-12">
+          <div class="col-12 breath-in">
             <label for="age" class="form-label">Age *</label>
             <input v-model.number="age" type="number" min="18" class="form-control" required />
             <div class="form-text">You must be 18 or older to sign up.</div>
           </div>
 
-          <div class="col-12 d-flex flex-column flex-sm-row gap-2">
+          <div class="col-12 d-flex flex-column flex-sm-row gap-2 breath-in">
             <router-link class="btn btn-outline-secondary flex-fill" :to="{ name: 'home' }">Back</router-link>
-            <button :disabled="loading" class="btn btn-primary flex-fill" type="submit">
-              {{ loading ? 'Signing up…' : 'Sign Up' }}
+            <button :disabled="loading || isBooting" class="btn btn-primary flex-fill" type="submit">
+              {{ loading || isBooting ? 'Signing up…' : 'Sign Up' }}
             </button>
           </div>
         </form>
 
-        <p class="text-center text-secondary mt-4 mb-0">
+        <p class="text-center text-secondary mt-4 mb-0 breath-in">
           Have an account?
           <router-link :to="{ name: 'login' }" class="link-primary text-decoration-none">Log in</router-link>
         </p>
@@ -271,6 +293,9 @@ const provinceByCode: Record<string, Province> = {}
 const showRegionSuggest = ref(false)
 const showCitySuggest = ref(false)
 const showBarangaySuggest = ref(false)
+
+/* NEW: Boot flag (skeleton shows only while PSGC data is fetching) */
+const isBooting = ref(true)
 
 /* Close menus when clicking outside */
 function onDocClick(e: MouseEvent) {
@@ -459,8 +484,13 @@ onMounted(async () => {
   if (!code) code = new URLSearchParams(window.location.search).get('ref')
   referralCode.value = code ? code.trim() : null
 
-  // Load PSGC datasets
-  await Promise.all([loadRegions(), loadProvinces(), loadAllLGUs()])
+  // Load PSGC datasets WITH skeleton flag
+  isBooting.value = true
+  try {
+    await Promise.all([loadRegions(), loadProvinces(), loadAllLGUs()])
+  } finally {
+    isBooting.value = false
+  }
 })
 
 /* ===== SweetAlert helpers (added) ===== */
@@ -621,6 +651,8 @@ const onSubmit = async () => {
   --green: #20a44c;
   --blue: #30ace4;
   --azure: #20647c;
+  --skel-bg: #e9eef3;
+  --skel-fg: #f6f8fb;
 }
 .body {
   min-height: 100vh;
@@ -642,6 +674,53 @@ const onSubmit = async () => {
   top: 100%;
   left: 0;
 }
+
+/* =========================
+   Breath-in animation (~250ms)
+   ========================= */
+.breath-in {
+  --breath-dur: 250ms;
+  animation: breathIn var(--breath-dur) ease-out both;
+  will-change: opacity, transform;
+}
+.delay-050 { animation-delay: 50ms; }
+.delay-100 { animation-delay: 100ms; }
+@keyframes breathIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.98); filter: saturate(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    filter: saturate(1); }
+}
+
+/* =========================
+   Skeleton styles (inputs/labels)
+   ========================= */
+.skel-label,
+.skel-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--skel-bg), var(--skel-fg), var(--skel-bg));
+  background-size: 200% 100%;
+  animation: shimmer 1200ms ease-in-out infinite;
+}
+.skel-line.w-25 { width: 25%; }
+.skel-line.w-40 { width: 40%; }
+.skel-line.w-50 { width: 50%; }
+.skel-label.w-25 { width: 25%; }
+.skel-label.w-40 { width: 40%; }
+.skel-label.w-50 { width: 50%; }
+
+/* mimic input height */
+.skel-input {
+  height: 38px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--skel-bg), var(--skel-fg), var(--skel-bg));
+  background-size: 200% 100%;
+  animation: shimmer 1200ms ease-in-out infinite;
+}
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 @media only screen and (max-width: 431px) {
   .password-div { flex-direction: column; }
   .card { max-width: 400px; }
