@@ -21,6 +21,8 @@
             :class="{ active: activeTab === t.value }"
             @click="activeTab = t.value"
           >
+            <!-- 👇 Added: contextual icon per tab -->
+            <i :class="['bi', iconForTab(t.value)]" aria-hidden="true"></i>
             <span class="tabbar__label">{{ t.label }}</span>
             <span class="badge tabbar__count">{{ counts[t.value] || 0 }}</span>
           </button>
@@ -160,7 +162,7 @@
       <i class="bi bi-bag-x state__icon"></i>
       <div class="mt-2">No purchases found for “{{ tabLabel(activeTab) }}”.</div>
       <RouterLink :to="{ name: 'user.shop' }" class="btn btn-primary btn-sm mt-3">
-        Go to Shop
+        <i class="bi bi-shop me-1" aria-hidden="true"></i> Go to Shop
       </RouterLink>
     </section>
 
@@ -182,6 +184,8 @@
           </div>
           <div class="order-card__status">
             <span class="badge" :class="statusClass(g.status)">
+              <!-- 👇 Added: icon inside status badge -->
+              <i :class="['bi', iconForStatus(g.status)]" class="me-1" aria-hidden="true"></i>
               {{ prettyStatusWithRR(g.status, undefined, g) }}
             </span>
           </div>
@@ -239,9 +243,10 @@
             :href="trackingLinkFor(g.ref)"
             target="_blank"
             rel="noopener"
-            class="link-underline"
+            class="link-underline d-inline-flex align-items-center gap-1"
             title="Open tracking in a new tab"
           >
+            <i class="bi bi-truck" aria-hidden="true"></i>
             Track your package
           </a>
         </div>
@@ -256,9 +261,10 @@
             :href="returnTrackingLinkForApproved(g.ref)"
             target="_blank"
             rel="noopener"
-            class="link-underline"
+            class="link-underline d-inline-flex align-items-center gap-1"
             title="Open return tracking in a new tab"
           >
+            <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
             Return tracking
           </a>
         </div>
@@ -304,6 +310,7 @@
               <!-- Per-item meta badges are hidden in list view; still visible in modal -->
               <div class="item-row__meta" v-if="SHOW_ITEM_BADGES_IN_LIST">
                 <span class="badge" :class="statusClass(it.status)">
+                  <i :class="['bi', iconForStatus(it.status)]" class="me-1" aria-hidden="true"></i>
                   {{ prettyStatusWithRR(it.status, it.id) }}
                 </span>
                 <span class="badge text-bg-secondary-subtle border">
@@ -342,9 +349,10 @@
                   :href="rrTrackingLinkApproved(it.id)"
                   target="_blank"
                   rel="noopener"
-                  class="small link-underline"
+                  class="small link-underline d-inline-flex align-items-center gap-1"
                   title="Open return tracking in a new tab"
                 >
+                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
                   Return tracking
                 </a>
               </div>
@@ -395,9 +403,11 @@
 
               <div v-if="!isFreeShippingRef(g.ref)">Shipping: ₱ {{ number(shippingFor(g.ref)) }}</div>
               <div v-else>
+                <!-- 👇 Added truck icon on FREE SHIPPING -->
+                <span class="me-1"><i class="bi bi-truck" aria-hidden="true"></i></span>
                 Shipping:
                 <span class="text-decoration-line-through">₱ {{ number(shippingFor(g.ref)) }}</span>
-                <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+                <span class="badge text-bg-success-subtle border ms-1"><i class="bi bi-truck me-1" aria-hidden="true"></i>FREE SHIPPING</span>
               </div>
             </div>
 
@@ -466,6 +476,7 @@
           </div>
           <div class="order-card__status">
             <span class="badge" :class="statusClass(p.status)">
+              <i :class="['bi', iconForStatus(p.status)]" class="me-1" aria-hidden="true"></i>
               {{ prettyStatusWithRR(p.status, p.id) }}
             </span>
           </div>
@@ -512,9 +523,10 @@
             :href="p.tracking_link"
             target="_blank"
             rel="noopener"
-            class="link-underline"
+            class="link-underline d-inline-flex align-items-center gap-1"
             title="Open tracking in a new tab"
           >
+            <i class="bi bi-truck" aria-hidden="true"></i>
             Track your package
           </a>
         </div>
@@ -553,6 +565,7 @@
 
               <div class="item-row__meta">
                 <span class="badge" :class="statusClass(p.status)">
+                  <i :class="['bi', iconForStatus(p.status)]" class="me-1" aria-hidden="true"></i>
                   {{ prettyStatusWithRR(p.status, p.id) }}
                 </span>
                 <span class="badge text-bg-secondary-subtle border">
@@ -629,12 +642,12 @@
               </div>
 
               <div v-if="!isFreeShippingRef(p.reference_number || p.id)">
-                Shipping: ₱ {{ number(shippingFor(p.reference_number || p.id)) }}
+                <i class="bi bi-truck me-1" aria-hidden="true"></i>Shipping: ₱ {{ number(shippingFor(p.reference_number || p.id)) }}
               </div>
               <div v-else>
-                Shipping:
+                <i class="bi bi-truck me-1" aria-hidden="true"></i>Shipping:
                 <span class="text-decoration-line-through">₱ {{ number(shippingFor(p.reference_number || p.id)) }}</span>
-                <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+                <span class="badge text-bg-success-subtle border ms-1"><i class="bi bi-truck me-1" aria-hidden="true"></i>FREE SHIPPING</span>
               </div>
             </div>
 
@@ -685,7 +698,7 @@
     <div v-if="showRR" class="modal-backdrop-custom2">
       <div class="modal-card2 card shadow-lg breath-in">
         <div class="card-header d-flex align-items-center justify-content-between">
-          <strong>Return / Refund Request</strong>
+          <strong><i class="bi bi-arrow-counterclockwise me-2" aria-hidden="true"></i>Return / Refund Request</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeReturnRefund">✕</button>
         </div>
 
@@ -863,9 +876,10 @@
                       :href="rrTrackingLinkApproved(it.id)"
                       target="_blank"
                       rel="noopener"
-                      class="small link-underline"
+                      class="small link-underline d-inline-flex align-items-center gap-1"
                       title="Open return tracking in a new tab"
                     >
+                      <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
                       Return tracking
                     </a>
                   </div>
@@ -997,7 +1011,7 @@
     >
       <div class="modal-card2 card shadow-lg breath-in" @click.stop>
         <div class="card-header d-flex align-items-center justify-content-between">
-          <strong>Order Details — Ref# {{ selectedGroupComputed!.ref }}</strong>
+          <strong><i class="bi bi-receipt me-2" aria-hidden="true"></i>Order Details — Ref# {{ selectedGroupComputed!.ref }}</strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeGroupDetails">✕</button>
         </div>
 
@@ -1005,6 +1019,7 @@
           <div class="d-flex align-items-center justify-content-between">
             <div class="small text-muted">Updated: {{ formatDate(selectedGroupComputed!.updated_at) }}</div>
             <span class="badge" :class="statusClass(selectedGroupComputed!.status)">
+              <i :class="['bi', iconForStatus(selectedGroupComputed!.status)]" class="me-1" aria-hidden="true"></i>
               {{ prettyStatusWithRR(selectedGroupComputed!.status, undefined, selectedGroupComputed!) }}
             </span>
           </div>
@@ -1050,9 +1065,10 @@
               :href="returnTrackingLinkForApproved(selectedGroupComputed!.ref)"
               target="_blank"
               rel="noopener"
-              class="small link-underline"
+              class="small link-underline d-inline-flex align-items-center gap-1"
               title="Open return tracking in a new tab"
             >
+              <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
               Return tracking
             </a>
           </div>
@@ -1094,6 +1110,7 @@
 
                 <div class="item-row__meta">
                   <span class="badge" :class="statusClass(it.status)">
+                    <i :class="['bi', iconForStatus(it.status)]" class="me-1" aria-hidden="true"></i>
                     {{ prettyStatusWithRR(it.status, it.id, selectedGroupComputed!) }}
                   </span>
                   <span class="badge text-bg-secondary-subtle border">
@@ -1131,9 +1148,10 @@
                     :href="rrTrackingLinkApproved(it.id)"
                     target="_blank"
                     rel="noopener"
-                    class="small link-underline"
+                    class="small link-underline d-inline-flex align-items-center gap-1"
                     title="Open return tracking in a new tab"
                   >
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
                     Return tracking
                   </a>
                 </div>
@@ -1179,11 +1197,11 @@
                 </div>
 
                 <div v-if="!isFreeShippingRef(selectedGroupComputed!.ref)">
-                  Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</div>
+                  <i class="bi bi-truck me-1" aria-hidden="true"></i>Shipping: ₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</div>
                 <div v-else>
-                  Shipping:
+                  <i class="bi bi-truck me-1" aria-hidden="true"></i>Shipping:
                   <span class="text-decoration-line-through">₱ {{ number(shippingFor(selectedGroupComputed!.ref)) }}</span>
-                  <span class="badge text-bg-success-subtle border ms-1">FREE SHIPPING</span>
+                  <span class="badge text-bg-success-subtle border ms-1"><i class="bi bi-truck me-1" aria-hidden="true"></i>FREE SHIPPING</span>
                 </div>
               </div>
 
@@ -2856,6 +2874,31 @@ onMounted(async () => {
 // Alias to satisfy existing template calls
 function purchaseRedemptionUnitDiscount(purchase: AnyRec): number {
   return redemptionUnitDiscount(purchase)
+}
+
+/* ===================================================== */
+/* === ⬇️ NEW: tiny helpers to pick proper icon names === */
+/* ===================================================== */
+function iconForTab(v: Status): string {
+  const map: Record<Status, string> = {
+    [STATUS.TO_PAY]: 'bi-cash-coin',
+    [STATUS.TO_SHIP]: 'bi-truck',
+    [STATUS.TO_RECEIVE]: 'bi-box-seam',
+    [STATUS.COMPLETED]: 'bi-check-circle',
+    [STATUS.RETURN_REFUND]: 'bi-arrow-counterclockwise',
+    [STATUS.CANCELLED]: 'bi-x-circle'
+  } as const
+  return map[v] || 'bi-dot'
+}
+function iconForStatus(s?: string): string {
+  const k = (s || '') as Status
+  if (k === STATUS.TO_PAY) return 'bi-cash-coin'
+  if (k === STATUS.TO_SHIP) return 'bi-truck'
+  if (k === STATUS.TO_RECEIVE) return 'bi-box-seam'
+  if (k === STATUS.COMPLETED) return 'bi-check-circle'
+  if (k === STATUS.RETURN_REFUND) return 'bi-arrow-counterclockwise'
+  if (k === STATUS.CANCELLED) return 'bi-x-circle'
+  return 'bi-dot'
 }
 </script>
 
