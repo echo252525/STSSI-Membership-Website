@@ -30,9 +30,6 @@
           <ul class="navbar-nav me-auto gap-lg-2">
             <li class="nav-item"><a class="nav-link modern-link" href="#features">Features</a></li>
             <li class="nav-item"><a class="nav-link modern-link" href="#pricing">Pricing</a></li>
-            <li class="nav-item">
-              <a class="nav-link modern-link" href="#testimonials">Testimonials</a>
-            </li>
             <li class="nav-item"><a class="nav-link modern-link" href="#faq">FAQ</a></li>
           </ul>
 
