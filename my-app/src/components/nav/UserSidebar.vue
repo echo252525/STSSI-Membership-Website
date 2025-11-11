@@ -77,7 +77,7 @@
 
       <!-- Profile (hidden when collapsed) -->
       <div
-        class="d-flex align-items-center justify-content-center"
+        class="d-flex align-items-center justify-content-center m-3 my-5 gap-2"
         role="link"
         tabindex="0"
         @click="goAbout"
@@ -88,9 +88,10 @@
       >
         <img
           src="/STSSI_logo.png"
-          class="m-5"
+          class="m-0"
           style="width: 40px">
         </img>
+        <h5 class="fw-bold" v-if="!isRail">STEQ ONLINE</h5>
       </div>
 
       <!-- Nav -->
