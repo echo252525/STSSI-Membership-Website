@@ -108,7 +108,7 @@
                 >
               </div>
 
-              <h4 class="title text-truncate" :title="featureGame.title">
+              <h4 class="title text-wrap" :title="featureGame.title">
                 {{ featureGame.title }}
               </h4>
               <p class="muted">Spin the wheel, grab rewards, and top the board.</p>
@@ -122,7 +122,7 @@
                 >
               </div>
 
-              <div class="progress">
+              <div class="progress mt-2">
                 <span class="bar"
                   ><b class="fill" :style="{ width: joinPct(featureGame) + '%' }"></b
                 ></span>
@@ -226,10 +226,6 @@
             tabindex="0"
             :style="ppBgStyle"
           >
-            <!-- Ambient layers -->
-            <div class="pp-ambient"></div>
-            <div class="pp-vignette"></div>
-
             <!-- Navigation (arrows) -->
             <button
               type="button"
@@ -274,9 +270,9 @@
 
                 <!-- Title / Price block -->
                 <div class="pp-hero__text">
-                  <h4 class="pp-hero__title text-truncate" :title="currentPreview?.name">
+                  <h5 class="pp-hero__title text-wrap" :title="currentPreview?.name">
                     {{ currentPreview?.name }}
-                  </h4>
+                  </h5>
 
                   <div class="pp-hero__prices">
                     <span class="pp-now">{{ peso(currentPreview?.price_now || 0) }}</span>
@@ -2148,7 +2144,7 @@ function startsInLabel(iso: string) {
   }
 }
 .panel .card-body {
-  padding: 16px;
+  padding: 5px;
 }
 .panel-head {
   display: flex;
@@ -2188,7 +2184,7 @@ function startsInLabel(iso: string) {
   display: grid;
   grid-template-columns: 1.4fr 0.8fr;
   gap: 14px;
-  padding: 10px 12px 14px 12px;
+  padding: 10px 12px 0px 12px;
 }
 @media (max-width: 992px) {
   .games-layout {
@@ -2203,9 +2199,8 @@ function startsInLabel(iso: string) {
   padding: 18px;
   min-height: 240px;
   background:
-    /* azure wash */
     linear-gradient(135deg, #20647c33, #20a44c33),
-    /* green glow on the corner */ radial-gradient(120% 120% at 20% 10%, #20a44c55, transparent 60%);
+    radial-gradient(120% 120% at 20% 10%, #20a44c55, transparent 60%);
   border: 1px solid #ffffff22;
   box-shadow:
     0 18px 40px rgba(0, 0, 0, 0.25) inset,
@@ -2260,10 +2255,9 @@ function startsInLabel(iso: string) {
   position: relative;
   z-index: 1;
   font-size: 1.6rem;
-  font-weight: 900;
+  font-weight: 700;
   margin: 0.5rem 0 0;
-  letter-spacing: 0.3px;
-  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  line-height: 25px;
 }
 .game-banner .muted {
   position: relative;
@@ -2311,6 +2305,8 @@ function startsInLabel(iso: string) {
   font-weight: 900;
   position: relative;
   z-index: 1;
+  color: black;
+  padding-right: 0.5rem;
 }
 .btn-play {
   position: relative;
@@ -2337,10 +2333,9 @@ function startsInLabel(iso: string) {
 .side-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 5px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 2px;
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
@@ -2362,7 +2357,6 @@ function startsInLabel(iso: string) {
   gap: 10px;
   border-radius: 16px;
   padding: 10px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
   border: 1px solid #ffffff22;
   cursor: pointer;
   transition:
@@ -2371,8 +2365,8 @@ function startsInLabel(iso: string) {
     border-color 0.12s ease;
 }
 .side-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+  transform: translateY(-2px);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.132);
 }
 .side-item.active {
   border-color: #ffffff66;
@@ -2385,7 +2379,7 @@ function startsInLabel(iso: string) {
   display: grid;
   place-items: center;
   overflow: hidden;
-  background: linear-gradient(135deg, #ff9f9f33, #c084fc33);
+  background: linear-gradient(135deg, #a6ff9f33, #2e4dff33);
   border: 1px solid #ffffff22;
 }
 .icon-slot img {
@@ -2534,35 +2528,20 @@ function startsInLabel(iso: string) {
   border: 1px solid rgba(233, 238, 243, 0.35);
   cursor: pointer; /* whole area clickable */
 }
-.pp-ambient {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(40% 60% at 15% 85%, rgba(14, 165, 233, 0.25), transparent 60%),
-    radial-gradient(40% 60% at 85% 15%, rgba(34, 197, 94, 0.25), transparent 60%);
-  filter: saturate(1.1);
-  mix-blend-mode: screen;
-  pointer-events: none;
-}
-.pp-vignette {
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(120% 120% at 50% 50%, transparent 40%, rgba(0, 0, 0, 0.45) 100%);
-  pointer-events: none;
-}
-
 /* Card content floating on top */
 .pp-hero__content {
   position: relative;
   z-index: 4;
-  margin: 14px;
+  margin: 0rem;
   border-radius: 16px;
-  padding: 16px;
-  min-height: 240px;
+  padding: 2rem;
+  padding-left: 3rem;
+  padding-right: 3rem;
+  min-height: 340px;
   color: #fff;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
   background: rgba(11, 18, 32, 0.35);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.059);
 }
 .pp-hero__badges {
   display: flex;
@@ -2583,15 +2562,10 @@ function startsInLabel(iso: string) {
   color: #eafff2;
   border-color: rgba(34, 197, 94, 0.35);
 }
-
-.pp-hero__text {
-  margin-top: 6px;
-}
 .pp-hero__title {
-  font-weight: 900;
+  font-weight: 700;
   font-size: 1.15rem;
-  letter-spacing: 0.2px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  line-height: 0.9;
 }
 .pp-hero__prices {
   display: flex;
@@ -2605,7 +2579,7 @@ function startsInLabel(iso: string) {
   color: #e2e8f0;
   font-size: 0.9rem;
   line-height: 1.25;
-  max-height: 120px;
+  max-height: 190px;
   overflow: hidden; /* prevent scrollbar noise */
 }
 
@@ -2620,8 +2594,8 @@ function startsInLabel(iso: string) {
   position: absolute;
   left: 10px;
   right: 10px;
-  bottom: 8px;
-  height: 3px;
+  bottom: 0px;
+  height: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.2);
   overflow: hidden;
@@ -2687,7 +2661,7 @@ function startsInLabel(iso: string) {
 /* price colors on dark */
 .pp-now {
   color: #fff;
-  font-weight: 900;
+  font-weight: 600;
 }
 .pp-was {
   color: #e2e8f0;
@@ -2727,14 +2701,14 @@ function startsInLabel(iso: string) {
   transform: translateX(-50%);
   bottom: 14px;
   display: flex;
-  gap: 6px;
+  gap: 4px;
   justify-content: center;
   z-index: 8;
 }
 .pp-dot {
   position: relative;
-  width: 14px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.75);
@@ -2940,16 +2914,15 @@ function startsInLabel(iso: string) {
   border-radius: 20px;
   padding: 18px;
   min-height: 240px;
-  color: var(--dk-ink);
-  background:
-    linear-gradient(135deg, #f8fafc, #ffffff),
-    radial-gradient(120% 120% at 20% 10%, rgba(14, 165, 233, 0.12), transparent 60%);
-  border: 1px solid var(--dk-edge);
-  box-shadow:
-    0 8px 24px rgba(2, 6, 23, 0.06) inset,
-    0 10px 24px rgba(2, 6, 23, 0.04);
+  color: #0f172a;
   overflow: hidden;
+
+  /* softened teal → blue */
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.6), transparent 60%),
+    linear-gradient(135deg, #a7f3d0 0%, #bfdbfe 100%);
 }
+
 .disc-art {
   position: absolute;
   inset: 0;
