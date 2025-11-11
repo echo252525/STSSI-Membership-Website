@@ -415,7 +415,6 @@ onMounted(() => {
   box-shadow: 0 8px 18px rgba(48, 44, 44, 0.08);
   min-height: 170px;
   overflow: hidden;
-  background: transparent; /* faces own the background */
 }
 
 .feature-card:focus {
@@ -584,10 +583,6 @@ onMounted(() => {
   :host {
     --skel-base: #2b3035;
     --skel-wave: #343a40;
-  }
-  .glass-panel {
-    background: rgba(0, 0, 0, 0.35);
-    border-color: rgba(255, 255, 255, 0.05);
   }
 }
 </style>
