@@ -371,9 +371,24 @@
               </template>
 
               <template v-else-if="refHasDiscount(g.ref)">
-                <div class="text-muted text-decoration-line-through">₱ {{ number(productPrice(it)) }}</div>
-                <div class="fw-semibold text-success">₱ {{ number(discountedUnitPrice(it)) }}</div>
-              </template>
+  <!-- If there is a real discount: show original + discounted -->
+  <template v-if="hasRealDiscount(it)">
+    <div class="text-muted text-decoration-line-through">
+      ₱ {{ number(productPrice(it)) }}
+    </div>
+    <div class="fw-semibold text-success">
+      ₱ {{ number(discountedUnitPrice(it)) }}
+    </div>
+  </template>
+
+  <!-- If same value (or not actually cheaper): show only one price -->
+  <template v-else>
+    <div class="fw-semibold">
+      ₱ {{ number(productPrice(it)) }}
+    </div>
+  </template>
+</template>
+
 
               <template v-else>
                 <div :class="['fw-semibold', { 'text-danger': !!rrStatus(it.id) }]">₱ {{ number(productPrice(it)) }}</div>
@@ -1171,10 +1186,32 @@
                 </template>
 
                 <template v-else-if="refHasDiscount(selectedGroupComputed!.ref)">
-                  <div class="text-muted text-decoration-line-through">₱ {{ number(productPrice(it)) }}</div>
-                  <div class="fw-semibold text-success">₱ {{ number(discountedUnitPrice(it)) }}</div>
-                  <div class="fw-semibold" v-if="(Number(it?.qty ?? 1) || 1) > 1">Subtotal: ₱ {{ number(subtotalFor(it)) }}</div>
-                </template>
+  <!-- If there is a real discount: show both original and discounted -->
+  <template v-if="hasRealDiscount(it)">
+    <div class="text-muted text-decoration-line-through">
+      ₱ {{ number(productPrice(it)) }}
+    </div>
+    <div class="fw-semibold text-success">
+      ₱ {{ number(discountedUnitPrice(it)) }}
+    </div>
+  </template>
+
+  <!-- If same price (no real discount): show only one price -->
+  <template v-else>
+    <div class="fw-semibold">
+      ₱ {{ number(productPrice(it)) }}
+    </div>
+  </template>
+
+  <!-- Always show subtotal if qty > 1 -->
+  <div
+    class="fw-semibold"
+    v-if="(Number(it?.qty ?? 1) || 1) > 1"
+  >
+    Subtotal: ₱ {{ number(subtotalFor(it)) }}
+  </div>
+</template>
+
 
                 <template v-else>
                   <div class="small text-muted">Unit: ₱ {{ number(unitPriceFor(it)) }}</div>
@@ -1278,6 +1315,17 @@ import Swal from 'sweetalert2'
 /* ========================================================================
    SWEETALERT HELPERS
    ======================================================================== */
+
+   const hasRealDiscount = (it: any) => {
+  const orig = Number(productPrice(it))
+  const disc = Number(discountedUnitPrice(it))
+
+  if (Number.isNaN(orig) || Number.isNaN(disc)) return false
+
+  // Only treat it as a discount if discounted price is LOWER
+  return disc < orig
+}
+
 async function swInfo(message: string, title = 'Heads up') {
   await Swal.fire({ icon: 'info', title, text: message })
 }

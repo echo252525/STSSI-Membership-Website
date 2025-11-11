@@ -104,6 +104,7 @@
             active-class="active"
             exact-active-class="active"
             :title="isRail ? 'Dashboard' : ''"
+            data-tour-id="nav-dashboard"
             @click="closeMenu"
           >
             <i class="bi bi-house-door fs-5"></i>
@@ -163,6 +164,7 @@
             :class="{ 'icon-only': isRail }"
             active-class="active"
             :title="isRail ? 'My Purchases' : ''"
+            data-tour-id="nav-mypurchase"
             @click="closeMenu"
           >
             <i class="bi bi-receipt fs-5"></i>
@@ -178,6 +180,7 @@
             :class="{ 'icon-only': isRail }"
             active-class="active"
             :title="isRail ? 'Mini Games' : ''"
+            data-tour-id="nav-minigames"
             @click="closeMenu"
           >
             <i class="bi bi-controller fs-5"></i>
@@ -208,6 +211,7 @@
             :class="{ 'icon-only': isRail }"
             active-class="active"
             :title="isRail ? 'Settings' : ''"
+            data-tour-id="nav-settings"
             @click="closeMenu"
           >
             <i class="bi bi-gear fs-5"></i>

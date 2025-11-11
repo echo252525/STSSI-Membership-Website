@@ -197,7 +197,7 @@
       <!-- ===== Hero / Top bar ===== -->
       <header class="deals-hero breath-in-once">
         <div>
-          <p class="hero-eyebrow">Rewards center</p>
+          <p class="hero-eyebrow"><i class="bi bi-stars"></i> Rewards center</p>
           <h1 class="hero-title">Deals & Rewards</h1>
           <p class="hero-sub">
             Your active vouchers, product-specific promos, and referral earnings — all in one clean
@@ -206,15 +206,15 @@
         </div>
         <div class="hero-stats">
           <div class="hero-pill">
-            <span class="hero-pill-label">Active discounts</span>
+            <span class="hero-pill-label"><i class="bi bi-ticket-perforated"></i> Active discounts</span>
             <span class="hero-pill-value">{{ discounts.length }}</span>
           </div>
           <div class="hero-pill">
-            <span class="hero-pill-label">Product-only</span>
+            <span class="hero-pill-label"><i class="bi bi-box-seam"></i> Product-only</span>
             <span class="hero-pill-value">{{ productDiscounts.length }}</span>
           </div>
           <div class="hero-pill">
-            <span class="hero-pill-label">Referees</span>
+            <span class="hero-pill-label"><i class="bi bi-people"></i> Referees</span>
             <span class="hero-pill-value">{{ referees.length }}</span>
           </div>
         </div>
@@ -227,21 +227,23 @@
           <div class="panel breath-in-once border border-primary-subtle">
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Universal Deals</h2>
-                <p class="panel-sub">Sitewide offers you can auto-apply or redeem with a code.</p>
+                <h2 class="panel-title"><i class="bi bi-globe-americas"></i> Universal Deals</h2>
+                <p class="panel-sub">Store-wide offers you can auto-apply or redeem with a code.</p>
               </div>
             </div>
 
             <div v-if="busy" class="empty-state">
               <div class="spinner-border mb-2"></div>
-              <p class="empty-title">Loading discounts…</p>
-              <p class="empty-text">Please wait while we pull your available rewards.</p>
+              <p class="empty-title">Loading your discounts…</p>
+              <p class="empty-text">We’re fetching all active rewards linked to your account.</p>
             </div>
 
             <div v-else-if="discounts.length === 0" class="empty-state">
               <i class="bi bi-ticket-perforated empty-icon"></i>
-              <p class="empty-title">No active order discounts right now.</p>
-              <p class="empty-text">When we drop a store-wide promo, it’ll show up here.</p>
+              <p class="empty-title">No order-wide discounts right now</p>
+              <p class="empty-text">
+                Once we launch a store-wide promo, it’ll automatically appear here for you.
+              </p>
             </div>
 
             <div v-else class="discount-list">
@@ -254,31 +256,36 @@
               >
                 <div class="discount-main">
                   <div class="d-flex justify-content-between">
-                    <p v-if="d.code" class="discount-code">{{ d.code }}</p>
+                    <p v-if="d.code" class="discount-code">
+                      <i class="bi bi-ticket-perforated me-1"></i>{{ d.code }}
+                    </p>
                     <button
                       class="cta-btn"
                       @click.stop="goToShop(d)"
                       :disabled="exceededUserLimit(d)"
                       :aria-disabled="exceededUserLimit(d)"
                     >
-                      {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
-                    </button>          
+                      <i class="bi bi-bag-check me-1"></i>
+                      {{ exceededUserLimit(d) ? 'Already used' : 'Use deal' }}
+                    </button>
                   </div>
                   <div>
                     <h3 class="discount-title">{{ d.title }}</h3>
                     <p class="discount-value">{{ headline(d) }}</p>
                     <p class="discount-desc">
                       <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                      <br></br>
+                      <br />
                       <template v-if="capText(d)">{{ capText(d) }}</template>
                     </p>
-                    <p class="discount-exp">Expiring: {{ expiryLabel(d) }}</p>
+                    <p class="discount-exp">
+                      <i class="bi bi-hourglass-split me-1"></i> Expiring: {{ expiryLabel(d) }}
+                    </p>
                     <p
                       v-if="typeof d.max_uses_per_user === 'number'"
                       class="discount-usage text-secondary fs-6"
                       :class="{ 'text-danger': exceededUserLimit(d) }"
                     >
-                      Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
+                      Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }} time(s)
                     </p>
                   </div>
                 </div>
@@ -287,12 +294,18 @@
           </div>
 
           <!-- PRODUCT-SPECIFIC DISCOUNTS -->
-          <div class="panel breath-in-once pd-panel border border-warning-subtle" v-if="productDiscounts.length > 0">
+          <div
+            class="panel breath-in-once pd-panel border border-warning-subtle"
+            v-if="productDiscounts.length > 0"
+          >
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Product-Only Discounts</h2>
+                <h2 class="panel-title">
+                  <i class="bi bi-box2-heart"></i> Product-Only Discounts
+                </h2>
                 <p class="panel-sub">
-                  Can only be applied to a certain product.
+                  Promotions that apply to specific items only — watch out for big savings on your
+                  favorites.
                 </p>
               </div>
             </div>
@@ -306,19 +319,24 @@
                 @click="openDiscount(d)"
               >
                 <div class="pd-top">
-                  <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
+                  <span class="pd-type" v-if="d.type === 'free_shipping'">
+                    <i class="bi bi-truck me-1"></i>Free Shipping
+                  </span>
                   <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
-                    ₱{{ money(d.amount_off ?? 0) }} OFF
+                    <i class="bi bi-cash-coin me-1"></i>₱{{ money(d.amount_off ?? 0) }} OFF
                   </span>
-                  <span class="pd-type" v-else-if="d.type === 'percent' && d.max_discount_amount != null">
-                    Up to ₱{{ money(d.max_discount_amount) }} OFF
+                  <span
+                    class="pd-type"
+                    v-else-if="d.type === 'percent' && d.max_discount_amount != null"
+                  >
+                    <i class="bi bi-percent me-1"></i>Up to ₱{{ money(d.max_discount_amount) }} OFF
                   </span>
-                  <span class="pd-type" v-else>Special discount</span>
+                  <span class="pd-type" v-else><i class="bi bi-gift me-1"></i>Special discount</span>
                 </div>
 
                 <div class="pd-thumb-wrap" v-if="d.product_img_url">
                   <img
-                    :src="d.product_img_url"
+                    :src="d.product_img_url || ''"
                     :alt="d.product_name || shortProductId(d.product_id)"
                     class="pd-thumb"
                     referrerpolicy="no-referrer"
@@ -328,28 +346,33 @@
                 <h3 class="pd-title m-0 mt-2 fw-bold">{{ d.title }}</h3>
                 <p class="pd-product-label">
                   <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                  <br></br>
+                  <br />
                   <template v-if="capText(d)">{{ capText(d) }}</template>
                 </p>
-                <p class="pd-meta" style="font-size: 0.9rem;">Expiring: {{ expiryLabel(d) }}</p>
+                <p class="pd-meta" style="font-size: 0.9rem;">
+                  <i class="bi bi-hourglass-split me-1"></i> Expiring: {{ expiryLabel(d) }}
+                </p>
                 <p
                   v-if="typeof d.max_uses_per_user === 'number'"
                   class="pd-usage"
                   style="font-size: 0.9rem;"
                   :class="{ 'text-danger': exceededUserLimit(d) }"
-                  >
-                    Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }}
+                >
+                  Used {{ userUseCount(d.id) }}/{{ d.max_uses_per_user }} time(s)
                 </p>
 
                 <div class="pd-footer">
-                  <p v-if="d.code" class="pd-code">{{ d.code }}</p>
+                  <p v-if="d.code" class="pd-code">
+                    <i class="bi bi-ticket-perforated me-1"></i>{{ d.code }}
+                  </p>
                   <button
                     class="mini-btn orange"
                     @click.stop="goToShop(d)"
                     :disabled="exceededUserLimit(d)"
                     :aria-disabled="exceededUserLimit(d)"
                   >
-                    {{ exceededUserLimit(d) ? 'Used' : 'Use' }}
+                    <i class="bi bi-bag-check me-1"></i>
+                    {{ exceededUserLimit(d) ? 'Already used' : 'Use deal' }}
                   </button>
                 </div>
               </article>
@@ -357,14 +380,17 @@
           </div>
 
           <!-- UPCOMING DISCOUNTS -->
-          <div class="panel breath-in-once border border border-secondary-subtle"
+          <div
+            class="panel breath-in-once border border border-secondary-subtle"
             v-if="upcomingOrderDiscounts.length || upcomingProductDiscounts.length"
           >
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Upcoming Discounts</h2>
+                <h2 class="panel-title">
+                  <i class="bi bi-calendar-event"></i> Upcoming Discounts
+                </h2>
                 <p class="panel-sub">
-                  Scheduled promos that will go live soon.
+                  Scheduled promos that will go live soon — keep an eye out so you don’t miss them.
                 </p>
               </div>
             </div>
@@ -399,13 +425,19 @@
                           <span v-if="minSubtotalText(d)"> • </span>{{ capText(d) }}
                         </template>
                       </p>
-                      <p class="discount-exp">Starts {{ startLabel(d) }}</p>
+                      <p class="discount-exp">
+                        <i class="bi bi-clock-history me-1"></i> Starts {{ startLabel(d) }}
+                      </p>
                     </div>
                   </div>
 
                   <div class="discount-side align-items-center">
-                    <p v-if="d.code" class="discount-code">{{ d.code }}</p>
-                    <button class="cta-btn orange ms-3" disabled aria-disabled="true">Soon</button>
+                    <p v-if="d.code" class="discount-code">
+                      <i class="bi bi-ticket-perforated me-1"></i>{{ d.code }}
+                    </p>
+                    <button class="cta-btn orange ms-3" disabled aria-disabled="true">
+                      <i class="bi bi-hourglass-split me-1"></i>Coming soon
+                    </button>
                   </div>
                 </article>
               </div>
@@ -428,19 +460,26 @@
                   @click="openDiscount(d)"
                 >
                   <div class="pd-top">
-                    <span class="pd-type" v-if="d.type === 'free_shipping'">Free Shipping</span>
+                    <span class="pd-type" v-if="d.type === 'free_shipping'">
+                      <i class="bi bi-truck me-1"></i>Free Shipping
+                    </span>
                     <span class="pd-type" v-else-if="d.type === 'fixed_amount'">
-                      ₱{{ money(d.amount_off ?? 0) }} OFF
+                      <i class="bi bi-cash-coin me-1"></i>₱{{ money(d.amount_off ?? 0) }} OFF
                     </span>
-                    <span class="pd-type" v-else-if="d.type === 'percent' && d.max_discount_amount != null">
-                      Up to ₱{{ money(d.max_discount_amount) }} OFF
+                    <span
+                      class="pd-type"
+                      v-else-if="d.type === 'percent' && d.max_discount_amount != null"
+                    >
+                      <i class="bi bi-percent me-1"></i>Up to ₱{{ money(d.max_discount_amount) }} OFF
                     </span>
-                    <span class="pd-type" v-else>Special discount</span>
+                    <span class="pd-type" v-else>
+                      <i class="bi bi-gift me-1"></i>Special discount
+                    </span>
                   </div>
 
                   <div class="pd-thumb-wrap" v-if="d.product_img_url">
                     <img
-                      :src="d.product_img_url"
+                      :src="d.product_img_url || ''"
                       :alt="d.product_name || shortProductId(d.product_id)"
                       class="pd-thumb"
                       referrerpolicy="no-referrer"
@@ -450,14 +489,20 @@
                   <h3 class="pd-title mt-2">{{ d.title }}</h3>
                   <p class="pd-product-label">
                     <template v-if="minSubtotalText(d)">{{ minSubtotalText(d) }}</template>
-                    <br></br>
+                    <br />
                     <template v-if="capText(d)">{{ capText(d) }}</template>
                   </p>
-                  <p class="pd-meta">Starts {{ startLabel(d) }}</p>
+                  <p class="pd-meta">
+                    <i class="bi bi-clock-history me-1"></i> Starts {{ startLabel(d) }}
+                  </p>
 
                   <div class="pd-footer">
-                    <p v-if="d.code" class="pd-code">{{ d.code }}</p>
-                    <button class="mini-btn orange" disabled aria-disabled="true">Soon</button>
+                    <p v-if="d.code" class="pd-code">
+                      <i class="bi bi-ticket-perforated me-1"></i>{{ d.code }}
+                    </p>
+                    <button class="mini-btn orange" disabled aria-disabled="true">
+                      <i class="bi bi-hourglass-split me-1"></i>Coming soon
+                    </button>
                   </div>
                 </article>
               </div>
@@ -471,8 +516,12 @@
           <div class="panel breath-in-once border border-info-subtle">
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Affiliate & Referrals</h2>
-                <p class="panel-sub">Share your link and earn commission on converted sales.</p>
+                <h2 class="panel-title">
+                  <i class="bi bi-megaphone"></i> Affiliate & Referrals
+                </h2>
+                <p class="panel-sub">
+                  Share your personal link and earn commission on successful purchases.
+                </p>
               </div>
             </div>
 
@@ -486,7 +535,7 @@
                 </button>
               </div>
               <p class="aff-hint">
-                New signups through this link will appear in your network list below.
+                Anyone who signs up through this link will appear in your network list below.
               </p>
             </div>
 
@@ -496,21 +545,28 @@
                 <p class="metric-value">{{ referralStats.total }}</p>
               </div>
               <div class="metric-card">
-                <p class="metric-label">Converted Sales</p>
-                <p class="metric-value">{{ referralStats.converted }}</p>
+                <p class="metric-label">Credits per Referral</p>
+                <p class="metric-value">₱ {{ money(REFERRAL_CREDIT_PER_REF) }}</p>
               </div>
               <div class="metric-card">
-                <p class="metric-label">Commission</p>
-                <p class="metric-value">₱ {{ money(referralStats.commission) }}</p>
+                <p class="metric-label">Total Discount Credits</p>
+                <p class="metric-value">₱ {{ money(totalReferralCredits) }}</p>
               </div>
             </div>
+
+            <p class="aff-hint" style="margin-top:0.5rem;">
+              1 successful referral = ₱{{ money(REFERRAL_CREDIT_PER_REF) }} added to your discount
+              credits. So far, you've earned ₱{{ money(totalReferralCredits) }} from referrals.
+            </p>
           </div>
 
           <!-- Referees list -->
           <div class="panel breath-in-once border border-info-subtle">
             <div class="panel-head">
               <div>
-                <h2 class="panel-title">Your Network</h2>
+                <h2 class="panel-title">
+                  <i class="bi bi-people"></i> Your Network
+                </h2>
                 <p class="panel-sub">People who joined using your link.</p>
               </div>
               <span class="tag">{{ referees.length }} total</span>
@@ -518,14 +574,16 @@
 
             <div v-if="busyReferees" class="empty-state">
               <div class="spinner-border mb-2"></div>
-              <p class="empty-title">Loading referees…</p>
-              <p class="empty-text">Give us a second to fetch your network.</p>
+              <p class="empty-title">Loading your referees…</p>
+              <p class="empty-text">Sit tight, we’re pulling your latest referral activity.</p>
             </div>
 
             <div v-else-if="referees.length === 0" class="empty-state">
               <i class="bi bi-person-plus empty-icon"></i>
-              <p class="empty-title">No referees yet.</p>
-              <p class="empty-text">Share your link to start building your downline.</p>
+              <p class="empty-title">No referees yet</p>
+              <p class="empty-text">
+                Share your referral link above to start building your earning network.
+              </p>
             </div>
 
             <ul v-else class="ref-list">
@@ -550,10 +608,10 @@
 
                   <div>
                     <p class="ref-name">{{ r.full_name || 'Unnamed User' }}</p>
-                    <p class="ref-sub">Joined via your link</p>
+                    <p class="ref-sub">Joined using your referral link</p>
                     <div v-if="goalPerRef != null" class="ref-progress">
                       <div class="ref-progress-head">
-                        <span>Progress</span>
+                        <span>Progress this month</span>
                         <span class="ref-progress-val">
                           ₱{{ r.purchasesThisMonth.count }} / ₱{{ goalPerRef }}
                         </span>
@@ -569,7 +627,9 @@
                   <p
                     v-if="r.purchasesThisMonth.totalAmount != null"
                     class="ref-amount-sub"
-                  >₱ {{ money(r.purchasesThisMonth.totalAmount) }} total</p>
+                  >
+                    ₱ {{ money(r.purchasesThisMonth.totalAmount) }} total spent
+                  </p>
                 </div>
               </li>
             </ul>
@@ -604,7 +664,12 @@
             <div class="dm-col">
               <p class="dm-label">Min. Subtotal</p>
               <p class="dm-strong p-0 m-0">
-                <template v-if="activeDiscount?.min_subtotal && Number(activeDiscount.min_subtotal) > 0">
+                <template
+                  v-if="
+                    activeDiscount?.min_subtotal &&
+                    Number(activeDiscount.min_subtotal) > 0
+                  "
+                >
                   ₱{{ money(activeDiscount!.min_subtotal) }}
                 </template>
                 <template v-else>None</template>
@@ -623,10 +688,10 @@
               <div class="dm-code-line" v-if="activeDiscount?.code">
                 <code class="dm-code">{{ activeDiscount!.code }}</code>
                 <button class="mini-btn orange" @click="copyDiscountCodeLocal">
-                  <i class="bi bi-clipboard"></i> Copy
+                  <i class="bi bi-clipboard"></i> Copy code
                 </button>
               </div>
-              <p v-else class="dm-muted">No code required</p>
+              <p v-else class="dm-muted">This deal is auto-applied at checkout. No code needed.</p>
             </div>
           </div>
 
@@ -645,7 +710,9 @@
             <div class="dm-col">
               <p class="dm-label">Stacking</p>
               <p class="dm-strong p-0 m-0">{{ stackText(activeDiscount!) }}</p>
-              <p class="dm-note p-0 m-0">Whether this can be combined with other vouchers.</p>
+              <p class="dm-note p-0 m-0">
+                This tells you if the voucher can be combined with other promos.
+              </p>
             </div>
           </div>
 
@@ -653,11 +720,15 @@
           <div class="dm-row">
             <div class="dm-col">
               <p class="dm-label">Starts</p>
-              <p class="dm-strong">{{ prettyDT(activeDiscount?.starts_at) || '—' }}</p>
+              <p class="dm-strong">
+                {{ prettyDT(activeDiscount?.starts_at) || 'Already active' }}
+              </p>
             </div>
             <div class="dm-col">
               <p class="dm-label">Expires</p>
-              <p class="dm-strong">{{ prettyDT(activeDiscount?.expires_at) || 'No expiry' }}</p>
+              <p class="dm-strong">
+                {{ prettyDT(activeDiscount?.expires_at) || 'No expiry date' }}
+              </p>
             </div>
           </div>
 
@@ -665,20 +736,30 @@
           <div class="dm-row" v-if="typeof activeDiscount?.max_uses_per_user === 'number'">
             <div class="dm-col">
               <p class="dm-label">Per-User Limit</p>
-              <p class="dm-strong p-0 m-0">{{ activeDiscount!.max_uses_per_user }} use{{ activeDiscount!.max_uses_per_user === 1 ? '' : 's' }} per user</p>
-              <p class="dm-note p-0 m-0">You’ve used this {{ userUseCount(activeDiscount!.id) }} time(s).</p>
+              <p class="dm-strong p-0 m-0">
+                {{ activeDiscount!.max_uses_per_user }} use{{
+                  activeDiscount!.max_uses_per_user === 1 ? '' : 's'
+                }}
+                per user
+              </p>
+              <p class="dm-note p-0 m-0">
+                You’ve used this {{ userUseCount(activeDiscount!.id) }} time(s) so far.
+              </p>
             </div>
             <div class="dm-col"></div>
           </div>
         </div>
 
         <div class="dm-footer">
-          <button class="mini-btn light" @click="closeDiscount">Close</button>
+          <button class="mini-btn light" @click="closeDiscount">
+            <i class="bi bi-arrow-left-short me-1"></i>Close
+          </button>
           <button
             class="mini-btn orange"
             :disabled="exceededUserLimit(activeDiscount!)"
             @click="goToShop(activeDiscount!); closeDiscount()"
           >
+            <i class="bi bi-bag-check me-1"></i>
             {{ exceededUserLimit(activeDiscount!) ? 'Limit reached' : 'Use this deal' }}
           </button>
         </div>
@@ -691,12 +772,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter, useRoute } from 'vue-router' // ← added useRoute
+import { useRouter, useRoute } from 'vue-router'
 import { currentUser } from '@/lib/authState'
 import { nextTick, watch } from 'vue'
 
 const router = useRouter()
-const route = useRoute() // ← added
+const route = useRoute()
 const user = computed(() => currentUser.value)
 
 /** NEW: initial page skeleton flag */
@@ -740,7 +821,7 @@ type Discount = {
   min_subtotal?: number | null
   max_discount_amount?: number | null
   redemptions_count?: number | null /* hidden to users */
-  max_uses_global?: number | null   /* hidden to users */
+  max_uses_global?: number | null /* hidden to users */
 
   /* UI-only */
   brand_label?: string | null
@@ -771,6 +852,10 @@ const userRedemptions = ref<Record<string, number>>({})
 
 const goalPerRef = ref<number | null>(null)
 
+/* ===== Referral → Discount Credits logic ===== */
+const REFERRAL_CREDIT_PER_REF = 200
+const totalReferralCredits = computed(() => referralStats.value.total * REFERRAL_CREDIT_PER_REF)
+
 /* ===== Shopper-friendly helpers ===== */
 function money(v: number | string | null | undefined) {
   const n = Number(v ?? 0)
@@ -793,7 +878,7 @@ function capText(d: Discount) {
 }
 function minSubtotalText(d: Discount) {
   const val = Number(d?.min_subtotal ?? 0)
-  return val > 0 ? `Min. Spend ₱${money(val)}` : null
+  return val > 0 ? `Min. spend ₱${money(val)}` : null
 }
 function stackText(d: Discount) {
   const s = (d?.stack || '').toLowerCase()
@@ -932,7 +1017,7 @@ async function loadActiveDiscounts() {
     { data: orderData, error: orderErr },
     { data: prodData, error: prodErr },
     { data: upOrder, error: upOrderErr },
-    { data: upProd, error: upProdErr },
+    { data: upProd, error: upProdErr }
   ] = await Promise.all([orderPromise, productPromise, upcomingOrderPromise, upcomingProdPromise])
 
   if (orderErr) {
@@ -1009,7 +1094,7 @@ async function loadActiveDiscounts() {
           tasks.push(
             signedUrlWithCB(PRIZE_BUCKET, first).then(url => {
               d.product_img_url = url
-            }),
+            })
           )
         } else {
           d.product_img_url = null
@@ -1084,7 +1169,7 @@ const activeDiscount = ref<Discount | null>(null)
 function openDiscount(d: Discount) {
   activeDiscount.value = d
   showDiscountModal.value = true
-  // lock scroll (shoee vibe)
+  // lock scroll
   document.documentElement.style.overflow = 'hidden'
 }
 function closeDiscount() {
@@ -1096,9 +1181,7 @@ async function copyDiscountCodeLocal() {
   if (!activeDiscount.value?.code) return
   try {
     await navigator.clipboard.writeText(activeDiscount.value.code)
-    // subtle toast
-    // no external dependency—just a quick native feel:
-    alert('Voucher code copied!')
+    alert('Voucher code copied to your clipboard!')
   } catch {}
 }
 
@@ -1269,8 +1352,8 @@ async function loadReferees(uid: string) {
         avatar_url: avatarUrls[i] || null,
         purchasesThisMonth: {
           count: purchases_per_month,
-          totalAmount: null,
-        },
+          totalAmount: null
+        }
       } as RefereeRow
     })
   } finally {
@@ -1287,11 +1370,9 @@ function initials(name: string | null): string {
   return (first + last).toUpperCase() || 'U'
 }
 function avatarBg(seed: string): string {
-  // lightweight deterministic hash → hue
   let h = 0
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
   const hue = h % 360
-  // pleasant, not too bright/dark
   return `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 30) % 360} 75% 55%))`
 }
 
@@ -1318,7 +1399,7 @@ async function loadAll() {
         loadReferralBits(uid),
         loadUserRedemptions(uid),
         loadGoalPerRef(uid),
-        loadReferees(uid),
+        loadReferees(uid)
       ])
     } else {
       affiliateUrl.value = null
@@ -1340,9 +1421,9 @@ async function copyAffiliate() {
   if (!affiliateUrl.value) return
   try {
     await navigator.clipboard.writeText(affiliateUrl.value)
-    alert('Affiliate link copied!')
+    alert('Your referral link has been copied. Share it with your friends!')
   } catch {
-    prompt('Copy your affiliate link:', affiliateUrl.value)
+    prompt('Copy your referral link:', affiliateUrl.value)
   }
 }
 
@@ -1377,7 +1458,7 @@ async function firstImagePathForProduct(productId: string): Promise<string | nul
 async function signedUrlWithCB(
   bucket: string,
   path: string,
-  expiresIn = 3600,
+  expiresIn = 3600
 ): Promise<string | null> {
   const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, expiresIn)
   if (error) return null
@@ -1387,24 +1468,24 @@ async function signedUrlWithCB(
 async function attachProductImages(list: any[]) {
   if (!list || !list.length) return
   await Promise.all(
-    list.map(async (p) => {
+    list.map(async p => {
       const path = await firstImagePathForProduct(p.id)
       const signed = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
       p.thumbnail_url = signed || p.thumbnail_url || null
-    }),
+    })
   )
 }
 async function attachPrizeImages(list: any[]) {
   if (!list || list.length === 0) return
   await Promise.all(
-    list.map(async (ev) => {
+    list.map(async ev => {
       if (!ev?.product_id) {
         ev.imageUrl = null
         return
       }
       const path = await firstImagePathForProduct(ev.product_id)
       ev.imageUrl = path ? await signedUrlWithCB(PRIZE_BUCKET, path) : null
-    }),
+    })
   )
 }
 
@@ -1448,7 +1529,7 @@ async function enrichProductDiscounts(list: Discount[]) {
       tasks.push(
         signedUrlWithCB(PRIZE_BUCKET, first).then(url => {
           d.product_img_url = url
-        }),
+        })
       )
     } else {
       d.product_img_url = null
@@ -1474,17 +1555,17 @@ const gamesLoading = ref(true)
 const selectedGameId = ref<string | null>(null)
 
 const openGames = computed(() =>
-  allGames.value.filter((g) => (g.status || '').toLowerCase() === 'open'),
+  allGames.value.filter(g => (g.status || '').toLowerCase() === 'open')
 )
 const featureGame = computed<GameRow | null>(() => {
   const fromSel = selectedGameId.value
-    ? openGames.value.find((g) => g.id === selectedGameId.value)
+    ? openGames.value.find(g => g.id === selectedGameId.value)
     : null
   return fromSel || openGames.value[0] || null
 })
 const sideListGames = computed(() => {
   const fid = featureGame.value?.id
-  return openGames.value.filter((g) => g.id !== fid)
+  return openGames.value.filter(g => g.id !== fid)
 })
 function isSelected(id: string) {
   return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
@@ -1521,7 +1602,7 @@ const previewProducts = computed<ProdRow[]>(() => {
   return (publishedPreview.value.length ? publishedPreview.value : bigDiscounts.value).slice(0, 12)
 })
 const currentPreview = computed<ProdRow | null>(
-  () => previewProducts.value[previewIndex.value] || null,
+  () => previewProducts.value[previewIndex.value] || null
 )
 
 watch(previewProducts, () => {
@@ -1672,7 +1753,7 @@ async function fetchOpenGames() {
       const fb = await supabase
         .from('event')
         .select(
-          'id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at',
+          'id,title,player_count,player_cap,status,winner_refund_amount,product_id,created_at'
         )
         .eq('status', 'open')
         .order('created_at', { ascending: false })
@@ -1700,7 +1781,7 @@ function mapEventRow(row: any): GameRow {
     winner_price: Number(row.winner_refund_amount ?? row.winner_price ?? 0),
     product_id: row.product_id ?? null,
     imageUrl: null,
-    created_at: row.created_at,
+    created_at: row.created_at
   }
 }
 
@@ -1775,14 +1856,14 @@ async function fetchBigDiscounts() {
         price_was: price_was ? Number(price_was) : null,
         thumbnail_url: r.thumbnail_url ?? null,
         _discount_pct: pct,
-        description: null,
+        description: null
       } as ProdRow
     })
 
     await attachProductImages(rows)
 
     bigDiscounts.value = rows
-      .filter((r) => r._discount_pct >= 30)
+      .filter(r => r._discount_pct >= 30)
       .sort((a, b) => b._discount_pct - a._discount_pct)
       .slice(0, 14)
   } catch {
@@ -1817,7 +1898,7 @@ async function fetchPublishedProductsForPreview() {
         price_was: null,
         thumbnail_url: thumb,
         _discount_pct: 0,
-        description: typeof r.description === 'string' ? r.description : null,
+        description: typeof r.description === 'string' ? r.description : null
       }
     })
 
@@ -1910,7 +1991,7 @@ function startRealtime() {
         { event: '*', schema: 'games', table: 'event', filter: 'status=eq.open' },
         async () => {
           await fetchOpenGames()
-        },
+        }
       )
       .subscribe()
 
@@ -1922,19 +2003,19 @@ function startRealtime() {
         async (payload: any) => {
           const prodId = payload?.new?.id as string | undefined
           if (!prodId) return
-          const affectedEvents = allGames.value.filter((e) => e.product_id === prodId)
+          const affectedEvents = allGames.value.filter(e => e.product_id === prodId)
           await attachPrizeImages(affectedEvents)
 
-          const affectedPreview = publishedPreview.value.filter((p) => p.id === prodId)
+          const affectedPreview = publishedPreview.value.filter(p => p.id === prodId)
           await attachProductImages(affectedPreview)
-        },
+        }
       )
       .subscribe()
 
     chPubProducts = supabase
       .channel('rt:games.products')
       .on('postgres_changes', { event: '*', schema: 'games', table: 'products' }, () =>
-        fetchPublishedProductsForPreview(),
+        fetchPublishedProductsForPreview()
       )
       .subscribe()
   } catch {}
@@ -1949,9 +2030,9 @@ function startRealtime() {
             event: '*',
             schema: 'games',
             table: 'purchases',
-            filter: `user_id=eq.${user.value.id}`,
+            filter: `user_id=eq.${user.value.id}`
           },
-          () => fetchOrderUpdates(),
+          () => fetchOrderUpdates()
         )
         .subscribe()
 
@@ -1960,7 +2041,7 @@ function startRealtime() {
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'users', filter: `id=eq.${user.value.id}` },
-          () => fetchUserWalletAndPurchases(),
+          () => fetchUserWalletAndPurchases()
         )
         .subscribe()
 
@@ -1972,9 +2053,9 @@ function startRealtime() {
             event: '*',
             schema: 'public',
             table: 'users',
-            filter: `referred_by=eq.${user.value.id}`,
+            filter: `referred_by=eq.${user.value.id}`
           },
-          () => fetchReferralCount(),
+          () => fetchReferralCount()
         )
         .subscribe()
     }
@@ -1987,7 +2068,7 @@ function selectFeature(id: string) {
   gamesPanelEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
 }
 watch(openGames, () => {
-  if (!openGames.value.find((g) => g.id === selectedGameId.value)) {
+  if (!openGames.value.find(g => g.id === selectedGameId.value)) {
     selectedGameId.value = openGames.value[0]?.id ?? null
   }
 })
@@ -2028,7 +2109,7 @@ onMounted(async () => {
     fetchOpenGames(),
     fetchOrderUpdates(),
     fetchBigDiscounts(),
-    fetchPublishedProductsForPreview(),
+    fetchPublishedProductsForPreview()
   ])
 
   await Promise.all([fetchUserWalletAndPurchases(), fetchReferralCount()])
@@ -2092,7 +2173,7 @@ async function fetchProfileAndTier() {
       const fb = await supabase
         .from('member')
         .select(
-          'tier_key, ewallet_balance, discount_credit_balance, referral_count, lifetime_purchases',
+          'tier_key, ewallet_balance, discount_credit_balance, referral_count, lifetime_purchases'
         )
         .eq('user_id', uid)
         .single()
@@ -2102,7 +2183,7 @@ async function fetchProfileAndTier() {
           ewallet_balance: fb.data?.ewallet_balance,
           discount_credit_balance: fb.data?.discount_credit_balance,
           referrals: fb.data?.referral_count,
-          lifetime_purchases: fb.data?.lifetime_purchases,
+          lifetime_purchases: fb.data?.lifetime_purchases
         } as any
       }
     }
@@ -2201,9 +2282,12 @@ async function fetchReferralCount() {
   color: rgba(32, 100, 124, 0.7);
   margin-bottom: 0.4rem;
   font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 .hero-title {
-  font-size: 1.5rem; /* close to your old h4 */
+  font-size: 1.5rem;
   font-weight: 700;
   color: #122431;
   margin-bottom: 0.25rem;
@@ -2233,6 +2317,9 @@ async function fetchReferralCount() {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #7a8493;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
 .hero-pill-value {
   font-weight: 700;
@@ -2253,14 +2340,14 @@ async function fetchReferralCount() {
   flex-direction: column;
   gap: 1.5rem;
 }
+
+/* UPDATED: make right column non-sticky */
 .deals-right {
-  position: sticky;
-  top: 1.5rem;
-  align-self: start;
-  max-height: calc(100vh - 1.5rem);
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
-  min-height: 0;
+  align-self: stretch;
+  max-height: none;
+  overflow: visible;
+  -webkit-overflow-scrolling: auto;
+  min-height: auto;
 }
 
 /* PANEL */
@@ -2330,7 +2417,6 @@ async function fetchReferralCount() {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
-  /* make it scroll */
   max-height: 50vh;
   overflow-y: auto;
   padding-right: 4px;
@@ -2343,7 +2429,6 @@ async function fetchReferralCount() {
   border: 1px solid rgba(15, 23, 42, 0.02);
   border-radius: 1rem;
   padding: 0.75rem 0.8rem;
-
   font-size: var(--fs-base);
   cursor: pointer;
 }
@@ -2374,8 +2459,8 @@ async function fetchReferralCount() {
 .discount-value {
   font-weight: 700;
   color: #0f172a;
-  font-size: .95rem;
-  margin: .1rem 0 .15rem;
+  font-size: 0.95rem;
+  margin: 0.1rem 0 0.15rem;
 }
 .discount-desc {
   font-size: var(--fs-sm);
@@ -2439,13 +2524,14 @@ async function fetchReferralCount() {
   font-size: var(--fs-xs);
   padding: 0.1rem 0.9rem;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 .cta-btn[disabled] {
   opacity: 0.35;
   cursor: not-allowed;
 }
-
-
 
 /* Shopee-ish accent on actionable buttons and cards */
 .shopeeish:hover {
@@ -2461,7 +2547,9 @@ async function fetchReferralCount() {
 .discount-card p,
 .product-discount-card p,
 .metric-card p,
-.aff-input-wrap p { margin: 0; }
+.aff-input-wrap p {
+  margin: 0;
+}
 .product-discount-grid {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
@@ -2480,7 +2568,6 @@ async function fetchReferralCount() {
   cursor: pointer;
   height: 100%;
 }
-
 
 /* Allow flex/grid descendants to actually shrink & scroll */
 .deals-left,
@@ -2644,7 +2731,6 @@ async function fetchReferralCount() {
   display: grid;
   gap: 0.4rem;
   align-items: center;
-
   grid-template-columns: 1fr auto;
 }
 .aff-input {
@@ -2654,7 +2740,6 @@ async function fetchReferralCount() {
   border-radius: 0.65rem;
   padding: 0.45rem 0.6rem;
   font-size: var(--fs-sm);
-
   min-width: 0;
   word-break: break-all;
 }
@@ -2665,7 +2750,7 @@ async function fetchReferralCount() {
 }
 .aff-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 0.5rem;
 }
 .metric-card {
@@ -2714,7 +2799,9 @@ async function fetchReferralCount() {
   align-items: center;
 }
 /* wrap kept for skeleton above */
-.ref-avatar-wrap { display: contents; }
+.ref-avatar-wrap {
+  display: contents;
+}
 
 .ref-avatar {
   width: 40px;
@@ -2779,20 +2866,34 @@ async function fetchReferralCount() {
 
 /* ===== Breath-in intro ===== */
 @keyframes breathInOnce {
-  0% { opacity: 0; transform: scale(0.985); }
-  100% { opacity: 1; transform: scale(1); }
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 .breath-in-once {
-  animation: breathInOnce 1000ms cubic-bezier(.2,.7,.1,1) both;
+  animation: breathInOnce 1000ms cubic-bezier(0.2, 0.7, 0.1, 1) both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .breath-in-once { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .breath-in-once {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
 }
 
 /* ===== Skeleton styles ===== */
 @keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 .skel-line {
   height: 12px;
@@ -2801,28 +2902,69 @@ async function fetchReferralCount() {
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
-.skel-line.sm { height: 10px; }
-.skel-line.xs { height: 8px; }
-.w-100 { width: 100%; }
-.w-70 { width: 70%; }
-.w-65 { width: 65%; }
-.w-60 { width: 60%; }
-.w-56 { width: 56%; }
-.w-55 { width: 55%; }
-.w-50 { width: 50%; }
-.w-45 { width: 45%; }
-.w-40 { width: 40%; }
-.w-36 { width: 36%; }
-.w-35 { width: 35%; }
-.w-34 { width: 34%; }
-.w-30 { width: 30%; }
-.w-25 { width: 25%; }
-.w-24 { width: 24%; }
-.mt-2 { margin-top: .5rem; }
-.mb-2 { margin-bottom: .5rem; }
-.mb-1 { margin-bottom: .25rem; }
+.skel-line.sm {
+  height: 10px;
+}
+.skel-line.xs {
+  height: 8px;
+}
+.w-100 {
+  width: 100%;
+}
+.w-70 {
+  width: 70%;
+}
+.w-65 {
+  width: 65%;
+}
+.w-60 {
+  width: 60%;
+}
+.w-56 {
+  width: 56%;
+}
+.w-55 {
+  width: 55%;
+}
+.w-50 {
+  width: 50%;
+}
+.w-45 {
+  width: 45%;
+}
+.w-40 {
+  width: 40%;
+}
+.w-36 {
+  width: 36%;
+}
+.w-35 {
+  width: 35%;
+}
+.w-34 {
+  width: 34%;
+}
+.w-30 {
+  width: 30%;
+}
+.w-25 {
+  width: 25%;
+}
+.w-24 {
+  width: 24%;
+}
+.mt-2 {
+  margin-top: 0.5rem;
+}
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+.mb-1 {
+  margin-bottom: 0.25rem;
+}
 
-.skel-pill, .skel-chip {
+.skel-pill,
+.skel-chip {
   height: 28px;
   min-width: 110px;
   border-radius: 999px;
@@ -2830,53 +2972,65 @@ async function fetchReferralCount() {
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
-.skel-chip { min-width: 70px; height: 22px; }
+.skel-chip {
+  min-width: 70px;
+  height: 22px;
+}
 
 .skel-btn {
-  width: 90px; height: 30px; border-radius: 999px;
+  width: 90px;
+  height: 30px;
+  border-radius: 999px;
   background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
-.skel-btn.small { width: 64px; height: 26px; }
+.skel-btn.small {
+  width: 64px;
+  height: 26px;
+}
 
 .skel-square {
-  width: 42px; height: 42px; border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
 .skel-avatar {
-  width: 40px; height: 40px; border-radius: 999px;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
   background: linear-gradient(90deg, #eef2f7 0%, #e6ebf3 50%, #eef2f7 100%);
   background-size: 200% 100%;
   animation: shimmer 1.2s infinite linear;
 }
 
-
 /* =================== DETAILS MODAL (fully responsive) =================== */
 .dm-overlay {
   position: fixed;
   inset: 0;
-  /* allow the page behind to stay locked while overlay can scroll if needed */
   overflow: auto;
   -webkit-overflow-scrolling: touch;
   background: rgba(15, 23, 42, 0.32);
   display: grid;
   place-items: center;
   z-index: 9999;
-
-  /* Safe area padding for iOS + small screens */
-  padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
-           max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  padding: max(12px, env(safe-area-inset-top, 0px)) max(
+      12px,
+      env(safe-area-inset-right, 0px)
+    )
+    max(12px, env(safe-area-inset-bottom, 0px)) max(
+      12px,
+      env(safe-area-inset-left, 0px)
+    );
   overscroll-behavior: contain;
 }
 
 .dm-wrap {
-  /* Centered, capped width + height, and internally scrollable */
   width: min(720px, 96vw);
   max-width: 96vw;
-  /* use dvh so mobile browser chrome doesn’t cut us off */
   max-height: min(92dvh, calc(100dvh - 24px));
   background: #fff;
   border-radius: 1rem;
@@ -2884,39 +3038,41 @@ async function fetchReferralCount() {
   box-shadow: 0 30px 80px rgba(15, 23, 42, 0.25);
   overflow: hidden;
   position: relative;
-
-  /* Make header/footer fixed in place while body scrolls */
   display: flex;
   flex-direction: column;
-
-  /* In case content inside has transforms that could spill */
   contain: layout paint;
 }
 
 .dm-x {
   position: absolute;
-  top: .6rem;
-  right: .6rem;
+  top: 0.6rem;
+  right: 0.6rem;
   background: #fff;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 10px;
-  width: 34px; height: 34px;
-  display: grid; place-items: center;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
   cursor: pointer;
   z-index: 2;
 }
 
 .dm-header {
   display: flex;
-  gap: .8rem;
-  padding: 1rem 1rem .25rem 1rem;
+  gap: 0.8rem;
+  padding: 1rem 1rem 0.25rem 1rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.05);
-  flex: 0 0 auto; /* keep visible */
+  flex: 0 0 auto;
 }
 
 .dm-badge {
-  width: 48px; height: 48px; border-radius: 14px;
-  display: grid; place-items: center; color: #fff;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
   background: linear-gradient(150deg, #0ea5e9 0%, #4f46e5 100%);
   font-size: 1.2rem;
 }
@@ -2924,99 +3080,98 @@ async function fetchReferralCount() {
   background: linear-gradient(150deg, #059669 0%, #10b981 100%);
 }
 
-.dm-titles { 
+.dm-titles {
   display: flex;
   justify-content: center;
-  flex-direction: column; 
-  gap: .2rem; 
+  flex-direction: column;
+  gap: 0.2rem;
 }
-.dm-title { 
-  font-size: 1.05rem; 
-  font-weight: 700; 
+.dm-title {
+  font-size: 1.05rem;
+  font-weight: 700;
   color: #0f172a;
 }
-.dm-headline { 
-  font-weight: 800; 
-  color: #0f172a; 
-  font-size: 1rem; 
+.dm-headline {
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 1rem;
 }
-.dm-sub { 
-  color: #6b7280; 
-  font-size: 0.875rem; 
+.dm-sub {
+  color: #6b7280;
+  font-size: 0.875rem;
 }
 
 .dm-body {
-  /* The only scrollable area */
   flex: 1 1 auto;
-  min-height: 0; /* required so flex item can actually shrink and scroll */
+  min-height: 0;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
-  padding: .9rem 1rem;
+  padding: 0.9rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: .75rem;
+  gap: 0.75rem;
   overscroll-behavior: contain;
 }
 
-.dm-row { 
-  display: grid; 
-  grid-template-columns: 1fr 1fr; 
-  gap: .75rem; 
+.dm-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
 }
 .dm-row.highlight {
-  background: #f5fff4; 
+  background: #f5fff4;
   border: 1px solid rgba(115, 255, 34, 0.15);
-  border-radius: .75rem; 
-  padding: .6rem .7rem;
+  border-radius: 0.75rem;
+  padding: 0.6rem 0.7rem;
 }
-.dm-col { 
-  background: #fff; 
-  border: 1px solid rgba(15,23,42,.04); 
-  border-radius: .65rem; 
-  padding: .6rem .7rem; 
+.dm-col {
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.04);
+  border-radius: 0.65rem;
+  padding: 0.6rem 0.7rem;
 }
 .dm-label {
-  font-size: 0.75rem; 
-  color: #94a3b8; 
-  margin-bottom: .15rem;
-  text-transform: uppercase; 
-  letter-spacing: .04em;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-bottom: 0.15rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
-.dm-strong { 
-  font-weight: 700; 
-  color: #0f172a; 
+.dm-strong {
+  font-weight: 700;
+  color: #0f172a;
 }
-.dm-note { 
-  font-size: 0.75rem; 
-  color: #94a3b8; 
-  margin-top: .15rem; 
+.dm-note {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  margin-top: 0.15rem;
 }
-.dm-code-line { 
-  display: flex; 
-  align-items: center; 
-  gap: .35rem;
+.dm-code-line {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   font-size: 0.75rem;
 }
 .dm-code {
-  background: #0f172a; 
-  color: #fff; 
-  border-radius: .5rem;
-  padding: .2rem .45rem; 
-  font-size: .8rem;
-  word-break: break-all; /* avoid horizontal overflow for long codes */
+  background: #0f172a;
+  color: #fff;
+  border-radius: 0.5rem;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.8rem;
+  word-break: break-all;
 }
-.dm-muted { 
-  color: #94a3b8; 
-  font-size: 0.875rem; 
+.dm-muted {
+  color: #94a3b8;
+  font-size: 0.875rem;
 }
 .dm-footer {
-  flex: 0 0 auto; /* keep visible */
-  display: flex; 
-  justify-content: flex-end; 
-  gap: .5rem;
-  padding: .75rem 1rem 1rem;
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem 1rem;
   border-top: 1px solid rgba(15, 23, 42, 0.05);
-  background: #fff; /* ensures footer stays readable over scroll */
+  background: #fff;
 }
 
 /* RESPONSIVE */
@@ -3067,8 +3222,8 @@ async function fetchReferralCount() {
   .hero-stats {
     gap: 0.4rem;
   }
-  .dm-row { 
-    grid-template-columns: 1fr; 
+  .dm-row {
+    grid-template-columns: 1fr;
   }
   .dm-wrap {
     width: 100%;

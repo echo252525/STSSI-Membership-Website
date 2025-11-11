@@ -1033,7 +1033,7 @@
             <div class="fw-bold">₱ {{ number(finalPayableTotal) }}</div>
           </div>
           <div class="d-flex justify-content-end">
-            <button class="btn btn-primary" :disabled="placingOrder" @click="placeOrder">
+            <button class="btn btn-primary" :disabled="disableRequestOrder" @click="placeOrder">
               <span v-if="placingOrder" class="spinner-border spinner-border-sm me-2"></span>
               Request Order
             </button>
@@ -2378,445 +2378,43 @@ const finalPayableTotal = computed(() => {
 const enoughBalanceForItems = computed(() => userBalance.value >= finalPayableTotal.value)
 
 /* ========================================================================
-   SHIPPING / DELIVERY STATE
+   🚦 DISCOUNT ELIGIBILITY STATE for REQUEST ORDER button (NEW)
    ======================================================================== */
-const showShipping = ref(false)
-const savingShipping = ref(false)
-const shippingLoaded = ref(false)
-const shipping = ref<ShippingRow>({
-  user_id: '',
-  phone: '',
-  address_line1: '',
-  barangay: '',
-  city: '',
-  province: '',
-  postal_code: '',
-  updated_at: '',
-})
-const hasShipping = computed(() => {
-  const s = shipping.value
-  return !!(s.phone && s.address_line1 && s.barangay && s.city && s.province && s.postal_code)
-})
-const shippingSummary = computed(() => {
-  const s = shipping.value
-  const parts = [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean)
-  return `${s.phone} • ${parts.join(', ')}`
-})
+type DiscountEligibility = 'unknown' | 'checking' | 'ok' | 'exceeded'
+const discountEligibilityState = ref<DiscountEligibility>('unknown')
+const discountEligibilityMessage = ref<string>('')
 
-/* Handy string to show the full address inside your Edit modal if you want */
-const displayAddressForEdit = computed(() => {
-  return buildAddressString(shipping.value)
-})
-
-/* ========================================================================
-   PH ADDRESS LOOKUP (PSGC) FOR DELIVERY MODAL
-   (region / city / barangay with search dropdowns)
-   ======================================================================== */
-type Region = { code: string; name: string }
-type Province = { code: string; name: string; regionCode: string }
-type LGU = { code: string; name: string; isCity: boolean; provinceCode: string }
-type Barangay = { code: string; name: string }
-
-/* ⚙️ NEW: Toggle to control external address lookups (disabled for editing) */
-const addressLookupEnabled = ref(false) // keep external source OFF when editing
-
-const regions = ref<Region[]>([])
-const provinces = ref<Province[]>([])
-const lguAll = ref<LGU[]>([])
-const lguScoped = ref<LGU[]>([])
-const barangays = ref<Barangay[]>([])
-
-const regionNameByCode: Record<string, string> = {}
-const provinceByCode: Record<string, Province> = {}
-
-/* typed address fields (connected to shipping modal) */
-const addrRegion = ref('') // to map -> shipping.value.province
-const addrCity = ref('') // -> shipping.value.city
-const addrBarangay = ref('') // -> shipping.value.barangay
-const addrZip = ref('') // -> shipping.value.postal_code
-const addrLine1 = ref('') // -> shipping.value.address_line1
-
-/* 🔧 addressDirty: track changes made in edit modal */
-const addressDirty = ref(false) // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
-
-/* typeahead visibility */
-const showRegionSuggest = ref(false)
-const showCitySuggest = ref(false)
-const showBarangaySuggest = ref(false)
-
-/* doc click to close dropdowns */
-function onDocClick(e: MouseEvent) {
-  const target = e.target as HTMLElement
-  if (!target.closest('.position-relative')) {
-    showRegionSuggest.value = false
-    showCitySuggest.value = false
-    showBarangaySuggest.value = false
-  }
-}
-
-/* fetch helper */
-async function fetchJSON<T>(url: string): Promise<T> {
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
-  return res.json() as Promise<T>
-}
-
-async function loadRegionsPSGC() {
-  const data = await fetchJSON<any[]>('https://psgc.cloud/api/regions')
-  regions.value = data
-    .map((r) => ({ code: r.code, name: r.regionName || r.name }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-  regions.value.forEach((r) => (regionNameByCode[r.code] = r.name))
-}
-
-async function loadProvincesPSGC() {
-  const data = await fetchJSON<any[]>('https://psgc.cloud/api/provinces')
-  provinces.value = data
-    .map((p) => ({
-      code: p.code,
-      name: p.name,
-      regionCode: p.region_code || p.regionCode,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name))
-  provinces.value.forEach((p) => (provinceByCode[p.code] = p))
-}
-
-async function loadAllLGUsPSGC() {
-  const [cities, municipalities] = await Promise.all([
-    fetchJSON<any[]>('https://psgc.cloud/api/cities'),
-    fetchJSON<any[]>('https://psgc.cloud/api/municipalities'),
-  ])
-  const cityList: LGU[] = cities.map((c) => ({
-    code: c.code,
-    name: c.name,
-    isCity: true,
-    provinceCode: c.province_code || c.provinceCode || '',
-  }))
-  const muniList: LGU[] = municipalities.map((m) => ({
-    code: m.code,
-    name: m.name,
-    isCity: false,
-    provinceCode: m.province_code || m.provinceCode || '',
-  }))
-  lguAll.value = [...cityList, ...muniList].sort((a, b) => a.name.localeCompare(b.name))
-}
-
-async function loadBarangaysForLGU(lguCode: string, isCity: boolean) {
-  barangays.value = []
-  if (!lguCode) return
-  const url = isCity
-    ? `https://psgc.cloud/api/barangays?city_code=${encodeURIComponent(lguCode)}`
-    : `https://psgc.cloud/api/barangays?municipality_code=${encodeURIComponent(lguCode)}`
-  const data = await fetchJSON<any[]>(url)
-  barangays.value = data.map((b) => ({ code: b.code, name: b.name }))
-  barangays.value.sort((a, b) => a.name.localeCompare(b.name))
-}
-
-/* computed options */
-const filteredRegions = computed(() => {
-  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
-  const q = addrRegion.value.trim().toLowerCase()
-  if (!q) return regions.value.slice(0, 10)
-  const starts = regions.value.filter((r) => r.name.toLowerCase().startsWith(q))
-  const contains = regions.value.filter(
-    (r) => !r.name.toLowerCase().startsWith(q) && r.name.toLowerCase().includes(q),
-  )
-  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
-})
-const filteredLGUs = computed(() => {
-  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
-  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
-  const q = addrCity.value.trim().toLowerCase()
-  if (!q) return pool.slice(0, 10)
-  const starts = pool.filter((l) => l.name.toLowerCase().startsWith(q))
-  const contains = pool.filter(
-    (l) => !l.name.toLowerCase().startsWith(q) && l.name.toLowerCase().includes(q),
-  )
-  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
-})
-const filteredBarangays = computed(() => {
-  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
-  const q = addrBarangay.value.trim().toLowerCase()
-  if (!q) return barangays.value.slice(0, 10)
-  const starts = barangays.value.filter((b) => b.name.toLowerCase().startsWith(q))
-  const contains = barangays.value.filter(
-    (b) => !b.name.toLowerCase().startsWith(q) && b.name.toLowerCase().includes(q),
-  )
-  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
-})
-
-/* input handlers - to be used in template */
-const onRegionInput = () => {
-  if (!addressLookupEnabled.value) return // 🔒 no external suggest
-  showRegionSuggest.value = true
-}
-const onCityInput = () => {
-  if (!addressLookupEnabled.value) return // 🔒 no external suggest
-  showCitySuggest.value = true
-}
-const onBarangayInput = () => {
-  if (!addressLookupEnabled.value) return // 🔒 no external suggest
-  showBarangaySuggest.value = true
-}
-
-/* watchers for chain Region -> City -> Brgy */
-watch(addrRegion, (val) => {
-  if (!addressLookupEnabled.value) {
-    // When disabled, we don't compute scoped LGUs and don't hit external APIs
-    lguScoped.value = []
-    addrCity.value = ''
-    addrBarangay.value = ''
-    barangays.value = []
+async function refreshDiscountEligibilityForRequest() {
+  // Only matters for the Request Order modal (not pending flow)
+  if (!showPlace.value || discountMode.value !== 'discount') {
+    discountEligibilityState.value = 'ok'
+    discountEligibilityMessage.value = ''
     return
   }
-  const picked = regions.value.find((r) => r.name.toLowerCase() === val.trim().toLowerCase())
-  if (picked) {
-    const provinceCodesInRegion = new Set(
-      provinces.value.filter((p) => p.regionCode === picked.code).map((p) => p.code),
-    )
-    lguScoped.value = lguAll.value.filter((l) => provinceCodesInRegion.has(l.provinceCode))
-  } else {
-    lguScoped.value = []
-  }
-  addrCity.value = ''
-  addrBarangay.value = ''
-  barangays.value = []
-})
-
-watch(addrCity, async (val) => {
-  if (!addressLookupEnabled.value) {
-    barangays.value = [] // 🔒 don't fetch
+  const usedId =
+    (resolvedDiscountByCode.value?.id?.trim() || '') ||
+    (selectedDiscountId.value?.trim() || '')
+  if (!usedId) {
+    // No discount chosen → do not block
+    discountEligibilityState.value = 'ok'
+    discountEligibilityMessage.value = ''
     return
   }
-  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
-  const l = pool.find((x) => x.name.toLowerCase() === val.trim().toLowerCase())
-  if (l) {
-    const p = provinceByCode[l.provinceCode]
-    if (p && regionNameByCode[p.regionCode]) {
-      addrRegion.value = regionNameByCode[p.regionCode]
-    }
-    await loadBarangaysForLGU(l.code, l.isCity)
-    addrBarangay.value = ''
-  } else {
-    barangays.value = []
-  }
-})
-
-/* 🔧 addressDirty: mark dirty whenever user edits any address input */
-watch([addrLine1, addrBarangay, addrCity, addrRegion, addrZip], () => {
-  addressDirty.value = true
-})
-
-/* pick handlers */
-function pickRegion(r: Region) {
-  addrRegion.value = r.name
-  showRegionSuggest.value = false
-}
-async function pickLGU(l: LGU) {
-  addrCity.value = l.name
-  showCitySuggest.value = false
-  const p = provinceByCode[l.provinceCode]
-  if (p && regionNameByCode[p.regionCode]) {
-    addrRegion.value = regionNameByCode[p.regionCode]
-  }
-  await loadBarangaysForLGU(l.code, l.isCity)
-  addrBarangay.value = ''
-}
-function pickBarangay(b: Barangay) {
-  addrBarangay.value = b.name
-  showBarangaySuggest.value = false
-}
-
-/* helper to sync shipping -> PSGC form when editing */
-function syncShippingToAddressFields() {
-  addrLine1.value = shipping.value.address_line1 || ''
-  addrBarangay.value = shipping.value.barangay || ''
-  addrCity.value = shipping.value.city || ''
-  addrRegion.value = shipping.value.province || '' // we store region/province in same field
-  addrZip.value = shipping.value.postal_code || ''
-  addressDirty.value = false // 🔧 reset dirty after sync
-}
-
-/* helper to sync PSGC form -> shipping (kept, but NOT called blindly on save) */
-function syncAddressFieldsToShipping() {
-  shipping.value.address_line1 = addrLine1.value || ''
-  shipping.value.barangay = addrBarangay.value || ''
-  shipping.value.city = addrCity.value || ''
-  shipping.value.province = addrRegion.value || ''
-  shipping.value.postal_code = addrZip.value || ''
-}
-
-/* Optional toggles if you ever want to re-enable the lookup elsewhere */
-async function enablePSGCLookup() {
-  if (!addressLookupEnabled.value) {
-    addressLookupEnabled.value = true
-    if (!regions.value.length || !provinces.value.length || !lguAll.value.length) {
-      await Promise.all([loadRegionsPSGC(), loadProvincesPSGC(), loadAllLGUsPSGC()])
-    }
-  }
-}
-function disablePSGCLookup() {
-  addressLookupEnabled.value = false
-  showRegionSuggest.value = false
-  showCitySuggest.value = false
-  showBarangaySuggest.value = false
-}
-
-/* ========================================================================
-   LOAD SHIPPING (FROM DB) + MEMBERSHIP DISCOUNT
-   ======================================================================== */
-function buildAddressString(s: ShippingRow): string {
-  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code]
-    .filter(Boolean)
-    .join(', ')
-}
-function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
-  if (!addr) return {}
-  const rawParts = addr
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean)
-  const out: Partial<ShippingRow> = {}
-  if (rawParts.length === 0) return out
-  let parts = [...rawParts]
-  const last = parts[parts.length - 1] || ''
-  const zipMatch = last.match(/^\d{4}$/)
-  if (zipMatch) {
-    out.postal_code = zipMatch[0]
-    parts.pop()
-  }
-  if (parts.length >= 4) {
-    out.province = parts.pop() as string
-    out.city = parts.pop() as string
-    out.barangay = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 3) {
-    out.province = parts.pop() as string
-    out.city = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 2) {
-    out.city = parts.pop() as string
-    out.address_line1 = parts.join(', ')
-  } else if (parts.length === 1) {
-    out.address_line1 = parts[0]
-  }
-  return out
-}
-
-async function loadShipping() {
+  discountEligibilityState.value = 'checking'
+  discountEligibilityMessage.value = ''
   const uid = await ensureUser()
   if (!uid) {
-    shippingLoaded.value = true
+    discountEligibilityState.value = 'ok'
     return
   }
-  const { data: userRow } = await supabase
-    .from('users')
-    .select('phone_number, address, balance, membership_id, discount_credits')
-    .eq('id', uid)
-    .maybeSingle()
-  const u = (userRow ?? null) as UsersRow | null
-  shipping.value.user_id = uid
-  shipping.value.phone = u?.phone_number || ''
-  userBalance.value = Number(u?.balance ?? 0)
-  userDiscountCredits.value = Number(u?.discount_credits ?? 0)
-
-  memberDiscountPct.value = 0
-  const tierId = u?.membership_id
-  if (tierId) {
-    const { data: tierRow } = await supabase
-      .schema('membership')
-      .from('tiers')
-      .select('discount_per_purchase')
-      .eq('id', tierId)
-      .maybeSingle()
-    if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
-      memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
-    }
-  }
-
-  const parsed = parseAddressToParts(u?.address ?? null)
-  shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
-  shipping.value.barangay = parsed.barangay || shipping.value.barangay
-  shipping.value.city = parsed.city || shipping.value.city
-  shipping.value.province = parsed.province || shipping.value.province
-  shipping.value.postal_code = parsed.postal_code || shipping.value.postal_code
-
-  // also sync to typeahead fields so modal shows current data
-  syncShippingToAddressFields()
-
-  shippingLoaded.value = true
-  if (showCart.value || showPlace.value) await loadCartDetails()
-}
-
-function openShippingModal() {
-  // ensure current shipping is reflected in PSGC fields
-  syncShippingToAddressFields()
-  // 🔒 Keep external lookup disabled while editing
-  disablePSGCLookup()
-  addressDirty.value = false // 🔧 reset on open
-  showShipping.value = true
-}
-function closeShippingModal() {
-  showShipping.value = false
-}
-
-/* === FIX: SAFE SAVE that never wipes existing address with blanks === */
-function coalesceNonEmpty(current: string, incoming: string) {
-  const v = (incoming ?? '').trim()
-  return v.length ? v : (current ?? '')
-}
-
-async function saveShipping() {
-  const uid = await ensureUser()
-  if (!uid) {
-    await swInfo('Please log in to save your delivery details.')
-    return
-  }
-
-  // ⛑️ Instead of blindly copying possibly-empty typeahead values into shipping,
-  //     safely merge: only take addr* when they are non-empty; otherwise keep existing.
-  const merged: ShippingRow = {
-    ...shipping.value,
-    address_line1: coalesceNonEmpty(shipping.value.address_line1, addrLine1.value),
-    barangay: coalesceNonEmpty(shipping.value.barangay, addrBarangay.value),
-    city: coalesceNonEmpty(shipping.value.city, addrCity.value),
-    province: coalesceNonEmpty(shipping.value.province, addrRegion.value),
-    postal_code: coalesceNonEmpty(shipping.value.postal_code, addrZip.value),
-    phone: coalesceNonEmpty(shipping.value.phone, shipping.value.phone), // phone edited elsewhere
-    user_id: shipping.value.user_id,
-    updated_at: new Date().toISOString(),
-  }
-
-  // If nothing changed and user didn't touch the form, skip DB write
-  const before = buildAddressString(shipping.value)
-  const after = buildAddressString(merged)
-  const samePhone = (shipping.value.phone || '') === (merged.phone || '')
-
-  // 🔧 Only skip if also NOT dirty (prevents false negatives where addr* changed but string looks same)
-  if (!addressDirty.value && before === after && samePhone) {
-    // keep local form fields in sync with the final persisted data
-    syncShippingToAddressFields()
-    return
-  }
-
-  savingShipping.value = true
-  try {
-    const payload = {
-      phone_number: merged.phone || null,
-      address: after || null,
-    }
-    const { error } = await supabase.from('users').update(payload).eq('id', uid)
-    if (error) {
-      console.error('saveShipping error', error.message)
-      await swError(error.message)
-      return
-    }
-    // reflect merged values locally and sync form fields
-    shipping.value = merged
-    syncShippingToAddressFields()
-    addressDirty.value = false // 🔧 reset after successful save
-  } finally {
-    savingShipping.value = false
+  const { ok, max, used, message } = await assertPerUserEligible(usedId, uid)
+  if (!ok) {
+    discountEligibilityState.value = 'exceeded'
+    discountEligibilityMessage.value =
+      message || (max != null ? `You’ve already used this discount the maximum of ${max} time(s).` : 'This discount cannot be used.')
+  } else {
+    discountEligibilityState.value = 'ok'
+    discountEligibilityMessage.value = ''
   }
 }
 
@@ -2828,8 +2426,13 @@ const enoughBalanceForOrder = computed(
     userBalance.value >=
     finalPayableTotal.value + (pendingHasFreeShipping.value ? 0 : pendingHighestShippingFee.value),
 )
+
+// 🔁 UPDATED: also disable when discount has reached per-user max uses
 const disableRequestOrder = computed(() => {
-  return placingOrder.value || (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value)
+  const walletBlock = placingOrder.value || (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value)
+  const discountBlock =
+    discountMode.value === 'discount' && discountEligibilityState.value === 'exceeded'
+  return walletBlock || discountBlock
 })
 
 /* ========================================================================
@@ -3207,6 +2810,8 @@ function openPlaceOrder() {
   closeCartModal()
   loadActiveDiscounts()
   showPlace.value = true
+  // 🔁 check discount eligibility when opening the Request Order modal
+  refreshDiscountEligibilityForRequest()
 }
 function closePlaceOrder() {
   showPlace.value = false
@@ -3239,12 +2844,15 @@ async function placeOrder() {
       await swWarn('Please apply a valid discount code or select a discount.')
       return
     }
-    usedDiscountId = disc.id
-    const { ok, message } = await assertPerUserEligible(usedDiscountId, uid)
+
+    // ✅ HARD CHECK: block if already maxed out
+    const { ok, message } = await assertPerUserEligible(disc.id, uid)
     if (!ok) {
       await swWarn(message || 'You have reached the maximum number of uses for this discount.')
       return
     }
+
+    usedDiscountId = disc.id
     const base = cartGrandTotalCreditsOff.value
     orderDiscountAmtAtRequest = computeOrderDiscountAmount(base, disc)
     if (orderDiscountAmtAtRequest <= 0) {
@@ -4640,6 +4248,9 @@ onMounted(async () => {
   await bindCartRealtime()
   await bindUsersRealtime()
   await bindPurchasesRealtime()
+
+  // 🔁 ensure initial eligibility state is correct
+  await refreshDiscountEligibilityForRequest()
 })
 
 onUnmounted(() => {
@@ -4679,7 +4290,462 @@ watch(
     await tryOpenFocusProduct()
   },
 )
+
+/* 🔁 NEW: keep request button disabling in sync with discount selection/code/modal open */
+watch([discountMode, selectedDiscountId, resolvedDiscountByCode, showPlace], () => {
+  refreshDiscountEligibilityForRequest()
+})
+
+/* ========================================================================
+   PH ADDRESS LOOKUP (PSGC) FOR DELIVERY MODAL
+   (region / city / barangay with search dropdowns)
+   ======================================================================== */
+type Region = { code: string; name: string }
+type Province = { code: string; name: string; regionCode: string }
+type LGU = { code: string; name: string; isCity: boolean; provinceCode: string }
+type Barangay = { code: string; name: string }
+
+/* ⚙️ NEW: Toggle to control external address lookups (disabled for editing) */
+const addressLookupEnabled = ref(false) // keep external source OFF when editing
+
+const regions = ref<Region[]>([])
+const provinces = ref<Province[]>([])
+const lguAll = ref<LGU[]>([])
+const lguScoped = ref<LGU[]>([])
+const barangays = ref<Barangay[]>([])
+
+const regionNameByCode: Record<string, string> = {}
+const provinceByCode: Record<string, Province> = {}
+
+/* typed address fields (connected to shipping modal) */
+const addrRegion = ref('') // to map -> shipping.value.province
+const addrCity = ref('') // -> shipping.value.city
+const addrBarangay = ref('') // -> shipping.value.barangay
+const addrZip = ref('') // -> shipping.value.postal_code
+const addrLine1 = ref('') // -> shipping.value.address_line1
+
+/* 🔧 addressDirty: track changes made in edit modal */
+const addressDirty = ref(false) // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+/* typeahead visibility */
+const showRegionSuggest = ref(false)
+const showCitySuggest = ref(false)
+const showBarangaySuggest = ref(false)
+
+/* doc click to close dropdowns */
+function onDocClick(e: MouseEvent) {
+  const target = e.target as HTMLElement
+  if (!target.closest('.position-relative')) {
+    showRegionSuggest.value = false
+    showCitySuggest.value = false
+    showBarangaySuggest.value = false
+  }
+}
+
+/* fetch helper */
+async function fetchJSON<T>(url: string): Promise<T> {
+  const res = await fetch(url, { headers: { Accept: 'application/json' } })
+  if (!res.ok) throw new Error(`Failed to fetch ${url}: ${res.status}`)
+  return res.json() as Promise<T>
+}
+
+async function loadRegionsPSGC() {
+  const data = await fetchJSON<any[]>('https://psgc.cloud/api/regions')
+  regions.value = data
+    .map((r) => ({ code: r.code, name: r.regionName || r.name }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  regions.value.forEach((r) => (regionNameByCode[r.code] = r.name))
+}
+
+async function loadProvincesPSGC() {
+  const data = await fetchJSON<any[]>('https://psgc.cloud/api/provinces')
+  provinces.value = data
+    .map((p) => ({
+      code: p.code,
+      name: p.name,
+      regionCode: p.region_code || p.regionCode,
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  provinces.value.forEach((p) => (provinceByCode[p.code] = p))
+}
+
+async function loadAllLGUsPSGC() {
+  const [cities, municipalities] = await Promise.all([
+    fetchJSON<any[]>('https://psgc.cloud/api/cities'),
+    fetchJSON<any[]>('https://psgc.cloud/api/municipalities'),
+  ])
+  const cityList: LGU[] = cities.map((c) => ({
+    code: c.code,
+    name: c.name,
+    isCity: true,
+    provinceCode: c.province_code || c.provinceCode || '',
+  }))
+  const muniList: LGU[] = municipalities.map((m) => ({
+    code: m.code,
+    name: m.name,
+    isCity: false,
+    provinceCode: m.province_code || m.provinceCode || '',
+  }))
+  lguAll.value = [...cityList, ...muniList].sort((a, b) => a.name.localeCompare(b.name))
+}
+
+async function loadBarangaysForLGU(lguCode: string, isCity: boolean) {
+  barangays.value = []
+  if (!lguCode) return
+  const url = isCity
+    ? `https://psgc.cloud/api/barangays?city_code=${encodeURIComponent(lguCode)}`
+    : `https://psgc.cloud/api/barangays?municipality_code=${encodeURIComponent(lguCode)}`
+  const data = await fetchJSON<any[]>(url)
+  barangays.value = data.map((b) => ({ code: b.code, name: b.name }))
+  barangays.value.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/* computed options */
+const filteredRegions = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const q = addrRegion.value.trim().toLowerCase()
+  if (!q) return regions.value.slice(0, 10)
+  const starts = regions.value.filter((r) => r.name.toLowerCase().startsWith(q))
+  const contains = regions.value.filter(
+    (r) => !r.name.toLowerCase().startsWith(q) && r.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+const filteredLGUs = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
+  const q = addrCity.value.trim().toLowerCase()
+  if (!q) return pool.slice(0, 10)
+  const starts = pool.filter((l) => l.name.toLowerCase().startsWith(q))
+  const contains = pool.filter(
+    (l) => !l.name.toLowerCase().startsWith(q) && l.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+const filteredBarangays = computed(() => {
+  if (!addressLookupEnabled.value) return [] // 🔒 disabled during edit
+  const q = addrBarangay.value.trim().toLowerCase()
+  if (!q) return barangays.value.slice(0, 10)
+  const starts = barangays.value.filter((b) => b.name.toLowerCase().startsWith(q))
+  const contains = barangays.value.filter(
+    (b) => !b.name.toLowerCase().startsWith(q) && b.name.toLowerCase().includes(q),
+  )
+  return [...starts.slice(0, 10), ...contains.slice(0, 10 - Math.min(10, starts.length))]
+})
+
+/* input handlers - to be used in template */
+const onRegionInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showRegionSuggest.value = true
+}
+const onCityInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showCitySuggest.value = true
+}
+const onBarangayInput = () => {
+  if (!addressLookupEnabled.value) return // 🔒 no external suggest
+  showBarangaySuggest.value = true
+}
+
+/* watchers for chain Region -> City -> Brgy */
+watch(addrRegion, (val) => {
+  if (!addressLookupEnabled.value) {
+    // When disabled, we don't compute scoped LGUs and don't hit external APIs
+    lguScoped.value = []
+    addrCity.value = ''
+    addrBarangay.value = ''
+    barangays.value = []
+    return
+  }
+  const picked = regions.value.find((r) => r.name.toLowerCase() === val.trim().toLowerCase())
+  if (picked) {
+    const provinceCodesInRegion = new Set(
+      provinces.value.filter((p) => p.regionCode === picked.code).map((p) => p.code),
+    )
+    lguScoped.value = lguAll.value.filter((l) => provinceCodesInRegion.has(l.provinceCode))
+  } else {
+    lguScoped.value = []
+  }
+  addrCity.value = ''
+  addrBarangay.value = ''
+  barangays.value = []
+})
+
+watch(addrCity, async (val) => {
+  if (!addressLookupEnabled.value) {
+    barangays.value = [] // 🔒 don't fetch
+    return
+  }
+  const pool = lguScoped.value.length ? lguScoped.value : lguAll.value
+  const l = pool.find((x) => x.name.toLowerCase() === val.trim().toLowerCase())
+  if (l) {
+    const p = provinceByCode[l.provinceCode]
+    if (p && regionNameByCode[p.regionCode]) {
+      addrRegion.value = regionNameByCode[p.regionCode]
+    }
+    await loadBarangaysForLGU(l.code, l.isCity)
+    addrBarangay.value = ''
+  } else {
+    barangays.value = []
+  }
+})
+
+/* 🔧 addressDirty: mark dirty whenever user edits any address input */
+watch([addrLine1, addrBarangay, addrCity, addrRegion, addrZip], () => {
+  addressDirty.value = true
+})
+
+/* pick handlers */
+function pickRegion(r: Region) {
+  addrRegion.value = r.name
+  showRegionSuggest.value = false
+}
+async function pickLGU(l: LGU) {
+  addrCity.value = l.name
+  showCitySuggest.value = false
+  const p = provinceByCode[l.provinceCode]
+  if (p && regionNameByCode[p.regionCode]) {
+    addrRegion.value = regionNameByCode[p.regionCode]
+  }
+  await loadBarangaysForLGU(l.code, l.isCity)
+  addrBarangay.value = ''
+}
+function pickBarangay(b: Barangay) {
+  addrBarangay.value = b.name
+  showBarangaySuggest.value = false
+}
+
+/* helper to sync shipping -> PSGC form when editing */
+function syncShippingToAddressFields() {
+  addrLine1.value = shipping.value.address_line1 || ''
+  addrBarangay.value = shipping.value.barangay || ''
+  addrCity.value = shipping.value.city || ''
+  addrRegion.value = shipping.value.province || '' // we store region/province in same field
+  addrZip.value = shipping.value.postal_code || ''
+  addressDirty.value = false // 🔧 reset dirty after sync
+}
+
+/* helper to sync PSGC form -> shipping (kept, but NOT called blindly on save) */
+function syncAddressFieldsToShipping() {
+  shipping.value.address_line1 = addrLine1.value || ''
+  shipping.value.barangay = addrBarangay.value || ''
+  shipping.value.city = addrCity.value || ''
+  shipping.value.province = addrRegion.value || ''
+  shipping.value.postal_code = addrZip.value || ''
+}
+
+/* Optional toggles if you ever want to re-enable the lookup elsewhere */
+async function enablePSGCLookup() {
+  if (!addressLookupEnabled.value) {
+    addressLookupEnabled.value = true
+    if (!regions.value.length || !provinces.value.length || !lguAll.value.length) {
+      await Promise.all([loadRegionsPSGC(), loadProvincesPSGC(), loadAllLGUsPSGC()])
+    }
+  }
+}
+function disablePSGCLookup() {
+  addressLookupEnabled.value = false
+  showRegionSuggest.value = false
+  showCitySuggest.value = false
+  showBarangaySuggest.value = false
+}
+
+/* ========================================================================
+   LOAD SHIPPING (FROM DB) + MEMBERSHIP DISCOUNT
+   ======================================================================== */
+function buildAddressString(s: ShippingRow): string {
+  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code]
+    .filter(Boolean)
+    .join(', ')
+}
+function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
+  if (!addr) return {}
+  const rawParts = addr
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+  const out: Partial<ShippingRow> = {}
+  if (rawParts.length === 0) return out
+  let parts = [...rawParts]
+  const last = parts[parts.length - 1] || ''
+  const zipMatch = last.match(/^\d{4}$/)
+  if (zipMatch) {
+    out.postal_code = zipMatch[0]
+    parts.pop()
+  }
+  if (parts.length >= 4) {
+    out.province = parts.pop() as string
+    out.city = parts.pop() as string
+    out.barangay = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 3) {
+    out.province = parts.pop() as string
+    out.city = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 2) {
+    out.city = parts.pop() as string
+    out.address_line1 = parts.join(', ')
+  } else if (parts.length === 1) {
+    out.address_line1 = parts[0]
+  }
+  return out
+}
+
+async function loadShipping() {
+  const uid = await ensureUser()
+  if (!uid) {
+    shippingLoaded.value = true
+    return
+  }
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('phone_number, address, balance, membership_id, discount_credits')
+    .eq('id', uid)
+    .maybeSingle()
+  const u = (userRow ?? null) as UsersRow | null
+  shipping.value.user_id = uid
+  shipping.value.phone = u?.phone_number || ''
+  userBalance.value = Number(u?.balance ?? 0)
+  userDiscountCredits.value = Number(u?.discount_credits ?? 0)
+
+  memberDiscountPct.value = 0
+  const tierId = u?.membership_id
+  if (tierId) {
+    const { data: tierRow } = await supabase
+      .schema('membership')
+      .from('tiers')
+      .select('discount_per_purchase')
+      .eq('id', tierId)
+      .maybeSingle()
+    if (tierRow && typeof tierRow.discount_per_purchase !== 'undefined') {
+      memberDiscountPct.value = Number(tierRow.discount_per_purchase || 0)
+    }
+  }
+
+  const parsed = parseAddressToParts(u?.address ?? null)
+  shipping.value.address_line1 = parsed.address_line1 || shipping.value.address_line1
+  shipping.value.barangay = parsed.barangay || shipping.value.barangay
+  shipping.value.city = parsed.city || shipping.value.city
+  shipping.value.province = parsed.province || shipping.value.province
+  shipping.value.postal_code = parsed.postal_code || shipping.value.postal_code
+
+  // also sync to typeahead fields so modal shows current data
+  syncShippingToAddressFields()
+
+  shippingLoaded.value = true
+  if (showCart.value || showPlace.value) await loadCartDetails()
+}
+
+function openShippingModal() {
+  // ensure current shipping is reflected in PSGC fields
+  syncShippingToAddressFields()
+  // 🔒 Keep external lookup disabled while editing
+  disablePSGCLookup()
+  addressDirty.value = false // 🔧 reset on open
+  showShipping.value = true
+}
+function closeShippingModal() {
+  showShipping.value = false
+}
+
+/* === FIX: SAFE SAVE that never wipes existing address with blanks === */
+function coalesceNonEmpty(current: string, incoming: string) {
+  const v = (incoming ?? '').trim()
+  return v.length ? v : (current ?? '')
+}
+
+async function saveShipping() {
+  const uid = await ensureUser()
+  if (!uid) {
+    await swInfo('Please log in to save your delivery details.')
+    return
+  }
+
+  // ⛑️ Instead of blindly copying possibly-empty typeahead values into shipping,
+  //     safely merge: only take addr* when they are non-empty; otherwise keep existing.
+  const merged: ShippingRow = {
+    ...shipping.value,
+    address_line1: coalesceNonEmpty(shipping.value.address_line1, addrLine1.value),
+    barangay: coalesceNonEmpty(shipping.value.barangay, addrBarangay.value),
+    city: coalesceNonEmpty(shipping.value.city, addrCity.value),
+    province: coalesceNonEmpty(shipping.value.province, addrRegion.value),
+    postal_code: coalesceNonEmpty(shipping.value.postal_code, addrZip.value),
+    phone: coalesceNonEmpty(shipping.value.phone, shipping.value.phone), // phone edited elsewhere
+    user_id: shipping.value.user_id,
+    updated_at: new Date().toISOString(),
+  }
+
+  // If nothing changed and user didn't touch the form, skip DB write
+  const before = buildAddressString(shipping.value)
+  const after = buildAddressString(merged)
+  const samePhone = (shipping.value.phone || '') === (merged.phone || '')
+
+  // 🔧 Only skip if also NOT dirty (prevents false negatives where addr* changed but string looks same)
+  if (!addressDirty.value && before === after && samePhone) {
+    // keep local form fields in sync with the final persisted data
+    syncShippingToAddressFields()
+    return
+  }
+
+  savingShipping.value = true
+  try {
+    const payload = {
+      phone_number: merged.phone || null,
+      address: after || null,
+    }
+    const { error } = await supabase.from('users').update(payload).eq('id', uid)
+    if (error) {
+      console.error('saveShipping error', error.message)
+      await swError(error.message)
+      return
+    }
+    // reflect merged values locally and sync form fields
+    shipping.value = merged
+    syncShippingToAddressFields()
+    addressDirty.value = false // 🔧 reset after successful save
+  } finally {
+    savingShipping.value = false
+  }
+}
+
+/* ========================================================================
+   SHIPPING / DELIVERY STATE
+   ======================================================================== */
+const showShipping = ref(false)
+const savingShipping = ref(false)
+const shippingLoaded = ref(false)
+const shipping = ref<ShippingRow>({
+  user_id: '',
+  phone: '',
+  address_line1: '',
+  barangay: '',
+  city: '',
+  province: '',
+  postal_code: '',
+  updated_at: '',
+})
+const hasShipping = computed(() => {
+  const s = shipping.value
+  return !!(s.phone && s.address_line1 && s.barangay && s.city && s.province && s.postal_code)
+})
+const shippingSummary = computed(() => {
+  const s = shipping.value
+  const parts = [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean)
+  return `${s.phone} • ${parts.join(', ')}`
+})
+
+/* Handy string to show the full address inside your Edit modal if you want */
+const displayAddressForEdit = computed(() => {
+  return buildAddressString(shipping.value)
+})
+
+/* ========================================================================
+   LATE WATCHERS (already above, but kept here for structure)
+   ======================================================================== */
+
+// (none)
 </script>
+
 
 
 

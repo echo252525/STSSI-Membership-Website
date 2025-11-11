@@ -76,6 +76,41 @@
         >{{ displayNotifCount }}</span
       >
     </button>
+
+    <!-- 🔰 Quick Tour per nav/page -->
+    <div
+      v-if="isRouteTourVisible && currentRouteTour"
+      class="qt-backdrop"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="currentRouteTour.title"
+      @click.self="dismissRouteTour"
+    >
+      <div class="qt-card shadow-lg border-0 rounded-4">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <div class="small text-uppercase text-muted fw-semibold mb-1">Quick tour</div>
+            <h2 class="h6 m-0">{{ currentRouteTour.title }}</h2>
+          </div>
+          <button
+            type="button"
+            class="btn btn-light btn-sm"
+            aria-label="Close quick tour"
+            @click="dismissRouteTour"
+          >
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <p class="small mb-3">
+          {{ currentRouteTour.body }}
+        </p>
+        <div class="d-flex justify-content-end">
+          <button type="button" class="btn btn-primary btn-sm" @click="dismissRouteTour">
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ✅ Lightweight small modal for Notifications.vue -->
@@ -299,7 +334,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch, defineAsyncComponent, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import UserSidebar from '@/components/nav/UserSidebar.vue'
 import { supabase } from '@/lib/supabaseClient'
 
@@ -309,6 +344,7 @@ const Notifications = defineAsyncComponent(() => import('../pages/user/Notificat
 const isDesktop = ref(window.matchMedia('(min-width: 992px)').matches)
 const isMenuOpen = ref(false)
 const router = useRouter()
+const route = useRoute()
 let removeHook: null | (() => void) = null
 
 const mq = window.matchMedia('(min-width: 992px)')
@@ -321,6 +357,7 @@ const onKey = (e: KeyboardEvent) => {
     isMenuOpen.value = false
     isNotifModalOpen.value = false
     isTierModalOpen.value = false
+    isRouteTourVisible.value = false
   }
 }
 const openMenu = () => {
@@ -482,11 +519,115 @@ onMounted(async () => {
   await primeCountFromTransactions()
   bindNotifRealtime()
   await checkTierChangeAndShow()
+  // 🔰 First-time quick tour for current route
+  maybeShowRouteTour(route.name)
 })
 onBeforeUnmount(() => {
   if (rtNotifChannel) supabase.removeChannel(rtNotifChannel)
 })
 
+/* ──────────────────────────────────────────────────────────────
+   🆕 Quick Tour per nav / page
+   ────────────────────────────────────────────────────────────── */
+type RouteTourCopy = {
+  title: string
+  body: string
+}
+
+const ROUTE_TOUR_VERSION = 'v1'
+
+// Map your route names → copy
+const ROUTE_TOUR_COPY: Record<string, RouteTourCopy> = {
+  // Dashboard
+  'user.dashboard': {
+    title: 'Dashboard overview',
+    body: 'This is your main hub. See your tier, balances, and quick links to everything you use most.',
+  },
+  // Membership
+  'user.membership': {
+    title: 'Membership & perks',
+    body: 'Review your current tier, see how to level up, and understand what perks you’re getting each month.',
+  },
+  // Deals & Rewards
+  'user.deals': {
+    title: 'Deals & rewards',
+    body: 'Browse active promos, exclusive member discounts, and special time-limited offers just for you.',
+  },
+  // Shop
+  'user.shop': {
+    title: 'Shop our products',
+    body: 'Explore available items, add them to your cart, and use your member discounts when you checkout.',
+  },
+  // Purchases
+  'user.purchases': {
+    title: 'Purchase history',
+    body: 'Track all your orders, view details, and check statuses or support info for each purchase.',
+  },
+  // 🆕 My Purchases alias (so "My Purchases" route also has a quick tour)
+  'user.mypurchases': {
+    title: 'Purchase history',
+    body: 'Track all your orders, view details, and check statuses or support info for each purchase.',
+  },
+  // E-wallet
+  'user.ewallet': {
+    title: 'E-Wallet & credits',
+    body: 'Check your e-wallet balance, discount credits, and keep an eye on your recent wallet activity.',
+  },
+  // Settings
+  'user.settings': {
+    title: 'Account settings',
+    body: 'Update your profile, change your password, and manage personal information linked to your account.',
+  },
+  // Mini Games
+  'user.minigames': {
+    title: 'Mini games & events',
+    body: 'Join fun events, spin for rewards, and get extra perks that can be used on your next purchases.',
+  },
+}
+
+const isRouteTourVisible = ref(false)
+
+const currentRouteTour = computed<RouteTourCopy | null>(() => {
+  const name = route.name
+  if (typeof name !== 'string') return null
+  return ROUTE_TOUR_COPY[name] ?? null
+})
+
+const routeTourKey = (name: string) => `qt:${ROUTE_TOUR_VERSION}:${name}`
+
+function maybeShowRouteTour(name: typeof route.name) {
+  if (typeof name !== 'string') return
+  const copy = ROUTE_TOUR_COPY[name]
+  if (!copy) return
+  try {
+    const key = routeTourKey(name)
+    const seen = localStorage.getItem(key)
+    if (seen === '1') return
+    isRouteTourVisible.value = true
+  } catch {
+    // if localStorage fails, still show tour (no persistence)
+    isRouteTourVisible.value = true
+  }
+}
+
+function dismissRouteTour() {
+  const name = route.name
+  if (typeof name === 'string') {
+    try {
+      localStorage.setItem(routeTourKey(name), '1')
+    } catch {}
+  }
+  isRouteTourVisible.value = false
+}
+
+// React when navigating between nav pages
+watch(
+  () => route.name,
+  (name) => {
+    isRouteTourVisible.value = false
+    maybeShowRouteTour(name)
+  },
+)
 /* ──────────────────────────────────────────────────────────────
    🆕 Tier change logic + big hero; landscape layout
    ────────────────────────────────────────────────────────────── */
@@ -937,6 +1078,45 @@ function closeTierModal() {
   -webkit-overflow-scrolling: touch;
 }
 
+/* 🔰 Quick Tour per nav */
+.qt-backdrop {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1120;
+}
+.qt-card {
+  pointer-events: auto;
+  position: fixed;
+  right: 16px;
+  bottom: calc(24px + 56px + 12px);
+  max-width: min(360px, 92vw);
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 12px 14px;
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
+  animation: qt-slide-in 240ms cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes qt-slide-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+    filter: none;
+  }
+}
+@media (max-width: 575.98px) {
+  .qt-card {
+    left: 12px;
+    right: 12px;
+    bottom: 16px;
+  }
+}
+
 /* ——————————————————————————————— */
 .sidebar-shell :deep(.sidebar.collapsed .nav-link .bi),
 .drawer-panel :deep(.sidebar.collapsed .nav-link .bi) {
@@ -1226,7 +1406,8 @@ function closeTierModal() {
   .tier-banner,
   .diff-list li,
   .notif-backdrop,
-  .tier-backdrop {
+  .tier-backdrop,
+  .qt-card {
     animation: none !important;
     transform: none !important;
     opacity: 1 !important;
