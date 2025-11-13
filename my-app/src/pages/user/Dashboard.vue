@@ -60,7 +60,11 @@
     <!-- ===== MAIN: GAMES (OPEN ONLY) + PRODUCT PREVIEW ===== -->
     <section class="grid grid-main mb-4">
       <!-- ===== Games Panel ===== -->
-      <div ref="gamesPanelEl" class="panel card border-0 shadow-sm rounded-4 games-panel breath-in-500" v-reveal>
+      <div
+        ref="gamesPanelEl"
+        class="panel card border-0 shadow-sm rounded-4 games-panel breath-in-500"
+        v-reveal
+      >
         <div class="card-body p-0">
           <div
             class="games-head d-flex align-items-center justify-content-between px-3 px-sm-4 pt-3"
@@ -137,42 +141,37 @@
               </router-link>
             </div>
 
-            <!-- SCROLLABLE SIDE LIST: ALL OTHER OPEN GAMES -->
-<!-- STATIC SIDE LIST: FIRST 10 GAMES BY LATEST CREATED -->
-<div class="side-wrap">
-  <div
-    class="side-list"
-    ref="sideListEl"
-    :style="{ maxHeight: sideListH + 'px' }"
-  >
-    <button
-      v-for="g in sideListGames"
-      :key="g.id"
-      type="button"
-      class="side-item"
-      :class="{ active: isSelected(g.id) }"
-      @click="selectFeature(g.id)"
-      :aria-selected="isSelected(g.id)"
-      :title="g.title"
-    >
-      <div class="icon-slot">
-        <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
-        <i v-else class="bi bi-controller"></i>
-      </div>
-      <div class="body">
-        <div class="title text-truncate" :title="g.title">{{ g.title }}</div>
-        <div class="tiny">
-          <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{ number(g.player_cap) }}
-          <span class="sep">•</span>
-          <i class="bi bi-trophy me-1"></i>{{ peso(g.winner_price) }}
-        </div>
-      </div>
-      <i class="bi bi-chevron-right caret"></i>
-    </button>
-  </div>
-</div>
-
-
+            <!-- STATIC SIDE LIST: FIRST 10 GAMES BY LATEST CREATED -->
+            <div class="side-wrap">
+              <div class="side-list" ref="sideListEl" :style="{ maxHeight: sideListH + 'px' }">
+                <button
+                  v-for="g in sideListGames"
+                  :key="g.id"
+                  type="button"
+                  class="side-item"
+                  :class="{ active: isSelected(g.id) }"
+                  @click="selectFeature(g.id)"
+                  :aria-selected="isSelected(g.id)"
+                  :title="g.title"
+                >
+                  <div class="icon-slot">
+                    <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
+                    <i v-else class="bi bi-controller"></i>
+                  </div>
+                  <div class="body">
+                    <div class="title text-truncate" :title="g.title">{{ g.title }}</div>
+                    <div class="tiny">
+                      <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{
+                        number(g.player_cap)
+                      }}
+                      <span class="sep">•</span>
+                      <i class="bi bi-trophy me-1"></i>{{ peso(g.winner_price) }}
+                    </div>
+                  </div>
+                  <i class="bi bi-chevron-right caret"></i>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -469,10 +468,7 @@ const welcomeName = computed(() => {
   const u: any = user.value || {}
   const meta = u?.user_metadata || {}
   return (
-    meta.first_name ||
-    meta.full_name ||
-    (u?.email && String(u.email).split('@')[0]) ||
-    'Member'
+    meta.first_name || meta.full_name || (u?.email && String(u.email).split('@')[0]) || 'Member'
   )
 })
 
@@ -1626,8 +1622,8 @@ let manualScrollCooldown = 0
 const sideDir = ref<1 | -1>(1) /* 1 = down, -1 = up */
 
 /* ➕ Looping math (center segment & wrap) */
-const segmentH = ref(0)      // height of ONE segment (original list)
-const viewportH = ref(0)     // visible height
+const segmentH = ref(0) // height of ONE segment (original list)
+const viewportH = ref(0) // visible height
 function centerSideLoop() {
   const el = sideListEl.value
   if (!el) return
@@ -1768,8 +1764,9 @@ async function centerOnSideItemById(id: string) {
   const el = sideListEl.value
   if (!el) return
   // Prefer the element from the middle replica (rep=1)
-  const target = el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"][data-rep="1"]`)
-    || el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"]`)
+  const target =
+    el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"][data-rep="1"]`) ||
+    el.querySelector<HTMLElement>(`.side-item[data-gid="${id}"]`)
   if (!target) return
 
   const contRect = el.getBoundingClientRect()
@@ -1802,7 +1799,10 @@ function startSideSlideshow() {
 
   // align index with current selection
   const currId = selectedGameId.value || openGames.value[0]?.id || list[0].id
-  const currIdx = Math.max(0, list.findIndex(g => g.id === currId))
+  const currIdx = Math.max(
+    0,
+    list.findIndex((g) => g.id === currId),
+  )
   sideSlideIdx = currIdx
 
   // make sure we're centered on current
@@ -1982,8 +1982,14 @@ function startsInLabel(iso: string) {
 
 /* ===== Breath-in animation (500ms) ===== */
 @keyframes breathIn {
-  0% { opacity: 0; transform: translateY(8px) scale(0.98); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 .breath-in-500 {
   animation: breathIn 0.5s ease both;
@@ -2752,8 +2758,7 @@ function startsInLabel(iso: string) {
     box-shadow 0.12s ease;
 }
 .prod-card:hover {
-  transform: translateY(-2px)
-  ;
+  transform: translateY(-2px);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.08);
 }
 .thumb {

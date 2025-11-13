@@ -109,6 +109,7 @@
             Got it
           </button>
           <button
+           v-if="route.name === 'user.minigames'"
             type="button"
             class="btn btn-secondary btn-sm"
             @click="router.push('minigames/tutorial')"
@@ -575,6 +576,11 @@ const ROUTE_TOUR_COPY: Record<string, RouteTourCopy> = {
     title: 'Purchase History',
     body: 'Review all your orders, open receipts, and track delivery or support updates in one place.',
   },
+  // Mini Games
+  'user.minigames': {
+    title: 'Mini Games & Events',
+    body: 'Join events, spin the wheel, and earn extra bonuses you can use on your next purchases.',
+  },
   // E-wallet
   'user.ewallet': {
     title: 'E-Wallet & Credits',
@@ -584,11 +590,6 @@ const ROUTE_TOUR_COPY: Record<string, RouteTourCopy> = {
   'user.settings': {
     title: 'Account Settings',
     body: 'Update your profile, manage login details, and control the personal information linked to your account.',
-  },
-  // Mini Games
-  'user.minigames': {
-    title: 'Mini Games & Events',
-    body: 'Join events, spin the wheel, and earn extra bonuses you can use on your next purchases.',
   },
 }
 
