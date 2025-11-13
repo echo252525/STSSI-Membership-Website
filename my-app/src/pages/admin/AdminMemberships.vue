@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <!-- Header -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3 breath-in-section">
       <div>
         <h3 class="fw-bold mb-1">
           <i class="bi bi-award"></i>
@@ -18,7 +18,7 @@
 
     <!-- Filters -->
     <div
-      class="card-body d-flex flex-column flex-md-row flex-wrap gap-2 align-items-stretch align-items-md-center"
+      class="card-body d-flex flex-column flex-md-row flex-wrap gap-2 align-items-stretch align-items-md-center breath-in-section"
     >
       <div class="flex-grow-1" style="max-width: 1230px">
         <div class="input-group w-100">
@@ -37,26 +37,50 @@
 
     <!-- Stair row (5 fixed columns) -->
     <div
-      class="row g-2 g-md-3 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 align-items-end stairs-row mt-2"
+      class="row g-2 g-md-3 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 align-items-end stairs-row mt-2 breath-in-section"
     >
       <!-- Loading -->
       <div v-if="busy.load" class="col">
-        <div class="text-center text-muted py-4">
-          <div class="spinner-border me-2"></div>
-          Loading tiers…
+        <div class="card card-fixed rounded-4 border-0 skeleton-card">
+          <div class="card-body">
+            <div class="skeleton-header mb-3">
+              <div class="skel-badge mb-2"></div>
+              <div class="skel-circle mb-2"></div>
+              <div class="skel-line skel-line-lg mb-1"></div>
+              <div class="skel-line skel-line-sm"></div>
+            </div>
+            <ul class="skeleton-list">
+              <li v-for="n in 5" :key="n" class="skel-row">
+                <span class="skel-line skel-line-sm"></span>
+                <span class="skel-line skel-line-xs"></span>
+              </li>
+            </ul>
+            <div class="mt-4">
+              <div class="skel-btn"></div>
+            </div>
+          </div>
         </div>
       </div>
 
       <!-- Empty -->
       <div v-else-if="displayTiers.length === 0" class="col">
-        <div class="text-center text-muted py-4"><i class="bi bi-stars"></i> No tiers found.</div>
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-stars"></i> No tiers found.
+        </div>
       </div>
 
       <!-- Cards -->
-      <div v-else v-for="t in displayTiers" :key="t.id" class="col stair" :class="stairClass(t)">
+      <div
+        v-else
+        v-for="t in displayTiers"
+        :key="t.id"
+        class="col stair"
+        :class="stairClass(t)"
+      >
         <div
-          class="card card-fixed h-100 rounded-4 border-0 pricing-vert tier-hero-compact"
+          class="card card-fixed h-100 rounded-4 border-0 pricing-vert tier-hero-compact tier-clickable"
           :class="[skinClass(t), isDiamond(t) ? 'diamond-glow' : '']"
+          @click="openMembers(t)"
         >
           <div class="card-body d-flex flex-column">
             <div v-if="isDiamond(t)" class="ribbon-popular">Most Popular</div>
@@ -114,7 +138,7 @@
               <button
                 class="btn btn-sm fw-semibold btn-manage"
                 :class="isDiamond(t) ? 'btn-diamond' : ''"
-                @click="openEdit(t)"
+                @click.stop="openEdit(t)"
               >
                 Manage
               </button>
@@ -127,7 +151,7 @@
 
     <!-- Pagination removed as requested -->
 
-    <!-- Alerts -->
+    <!-- Alerts (kept) -->
     <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert alert-success mt-3 mb-0" role="alert">{{ notice }}</p>
 
@@ -336,14 +360,137 @@
         </div>
       </div>
     </div>
+
+    <!-- NEW: Tier Members Modal -->
+    <div class="modal fade" id="membersModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content members-modal">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title">
+                Tier Members – {{ membersTier?.membership_name || 'Tier' }}
+              </h5>
+              <p class="small text-muted mb-0">
+                See the people in this tier, their credits, purchases, and referrals.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body breath-in-section">
+            <!-- Loading skeleton -->
+            <div v-if="membersBusy" class="members-skeleton">
+              <div v-for="n in 4" :key="n" class="member-row member-row-skel">
+                <div class="member-avatar-skel shimmer"></div>
+                <div class="member-main">
+                  <div class="skel-line skel-line-lg shimmer mb-1"></div>
+                  <div class="skel-line skel-line-sm shimmer mb-2"></div>
+                  <div class="member-stats">
+                    <div class="stat-pill skel-pill shimmer"></div>
+                    <div class="stat-pill skel-pill shimmer"></div>
+                    <div class="stat-pill skel-pill shimmer"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Error -->
+            <div v-else-if="membersError" class="alert alert-danger mb-0" role="alert">
+              {{ membersError }}
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="members.length === 0" class="text-center py-4 text-muted">
+              <i class="bi bi-people me-1"></i>
+              No one is in this tier yet. Once members upgrade here, they’ll appear in this list.
+            </div>
+
+            <!-- List -->
+            <div v-else class="members-list">
+              <div
+                v-for="m in members"
+                :key="m.id"
+                class="member-row"
+              >
+                <div class="member-avatar-wrap">
+                  <div
+                    v-if="m.profile_img"
+                    class="member-avatar"
+                    :style="{ backgroundImage: `url('${m.profile_img}')` }"
+                  ></div>
+                  <div
+                    v-else
+                    class="member-avatar member-avatar-fallback"
+                    :style="{ backgroundImage: avatarBg(m.full_name || m.email || m.id) }"
+                  >
+                    <span>{{ initials(m.full_name || m.email) }}</span>
+                  </div>
+                </div>
+                <div class="member-main">
+                  <div class="member-name-line">
+                    <div class="member-name-email">
+                      <div class="member-name">
+                        {{ m.full_name || 'No name' }}
+                      </div>
+                      <div class="member-email">
+                        {{ m.email }}
+                      </div>
+                    </div>
+                    <div class="member-joined small text-muted">
+                      Joined {{ fmtDate(m.created_at) }}
+                    </div>
+                  </div>
+                  <div class="member-stats">
+                    <div class="stat-pill">
+                      <span class="stat-label">Credits</span>
+                      <span class="stat-value">₱{{ toMoney(m.discount_credits) }}</span>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Purchases (month)</span>
+                      <span class="stat-value">{{ toMoney(m.purchases_per_month) }}</span>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">Referrals</span>
+                      <span class="stat-value">{{ m.referral_count }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
+import Swal from 'sweetalert2'
 
 const BUCKET = 'tier_icons'
+
+/* SweetAlert helpers */
+const swSuccess = (message: string, title = 'All set!') =>
+  Swal.fire({ icon: 'success', title, text: message })
+const swError = (message: string, title = 'Something went wrong') =>
+  Swal.fire({ icon: 'error', title, text: message })
 
 const page = ref(1)
 const pageSize = 10
@@ -357,6 +504,7 @@ const notice = ref('')
 
 let modalTier: any = null
 let modalDelete: any = null
+let modalMembers: any = null
 
 const form = ref<any>(resetForm())
 const selected = ref<any | null>(null)
@@ -366,6 +514,65 @@ const iconPreview = ref<string | null>(null)
 const iconInput = ref<HTMLInputElement | null>(null)
 
 const memberCounts = reactive<Record<string, number>>({})
+
+/* NEW: members modal state */
+type TierMember = {
+  id: string
+  full_name: string | null
+  email: string
+  profile_url: string | null
+  profile_img: string | null
+  discount_credits: number
+  purchases_per_month: number
+  referral_count: number
+  created_at: string
+}
+const membersTier = ref<any | null>(null)
+const members = ref<TierMember[]>([])
+const membersBusy = ref(false)
+const membersError = ref('')
+
+/* Profile image signed URL helpers (borrowed pattern from your other component) */
+const PROFILE_BUCKET = 'user_profile'
+const signedUrlCache = new Map<string, string>()
+const SIGNED_URL_EXPIRES_IN = 60 * 60
+
+async function buildProfileSignedUrl(path: string | null | undefined): Promise<string | null> {
+  if (!path) return null
+  if (signedUrlCache.has(path)) return signedUrlCache.get(path) || null
+  try {
+    const { data, error } = await supabase.storage
+      .from(PROFILE_BUCKET)
+      .createSignedUrl(path, SIGNED_URL_EXPIRES_IN)
+    if (error) {
+      const pub = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)?.data?.publicUrl ?? null
+      signedUrlCache.set(path, pub || '')
+      return pub
+    }
+    const url = data?.signedUrl || null
+    signedUrlCache.set(path, url || '')
+    return url
+  } catch {
+    const pub = supabase.storage.from(PROFILE_BUCKET).getPublicUrl(path)?.data?.publicUrl ?? null
+    signedUrlCache.set(path, pub || '')
+    return pub
+  }
+}
+
+/* Initials + avatar background for fallback */
+function initials(name: string | null | undefined): string {
+  if (!name) return 'U'
+  const parts = name.trim().split(/\s+/).filter(Boolean)
+  const first = parts[0]?.[0] || ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase() || 'U'
+}
+function avatarBg(seed: string): string {
+  let h = 0
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+  const hue = h % 360
+  return `linear-gradient(135deg, hsl(${hue} 70% 45%), hsl(${(hue + 40) % 360} 75% 55%))`
+}
 
 function resetForm() {
   return {
@@ -502,6 +709,7 @@ async function load(reset = false) {
     for (const id of ids) if (memberCounts[id] == null) memberCounts[id] = 0
   } catch (e: any) {
     error.value = e?.message || 'Failed to load tiers.'
+    swError('We couldn’t load your membership tiers right now. Please try again in a moment.')
   } finally {
     busy.value.load = false
   }
@@ -511,8 +719,10 @@ function openCreate() {
   form.value = resetForm()
   iconFile.value = null
   iconPreview.value = null
-  // @ts-ignore
-  modalTier = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('tierModal'))
+  const el = document.getElementById('tierModal')
+  if (!el) return
+  // use window as any to keep TS happy
+  modalTier = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
   modalTier?.show()
 }
 
@@ -526,8 +736,9 @@ function openEdit(row: any) {
   }
   iconFile.value = null
   iconPreview.value = null
-  // @ts-ignore
-  modalTier = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('tierModal'))
+  const el = document.getElementById('tierModal')
+  if (!el) return
+  modalTier = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
   modalTier?.show()
 }
 
@@ -638,6 +849,7 @@ async function save() {
       }
 
       notice.value = 'Tier created.'
+      swSuccess('Your new tier has been created successfully.', 'Tier created')
     } else {
       const { error: updErr } = await supabase
         .schema('membership')
@@ -658,6 +870,7 @@ async function save() {
       }
 
       notice.value = 'Tier updated.'
+      swSuccess('Your changes have been saved.', 'Tier updated')
     }
 
     clearIcon()
@@ -665,6 +878,7 @@ async function save() {
     await load()
   } catch (e: any) {
     error.value = e?.message || 'Save failed.'
+    swError('We couldn’t save this tier. Please review the details and try again.')
   } finally {
     busy.value.save = false
   }
@@ -672,8 +886,9 @@ async function save() {
 
 function openDelete(row: any) {
   selected.value = row
-  // @ts-ignore
-  modalDelete = window.bootstrap?.Modal.getOrCreateInstance(document.getElementById('deleteModal'))
+  const el = document.getElementById('deleteModal')
+  if (!el) return
+  modalDelete = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
   modalDelete?.show()
 }
 
@@ -695,12 +910,99 @@ async function del() {
     if (delErr) throw delErr
 
     notice.value = 'Tier deleted.'
+    swSuccess('The tier has been removed successfully.', 'Tier deleted')
     modalDelete?.hide()
     await load()
   } catch (e: any) {
     error.value = e?.message || 'Delete failed.'
+    swError('We couldn’t delete this tier. Please try again in a moment.')
   } finally {
     busy.value.del = false
+  }
+}
+
+/* NEW: open members modal and load users in that tier */
+async function openMembers(row: any) {
+  membersTier.value = row
+  members.value = []
+  membersError.value = ''
+  membersBusy.value = true
+
+  const el = document.getElementById('membersModal')
+  if (!el) {
+    membersBusy.value = false
+    return
+  }
+  modalMembers = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
+  modalMembers?.show()
+
+  try {
+    // 1) Load users in this tier
+    const { data: usersData, error: usersErr } = await supabase
+      .from('users')
+      .select(
+        'id,email,full_name,profile_url,discount_credits,purchases_per_month,created_at',
+      )
+      .eq('membership_id', row.id)
+      .order('created_at', { ascending: true })
+
+    if (usersErr) throw usersErr
+
+    const raw = (usersData || []) as Array<{
+      id: string
+      email: string
+      full_name: string | null
+      profile_url: string | null
+      discount_credits: any
+      purchases_per_month: any
+      created_at: string
+    }>
+
+    if (raw.length === 0) {
+      members.value = []
+      return
+    }
+
+    const ids = raw.map((u) => u.id)
+
+    // 2) Count referrals per user in one go
+    const referralCounts: Record<string, number> = {}
+    const { data: refData, error: refErr } = await supabase
+      .from('referrals')
+      .select('referrer_id')
+      .in('referrer_id', ids)
+
+    if (!refErr && refData) {
+      for (const r of refData as Array<{ referrer_id: string }>) {
+        const id = r.referrer_id
+        referralCounts[id] = (referralCounts[id] ?? 0) + 1
+      }
+    }
+
+    // 3) Build profile URLs
+    const avatarUrls = await Promise.all(
+      raw.map((u) => buildProfileSignedUrl(u.profile_url)),
+    )
+
+    members.value = raw.map((u, i) => ({
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name,
+      profile_url: u.profile_url,
+      profile_img: avatarUrls[i] || null,
+      discount_credits: Number(u.discount_credits ?? 0),
+      purchases_per_month: Number(u.purchases_per_month ?? 0),
+      referral_count: referralCounts[u.id] ?? 0,
+      created_at: u.created_at,
+    }))
+  } catch (e: any) {
+    membersError.value =
+      'We had trouble loading members for this tier. Please try again in a moment.'
+    swError(
+      'We had trouble loading the members for this tier. Please close the window and try again.',
+    )
+  } finally {
+    membersBusy.value = false
   }
 }
 
@@ -714,6 +1016,11 @@ onMounted(() => {
 .card-fixed {
   min-height: 520px;
   display: flex;
+}
+
+/* Clickable tier card */
+.tier-clickable {
+  cursor: pointer;
 }
 
 /* -------- STAIR OFFSETS -------- */
@@ -959,6 +1266,223 @@ onMounted(() => {
   .stair-4,
   .stair-5 {
     transform: none;
+  }
+}
+
+/* ====== Breath-in animation (per section) ====== */
+.breath-in-section {
+  opacity: 0;
+  transform: translateY(6px) scale(0.99);
+  animation: breathIn 0.25s ease-out forwards;
+}
+@keyframes breathIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ====== Skeleton for loading tiers ====== */
+.skeleton-card {
+  background: #f8fafc;
+  overflow: hidden;
+}
+.skeleton-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.skel-badge {
+  width: 72px;
+  height: 16px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.skel-circle {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.skel-line {
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.skel-line-lg {
+  width: 70%;
+  height: 14px;
+}
+.skel-line-sm {
+  width: 50%;
+  height: 10px;
+}
+.skel-line-xs {
+  width: 32%;
+  height: 10px;
+}
+.skeleton-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.skel-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0;
+}
+.skel-btn {
+  width: 100%;
+  max-width: 140px;
+  height: 32px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+/* ====== Members modal layout ====== */
+.members-modal {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.members-list {
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.member-row {
+  display: flex;
+  gap: 0.9rem;
+  padding: 0.65rem 0.25rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+.member-row:last-child {
+  border-bottom: none;
+}
+
+.member-avatar-wrap {
+  flex: 0 0 48px;
+  display: flex;
+  align-items: flex-start;
+}
+.member-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 999px;
+  background-size: cover;
+  background-position: center;
+  background-color: #cbd5f5;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.8);
+}
+.member-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #f9fafb;
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.7);
+}
+
+.member-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name-line {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+.member-name-email {
+  min-width: 0;
+}
+.member-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.member-email {
+  font-size: 0.8rem;
+  color: #64748b;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.member-joined {
+  white-space: nowrap;
+}
+
+.member-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+.stat-label {
+  color: #64748b;
+}
+.stat-value {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+/* Members skeleton */
+.member-row-skel {
+  align-items: center;
+}
+.member-avatar-skel {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.skel-pill {
+  width: 96px;
+  height: 20px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.6) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }
 </style>

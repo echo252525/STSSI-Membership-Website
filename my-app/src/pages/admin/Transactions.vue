@@ -1,7 +1,7 @@
 <template>
   <div class="container">
     <!-- Page Header -->
-    <div class="d-flex align-items-center justify-content-between mb-3">
+    <div class="d-flex align-items-center justify-content-between mb-3 breath-section">
       <h3 class="fw-bold m-0">
         <i class="bi bi-receipt"></i>
         Transactions 
@@ -38,7 +38,7 @@
     </div>
 
     <!-- Summary pills -->
-    <div class="d-flex flex-wrap gap-2 mb-3">
+    <div class="d-flex flex-wrap gap-2 mb-3 breath-section">
       <span class="badge text-bg-secondary">
         Total: {{ filtered.length }}
       </span>
@@ -51,12 +51,27 @@
     </div>
 
     <!-- Table -->
-    <div class="card shadow-sm">
+    <div class="card shadow-sm breath-section">
       <div class="card-body p-0">
-        <div v-if="filtered.length === 0" class="p-4 text-center text-muted">
+        <!-- Skeleton while loading -->
+        <div v-if="loading" class="p-3">
+          <div class="tx-skel-row" v-for="i in 5" :key="i">
+            <div class="tx-skel-cell w-25"></div>
+            <div class="tx-skel-cell w-20"></div>
+            <div class="tx-skel-cell w-15"></div>
+            <div class="tx-skel-cell w-15"></div>
+            <div class="tx-skel-cell w-15 d-none d-md-block"></div>
+            <div class="tx-skel-cell w-10 d-none d-md-block"></div>
+            <div class="tx-skel-cell w-10 d-none d-lg-block"></div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div v-else-if="filtered.length === 0" class="p-4 text-center text-muted">
           No transactions found for this filter.
         </div>
 
+        <!-- Table content -->
         <div v-else class="table-responsive">
           <table class="table align-middle mb-0 table-center-equal">
             <thead class="table-light">
@@ -73,8 +88,22 @@
             <tbody>
               <tr v-for="tx in filtered" :key="tx.id">
                 <td>
-                  <div class="fw-semibold text-truncate">{{ tx.user_name }}</div>
-                  <div class="text-muted small text-truncate">{{ tx.user_email }}</div>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="tx-avatar">
+                      <img
+                        v-if="userAvatarUrl(tx)"
+                        :src="userAvatarUrl(tx)"
+                        :alt="tx.user_name || 'User avatar'"
+                      />
+                      <span v-else class="tx-avatar-fallback">
+                        {{ tx.user_name ? tx.user_name.charAt(0).toUpperCase() : '?' }}
+                      </span>
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                      <div class="fw-semibold text-truncate">{{ tx.user_name }}</div>
+                      <div class="text-muted small text-truncate">{{ tx.user_email }}</div>
+                    </div>
+                  </div>
                 </td>
                 <td class="font-monospace">{{ tx.reference_number }}</td>
                 <td class="text-end">₱ {{ formatAmount(tx.amount) }}</td>
@@ -238,10 +267,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
+import Swal from 'sweetalert2'
 
 const DEBUG = true
 const log = (...args: any[]) => { if (DEBUG) console.log('[TX]', ...args) }
@@ -275,6 +305,32 @@ const clearSentinel = (id: string) => {
 }
 const hasSentinel = (id: string) => {
   try { return localStorage.getItem(LS_KEY(id)) !== null } catch { return false }
+}
+
+/* ========== SweetAlert helpers (user-friendly wording) ========== */
+async function swInfo(message: string, title = 'Just a quick note') {
+  await Swal.fire({
+    icon: 'info',
+    title,
+    text: message,
+    confirmButtonText: 'Got it',
+  })
+}
+async function swError(message: string, title = 'Something went wrong') {
+  await Swal.fire({
+    icon: 'error',
+    title,
+    text: message,
+    confirmButtonText: 'Okay',
+  })
+}
+async function swSuccess(message: string, title = 'All set!') {
+  await Swal.fire({
+    icon: 'success',
+    title,
+    text: message,
+    confirmButtonText: 'Nice',
+  })
 }
 
 onMounted(async () => {
@@ -314,6 +370,7 @@ type Tx = {
   bank_name: BankName
   created_at: string
   updated_at: string
+  profile_url: string | null
 }
 
 const transactions = ref<Tx[]>([])
@@ -379,6 +436,44 @@ const formatTime = (iso: string) => {
 const capitalize = (s: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : '')
 const prettyBank = (b?: BankName) => (b === 'gcash' ? 'GCash' : b === 'maya' ? 'Maya' : b === 'gotyme' ? 'GoTyme' : '—')
 
+/* ===== Avatar helpers (profile per row) ===== */
+const avatarSignedMap = reactive<Record<string, string>>({})
+const avatarBusy: Record<string, boolean> = reactive({})
+
+function normalizeToPath(maybePath: string | null | undefined): string | null {
+  if (!maybePath) return null
+  if (/^https?:\/\//i.test(maybePath)) return maybePath
+  return maybePath.replace(/^\/+/, '')
+}
+
+function userAvatarUrl(tx: Tx): string {
+  const raw = tx.profile_url
+  const key = tx.user_id
+  if (!raw) return ''
+  const path = normalizeToPath(raw)
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (avatarSignedMap[key]) return avatarSignedMap[key]
+
+  if (!avatarBusy[key]) {
+    avatarBusy[key] = true
+    supabase.storage
+      .from('user_profile')
+      .createSignedUrl(path, 60 * 60)
+      .then(({ data, error }) => {
+        if (error) {
+          console.warn('[Avatar] sign error:', error.message)
+        } else if (data?.signedUrl) {
+          avatarSignedMap[key] = data.signedUrl
+        }
+      })
+      .finally(() => {
+        avatarBusy[key] = false
+      })
+  }
+  return ''
+}
+
 /** ---------- Load data from ewallet.transactions with user info ---------- */
 const loadTransactions = async () => {
   loading.value = true
@@ -411,7 +506,7 @@ const loadTransactions = async () => {
       const ids = Array.from(new Set(rows.map(r => r.user_id)))
       const { data: userRows, error: uerr } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, profile_url')
         .in('id', ids)
       if (!uerr && userRows) {
         const map = new Map(userRows.map(u => [u.id, u]))
@@ -427,6 +522,10 @@ const loadTransactions = async () => {
   } catch (e: any) {
     errorMsg.value = e?.message || 'Failed to load transactions.'
     console.error('[TX] [Load] Error:', e)
+    await swError(
+      'We couldn’t load your transactions. Please check your connection and try again.',
+      'Unable to load transactions'
+    )
   } finally {
     loading.value = false
   }
@@ -445,6 +544,7 @@ function enrichRowToTx(r: any): Tx {
     bank_name: r.bank_name,
     created_at: r.created_at,
     updated_at: r.updated_at,
+    profile_url: r.users?.profile_url ?? null,
   }
 }
 
@@ -487,7 +587,7 @@ const copyToastEl = ref<HTMLElement | null>(null)
 let copyToast: any = null
 const copyToastMsg = ref('Copied!')
 
-const showInfo = (msg: string) => {
+const showInfoToast = (msg: string) => {
   copyToastMsg.value = msg
   const w = window as any
   if (w?.bootstrap && copyToastEl.value) {
@@ -500,11 +600,11 @@ const showInfo = (msg: string) => {
 const copyRef = async (refno: string) => {
   try {
     await navigator.clipboard.writeText(refno)
-    showInfo('Copied to clipboard!')
+    showInfoToast('Copied to clipboard!')
     console.log('[Clipboard] Copied ref:', refno)
   } catch (e) {
     console.error('[Clipboard] Copy failed:', e)
-    showInfo('Failed to copy')
+    await swError('We couldn’t copy the reference number. Please try again.', 'Copy failed')
   }
 }
 
@@ -516,16 +616,23 @@ const markDisbursed = async (tx: Tx) => {
   log('[Click] Disburse', { t: now(), id: tx.id, status: tx.status, hasSentinel: hasSentinel(tx.id), inFlight: singleflight.has(tx.id), ack: disburseAck.value.has(tx.id) })
 
   if (tx.status !== 'pending') {
-    return showInfo(tx.status === 'disbursed' ? 'Already disbursed.' : 'Cannot disburse this transaction.')
+    if (tx.status === 'disbursed') {
+      await swInfo('This transaction is already marked as disbursed.')
+    } else {
+      await swError('You can only disburse transactions that are still pending.')
+    }
+    return
   }
   // Any prior signal (this tab RT, other tab start/done, or sentinel) → don’t call RPC again
   if (disburseAck.value.has(tx.id) || hasSentinel(tx.id)) {
     log('[Gate] Skip RPC (ack/sentinel present)', { id: tx.id })
-    return showInfo('Already processed or in progress.')
+    await swInfo('This transaction has already been processed or is currently in progress.')
+    return
   }
   if (singleflight.has(tx.id)) {
     log('[Gate] Skip RPC (singleflight)', { id: tx.id })
-    return showInfo('Disburse already in progress…')
+    await swInfo('We’re already working on this disbursement. Please wait a moment.')
+    return
   }
 
   // Register: local locks + cross-tab + sentinel
@@ -580,11 +687,17 @@ const markDisbursed = async (tx: Tx) => {
         }
       }
 
-      showInfo('Marked as disbursed.')
+      await swSuccess(
+        'This transaction has been marked as disbursed. Your changes are now saved.',
+        'Disbursement complete'
+      )
     } catch (e: any) {
       bcDone(tx.id, false, e?.message)
       console.error('[TX] [RPC] Failed to disburse:', e)
-      showInfo(e?.message || 'Failed to disburse.')
+      await swError(
+        e?.message || 'We couldn’t mark this as disbursed. Please try again in a moment.',
+        'Disbursement failed'
+      )
     } finally {
       updating.value.delete(tx.id)
       updating.value = new Set(updating.value) // force reactivity
@@ -606,15 +719,24 @@ const isRejectLocked = (tx: Tx) =>
 
 const rejectTitle = (tx: Tx) => {
   if (rejecting.value.has(tx.id)) return 'Reject in progress…'
-  if (tx.status === 'disbursed') return 'Cannot reject a disbursed transaction'
-  if (tx.status === 'rejected') return 'Already rejected'
+  if (tx.status === 'disbursed') return 'You can’t reject a disbursed transaction.'
+  if (tx.status === 'rejected') return 'This transaction is already rejected.'
   return 'Reject'
 }
 
-const handleRejectClick = (tx: Tx) => {
-  if (rejecting.value.has(tx.id)) return showInfo('Reject in progress…')
-  if (tx.status === 'disbursed') return showInfo('Cannot reject a disbursed transaction.')
-  if (tx.status === 'rejected') return showInfo('This transaction is already rejected.')
+const handleRejectClick = async (tx: Tx) => {
+  if (rejecting.value.has(tx.id)) {
+    await swInfo('We’re already processing this rejection. Please wait a moment.')
+    return
+  }
+  if (tx.status === 'disbursed') {
+    await swError('You can’t reject a transaction that has already been disbursed.')
+    return
+  }
+  if (tx.status === 'rejected') {
+    await swInfo('This transaction has already been rejected.')
+    return
+  }
   // otherwise proceed
   return markRejected(tx)
 }
@@ -657,9 +779,17 @@ const markRejected = async (tx: Tx) => {
       hideViewModal()
       selectedTx.value = null
     }
+
+    await swSuccess(
+      'This transaction has been marked as rejected. The status has been updated.',
+      'Transaction rejected'
+    )
   } catch (e: any) {
     console.error('[TX] Failed to reject:', e?.message || e)
-    showInfo(e?.message || 'Failed to mark as rejected.')
+    await swError(
+      e?.message || 'We couldn’t mark this as rejected. Please try again.',
+      'Reject failed'
+    )
   } finally {
     rejecting.value.delete(tx.id)
     rejecting.value = new Set(rejecting.value) // force reactivity
@@ -723,7 +853,7 @@ const upsertOne = async (row: any) => {
       if (row.user_id) {
         const { data: udata, error: uerr } = await supabase
           .from('users')
-          .select('id, full_name, email')
+          .select('id, full_name, email, profile_url')
           .eq('id', row.user_id)
           .maybeSingle()
         if (uerr) {
@@ -800,7 +930,7 @@ const refreshOne = async (id: string) => {
     if (!row.users && row.user_id) {
       const { data: udata, error: uerr } = await supabase
         .from('users')
-        .select('id, full_name, email')
+        .select('id, full_name, email, profile_url')
         .eq('id', row.user_id)
         .maybeSingle()
       if (uerr) {
@@ -930,6 +1060,76 @@ onBeforeUnmount(() => {
   0% { opacity: 1; }
   50% { opacity: .25; }
   100% { opacity: 1; }
+}
+
+/* ====== Breath-in animation per section (250ms) ====== */
+.breath-section {
+  animation: breathIn 0.25s ease-out;
+  animation-fill-mode: both;
+}
+@keyframes breathIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ====== Skeleton rows while loading ====== */
+.tx-skel-row {
+  display: grid;
+  grid-template-columns: 2fr 2fr 1fr 1fr 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.tx-skel-cell {
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(110deg, #e5e7eb 8%, #f3f4f6 18%, #e5e7eb 33%);
+  background-size: 200% 100%;
+  animation: skelShimmer 1.1s ease-in-out infinite;
+}
+@keyframes skelShimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+/* ===== Avatar per row ===== */
+.tx-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.tx-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.tx-avatar-fallback {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+/* Slightly tighten layout on small screens */
+@media (max-width: 576px) {
+  .tx-skel-row {
+    grid-template-columns: 2fr 1.5fr 1fr;
+  }
 }
 </style>
 
