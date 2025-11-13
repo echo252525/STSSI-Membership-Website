@@ -1,7 +1,7 @@
 <template>
   <div class="admin-products-page p-2">
     <!-- Header -->
-    <div class="mb-3">
+    <div class="mb-3 breath-section">
       <h3 class="fw-bold mb-3 d-flex gap-3 align-items-center">
         <i class="bi bi-box-seam"></i>Admin Products
       </h3>
@@ -26,6 +26,18 @@
           </div>
         </div>
 
+        <!-- FILTER ICON ONLY (Shopee-like) -->
+        <button
+          type="button"
+          class="btn btn-sm btn-icon-only"
+          :class="hasActiveFilters ? 'btn-azure' : 'btn-outline-secondary'"
+          @click="toggleFilters"
+          :aria-pressed="hasActiveFilters"
+          title="Filter products"
+        >
+          <i class="bi bi-funnel-fill"></i>
+        </button>
+
         <!-- Button: full width on xs, auto on sm+ -->
         <button type="button" class="btn btn-primary btn-add w-sm-auto" @click="openForm()">
           <i class="bi bi-plus-lg"></i>
@@ -37,205 +49,366 @@
           <span>Total Products: {{ products.length }}</span>
         </div>
       </div>
-    </div>
 
-    <!-- Content -->
-    <div class="card shadow-sm border-0">
-      <div class="card-body">
-        <div v-if="loading" class="py-5 text-center text-muted">
-          <div class="spinner-border mb-2"></div>
-          <div>Loading products…</div>
-        </div>
-
-        <template v-else>
-          <!-- Empty state -->
-          <div v-if="filteredProducts.length === 0" class="py-5 text-center text-muted">
-            <i class="bi bi-box" style="font-size: 1.6rem"></i>
-            <div class="mt-2">No products found</div>
-          </div>
-
-          <!-- Grid -->
-          <div class="row g-3">
-            <div
-              class="productDiv col-6 col-md-4 col-lg-2"
-              v-for="p in paginatedProducts"
-              :key="p.id"
-            >
-              <!-- Open modal when clicking ANYWHERE on the card -->
-              <div
-                class="product-card h-100 border rounded-3 overflow-hidden"
-                role="button"
-                tabindex="0"
-                @click="openView(p)"
-                @keydown.enter.space.prevent="openView(p)"
-              >
-                <!-- SLIDER / SINGLE IMAGE -->
-                <div
-                  class="ratio ratio-1x1 position-relative slider-touch slider-card"
-                  @touchstart.passive="onTouchStart($event, p.id)"
-                  @touchmove.passive="onTouchMove"
-                  @touchend="onTouchEnd(p)"
-                  @mousedown.left="onMouseDown($event, p.id)"
-                  @mousemove="onMouseMove"
-                  @mouseup="onMouseUp(p)"
-                  @mouseleave="onMouseLeave"
+      <!-- FILTER PANEL -->
+      <div v-if="showFilters" class="filter-panel-wrap mt-2">
+        <div class="filter-panel card shadow-sm breath-section">
+          <div class="card-body small">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="fw-semibold text-uppercase xsmall text-muted">Quick filters</div>
+              <div class="d-flex gap-2 align-items-center">
+                <button
+                  type="button"
+                  class="btn btn-link btn-sm px-0 text-decoration-none"
+                  @click="resetFilters"
                 >
-                  <!-- MULTI-IMAGE -->
-                  <template v-if="p.product_url.length > 1">
-                    <transition :name="slideName(p.id)" mode="out-in">
-                      <img
-                        :key="currentIndex(p.id)"
-                        :src="imageUrlAt(p, currentIndex(p.id))"
-                        :alt="p.name"
-                        class="w-100 h-100 object-fit-cover p-1"
-                        :style="swipeStyle(p.id)"
-                        draggable="false"
-                      />
-                    </transition>
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  @click="showFilters = false"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
 
-                    <!-- arrows (prevent opening modal) -->
-                    <button class="slider-btn left" @click.stop="prev(p.id)" aria-label="Previous image">
-                      <i class="bi bi-chevron-left"></i>
-                    </button>
-                    <button class="slider-btn right" @click.stop="next(p)" aria-label="Next image">
-                      <i class="bi bi-chevron-right"></i>
-                    </button>
-
-                    <!-- dots (prevent opening modal) -->
-                    <div class="slider-dots">
-                      <button
-                        v-for="(u, i) in p.product_url"
-                        :key="i"
-                        class="dot"
-                        :class="{ active: currentIndex(p.id) === i }"
-                        @click.stop="setIndex(p.id, i)"
-                        :aria-label="`Go to image ${i + 1}`"
-                      />
-                    </div>
-                  </template>
-
-                  <!-- SINGLE IMAGE -->
-                  <template v-else>
-                    <template v-if="imageUrlAt(p, 0)">
-                      <transition :name="slideName(p.id)" mode="out-in">
-                        <img
-                          :key="'single-' + p.id"
-                          :src="imageUrlAt(p, 0)"
-                          :alt="p.name"
-                          class="w-100 h-100 object-fit-cover"
-                          draggable="false"
-                        />
-                      </transition>
-                    </template>
-                    <template v-else>
-                      <div
-                        class="d-flex flex-column align-items-center justify-content-center text-muted"
-                        style="inset: 0; position: absolute"
-                      >
-                        <i class="bi bi-image" style="font-size: 1.6rem"></i>
-                        <small class="mt-1">No image</small>
-                      </div>
-                    </template>
-                  </template>
-
-                  <span
-                    v-if="isAnyImgBusy(p)"
-                    class="position-absolute top-0 end-0 m-2 badge text-bg-secondary"
+            <div class="row g-3">
+              <!-- Availability -->
+              <div class="col-12 col-md-4">
+                <div class="text-muted xsmall mb-1 text-uppercase">Availability</div>
+                <div class="pill-group">
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: stockFilter === 'all' }"
+                    @click="stockFilter = 'all'"
                   >
-                    loading…
-                  </span>
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: stockFilter === 'in' }"
+                    @click="stockFilter = 'in'"
+                  >
+                    In stock
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: stockFilter === 'out' }"
+                    @click="stockFilter = 'out'"
+                  >
+                    Out of stock
+                  </button>
                 </div>
+              </div>
 
-                <!-- Body -->
-                <div class="p-2 card-body-stable">
-                  <div class="d-flex row justify-content-between align-items-start gap-2">
-                    <strong class="text-truncate productTitle" @click.stop="openView(p)">{{ p.name }}</strong>
-                    <span class="badge text-bg-primary w-auto flex-grow-0 flex-shrink-0 px-2 py-1 rounded-pill">
-                      ₱ {{ number(p.price) }}
-                    </span>
-                  </div>
-
-                  <!-- Clamp to 2 lines for consistent height -->
-                  <div class="text-muted small mt-1 desc-clamp" :title="p.description || ''">
-                    {{ p.description || '—' }}
-                  </div>
-
-                  <div class="text-success xsmall fw-bold mt-1">
-                    <i class="bi bi-tag me-1"></i>Supplier: ₱ {{ number(p.supplier_price) }}
-                  </div>
-
-                  <div
-                    class="d-flex row justify-content-between align-items-center mt-3 text-muted dateProduct"
+              <!-- Publish state -->
+              <div class="col-12 col-md-4">
+                <div class="text-muted xsmall mb-1 text-uppercase">Publish state</div>
+                <div class="pill-group">
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: publishFilter === 'all' }"
+                    @click="publishFilter = 'all'"
                   >
-                    <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(p.created_at) }}</span>
-                    <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
-                  </div>
+                    All
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: publishFilter === 'published' }"
+                    @click="publishFilter = 'published'"
+                  >
+                    Published
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: publishFilter === 'unpublished' }"
+                    @click="publishFilter = 'unpublished'"
+                  >
+                    Unpublished
+                  </button>
+                </div>
+              </div>
 
-                  <!-- Publish switch + actions (HIDDEN ON CARD; SHOWN IN MODAL) -->
-                  <div class="d-flex align-items-center justify-content-between mt-3 d-none">
-                    <div class="form-check form-switch m-0">
-                      <input
-                        class="form-check-input"
-                        type="checkbox"
-                        :id="`pub-${p.id}`"
-                        :checked="p.ispublish"
-                        @change.stop="togglePublish(p)"
-                      />
-                      <label class="form-check-label small" :for="`pub-${p.id}`">
-                        {{ p.ispublish ? 'Published' : 'Unpublished' }}
-                      </label>
-                    </div>
-
-                    <!-- Only when NOT published -->
-                    <div class="d-flex gap-2" v-if="!p.ispublish">
-                      <button class="btn btn-sm btn-outline-secondary" @click.stop="openEdit(p)">
-                        <i class="bi bi-pencil-square me-1"></i>Edit
-                      </button>
-                      <button class="btn btn-sm btn-outline-danger" @click.stop="deleteProduct(p)">
-                        <i class="bi bi-trash me-1"></i>Delete
-                      </button>
-                    </div>
-                  </div>
-                  <!-- /Hidden on card -->
+              <!-- Sort -->
+              <div class="col-12 col-md-4">
+                <div class="text-muted xsmall mb-1 text-uppercase">Sort by</div>
+                <div class="pill-group">
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: sortMode === 'newest' }"
+                    @click="sortMode = 'newest'"
+                  >
+                    Newest
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: sortMode === 'price-asc' }"
+                    @click="sortMode = 'price-asc'"
+                  >
+                    Price ↑
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: sortMode === 'price-desc' }"
+                    @click="sortMode = 'price-desc'"
+                  >
+                    Price ↓
+                  </button>
+                  <button
+                    type="button"
+                    class="pill-btn"
+                    :class="{ active: sortMode === 'name-asc' }"
+                    @click="sortMode = 'name-asc'"
+                  >
+                    A–Z
+                  </button>
                 </div>
               </div>
             </div>
           </div>
+        </div>
+      </div>
+      <!-- /FILTER PANEL -->
+    </div>
 
-          <!-- ===== Pagination (1–10 window + arrows) ===== -->
-          <div
-            v-if="totalPages > 1"
-            class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-4"
-          >
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              :disabled="page === 1"
-              @click="goPrev"
-              title="Previous page"
-            >
-              <i class="bi bi-chevron-left"></i>
-            </button>
-
-            <button
-              v-for="n in visiblePageNumbers"
-              :key="n"
-              class="btn btn-sm"
-              :class="n === page ? 'btn-primary' : 'btn-outline-secondary'"
-              @click="goToPage(n)"
-            >
-              {{ n }}
-            </button>
-
-            <button
-              class="btn btn-outline-secondary btn-sm"
-              :disabled="page === totalPages"
-              @click="goNext"
-              title="Next page"
-            >
-              <i class="bi bi-chevron-right"></i>
-            </button>
+    <!-- Content -->
+    <div class="card shadow-sm border-0 breath-section">
+      <div class="card-body">
+        <!-- SKELETON LOADING STATE -->
+        <div v-if="loading" class="skeleton-wrap breath-section">
+          <div class="row g-3">
+            <div v-for="n in 8" :key="n" class="col-6 col-md-4 col-lg-2">
+              <div class="product-card skeleton-card">
+                <div class="ratio ratio-1x1 skeleton-thumb mb-2"></div>
+                <div class="px-2 pb-2">
+                  <div class="skeleton-line w-75 mb-2"></div>
+                  <div class="skeleton-line w-50 mb-2"></div>
+                  <div class="skeleton-line w-100 mb-1"></div>
+                  <div class="skeleton-line w-60"></div>
+                </div>
+              </div>
+            </div>
           </div>
-          <!-- /Pagination -->
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <template v-else>
+          <div class="content-section breath-section">
+            <!-- Empty state -->
+            <div v-if="filteredProducts.length === 0" class="py-5 text-center text-muted">
+              <i class="bi bi-box" style="font-size: 1.6rem"></i>
+              <div class="mt-2">No products found</div>
+            </div>
+
+            <!-- Grid -->
+            <div v-else class="row g-3">
+              <div
+                class="productDiv col-6 col-md-4 col-lg-2"
+                v-for="p in paginatedProducts"
+                :key="p.id"
+              >
+                <!-- Open modal when clicking ANYWHERE on the card -->
+                <div
+                  class="product-card h-100 border rounded-3 overflow-hidden"
+                  role="button"
+                  tabindex="0"
+                  @click="openView(p)"
+                  @keydown.enter.space.prevent="openView(p)"
+                >
+                  <!-- SLIDER / SINGLE IMAGE -->
+                  <div
+                    class="ratio ratio-1x1 position-relative slider-touch slider-card"
+                    @touchstart.passive="onTouchStart($event, p.id)"
+                    @touchmove.passive="onTouchMove"
+                    @touchend="onTouchEnd(p)"
+                    @mousedown.left="onMouseDown($event, p.id)"
+                    @mousemove="onMouseMove"
+                    @mouseup="onMouseUp(p)"
+                    @mouseleave="onMouseLeave"
+                  >
+                    <!-- MULTI-IMAGE -->
+                    <template v-if="p.product_url.length > 1">
+                      <transition :name="slideName(p.id)" mode="out-in">
+                        <img
+                          :key="currentIndex(p.id)"
+                          :src="imageUrlAt(p, currentIndex(p.id))"
+                          :alt="p.name"
+                          class="w-100 h-100 object-fit-cover p-1"
+                          :style="swipeStyle(p.id)"
+                          draggable="false"
+                        />
+                      </transition>
+
+                      <!-- arrows (prevent opening modal) -->
+                      <button
+                        class="slider-btn left"
+                        @click.stop="prev(p.id)"
+                        aria-label="Previous image"
+                      >
+                        <i class="bi bi-chevron-left"></i>
+                      </button>
+                      <button
+                        class="slider-btn right"
+                        @click.stop="next(p)"
+                        aria-label="Next image"
+                      >
+                        <i class="bi bi-chevron-right"></i>
+                      </button>
+
+                      <!-- dots (prevent opening modal) -->
+                      <div class="slider-dots">
+                        <button
+                          v-for="(u, i) in p.product_url"
+                          :key="i"
+                          class="dot"
+                          :class="{ active: currentIndex(p.id) === i }"
+                          @click.stop="setIndex(p.id, i)"
+                          :aria-label="`Go to image ${i + 1}`"
+                        />
+                      </div>
+                    </template>
+
+                    <!-- SINGLE IMAGE -->
+                    <template v-else>
+                      <template v-if="imageUrlAt(p, 0)">
+                        <transition :name="slideName(p.id)" mode="out-in">
+                          <img
+                            :key="'single-' + p.id"
+                            :src="imageUrlAt(p, 0)"
+                            :alt="p.name"
+                            class="w-100 h-100 object-fit-cover"
+                            draggable="false"
+                          />
+                        </transition>
+                      </template>
+                      <template v-else>
+                        <div
+                          class="d-flex flex-column align-items-center justify-content-center text-muted"
+                          style="inset: 0; position: absolute"
+                        >
+                          <i class="bi bi-image" style="font-size: 1.6rem"></i>
+                          <small class="mt-1">No image</small>
+                        </div>
+                      </template>
+                    </template>
+
+                    <span
+                      v-if="isAnyImgBusy(p)"
+                      class="position-absolute top-0 end-0 m-2 badge text-bg-secondary"
+                    >
+                      loading…
+                    </span>
+                  </div>
+
+                  <!-- Body -->
+                  <div class="p-2 card-body-stable">
+                    <div class="d-flex row justify-content-between align-items-start gap-2">
+                      <strong class="text-truncate productTitle" @click.stop="openView(p)">
+                        {{ p.name }}
+                      </strong>
+                      <span
+                        class="badge text-bg-primary w-auto flex-grow-0 flex-shrink-0 px-2 py-1 rounded-pill"
+                      >
+                        ₱ {{ number(p.price) }}
+                      </span>
+                    </div>
+
+                    <!-- Clamp to 2 lines for consistent height -->
+                    <div class="text-muted small mt-1 desc-clamp" :title="p.description || ''">
+                      {{ p.description || '—' }}
+                    </div>
+
+                    <div class="text-success xsmall fw-bold mt-1">
+                      <i class="bi bi-tag me-1"></i>Supplier: ₱ {{ number(p.supplier_price) }}
+                    </div>
+
+                    <div
+                      class="d-flex row justify-content-between align-items-center mt-3 text-muted dateProduct"
+                    >
+                      <span><i class="bi bi-calendar-plus me-1"></i>{{ fmt(p.created_at) }}</span>
+                      <span><i class="bi bi-clock-history me-1"></i>{{ fmt(p.updated_at) }}</span>
+                    </div>
+
+                    <!-- Publish switch + actions (HIDDEN ON CARD; SHOWN IN MODAL) -->
+                    <div class="d-flex align-items-center justify-content-between mt-3 d-none">
+                      <div class="form-check form-switch m-0">
+                        <input
+                          class="form-check-input"
+                          type="checkbox"
+                          :id="`pub-${p.id}`"
+                          :checked="p.ispublish"
+                          @change.stop="togglePublish(p)"
+                        />
+                        <label class="form-check-label small" :for="`pub-${p.id}`">
+                          {{ p.ispublish ? 'Published' : 'Unpublished' }}
+                        </label>
+                      </div>
+
+                      <!-- Only when NOT published -->
+                      <div class="d-flex gap-2" v-if="!p.ispublish">
+                        <button class="btn btn-sm btn-outline-secondary" @click.stop="openEdit(p)">
+                          <i class="bi bi-pencil-square me-1"></i>Edit
+                        </button>
+                        <button
+                          class="btn btn-sm btn-outline-danger"
+                          @click.stop="deleteProduct(p)"
+                        >
+                          <i class="bi bi-trash me-1"></i>Delete
+                        </button>
+                      </div>
+                    </div>
+                    <!-- /Hidden on card -->
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ===== Pagination (1–10 window + arrows) ===== -->
+            <div
+              v-if="totalPages > 1"
+              class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-4"
+            >
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                :disabled="page === 1"
+                @click="goPrev"
+                title="Previous page"
+              >
+                <i class="bi bi-chevron-left"></i>
+              </button>
+
+              <button
+                v-for="n in visiblePageNumbers"
+                :key="n"
+                class="btn btn-sm"
+                :class="n === page ? 'btn-primary' : 'btn-outline-secondary'"
+                @click="goToPage(n)"
+              >
+                {{ n }}
+              </button>
+
+              <button
+                class="btn btn-outline-secondary btn-sm"
+                :disabled="page === totalPages"
+                @click="goNext"
+                title="Next page"
+              >
+                <i class="bi bi-chevron-right"></i>
+              </button>
+            </div>
+            <!-- /Pagination -->
+          </div>
         </template>
       </div>
     </div>
@@ -243,7 +416,7 @@
     <!-- Create Product Modal -->
     <teleport to="body">
       <div v-if="showForm" class="modal-backdrop-custom">
-        <div class="modal-card card shadow-lg">
+        <div class="modal-card card shadow-lg breath-section">
           <div class="card-header d-flex justify-content-between align-items-center">
             <strong>Add Product</strong>
             <button class="btn btn-sm btn-outline-secondary" @click="closeForm">✕</button>
@@ -582,7 +755,7 @@
     <!-- ===== View Product Modal ===== -->
     <teleport to="body">
       <div v-if="showView && viewItem" class="modal-backdrop-custom" @click.self="closeView">
-        <div class="modal-card card shadow-lg">
+        <div class="modal-card card shadow-lg breath-section">
           <div class="card-header d-flex justify-content-between align-items-center">
             <strong>{{ viewItem.name }}</strong>
             <button class="btn btn-sm btn-outline-secondary" @click="closeView">✕</button>
@@ -605,7 +778,10 @@
               <div class="col-12 col-lg-6">
                 <div class="d-flex align-items-center justify-content-between">
                   <div class="h5 mb-0">₱ {{ number(viewItem.price) }}</div>
-                  <span class="badge" :class="viewItem.ispublish ? 'text-bg-success' : 'text-bg-secondary'">
+                  <span
+                    class="badge"
+                    :class="viewItem.ispublish ? 'text-bg-success' : 'text-bg-secondary'"
+                  >
                     {{ viewItem.ispublish ? 'Published' : 'Unpublished' }}
                   </span>
                 </div>
@@ -624,8 +800,8 @@
                   <div class="text-muted small mb-1">Specifications</div>
                   <div class="border rounded p-2 bg-body">
                     <template v-if="specEntries(viewItem).length">
-                      <div v-for="([k,v], i) in specEntries(viewItem)" :key="i" class="d-flex gap-2">
-                        <div class="fw-semibold" style="min-width: 120px;">{{ k }}</div>
+                      <div v-for="([k, v], i) in specEntries(viewItem)" :key="i" class="d-flex gap-2">
+                        <div class="fw-semibold" style="min-width: 120px">{{ k }}</div>
                         <div class="text-muted">{{ v }}</div>
                       </div>
                     </template>
@@ -651,17 +827,19 @@
                       {{ viewItem.ispublish ? 'Published' : 'Unpublished' }}
                     </label>
                   </div>
-                  <button class="btn btn-outline-secondary btn-sm" @click="openEdit(viewItem!)">
-                    <i class="bi bi-pencil-square me-1"></i>Edit
-                  </button>
-                  <!-- Only show Delete when NOT published -->
-                  <button
-                    v-if="!viewItem.ispublish"
-                    class="btn btn-outline-danger btn-sm"
-                    @click="deleteProduct(viewItem!)"
-                  >
-                    <i class="bi bi-trash me-1"></i>Delete
-                  </button>
+
+                  <!-- ONLY SHOW EDIT + DELETE WHEN NOT PUBLISHED -->
+                  <template v-if="!viewItem.ispublish">
+                    <button class="btn btn-outline-secondary btn-sm" @click="openEdit(viewItem!)">
+                      <i class="bi bi-pencil-square me-1"></i>Edit
+                    </button>
+                    <button
+                      class="btn btn-outline-danger btn-sm"
+                      @click="deleteProduct(viewItem!)"
+                    >
+                      <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                  </template>
                 </div>
               </div>
             </div>
@@ -674,7 +852,7 @@
     <!-- ===== Edit Product Modal (ALL FIELDS) ===== -->
     <teleport to="body">
       <div v-if="showEdit" class="modal-backdrop-custom">
-        <div class="modal-card card shadow-lg">
+        <div class="modal-card card shadow-lg breath-section">
           <div class="card-header d-flex justify-content-between align-items-center">
             <strong>Edit Product</strong>
             <button class="btn btn-sm btn-outline-secondary" @click="closeEdit">✕</button>
@@ -933,7 +1111,6 @@
       </div>
     </teleport>
     <!-- /Edit Product Modal END -->
-
   </div>
 </template>
 
@@ -942,6 +1119,7 @@ import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'vue-router'
 import { currentUser } from '@/lib/authState'
+import Swal from 'sweetalert2'
 
 const router = useRouter()
 const user = computed(() => currentUser.value)
@@ -952,6 +1130,7 @@ onMounted(async () => {
     if (!data.user) return router.push({ name: 'login' })
   }
 })
+
 type ProductRow = {
   id: string
   name: string
@@ -969,13 +1148,61 @@ type ProductRow = {
 
 type SpecRow = { _key: string; key: string; value: string }
 
+type StockFilter = 'all' | 'in' | 'out'
+type PublishFilter = 'all' | 'published' | 'unpublished'
+type SortMode = 'newest' | 'oldest' | 'price-asc' | 'price-desc' | 'name-asc'
+
 const products = ref<ProductRow[]>([])
 const loading = ref(true)
 const showForm = ref(false)
 const submitting = ref(false)
 const q = ref('')
 
-/** ===== NEW: View modal state ===== */
+/** ===== FILTER STATE (Shopee-like) ===== */
+const showFilters = ref(false)
+const stockFilter = ref<StockFilter>('all')
+const publishFilter = ref<PublishFilter>('all')
+const sortMode = ref<SortMode>('newest')
+
+const hasActiveFilters = computed(
+  () =>
+    stockFilter.value !== 'all' ||
+    publishFilter.value !== 'all' ||
+    sortMode.value !== 'newest',
+)
+
+function toggleFilters() {
+  showFilters.value = !showFilters.value
+}
+function resetFilters() {
+  stockFilter.value = 'all'
+  publishFilter.value = 'all'
+  sortMode.value = 'newest'
+}
+
+/** ===== SweetAlert helpers ===== */
+function toastSuccess(title: string, text?: string) {
+  Swal.fire({
+    icon: 'success',
+    title,
+    text,
+    toast: true,
+    position: 'top-end',
+    showConfirmButton: false,
+    timer: 2000,
+    timerProgressBar: true,
+  })
+}
+function showError(title: string, text?: string) {
+  Swal.fire({
+    icon: 'error',
+    title,
+    text,
+    confirmButtonText: 'OK',
+  })
+}
+
+/** ===== View modal state ===== */
 const showView = ref(false)
 const viewItem = ref<ProductRow | null>(null)
 function openView(p: ProductRow) {
@@ -991,11 +1218,11 @@ function specEntries(p: ProductRow) {
   return Object.entries(obj)
 }
 
-/** ===== NEW: Pagination state (windowed 1–10) ===== */
+/** ===== Pagination state (windowed 1–10) ===== */
 const page = ref(1)
-const pageSize = ref(8) // tweak if you prefer other page sizes
+const pageSize = ref(8)
 const totalPages = computed(() =>
-  Math.max(1, Math.ceil(filteredProducts.value.length / pageSize.value))
+  Math.max(1, Math.ceil(filteredProducts.value.length / pageSize.value)),
 )
 const pageWindowStart = computed(() => Math.floor((page.value - 1) / 10) * 10 + 1)
 const pageWindowEnd = computed(() => Math.min(pageWindowStart.value + 9, totalPages.value))
@@ -1019,8 +1246,8 @@ function goPrev() {
 function goNext() {
   goToPage(page.value + 1)
 }
-/** ===== /Pagination ===== */
 
+/** Form state */
 type FormMode = 'upload' | 'url'
 const formMode = ref<FormMode>('upload')
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -1037,8 +1264,8 @@ const form = reactive({
   supplier_price: 0,
   product_urls: [''] as string[],
   warranty: '' as string,
-  specList: [] as SpecRow[], // rows only
-  stock: 0 as number | string, // NEW
+  specList: [] as SpecRow[],
+  stock: 0 as number | string,
 })
 
 /** helpers */
@@ -1060,7 +1287,7 @@ const fmt = (x: string | null | undefined) => {
   if (!x) return '—'
   const d = new Date(String(x).replace(' ', 'T'))
   if (isNaN(d.getTime())) return '—'
-  return d.toLocaleString(undefined, { dateStyle: 'medium'})
+  return d.toLocaleString(undefined, { dateStyle: 'medium' })
 }
 
 /** slider state per product */
@@ -1138,7 +1365,10 @@ async function loadProducts() {
     )
     .order('created_at', { ascending: false })
 
-  if (!error) {
+  if (error) {
+    products.value = []
+    showError('Failed to load products', error.message)
+  } else {
     products.value = (data ?? []).map((row: any) => ({
       ...row,
       product_url: Array.isArray(row.product_url)
@@ -1170,7 +1400,6 @@ function resetForm() {
   form.warranty = ''
   form.specList = []
   form.stock = 0
-  // clear files + revoke previews
   selectedFiles.value = []
   filePreviews.value.forEach((p) => URL.revokeObjectURL(p.url))
   filePreviews.value = []
@@ -1253,7 +1482,7 @@ function removeUrl(i: number) {
   if (!form.product_urls.length) form.product_urls.push('')
   buildUrlPreviews()
 }
-function previewUrl(i: number) {
+function previewUrl(_i: number) {
   buildUrlPreviews()
 }
 function buildUrlPreviews() {
@@ -1289,9 +1518,7 @@ const supplierOk = computed(() => {
   if (isNaN(sp) || isNaN(p)) return false
   return sp >= 0 && sp < p
 })
-const specsOk = computed(() => {
-  return form.specList.every((r) => (r.key || '').trim().length > 0)
-})
+const specsOk = computed(() => form.specList.every((r) => (r.key || '').trim().length > 0))
 const imagesOk = computed(() => {
   if (formMode.value === 'upload') {
     return selectedFiles.value.length >= 1 && selectedFiles.value.length <= 5
@@ -1321,7 +1548,13 @@ async function uploadToStorage(productId: string, file: File, index: number): Pr
 
 /** submit */
 async function submit() {
-  if (!canSubmit.value) return
+  if (!canSubmit.value) {
+    showError(
+      'Incomplete details',
+      'Please complete all required fields, fix validation errors, and add at least one image.',
+    )
+    return
+  }
   submitting.value = true
   try {
     const productId = randId()
@@ -1341,7 +1574,7 @@ async function submit() {
     }
 
     if (urls.length < 1 || urls.length > 5) {
-      alert('Please provide 1 to 5 images.')
+      showError('Invalid images', 'Please provide between 1 and 5 images.')
       return
     }
 
@@ -1356,11 +1589,11 @@ async function submit() {
       product_url: urls,
       warranty: form.warranty?.trim() || null,
       specifications: Object.keys(specificationsObj).length ? specificationsObj : null,
-      stock: Number(form.stock ?? 0), // NEW
+      stock: Number(form.stock ?? 0),
     }
 
     if (!(payload.supplier_price >= 0 && payload.supplier_price < payload.price)) {
-      alert('Supplier price must be lower than Price.')
+      showError('Invalid supplier price', 'Supplier price must be lower than Price.')
       return
     }
 
@@ -1368,29 +1601,75 @@ async function submit() {
 
     if (error) {
       console.error('insert product error:', error.message)
-      alert(error.message)
+      showError('Failed to save product', error.message)
       return
     }
 
     closeForm()
     await loadProducts()
-    // reset to first page so user sees the new item if filtering affects order
     page.value = 1
+    toastSuccess('Product saved', 'Your product was created successfully.')
+  } catch (err: any) {
+    console.error(err)
+    showError('Unexpected error', err?.message || 'Something went wrong.')
   } finally {
     submitting.value = false
   }
 }
 
-/** search */
+/** search + filters + sort */
 const filteredProducts = computed(() => {
+  let list = products.value.slice()
+
   const s = q.value.toLowerCase().trim()
-  if (!s) return products.value
-  return products.value.filter((p) => {
-    return p.name.toLowerCase().includes(s) || (p.description ?? '').toLowerCase().includes(s)
+  if (s) {
+    list = list.filter((p) => {
+      return (
+        p.name.toLowerCase().includes(s) ||
+        (p.description ?? '').toLowerCase().includes(s)
+      )
+    })
+  }
+
+  // Stock filter
+  if (stockFilter.value === 'in') {
+    list = list.filter((p) => Number(p.stock) > 0)
+  } else if (stockFilter.value === 'out') {
+    list = list.filter((p) => Number(p.stock) <= 0)
+  }
+
+  // Publish filter
+  if (publishFilter.value === 'published') {
+    list = list.filter((p) => p.ispublish)
+  } else if (publishFilter.value === 'unpublished') {
+    list = list.filter((p) => !p.ispublish)
+  }
+
+  // Sort
+  list.sort((a, b) => {
+    const aCreated = new Date(a.created_at).getTime()
+    const bCreated = new Date(b.created_at).getTime()
+
+    switch (sortMode.value) {
+      case 'newest':
+        return bCreated - aCreated
+      case 'oldest':
+        return aCreated - bCreated
+      case 'price-asc':
+        return Number(a.price) - Number(b.price)
+      case 'price-desc':
+        return Number(b.price) - Number(a.price)
+      case 'name-asc':
+        return a.name.localeCompare(b.name)
+      default:
+        return 0
+    }
   })
+
+  return list
 })
 
-/** keep page in range when filter changes */
+/** keep page in range when filter/search changes */
 watchEffect(() => {
   if (page.value > totalPages.value) page.value = totalPages.value
   if (page.value < 1) page.value = 1
@@ -1472,29 +1751,45 @@ async function togglePublish(p: ProductRow) {
     .update({ ispublish: nextVal })
     .eq('id', p.id)
   if (error) {
-    alert('Failed to update publish state: ' + error.message)
+    showError('Failed to update publish state', error.message)
     return
   }
   p.ispublish = nextVal
+  if (viewItem.value && viewItem.value.id === p.id) {
+    viewItem.value.ispublish = nextVal
+  }
+  toastSuccess(nextVal ? 'Product published' : 'Product unpublished')
 }
 
 const busy = reactive({ editSave: false, deleting: false })
 
 async function deleteProduct(p: ProductRow) {
-  if (!confirm(`Delete "${p.name}"? This will also delete its photos.`)) return
+  const res = await Swal.fire({
+    title: 'Delete product?',
+    text: `Delete "${p.name}"? This will also delete its photos.`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Yes, delete',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#d33',
+  })
+  if (!res.isConfirmed) return
+
   busy.deleting = true
   try {
     await deleteAllInFolder(p.id)
     const { error } = await supabase.schema('games').from('products').delete().eq('id', p.id)
     if (error) {
-      alert('Failed to delete product: ' + error.message)
+      showError('Failed to delete product', error.message)
       return
     }
     await loadProducts()
-    // keep view modal in sync
     if (showView.value && viewItem.value?.id === p.id) closeView()
-    // make sure page index is still valid after deletion
     if (page.value > totalPages.value) page.value = totalPages.value
+    toastSuccess('Product deleted')
+  } catch (err: any) {
+    console.error(err)
+    showError('Unexpected error', err?.message || 'Something went wrong.')
   } finally {
     busy.deleting = false
   }
@@ -1530,12 +1825,11 @@ const editForm = reactive({
   supplier_price: 0 as number | string,
   warranty: '',
   specList: [] as SpecRow[],
-  stock: 0 as number | string, // NEW
+  stock: 0 as number | string,
 })
 
 function openEdit(p: ProductRow) {
   currentEdit.value = p
-  // also keep the view modal synced
   viewItem.value = p
   showEdit.value = true
   editForm.name = p.name
@@ -1558,7 +1852,6 @@ function openEdit(p: ProductRow) {
 }
 function closeEdit() {
   showEdit.value = false
-  // keep the view modal open; user can still see details
   editNewPreviews.value.forEach((v) => URL.revokeObjectURL(v.url))
   editNewPreviews.value = []
 }
@@ -1621,9 +1914,7 @@ const editSupplierOk = computed(() => {
   if (isNaN(sp) || isNaN(p)) return false
   return sp >= 0 && sp < p
 })
-const editSpecsOk = computed(() => {
-  return editForm.specList.every((r) => (r.key || '').trim().length > 0)
-})
+const editSpecsOk = computed(() => editForm.specList.every((r) => (r.key || '').trim().length > 0))
 const editPhotosOk = computed(() => {
   const kept = editExisting.value.filter((p) => !toRemove.has(p)).length
   const total = kept + editNewFiles.value.length
@@ -1672,7 +1963,7 @@ function clearSpecs(which: 'create' | 'edit') {
 async function saveEdit() {
   if (!currentEdit.value) return
   if (!editAllValid.value) {
-    alert('Please fix validation errors first.')
+    showError('Fix validation errors first', 'Please check prices, specs, and images.')
     return
   }
   busy.editSave = true
@@ -1684,7 +1975,7 @@ async function saveEdit() {
     if (toDel.length) {
       const { error: delErr } = await supabase.storage.from('prize_product').remove(toDel)
       if (delErr) {
-        alert('Failed deleting old images: ' + delErr.message)
+        showError('Failed deleting old images', delErr.message)
         return
       }
     }
@@ -1700,7 +1991,7 @@ async function saveEdit() {
     const keptExisting = editExisting.value.filter((p) => !toRemove.has(p))
     const finalUrls = [...keptExisting, ...uploadedPaths]
     if (finalUrls.length < 1 || finalUrls.length > 5) {
-      alert('Total images must be between 1 and 5.')
+      showError('Invalid images', 'Total images must be between 1 and 5.')
       return
     }
 
@@ -1715,11 +2006,11 @@ async function saveEdit() {
       warranty: editForm.warranty?.trim() || null,
       specifications: Object.keys(specificationsObj).length ? specificationsObj : null,
       product_url: finalUrls,
-      stock: Number(editForm.stock ?? 0), // NEW
+      stock: Number(editForm.stock ?? 0),
     }
 
     if (!(payload.supplier_price >= 0 && payload.supplier_price < payload.price)) {
-      alert('Supplier price must be lower than Price.')
+      showError('Invalid supplier price', 'Supplier price must be lower than Price.')
       return
     }
 
@@ -1730,14 +2021,17 @@ async function saveEdit() {
       .eq('id', productId)
 
     if (upErr) {
-      alert('Failed to update product: ' + upErr.message)
+      showError('Failed to update product', upErr.message)
       return
     }
 
     showEdit.value = false
     await loadProducts()
-    // keep pagination valid
     if (page.value > totalPages.value) page.value = totalPages.value
+    toastSuccess('Product updated')
+  } catch (err: any) {
+    console.error(err)
+    showError('Unexpected error', err?.message || 'Something went wrong.')
   } finally {
     busy.editSave = false
   }
@@ -1755,7 +2049,7 @@ onMounted(() => {
   --brand-azure: #20647c;
   --ink: #0f1b1f;
   --muted: #6b7f86;
-  --ring-azure: 32, 100, 124; /* for rgba() */
+  --ring-azure: 32, 100, 124;
   --ring-green: 32, 164, 76;
 }
 
@@ -1771,6 +2065,21 @@ onMounted(() => {
 /* Prevent the search from shrinking too small on wider screens */
 .header-tools .input-group {
   min-width: 240px;
+}
+
+/* ===== Section breath-in (250ms) ===== */
+.breath-section {
+  animation: breath-in-section 0.25s ease-out;
+}
+@keyframes breath-in-section {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ===== CARD POLISH ===== */
@@ -1801,14 +2110,9 @@ onMounted(() => {
   object-fit: cover;
 }
 
-
-
-
-
-
 /* Ensure consistent body height regardless of description length */
 .card-body-stable {
-  min-height: 138px; /* title/price + meta + spacing; adjust if needed */
+  min-height: 138px;
 }
 
 /* Clamp long descriptions to 2 lines with "..." */
@@ -1818,7 +2122,7 @@ onMounted(() => {
   line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-height: 2.4em; /* keeps layout steady even if short */
+  min-height: 2.4em;
 }
 
 /* Meta text tone */
@@ -1885,7 +2189,6 @@ onMounted(() => {
   transform: translateX(-50%);
   display: flex;
   gap: 0.5rem;
-
   pointer-events: none;
   z-index: 1;
 }
@@ -1950,6 +2253,105 @@ onMounted(() => {
 }
 .dateProduct {
   font-size: 0.6rem;
+}
+
+/* Filter button */
+.btn-icon-only {
+  border-radius: 999px;
+  width: 2.25rem;
+  height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-azure {
+  background: var(--brand-azure);
+  border-color: var(--brand-azure);
+  color: #fff;
+}
+.btn-azure:hover {
+  background: #174657;
+  border-color: #174657;
+  color: #fff;
+}
+
+/* Filter panel */
+.filter-panel-wrap {
+  position: relative;
+}
+.filter-panel {
+  border-radius: 14px;
+  border-color: #e6eef0;
+  background: #ffffff;
+}
+
+/* Shopee-like pill buttons */
+.pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.pill-btn {
+  border-radius: 999px;
+  border: 1px solid #d0dde2;
+  background: #f8fafb;
+  padding: 0.15rem 0.7rem;
+  font-size: 0.75rem;
+  color: #334155;
+  cursor: pointer;
+}
+.pill-btn.active {
+  background: rgba(var(--ring-azure), 0.08);
+  border-color: var(--brand-azure);
+  color: var(--brand-azure);
+  font-weight: 600;
+}
+
+/* Skeleton */
+.skeleton-wrap {
+  min-height: 160px;
+}
+.skeleton-card {
+  position: relative;
+  overflow: hidden;
+}
+.skeleton-thumb,
+.skeleton-line {
+  position: relative;
+  overflow: hidden;
+  background: #e3ebf0;
+}
+.skeleton-thumb::before,
+.skeleton-line::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.8) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-breath 1.4s ease-in-out infinite;
+}
+.skeleton-thumb {
+  border-radius: 12px;
+}
+.skeleton-line {
+  height: 8px;
+  border-radius: 999px;
+}
+.w-60 {
+  width: 60%;
+}
+@keyframes skeleton-breath {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .fb-dropzone {
@@ -2046,7 +2448,7 @@ onMounted(() => {
   color: var(--muted);
 }
 
-/* Animations */
+/* Animations for slider images */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.22s ease;
