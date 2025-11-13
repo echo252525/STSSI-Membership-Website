@@ -138,55 +138,48 @@
             </div>
 
             <!-- SCROLLABLE SIDE LIST: ALL OTHER OPEN GAMES -->
-            <div class="side-wrap">
-              <!-- optional top/bottom arrows; click nudges while preserving loop -->
+<!-- STATIC SIDE LIST: FIRST 10 GAMES BY LATEST CREATED -->
+<div class="side-wrap">
+  <div
+    class="side-list"
+    ref="sideListEl"
+    :style="{ maxHeight: sideListH + 'px' }"
+  >
+    <button
+      v-for="g in sideListGames"
+      :key="g.id"
+      type="button"
+      class="side-item"
+      :class="{ active: isSelected(g.id) }"
+      @click="selectFeature(g.id)"
+      :aria-selected="isSelected(g.id)"
+      :title="g.title"
+    >
+      <div class="icon-slot">
+        <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
+        <i v-else class="bi bi-controller"></i>
+      </div>
+      <div class="body">
+        <div class="title text-truncate" :title="g.title">{{ g.title }}</div>
+        <div class="tiny">
+          <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{ number(g.player_cap) }}
+          <span class="sep">•</span>
+          <i class="bi bi-trophy me-1"></i>{{ peso(g.winner_price) }}
+        </div>
+      </div>
+      <i class="bi bi-chevron-right caret"></i>
+    </button>
+  </div>
+</div>
 
-              <div
-                class="side-list scrollable"
-                ref="sideListEl"
-                :style="{ maxHeight: sideListH + 'px' }"
-                @mouseenter="hoverSide = true"
-                @mouseleave="hoverSide = false"
-                @scroll.passive="onManualSideScroll"
-              >
-                <!-- 🔁 Looping list: render 3 segments (A|B|C) for endless wrap -->
-                <button
-                  v-for="g in sideListLooped"
-                  :key="g._key"
-                  type="button"
-                  class="side-item"
-                  :class="{ active: isSelected(g.id) }"
-                  @click="selectFeature(g.id)"
-                  :aria-selected="isSelected(g.id)"
-                  :title="g.title"
-                  :data-gid="g.id"
-                  :data-rep="g._rep"
-                >
-                  <div class="icon-slot">
-                    <img v-if="g.imageUrl" :src="g.imageUrl || undefined" alt="Prize" />
-                    <i v-else class="bi bi-controller"></i>
-                  </div>
-                  <div class="body">
-                    <div class="title text-truncate" :title="g.title">{{ g.title }}</div>
-                    <div class="tiny">
-                      <i class="bi bi-people me-1"></i>{{ number(g.player_count) }}/{{
-                        number(g.player_cap)
-                      }}
-                      <span class="sep">•</span>
-                      <i class="bi bi-trophy me-1"></i>{{ peso(g.winner_price) }}
-                    </div>
-                  </div>
-                  <i class="bi bi-chevron-right caret"></i>
-                </button>
-              </div>  
-            </div>
+
           </div>
         </div>
       </div>
 
       <!-- ===== Product Preview (REBUILT & SORTED BY LATEST) ===== -->
       <div class="panel card border-0 shadow-sm rounded-4 breath-in-500" v-reveal style="--i: 1">
-        <div class="card-body">
+        <div class="card-body p-3">
           <div class="panel-head">
             <h3 class="h6 m-0 d-flex align-items-center gap-2">
               <i class="bi bi-eye"></i> See Latest Products
@@ -587,9 +580,17 @@ const featureGame = computed<GameRow | null>(() => {
     : null
   return fromSel || openGames.value[0] || null
 })
+// First 10 games by latest created_at (excluding the featured one)
 const sideListGames = computed(() => {
   const fid = featureGame.value?.id
-  return openGames.value.filter((g) => g.id !== fid)
+  return [...openGames.value]
+    .filter((g) => g.id !== fid)
+    .sort((a, b) => {
+      const at = new Date(a.created_at || 0).getTime()
+      const bt = new Date(b.created_at || 0).getTime()
+      return bt - at // latest first
+    })
+    .slice(0, 10)
 })
 function isSelected(id: string) {
   return (selectedGameId.value ? selectedGameId.value : openGames.value[0]?.id) === id
@@ -1718,10 +1719,11 @@ function nudgeSide(dir: 1 | -1) {
   manualScrollCooldown = 1.2 /* seconds pause after manual input */
   setTimeout(() => wrapSideScroll(), 250)
 }
+
 function onManualSideScroll() {
   manualScrollCooldown = 1.2
-  wrapSideScroll()
-  pauseSideSlideshowTemp(4) // pause slideshow briefly after manual scroll
+  pauseSideSlideshowTemp(4)
+  updateSideScrollHint()
 }
 
 /* ------- Side list height sync to banner (discounts) ------- */
@@ -2335,10 +2337,9 @@ function startsInLabel(iso: string) {
   flex-direction: column;
   gap: 5px;
   overflow-y: auto;
-  overscroll-behavior: contain;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  max-height: 100%;
 }
+
 .side-list::-webkit-scrollbar {
   width: 0;
   height: 0;

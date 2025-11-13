@@ -91,7 +91,7 @@
           class="m-0"
           style="width: 40px">
         </img>
-        <h5 class="fw-bold" v-if="!isRail">STEQ ONLINE</h5>
+        <h5 class="fw-bold steqLogoText" v-if="!isRail">STEQ ONLINE</h5>
       </div>
 
       <!-- Nav -->
@@ -681,6 +681,14 @@ const displayTierName = computed(() => currentTier.value?.name || membershipMeta
     width 200ms ease,
     padding 160ms ease;
 }
+
+.steqLogoText {
+  background: linear-gradient(135deg, #20a44c, #20647c);
+  background-clip: text;
+  color: transparent;
+}
+
+
 
 /* Offcanvas adjustments (mobile) */
 @media (max-width: 767.98px) {

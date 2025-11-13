@@ -8,6 +8,7 @@
   ],
   "exclude": ["src/**/__tests__/*"],
   "compilerOptions": {
+    "incremental": true,
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
     "typeRoots": ["./node_modules/@types", "./src/types"],  // 👈 Added this line
     "paths": {

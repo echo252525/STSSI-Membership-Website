@@ -11,13 +11,13 @@
           Mini Games
         </h2>
         <p class="text-secondary mb-1 breath-in">Join events, spin the wheel, and win purchase discounts.</p>
-        <RouterLink
-          :to="{ name: 'user.minigames.tutorial' }"
-          class="text-secondary mb-1 d-inline-block text-decoration-underline breath-in"
-          aria-label="Open tutorial: How to Play"
-        >
-          How to Play?
-        </RouterLink>
+        <button
+            type="button"
+            class="btn btn-secondary mb-1 btn-sm"
+            @click="router.push('minigames/tutorial')"
+          >
+            How to Play
+          </button>
 
         <div class="d-flex align-items-center justify-content-between breath-in">
           <h3 class="h6 mb-0 game-sub mb-3">Open Events</h3>

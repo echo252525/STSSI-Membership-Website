@@ -1815,7 +1815,7 @@ onMounted(() => {
 .desc-clamp {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   min-height: 2.4em; /* keeps layout steady even if short */

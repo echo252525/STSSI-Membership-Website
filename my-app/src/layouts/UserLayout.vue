@@ -67,7 +67,7 @@
       @click="openNotifModal"
     >
       <i class="bi bi-bell fs-5"></i>
-      
+
       <span
         v-if="notifCount > 0"
         class="notif-badge"
@@ -77,7 +77,7 @@
       >
     </button>
 
-    <!-- 🔰 Quick Tour per nav/page -->
+    <!-- Quick Tour per nav/page -->
     <div
       v-if="isRouteTourVisible && currentRouteTour"
       class="qt-backdrop"
@@ -104,9 +104,16 @@
         <p class="small mb-3">
           {{ currentRouteTour.body }}
         </p>
-        <div class="d-flex justify-content-end">
+        <div class="d-flex justify-content-end gap-1">
           <button type="button" class="btn btn-primary btn-sm" @click="dismissRouteTour">
             Got it
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            @click="router.push('minigames/tutorial')"
+          >
+            How to Play
           </button>
         </div>
       </div>
@@ -540,48 +547,48 @@ const ROUTE_TOUR_VERSION = 'v1'
 const ROUTE_TOUR_COPY: Record<string, RouteTourCopy> = {
   // Dashboard
   'user.dashboard': {
-    title: 'Dashboard overview',
-    body: 'This is your main hub. See your tier, balances, and quick links to everything you use most.',
+    title: 'Dashboard Overview',
+    body: 'See your membership tier, wallet balances, and quick shortcuts to everything you use most.',
   },
   // Membership
   'user.membership': {
-    title: 'Membership & perks',
-    body: 'Review your current tier, see how to level up, and understand what perks you’re getting each month.',
+    title: 'Membership & Perks',
+    body: 'Check your current tier, see how close you are to the next level, and review all the perks you unlock.',
   },
   // Deals & Rewards
   'user.deals': {
-    title: 'Deals & rewards',
-    body: 'Browse active promos, exclusive member discounts, and special time-limited offers just for you.',
+    title: 'Deals & Rewards',
+    body: 'Grab active promos, member-only discounts, and limited-time offers before they expire.',
   },
   // Shop
   'user.shop': {
-    title: 'Shop our products',
-    body: 'Explore available items, add them to your cart, and use your member discounts when you checkout.',
+    title: 'Shop Our Products',
+    body: 'Browse products, apply your member perks, and checkout using your preferred payment methods.',
   },
   // Purchases
   'user.purchases': {
-    title: 'Purchase history',
-    body: 'Track all your orders, view details, and check statuses or support info for each purchase.',
+    title: 'Purchase History',
+    body: 'Review all your orders, open receipts, and track delivery or support updates in one place.',
   },
-  // 🆕 My Purchases alias (so "My Purchases" route also has a quick tour)
+  // 🆕 My Purchases alias
   'user.mypurchases': {
-    title: 'Purchase history',
-    body: 'Track all your orders, view details, and check statuses or support info for each purchase.',
+    title: 'Purchase History',
+    body: 'Review all your orders, open receipts, and track delivery or support updates in one place.',
   },
   // E-wallet
   'user.ewallet': {
-    title: 'E-Wallet & credits',
-    body: 'Check your e-wallet balance, discount credits, and keep an eye on your recent wallet activity.',
+    title: 'E-Wallet & Credits',
+    body: 'Check your wallet balance, discount credits, and recent activity so you always know what you can spend.',
   },
   // Settings
   'user.settings': {
-    title: 'Account settings',
-    body: 'Update your profile, change your password, and manage personal information linked to your account.',
+    title: 'Account Settings',
+    body: 'Update your profile, manage login details, and control the personal information linked to your account.',
   },
   // Mini Games
   'user.minigames': {
-    title: 'Mini games & events',
-    body: 'Join fun events, spin for rewards, and get extra perks that can be used on your next purchases.',
+    title: 'Mini Games & Events',
+    body: 'Join events, spin the wheel, and earn extra bonuses you can use on your next purchases.',
   },
 }
 
@@ -1015,8 +1022,14 @@ function closeTierModal() {
   animation: badge-pop 0.2s ease-out;
 }
 @keyframes badge-pop {
-  0% { transform: scale(0.6); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 .notify-hidden .notif-badge {
   opacity: 0;
@@ -1037,8 +1050,12 @@ function closeTierModal() {
   animation: backdrop-fade 180ms ease-out both;
 }
 @keyframes backdrop-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .notif-modal {
   position: fixed;
@@ -1058,9 +1075,9 @@ function closeTierModal() {
 .notif-zoom-enter-active,
 .notif-zoom-leave-active {
   transition:
-    transform 260ms cubic-bezier(.2,.8,.2,1),
-    opacity 260ms cubic-bezier(.2,.8,.2,1),
-    filter 260ms cubic-bezier(.2,.8,.2,1);
+    transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .notif-zoom-enter-from {
   transform: translateY(10px) scale(0.96) rotate(0.001deg);
@@ -1095,7 +1112,7 @@ function closeTierModal() {
   border-radius: 0.75rem;
   padding: 12px 14px;
   box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.25);
-  animation: qt-slide-in 240ms cubic-bezier(.2,.8,.2,1) both;
+  animation: qt-slide-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 @keyframes qt-slide-in {
   from {
@@ -1214,7 +1231,7 @@ function closeTierModal() {
   place-items: center;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
   /* subtle pop on open */
-  animation: rise-in 380ms cubic-bezier(.2,.8,.2,1) both 80ms;
+  animation: rise-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both 80ms;
 }
 .hero-icon-wrap img {
   width: 100%;
@@ -1234,11 +1251,11 @@ function closeTierModal() {
 }
 .hero-title {
   font-weight: 800;
-  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 100ms;
+  animation: fade-slide-up 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both 100ms;
 }
 .hero-sub {
   color: #495057;
-  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 160ms;
+  animation: fade-slide-up 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both 160ms;
 }
 
 .hero-chips {
@@ -1253,11 +1270,17 @@ function closeTierModal() {
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.06);
   /* cascade-in effect */
-  animation: chip-pop 260ms cubic-bezier(.2,.8,.2,1) both;
+  animation: chip-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.chip:nth-child(1){ animation-delay: 120ms; }
-.chip:nth-child(2){ animation-delay: 170ms; }
-.chip:nth-child(3){ animation-delay: 220ms; }
+.chip:nth-child(1) {
+  animation-delay: 120ms;
+}
+.chip:nth-child(2) {
+  animation-delay: 170ms;
+}
+.chip:nth-child(3) {
+  animation-delay: 220ms;
+}
 
 .tier-banner {
   margin-top: 18px;
@@ -1266,7 +1289,7 @@ function closeTierModal() {
   border-radius: 14px;
   padding: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-  animation: fade-slide-up 420ms cubic-bezier(.2,.8,.2,1) both 220ms;
+  animation: fade-slide-up 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both 220ms;
 }
 .tier-banner .label {
   font-size: 12px;
@@ -1302,11 +1325,17 @@ function closeTierModal() {
   justify-content: space-between;
   gap: 8px;
   /* stagger diff rows slightly */
-  animation: fade-slide-up 360ms cubic-bezier(.2,.8,.2,1) both;
+  animation: fade-slide-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
-.diff-list li:nth-child(1){ animation-delay: 80ms; }
-.diff-list li:nth-child(2){ animation-delay: 120ms; }
-.diff-list li:nth-child(3){ animation-delay: 160ms; }
+.diff-list li:nth-child(1) {
+  animation-delay: 80ms;
+}
+.diff-list li:nth-child(2) {
+  animation-delay: 120ms;
+}
+.diff-list li:nth-child(3) {
+  animation-delay: 160ms;
+}
 .diff-list .label {
   font-weight: 600;
   font-size: 13px;
@@ -1358,9 +1387,9 @@ function closeTierModal() {
 .tier-zoom-enter-active,
 .tier-zoom-leave-active {
   transition:
-    transform 300ms cubic-bezier(.2,.8,.2,1),
-    opacity 300ms cubic-bezier(.2,.8,.2,1),
-    filter 300ms cubic-bezier(.2,.8,.2,1);
+    transform 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .tier-zoom-enter-from {
   transform: translateY(12px) scale(0.965) rotate(0.001deg);
@@ -1375,16 +1404,34 @@ function closeTierModal() {
 
 /* Keyframes for subtle elements */
 @keyframes rise-in {
-  from { transform: translateY(6px) scale(0.98); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(6px) scale(0.98);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 @keyframes fade-slide-up {
-  from { transform: translateY(8px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 @keyframes chip-pop {
-  from { transform: translateY(6px) scale(.96); opacity: 0; }
-  to { transform: translateY(0) scale(1); opacity: 1; }
+  from {
+    transform: translateY(6px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
 }
 
 /* Respect reduced-motion */
@@ -1447,7 +1494,7 @@ html {
   background-color: var(--sb-thumb);
   border-radius: 999px;
   border: 3px solid transparent;
-  background-clip: padding-box; 
+  background-clip: padding-box;
 }
 *::-webkit-scrollbar-thumb:hover {
   background-color: var(--sb-thumb-hover);
