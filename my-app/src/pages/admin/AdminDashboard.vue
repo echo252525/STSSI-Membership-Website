@@ -1,490 +1,1701 @@
 <template>
   <div class="admin-dashboard d-flex flex-column min-vh-100">
-    <!-- Topbar -->
-    <nav>
-      <div class="container-fluid d-flex gap-2 align-items-center">
-        <h1 class="fw-bold">Welcome, Admin</h1>
-        <img src="../../../public/STSSI_mascot.png" class=".img-fluid" alt="icon" width="40" height="40"></img>
+    <!-- ===== Topbar ===== -->
+    <header
+      class="admin-topbar d-flex align-items-center justify-content-between px-3 px-md-4"
+    >
+      <div>
+        <p class="topbar-eyebrow mb-1">Admin Control Center</p>
+        <h1 class="h4 mb-0 fw-semibold">Dashboard</h1>
       </div>
-    </nav>
 
-    <!-- Dashboard body -->
-    <main class="flex-grow-1 p-4 bg-white rounded-4 mt-3">
-      <h3 class="fw-bold mb-3 d-flex align-items-center gap-2">
-        <span class="material-symbols-outlined">grid_view</span>
-        Admin Dashboard
-      </h3>
-
-      <div class="row g-4">
-        <!-- Example stat cards -->
-        <div class="col-md-4">
-          <div class="card shadow-sm border-0 rounded-4 p-4">
-            <div class="card-body">
-              <span class="material-symbols-outlined fs-1">account_circle</span>
-              <h3 class="fw-bold mb-0">{{ totalUsers }}</h3>
-              <h6>Total Users</h6>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="card shadow-sm border-0 rounded-4 p-4">
-            <div class="card-body">
-              <span class="material-symbols-outlined fs-1">shield_person</span>
-              <h3 class="fw-bold mb-0">{{ totalAdmins }}</h3>
-              <h6>Active Admins</h6>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-md-4">
-          <div class="card shadow-sm border-0 rounded-4 p-4">
-            <div class="card-body">
-              <span class="material-symbols-outlined fs-1">pending</span>
-              <h3 class="fw-bold mb-0">5</h3>
-              <h6>Pending Approvals</h6>
-            </div>
+      <div class="d-flex align-items-center gap-2 gap-md-3">
+        <!-- Profile only (no notif, no logout) -->
+        <div class="topbar-profile d-flex align-items-center gap-2">
+          <div class="avatar-circle"></div>
+          <div class="d-none d-sm-flex flex-column">
+            <span class="profile-name">Admin</span>
+            <span class="profile-role text-muted">Super user</span>
           </div>
         </div>
       </div>
+    </header>
 
-      <!-- Mini Games happening now quick look -->
-      <div class="mt-5">
-        <h5 class="fw-bold mb-3 d-flex align-items-center gap-2">
-          <span class="material-symbols-outlined">sports_esports</span>
-          Mini Games Updates
-        </h5>
+    <!-- ===== Content ===== -->
+    <main class="admin-content flex-grow-1 px-3 px-md-4 pb-4">
+      <!-- ===== Metrics row (template) ===== -->
+      <section class="row g-3 mb-4">
+        <div class="col-md-4" v-for="i in 3" :key="'metric-' + i">
+          <div class="card stat-card border-0 rounded-4">
+            <div class="card-body d-flex flex-column gap-2">
+              <div class="d-flex align-items-center justify-content-between mb-1">
+                <p class="stat-label text-muted mb-0">Metric label</p>
+                <i class="bi bi-dot text-muted"></i>
+              </div>
+              <div class="skel skel-value w-50"></div>
+              <div class="skel skel-line w-75"></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <!-- Mini games grid with branded/game styling -->
-        <div class="row g-4">
-          <div class="col-sm-6 col-lg-3" v-for="game in miniGames" :key="game.id">
-            <div class="mini-game-card h-100 shadow-sm">
-              <div class="mg-accent"></div>
-              <!-- subtle glowing bar -->
+      <!-- ===== Main grid ===== -->
+      <section class="row g-3">
+        <!-- Left column -->
+        <div class="col-lg-8 d-flex flex-column gap-3">
+          <!-- ===== Mini Games Hero Section ===== -->
+          <div class="card border-0 rounded-4 mg-hero" v-if="featuredGame || eventsLoading">
+            <!-- Loading hero skeleton -->
+            <div v-if="eventsLoading" class="mg-hero-inner">
+              <div class="mg-hero-content">
+                <div class="skel skel-line w-25 mb-2"></div>
+                <div class="skel skel-value w-75 mb-2"></div>
+                <div class="skel skel-line w-50 mb-2"></div>
+                <div class="skel skel-line w-50 mb-2"></div>
+                <div class="skel skel-line w-25"></div>
+              </div>
+              <div class="mg-hero-image-wrap">
+                <div class="skel skel-hero-img"></div>
+              </div>
+            </div>
 
-              <div class="d-flex align-items-start justify-content-between">
-                <div class="mg-icon">
-                  <i class="bi bi-joystick"></i>
+            <!-- Hero with featured game -->
+            <div v-else-if="featuredGame" class="mg-hero-inner">
+              <div class="mg-hero-content">
+                <div class="mg-hero-badge-row d-flex align-items-center gap-2 mb-2">
+                  <span class="mg-hero-pill">Featured mini game</span>
+                  <span class="mg-hero-status">
+                    Open · {{ fillPercent(featuredGame) }}% full
+                  </span>
                 </div>
-                <span :class="['status-pill', statusClass(game.status)]">
-                  {{ game.status }}
-                </span>
+                <h3 class="mg-hero-title mb-2" :title="featuredGame.title">
+                  {{ featuredGame.title || 'Untitled mini game' }}
+                </h3>
+                <p class="mg-hero-sub mb-3">
+                  Players:
+                  <strong>{{ featuredGame.player_count }}</strong>
+                  /
+                  <span>{{ featuredGame.player_cap || defaultCap }}</span>
+                  · {{ capacityLabel(featuredGame) }}
+                </p>
+
+                <div class="mg-hero-progress mb-2">
+                  <div
+                    class="mg-hero-progress-bar"
+                    :style="{ width: fillPercent(featuredGame) + '%' }"
+                  ></div>
+                </div>
+
+                <!-- Joined players avatars -->
+                <div v-if="joinedAvatars(featuredGame).length" class="mg-hero-avatars mt-3">
+                  <div class="avatar-stack">
+                    <div
+                      v-for="(av, idx) in joinedAvatars(featuredGame)"
+                      :key="av.user_id + '-' + idx"
+                      class="avatar-pill-small"
+                      :title="av.name || 'Player'"
+                    >
+                      <img
+                        v-if="av.avatarUrl"
+                        :src="av.avatarUrl"
+                        :alt="av.name || 'Player avatar'"
+                      />
+                      <span v-else>
+                        {{ av.name ? av.name.charAt(0).toUpperCase() : '?' }}
+                      </span>
+                    </div>
+                    <span
+                      v-if="featuredGame.player_count > MAX_AVATAR_DISPLAY"
+                      class="avatar-more"
+                    >
+                      +{{ featuredGame.player_count - MAX_AVATAR_DISPLAY }}
+                    </span>
+                  </div>
+                  <p class="mg-hero-meta small text-muted mt-1 mb-0">
+                    Recently joined players
+                  </p>
+                </div>
+
+                <p
+                  v-else
+                  class="mg-hero-meta small text-muted mt-3 mb-0"
+                >
+                  No players have joined this game yet.
+                </p>
               </div>
 
-              <h6 class="fw-bold mt-3 mb-2">{{ game.title }}</h6>
+              <div class="mg-hero-image-wrap">
+                <img
+                  v-if="heroImageUrl"
+                  :src="heroImageUrl"
+                  alt="Prize product"
+                  class="mg-hero-img"
+                />
+                <div v-else class="mg-hero-placeholder">
+                  <i class="bi bi-image"></i>
+                  <span>No product image</span>
+                </div>
+              </div>
+            </div>
+          </div>
 
-              <ul class="mg-meta list-unstyled mb-0">
-                <li class="d-flex align-items-center gap-2">
-                  <i class="bi bi-people"></i>
-                  <span class="text-muted">Players</span>
-                  <span class="ms-auto fw-semibold">{{ game.player_count }}</span>
-                </li>
-                <li class="d-flex align-items-center gap-2">
-                  <i class="bi bi-trophy"></i>
-                  <span class="text-muted">Winner Prize</span>
-                  <span class="ms-auto fw-semibold">{{ game.winner_prize }}</span>
-                </li>
-              </ul>
+          <!-- ===== Mini games dashboard-style cards ===== -->
+          <div class="card border-0 rounded-4">
+            <div
+              class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
+            >
+              <span class="section-title">Mini games at a glance</span>
+              <button type="button" class="btn-icon-ghost" title="More options">
+                <i class="bi bi-three-dots"></i>
+              </button>
+            </div>
+            <div class="card-body">
+              <!-- Loading skeleton: grid of placeholder cards -->
+              <div v-if="eventsLoading" class="row g-3">
+                <div
+                  class="col-md-6 col-xl-4"
+                  v-for="i in 3"
+                  :key="'mg-skel-' + i"
+                >
+                  <div class="mg-card mg-card-skeleton">
+                    <div class="d-flex align-items-center justify-content-between mb-2">
+                      <span class="skel skel-line w-75"></span>
+                      <span class="status-pill-placeholder"></span>
+                    </div>
+                    <div class="skel skel-line w-50 mb-2"></div>
+                    <div class="skel skel-line w-100 mb-1"></div>
+                    <div class="skel skel-line w-75"></div>
+                  </div>
+                </div>
+              </div>
 
-              <!-- ADD: Fill-rate progress (assumes max 50 players) -->
-              <div class="mg-progress mt-2" :style="{ '--p': ((game.player_count/10)*100) + '%' }">
-                <div class="mg-progress-bar"></div>
-                <div class="mg-progress-caption small text-muted">{{ game.player_count }} / 10 players</div>
+              <!-- Empty state -->
+              <div
+                v-else-if="openEvents.length === 0"
+                class="text-center text-muted small py-4"
+              >
+                No mini games are open right now.
+                <div class="mt-1">
+                  Create or open a game from the Mini Games admin page.
+                </div>
+              </div>
+
+              <!-- Open mini games as dashboard cards -->
+              <div v-else class="row g-3">
+                <div
+                  class="col-md-6 col-xl-4"
+                  v-for="ev in openEvents.slice(0, 6)"
+                  :key="ev.id"
+                >
+                  <div
+                    class="mg-card"
+                    :class="{ 'mg-card-active': featuredGame && ev.id === featuredGame.id }"
+                    role="button"
+                    tabindex="0"
+                    @click="setFeatured(ev)"
+                    @keydown.enter.prevent="setFeatured(ev)"
+                    @keydown.space.prevent="setFeatured(ev)"
+                  >
+                    <div class="mg-card-header d-flex align-items-start justify-content-between">
+                      <div class="mg-title-wrap">
+                        <div class="mg-pill">Spin &amp; Win</div>
+                        <h6 class="mg-title mb-0" :title="ev.title">
+                          {{ ev.title || 'Untitled mini game' }}
+                        </h6>
+                      </div>
+                      <span class="status-pill status-pill-open">
+                        Open
+                      </span>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                      <div class="mg-thumbnail-wrap">
+                        <img
+                          v-if="eventImageUrl(ev)"
+                          :src="eventImageUrl(ev)"
+                          alt="Prize product"
+                          class="mg-thumbnail-img"
+                        />
+                        <div v-else class="mg-thumbnail-placeholder">
+                          <i class="bi bi-image"></i>
+                        </div>
+                      </div>
+                      <p class="mg-players mb-0">
+                        <i class="bi bi-people me-1"></i>
+                        <span class="text-muted">Players</span>
+                        <strong class="ms-1">
+                          {{ ev.player_count }}
+                        </strong>
+                        <span class="text-muted">
+                          / {{ ev.player_cap || defaultCap }}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div class="mg-progress mb-1">
+                      <div
+                        class="mg-progress-bar"
+                        :style="{ width: fillPercent(ev) + '%' }"
+                      ></div>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mg-meta-row">
+                      <span class="mg-capacity-label">
+                        {{ capacityLabel(ev) }}
+                      </span>
+                      <span class="mg-percent text-muted small">
+                        {{ fillPercent(ev) }}% full
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- footer hint -->
+              <div
+                v-if="!eventsLoading && openEvents.length > 0"
+                class="overview-footer text-muted small mt-3"
+              >
+                Click a mini game card to feature it above.
+              </div>
+            </div>
+          </div>
+
+          <!-- Generic table template -> now shows recent orders -->
+          <div class="card border-0 rounded-4">
+            <div
+              class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
+            >
+              <span class="section-title">Key lists</span>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-light btn-sm">Filter</button>
+                <button type="button" class="btn btn-brand btn-sm">New item</button>
+              </div>
+            </div>
+            <div class="card-body">
+              <!-- Loading skeleton (kept) -->
+              <div v-if="ordersLoading" class="table-responsive minimalist-table">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th><span class="skel skel-line w-75"></span></th>
+                      <th><span class="skel skel-line w-50"></span></th>
+                      <th><span class="skel skel-line w-50"></span></th>
+                      <th class="text-end">
+                        <span class="skel skel-line w-25 ms-auto d-block"></span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="i in 4" :key="'row-skel-' + i">
+                      <td><span class="skel skel-line w-75"></span></td>
+                      <td><span class="skel skel-line w-50"></span></td>
+                      <td><span class="skel skel-line w-50"></span></td>
+                      <td class="text-end">
+                        <span class="skel skel-pill-inline"></span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <!-- Empty state -->
+              <div
+                v-else-if="recentOrders.length === 0"
+                class="text-center text-muted small py-4"
+              >
+                No recent orders yet.
+              </div>
+
+              <!-- Recent orders table -->
+              <div v-else class="table-responsive minimalist-table">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Customer</th>
+                      <th>Status</th>
+                      <th class="text-end">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="g in recentOrders" :key="g.reference_number">
+                      <td>
+                        <div class="d-flex flex-column">
+                          <span class="fw-semibold">{{ g.reference_number }}</span>
+                          <span class="text-muted extra-small">
+                            {{ formatDateShort(g.created_at) }}
+                          </span>
+                        </div>
+                      </td>
+                      <td>
+                        <div class="d-flex flex-column">
+                          <span class="small fw-medium">{{ g.buyerName || '—' }}</span>
+                          <span class="text-muted extra-small">{{ g.itemLabel }}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <span
+                          class="badge rounded-pill px-2 py-1"
+                          :class="statusClass(g.status)"
+                        >
+                          {{ prettyStatus(g.status) }}
+                        </span>
+                      </td>
+                      <td class="text-end">
+                        <div class="d-flex flex-column align-items-end">
+                          <span class="fw-semibold">₱{{ number(g.total_amount) }}</span>
+                          <span class="text-muted extra-small">
+                            {{ g.payment_method || '—' }}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Recent Activity -->
-      <div class="mt-5">
-        <div class="activity-card card border-0 rounded-4 overflow-hidden">
-          <div class="activity-header px-4 py-3 d-flex align-items-center justify-content-between">
-            <h5 class="fw-bold mb-0 d-flex align-items-center gap-2">
-              <span class="material-symbols-outlined">timeline</span>
-              Recent Activity
-            </h5>
-            <span class="badge rounded-pill bg-light text-secondary p-2 px-4">Today</span>
+        <!-- Right column -->
+        <div class="col-lg-4 d-flex flex-column gap-3">
+          <!-- Quick actions -->
+          <div class="card border-0 rounded-4">
+            <div class="card-body">
+              <p class="section-title mb-3">Quick actions</p>
+              <div class="d-grid gap-2">
+                <button type="button" class="btn btn-outline-secondary text-start">
+                  <i class="bi bi-person-check me-2"></i>
+                  Manage users
+                </button>
+                <button type="button" class="btn btn-outline-secondary text-start">
+                  <i class="bi bi-receipt me-2"></i>
+                  Review orders
+                </button>
+                <button type="button" class="btn btn-outline-secondary text-start">
+                  <i class="bi bi-joystick me-2"></i>
+                  Configure mini games
+                </button>
+                <button type="button" class="btn btn-outline-secondary text-start">
+                  <i class="bi bi-sliders me-2"></i>
+                  Edit settings
+                </button>
+              </div>
+            </div>
           </div>
 
-          <ul class="activity-list list-unstyled mb-0 bg-light">
-            <li class="activity-item">
-              <div class="icon"><span class="material-symbols-outlined">person_add</span></div>
-              <div class="body">
-                <div class="title">User <strong>John Doe</strong> registered</div>
-                <div class="meta">2 min ago</div>
+          <!-- System status template -->
+          <div class="card border-0 rounded-4">
+            <div class="card-body">
+              <p class="section-title mb-3">System status</p>
+              <div class="d-flex flex-column gap-2">
+                <div
+                  class="d-flex align-items-center justify-content-between"
+                  v-for="i in 3"
+                  :key="'status-' + i"
+                >
+                  <div class="me-2 flex-grow-1">
+                    <div class="skel skel-line w-75 mb-1"></div>
+                    <div class="skel skel-line w-50"></div>
+                  </div>
+                  <span class="status-pill-placeholder"></span>
+                </div>
               </div>
-              <span class="tag tag-success">user</span>
-            </li>
+            </div>
+          </div>
 
-            <li class="activity-item">
-              <div class="icon"><span class="material-symbols-outlined">tune</span></div>
-              <div class="body">
-                <div class="title">Admin <strong>Jane Smith</strong> updated settings</div>
-                <div class="meta">1 hr ago</div>
-              </div>
-              <span class="tag tag-info">system</span>
-            </li>
+          <!-- Notes / reminders template -> now shows latest transactions -->
+          <div class="card border-0 rounded-4">
+            <div class="card-body">
+              <p class="section-title mb-2">Notes</p>
+              <p class="text-muted small mb-2">
+                Use this space to add reminders for your admin team.
+              </p>
 
-            <li class="activity-item">
-              <div class="icon"><span class="material-symbols-outlined">flag</span></div>
-              <div class="body">
-                <div class="title">New membership request pending</div>
-                <div class="meta">Yesterday</div>
+              <!-- 🔹 Latest transactions snapshot (ewallet.transactions) -->
+              <div class="notes-tx-widget mt-2">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="extra-small text-muted d-flex align-items-center gap-1">
+                    <i class="bi bi-receipt-cutoff"></i>
+                    Latest wallet transactions
+                  </span>
+                  <span
+                    v-if="notesTxLoading"
+                    class="badge rounded-pill bg-light text-muted extra-small"
+                  >
+                    Loading…
+                  </span>
+                  <span
+                    v-else
+                    class="badge rounded-pill bg-light text-muted extra-small"
+                  >
+                    {{ notesTxList.length }} shown
+                  </span>
+                </div>
+
+                <!-- Skeleton state -->
+                <div v-if="notesTxLoading">
+                  <div
+                    v-for="i in 3"
+                    :key="'notes-tx-skel-' + i"
+                    class="notes-tx-skel-row"
+                  >
+                    <div class="skel skel-line w-50 mb-1"></div>
+                    <div class="skel skel-line w-25"></div>
+                  </div>
+                </div>
+
+                <!-- Empty state -->
+                <div
+                  v-else-if="!notesTxList.length"
+                  class="text-muted extra-small py-1"
+                >
+                  No transactions yet.
+                </div>
+
+                <!-- List -->
+                <ul v-else class="list-unstyled mb-0 notes-tx-list">
+                  <li
+                    v-for="tx in notesTxList"
+                    :key="tx.id"
+                    class="notes-tx-item d-flex align-items-center justify-content-between"
+                  >
+                    <div class="d-flex align-items-center gap-2 min-w-0">
+                      <div class="notes-tx-avatar">
+                        <img
+                          v-if="notesUserAvatar(tx)"
+                          :src="notesUserAvatar(tx)"
+                          :alt="tx.user_name || 'User avatar'"
+                        />
+                        <span v-else>
+                          {{ tx.user_name ? tx.user_name.charAt(0).toUpperCase() : '?' }}
+                        </span>
+                      </div>
+                      <div class="min-w-0">
+                        <div class="fw-semibold text-truncate extra-small">
+                          {{ tx.user_name || 'Unknown user' }}
+                        </div>
+                        <div class="text-muted extra-small text-truncate font-monospace">
+                          {{ tx.reference_number }}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="text-end ms-2">
+                      <div class="extra-small fw-semibold">
+                        ₱{{ number(tx.amount) }}
+                      </div>
+                      <div class="extra-small mt-1">
+                        <span
+                          class="badge rounded-pill px-2 py-0 notes-status-pill"
+                          :class="notesStatusClass(tx.status)"
+                        >
+                          {{ capitalizeStatus(tx.status) }}
+                        </span>
+                      </div>
+                    </div>
+                  </li>
+                </ul>
               </div>
-              <span class="tag tag-warning">review</span>
-            </li>
-          </ul>
+
+              <!-- Original skeleton lines kept (purely visual, now below the list) -->
+              <div class="skel skel-line w-100 mb-1 mt-3"></div>
+              <div class="skel skel-line w-75 mb-1"></div>
+              <div class="skel skel-line w-50"></div>
+            </div>
+          </div>
         </div>
-      </div>
-
+      </section>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
-import { computed, onMounted, ref } from 'vue'
 import { currentUser } from '@/lib/authState'
 
-const routers = useRouter()
+const router = useRouter()
 const user = computed(() => currentUser.value)
 
+/** ===================== MINI GAMES (READ-ONLY) ===================== */
+
+type EventRow = {
+  id: string
+  title: string
+  player_count: number
+  player_cap?: number | null
+  product_id: string | null
+  status: 'draft' | 'open' | 'locked' | 'spun' | 'settled' | 'cancelled'
+}
+
+type ProductRow = {
+  id: string
+  name: string
+  price: number | string
+  supplier_price: number | string
+  product_url: string | string[] | null
+}
+
+/* Avatar types for joined players */
+type EntryLite = {
+  user_id: string
+  joined_at: string
+}
+
+type AvatarInfo = {
+  user_id: string
+  name: string | null
+  avatarUrl: string | null
+}
+
+const events = ref<EventRow[]>([])
+const eventsLoading = ref(true)
+const defaultCap = 10
+
+const products = ref<ProductRow[]>([])
+const productsLoading = ref(false)
+
+/** Map of products by id */
+const productMap = computed<Record<string, ProductRow>>(() => {
+  const m: Record<string, ProductRow> = {}
+  for (const p of products.value) m[p.id] = p
+  return m
+})
+
+const signedMap = reactive<Record<string, string>>({})
+const imgBusy = reactive<Record<string, boolean>>({})
+
+/** Avatars per event */
+const avatarsByEvent: Record<string, AvatarInfo[]> = reactive({} as Record<
+  string,
+  AvatarInfo[]
+>)
+const MAX_AVATAR_DISPLAY = 5
+
+function isStoragePath(u: string | null | undefined) {
+  if (!u) return false
+  return !/^https?:\/\//i.test(u)
+}
+
+function firstUrl(u: string | string[] | null): string | '' {
+  if (!u) return ''
+  if (Array.isArray(u)) return (u[0] ?? '') as string
+  return u as string
+}
+
+/** Signed or direct URL for a product image */
+function productImageUrl(p: ProductRow | null): string {
+  if (!p || !p.product_url) return ''
+  const raw0 = firstUrl(p.product_url)
+  if (!raw0) return ''
+
+  const key = p.id
+  const raw = raw0
+
+  if (!isStoragePath(raw)) return raw
+
+  if (signedMap[key]) return signedMap[key]
+
+  if (!imgBusy[key]) {
+    imgBusy[key] = true
+    supabase.storage
+      .from('prize_product')
+      .createSignedUrl(raw, 60 * 60)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('signedUrl error:', error.message)
+        } else if (data?.signedUrl) {
+          signedMap[key] = data.signedUrl
+        }
+      })
+      .finally(() => {
+        imgBusy[key] = false
+      })
+  }
+
+  return ''
+}
+
+/** Get image URL for an event via its product_id */
+function eventImageUrl(ev: EventRow | null): string {
+  if (!ev || !ev.product_id) return ''
+  const p = productMap.value[ev.product_id]
+  return productImageUrl(p || null)
+}
+
+/** Normalize profile path from users.profile_url */
+function normalizeToPath(maybePath: string | null | undefined): string | null {
+  if (!maybePath) return null
+  if (/^https?:\/\//i.test(maybePath)) return maybePath
+  return maybePath.replace(/^\/+/, '')
+}
+
+async function signUserProfileUrl(path: string): Promise<string | null> {
+  if (/^https?:\/\//i.test(path)) return path
+  const { data, error } = await supabase.storage
+    .from('user_profile')
+    .createSignedUrl(path, 60 * 60)
+  if (error) {
+    console.warn('[AVATAR] sign error:', error.message)
+    return null
+  }
+  const url = data?.signedUrl ?? null
+  return url ? `${url}&cb=${Date.now()}` : null
+}
+
+/** Fetch up to N avatars for event participants */
+async function refreshParticipantAvatars(eventId: string) {
+  try {
+    const { data: entries, error: entryErr } = await supabase
+      .schema('games')
+      .from('entry')
+      .select('user_id, joined_at')
+      .eq('event_id', eventId)
+      .order('joined_at', { ascending: false })
+      .limit(MAX_AVATAR_DISPLAY * 3)
+    if (entryErr) throw entryErr
+
+    const typedEntries = (entries ?? []) as EntryLite[]
+    const userIds = Array.from(new Set(typedEntries.map((r) => r.user_id))).filter(
+      Boolean,
+    )
+
+    if (!userIds.length) {
+      avatarsByEvent[eventId] = []
+      return
+    }
+
+    const { data: users, error: usersErr } = await supabase
+      .schema('public')
+      .from('users')
+      .select('id, full_name, profile_url')
+      .in('id', userIds)
+
+    if (usersErr) throw usersErr
+
+    const map = new Map<
+      string,
+      { full_name: string | null; profile_url: string | null }
+    >()
+    for (const u of (users ?? []) as Array<{
+      id: string
+      full_name: string | null
+      profile_url: string | null
+    }>) {
+      map.set(u.id, { full_name: u.full_name ?? null, profile_url: u.profile_url ?? null })
+    }
+
+    const list: AvatarInfo[] = []
+    for (const e of typedEntries) {
+      const user = map.get(e.user_id)
+      if (!user) continue
+      const path = normalizeToPath(user.profile_url)
+      let url: string | null = null
+      if (path) url = await signUserProfileUrl(path)
+      list.push({
+        user_id: e.user_id,
+        name: user.full_name,
+        avatarUrl: url,
+      })
+    }
+    avatarsByEvent[eventId] = list
+  } catch (e: any) {
+    console.warn('[AVATAR] refreshParticipantAvatars failed for', eventId, e?.message || e)
+    avatarsByEvent[eventId] = avatarsByEvent[eventId] || []
+  }
+}
+
+/** Helper used by hero template */
+function joinedAvatars(ev: EventRow | null): AvatarInfo[] {
+  if (!ev) return []
+  return (avatarsByEvent[ev.id] || []).slice(0, MAX_AVATAR_DISPLAY)
+}
+
+/** Load all published products */
+async function loadProducts() {
+  productsLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .schema('games')
+      .from('products')
+      .select('id, name, price, supplier_price, product_url')
+      .eq('ispublish', true)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('loadProducts error:', error.message)
+      return
+    }
+    products.value = (data ?? []) as ProductRow[]
+  } finally {
+    productsLoading.value = false
+  }
+}
+
+const openEvents = computed(() => events.value.filter((e) => e.status === 'open'))
+
+/** Track which mini game is featured in the hero */
+const selectedFeaturedId = ref<string | null>(null)
+
+const featuredGame = computed<EventRow | null>(() => {
+  if (!openEvents.value.length) return null
+  if (selectedFeaturedId.value) {
+    const found = openEvents.value.find((e) => e.id === selectedFeaturedId.value)
+    if (found) return found
+  }
+  return openEvents.value[0] || null
+})
+
+const heroImageUrl = computed(() => eventImageUrl(featuredGame.value))
+
+function setFeatured(ev: EventRow) {
+  selectedFeaturedId.value = ev.id
+  if (!avatarsByEvent[ev.id] || !avatarsByEvent[ev.id].length) {
+    refreshParticipantAvatars(ev.id)
+  }
+}
+
+async function loadEvents() {
+  eventsLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .schema('games')
+      .from('event')
+      .select('id, title, player_count, player_cap, product_id, status')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('loadEvents error:', error.message)
+      events.value = []
+      return
+    }
+    events.value = (data ?? []) as EventRow[]
+
+    // Preload avatars for open events (lightweight)
+    const open = events.value.filter((e) => e.status === 'open')
+    await Promise.all(open.map((e) => refreshParticipantAvatars(e.id)))
+  } finally {
+    eventsLoading.value = false
+  }
+}
+
+/** If featured game changes (e.g., new openEvents snapshot), refresh its avatars */
+watch(
+  featuredGame,
+  (fg) => {
+    if (fg && (!avatarsByEvent[fg.id] || !avatarsByEvent[fg.id].length)) {
+      refreshParticipantAvatars(fg.id)
+    }
+  },
+  { immediate: false },
+)
+
+/** Fill percentage for progress bar */
+function fillPercent(ev: EventRow): number {
+  const cap = ev.player_cap || defaultCap
+  if (!cap || cap <= 0) return 0
+  const ratio = Math.min(ev.player_count / cap, 1)
+  return Math.round(ratio * 100)
+}
+
+/** Friendly label based on fill percentage */
+function capacityLabel(ev: EventRow): string {
+  const p = fillPercent(ev)
+  if (p >= 90) return 'Almost full'
+  if (p >= 60) return 'Filling up'
+  if (p > 0) return 'Getting started'
+  return 'Just opened'
+}
+
+/** ===================== RECENT ORDERS (KEY LIST) ===================== */
+
+/** Status constants (align with purchase_status enum) */
+const STATUS = {
+  TO_PAY: 'to pay',
+  TO_SHIP: 'to ship',
+  TO_RECEIVE: 'to receive',
+  COMPLETED: 'completed',
+  RETURN_REFUND: 'return/refund',
+  CANCELLED: 'cancelled',
+} as const
+
+type PurchaseRow = {
+  id: string
+  user_id: string
+  product_id: string
+  reference_number: string
+  status: string
+  created_at: string
+  updated_at: string
+  modeofpayment: string | null
+  qty: number
+  discounted_price: number | string | null
+  shipping_fee: number | string | null
+  tracking_link: string | null
+  is_free_shipping: boolean
+}
+
+type Product = {
+  id: string
+  name: string
+  description: string | null
+  price: number | string
+  product_url: string[] | null
+}
+
+type Buyer = {
+  id: string
+  full_name: string | null
+  phone_number: string | null
+  address: string | null
+  membership_id: string | null
+}
+
+type RecentOrderRow = {
+  reference_number: string
+  created_at: string
+  status: string
+  payment_method: string | null
+  total_amount: number
+  buyerName: string | null
+  itemLabel: string
+}
+
+const ordersLoading = ref(true)
+const recentOrders = ref<RecentOrderRow[]>([])
+
+const number = (n: number | string | null | undefined) =>
+  Number(n ?? 0).toFixed(2)
+
+function prettyStatus(s?: string | null) {
+  const k = String(s || '').toLowerCase()
+  if (k === 'pending') return 'Pending'
+  if (k === STATUS.TO_PAY) return 'To Pay'
+  if (k === STATUS.TO_SHIP) return 'To Ship'
+  if (k === STATUS.TO_RECEIVE) return 'To Receive'
+  if (k === STATUS.COMPLETED) return 'Completed'
+  if (k === STATUS.RETURN_REFUND) return 'Return/Refund'
+  if (k === STATUS.CANCELLED) return 'Cancelled'
+  return s || '—'
+}
+
+function statusClass(s?: string | null) {
+  const k = String(s || '').toLowerCase()
+  if (k === 'pending') return 'text-bg-light border'
+  if (k === STATUS.CANCELLED) return 'text-bg-danger-subtle border'
+  if (k === STATUS.RETURN_REFUND) return 'text-bg-warning-subtle border'
+  if (k === STATUS.COMPLETED) return 'text-bg-success-subtle border'
+  if (k === STATUS.TO_SHIP || k === STATUS.TO_RECEIVE)
+    return 'text-bg-info-subtle border'
+  if (k === STATUS.TO_PAY) return 'text-bg-light border'
+  return 'text-bg-light border'
+}
+
+function formatDateShort(iso?: string) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  const month = d.toLocaleString('en-US', { month: 'short' })
+  const day = d.getDate()
+  const time = d.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  return `${month} ${day} • ${time}`
+}
+
+async function loadRecentOrders() {
+  ordersLoading.value = true
+  try {
+    const { data, error } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select(
+        'id,user_id,product_id,reference_number,status,created_at,updated_at,modeofpayment,qty,discounted_price',
+      )
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    if (error) {
+      console.error('[dashboard] loadRecentOrders error:', error.message)
+      recentOrders.value = []
+      return
+    }
+
+    const rows = (data || []) as PurchaseRow[]
+    if (!rows.length) {
+      recentOrders.value = []
+      return
+    }
+
+    const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean)))
+    const productIds = Array.from(
+      new Set(rows.map((r) => r.product_id).filter(Boolean)),
+    )
+
+    const buyersMap: Record<string, Buyer> = {}
+    const productsMapLocal: Record<string, Product> = {}
+
+    if (userIds.length) {
+      const { data: urows } = await supabase
+        .from('users')
+        .select('id,full_name')
+        .in('id', userIds)
+      if (Array.isArray(urows)) {
+        for (const u of urows as Buyer[]) {
+          buyersMap[u.id] = u
+        }
+      }
+    }
+
+    if (productIds.length) {
+      const { data: prows } = await supabase
+        .schema('games')
+        .from('products')
+        .select('id,name,price')
+        .in('id', productIds)
+      if (Array.isArray(prows)) {
+        for (const p of prows as Product[]) {
+          productsMapLocal[p.id] = p
+        }
+      }
+    }
+
+    // group by reference_number
+    const byRef: Record<string, PurchaseRow[]> = {}
+    for (const r of rows) {
+      const key = r.reference_number || r.id
+      if (!byRef[key]) byRef[key] = []
+      byRef[key].push(r)
+    }
+
+    const groups: RecentOrderRow[] = []
+    for (const [ref, list] of Object.entries(byRef)) {
+      const sorted = list
+        .slice()
+        .sort(
+          (a, b) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        )
+      const latest = sorted[0]
+      const created_at = latest.created_at
+      const user = buyersMap[latest.user_id]
+      const buyerName = user?.full_name ?? null
+
+      const items: { name: string; total: number }[] = []
+      for (const p of list) {
+        const prod = productsMapLocal[p.product_id]
+        const each =
+          p.discounted_price != null && p.discounted_price !== ''
+            ? Number(p.discounted_price)
+            : Number(prod?.price ?? 0)
+        const qty = Number(p.qty ?? 1) || 1
+        const lineTotal = Number((each * qty).toFixed(2))
+        items.push({ name: prod?.name || 'Item', total: lineTotal })
+      }
+
+      const total_amount = items.reduce((s, it) => s + it.total, 0)
+      const firstName = items[0]?.name || 'Order items'
+      const itemLabel =
+        items.length > 1 ? `${firstName} + ${items.length - 1} more` : firstName
+
+      groups.push({
+        reference_number: ref,
+        created_at,
+        status: latest.status,
+        payment_method: latest.modeofpayment,
+        total_amount,
+        buyerName,
+        itemLabel,
+      })
+    }
+
+    groups.sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+    )
+    recentOrders.value = groups.slice(0, 4)
+  } finally {
+    ordersLoading.value = false
+  }
+}
+
+/** ===================== NOTES: LATEST TRANSACTIONS (ewallet.transactions) ===================== */
+
+type NotesTxStatus = 'pending' | 'disbursed' | 'rejected'
+
+type NotesTxRow = {
+  id: string
+  user_id: string
+  reference_number: string
+  amount: number
+  status: NotesTxStatus | string
+  created_at: string
+  updated_at: string
+  user_name: string | null
+  user_email: string | null
+  profile_url: string | null
+}
+
+const notesTxLoading = ref(true)
+const notesTxError = ref<string>('')
+const notesTxList = ref<NotesTxRow[]>([])
+
+/** Small avatar cache for notes widget */
+const notesAvatarSignedMap = reactive<Record<string, string>>({})
+const notesAvatarBusy = reactive<Record<string, boolean>>({})
+
+function notesUserAvatar(tx: NotesTxRow): string {
+  const raw = tx.profile_url
+  const key = tx.user_id
+  if (!raw) return ''
+  const path = normalizeToPath(raw)
+  if (!path) return ''
+  if (/^https?:\/\//i.test(path)) return path
+  if (notesAvatarSignedMap[key]) return notesAvatarSignedMap[key]
+
+  if (!notesAvatarBusy[key]) {
+    notesAvatarBusy[key] = true
+    signUserProfileUrl(path)
+      .then((url) => {
+        if (url) notesAvatarSignedMap[key] = url
+      })
+      .finally(() => {
+        notesAvatarBusy[key] = false
+      })
+  }
+  return ''
+}
+
+function capitalizeStatus(s?: string | null): string {
+  if (!s) return '—'
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function notesStatusClass(s?: string | null): string {
+  const k = String(s || '').toLowerCase()
+  if (k === 'pending') return 'text-bg-warning-subtle border'
+  if (k === 'disbursed') return 'text-bg-success-subtle border'
+  if (k === 'rejected') return 'text-bg-danger-subtle border'
+  return 'text-bg-light border'
+}
+
+async function loadNotesTransactions() {
+  notesTxLoading.value = true
+  notesTxError.value = ''
+  try {
+    const { data, error } = await supabase
+      .schema('ewallet')
+      .from('transactions')
+      .select(
+        `
+        id,
+        user_id,
+        reference_number,
+        amount,
+        status,
+        created_at,
+        updated_at
+      `,
+      )
+      .order('created_at', { ascending: false })
+      .limit(8)
+
+    if (error) throw error
+
+    let rows = (data || []) as any[]
+
+    if (rows.length) {
+      const ids = Array.from(new Set(rows.map((r) => r.user_id)))
+      const { data: userRows, error: uerr } = await supabase
+        .from('users')
+        .select('id, full_name, email, profile_url')
+        .in('id', ids)
+
+      if (!uerr && userRows) {
+        const map = new Map<
+          string,
+          { full_name: string | null; email: string | null; profile_url: string | null }
+        >(userRows.map((u: any) => [
+          u.id,
+          {
+            full_name: u.full_name ?? null,
+            email: u.email ?? null,
+            profile_url: u.profile_url ?? null,
+          },
+        ]))
+        rows = rows.map((r) => ({ ...r, users: map.get(r.user_id) || null }))
+      } else if (uerr) {
+        console.warn('[dashboard] notes users hydrate error:', uerr.message)
+      }
+    }
+
+    notesTxList.value = rows.map((r: any) => ({
+      id: r.id,
+      user_id: r.user_id,
+      reference_number: r.reference_number,
+      amount: Number(r.amount ?? 0),
+      status: r.status,
+      created_at: r.created_at,
+      updated_at: r.updated_at,
+      user_name: r.users?.full_name ?? null,
+      user_email: r.users?.email ?? null,
+      profile_url: r.users?.profile_url ?? null,
+    }))
+  } catch (e: any) {
+    console.error('[dashboard] loadNotesTransactions error:', e?.message || e)
+    notesTxError.value = e?.message || 'Failed to load transactions.'
+    notesTxList.value = []
+  } finally {
+    notesTxLoading.value = false
+  }
+}
+
+/** ===================== AUTH + INIT ===================== */
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
-    if (!data.user) return routers.push({ name: 'login' })
+    if (!data.user) return router.push({ name: 'login' })
   }
-})
-const router = useRouter()
-
-const totalUsers = ref<number>(0)
-const totalAdmins = ref<number>(0)
-
-const fetchStats = async () => {
-  // Example queries (replace with your own schema/tables)
-  const { count: usersCount } = await supabase
-    .from('users')
-    .select('*', { count: 'exact', head: true })
-  totalUsers.value = usersCount || 0
-
-  const { count: adminsCount } = await supabase
-    .from('admins')
-    .select('*', { count: 'exact', head: true })
-  totalAdmins.value = adminsCount || 0
-}
-
-// Static mini games data
-const miniGames = ref([
-  { id: 1, title: 'USB Flash Drive 1TB', status: 'Draft', player_count: 10, winner_prize: '₱50' },
-  { id: 2, title: 'Wireless Mouse', status: 'Open', player_count: 7, winner_prize: '₱50' },
-  {
-    id: 3, title: 'SD Card 1TB', status: 'Locked', player_count: 5, winner_prize: '₱50',},
-  { id: 4, title: 'Earbuds', status: 'Spun', player_count: 2, winner_prize: '₱50' },
-])
-
-const statusClass = (s: string) => {
-  switch ((s || '').toLowerCase()) {
-    case 'draft':
-      return 'pill-draft'
-    case 'open':
-      return 'pill-open'
-    case 'locked':
-      return 'pill-locked'
-    case 'spun':
-      return 'pill-spun'
-    case 'settled':
-      return 'pill-settled'
-    case 'cancelled':
-      return 'pill-cancelled'
-    default:
-      return 'pill-draft'
-  }
-}
-
-const handleLogout = async () => {
-  await supabase.auth.signOut()
-  router.push({ name: 'admin.login' })
-}
-
-onMounted(() => {
-  fetchStats()
+  await Promise.all([
+    loadEvents(),
+    loadProducts(),
+    loadRecentOrders(),
+    loadNotesTransactions(),
+  ])
 })
 </script>
 
 <style scoped>
 .admin-dashboard {
-  background-color: #f8f9fa;
+  background: #f5f6f8;
+  color: #1f2933;
+  font-size: 0.95rem;
 }
-/* ===========================
-   Branding & tokens
-   =========================== */
+
+/* Tokens */
 :root,
 :host {
   --brand-green: #20a44c;
   --brand-azure: #20647c;
-  --card-bg: #ffffff;
-  --soft-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
-}
-/* welcome admin text */
-nav h1{
-  color:#20647c;
-  font-weight:700;
-  letter-spacing:.2px;
-  margin:0;
-  position:relative;
-  padding-left:12px;
-}
-nav h1::before{
-  content:"";
-  position:absolute;
-  left:0; top:50%;
-  transform:translateY(-50%);
-  height:1.1em;
-  width:3px;
-  border-radius:2px;
-  background:linear-gradient(180deg,#20647c,#20a44c);
-  opacity:.25; /* very light */
+  --border-soft: rgba(15, 23, 42, 0.08);
+  --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
-
-
-
-/* stats card */
-.material-symbols-outlined {
-  font-variation-settings: 'FILL' 1;
-}
-.row.g-4 > .col-md-4:nth-child(1) .card {
-  background-image: linear-gradient(135deg, #F6FFF9 0%, #E7FBF1 45%, #CFF6E3 100%);
-  color: #000000;
-}
-.row.g-4 > .col-md-4:nth-child(2) .card {
-  background-image: linear-gradient(135deg, #F9FFFB 0%, #EAFBF3 50%, #E8F4FF 100%);
-  color: #000000;
-}
-.row.g-4 > .col-md-4:nth-child(3) .card {
-  background-image: linear-gradient(180deg, #FFFFFF 0%, #F5FFF9 60%, #EAFBF3 100%);
-  color: #000000;
+/* ===== Topbar ===== */
+.admin-topbar {
+  height: 64px;
+  border-bottom: 1px solid var(--border-soft);
+  background: #ffffff;
 }
 
-@media (max-width: 450px) {
-  nav h1 {
-    font-size: 1.7rem;
-  }
-  .card-body {
-    height: 80px;
-    padding: 0px;
-  }
-  .activity-item {
-    padding-left: 1.6rem !important;
-  }
+.topbar-eyebrow {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #9ca3af;
 }
 
-
-
-/* ===========================
-   Mini-game card
-   =========================== */
-.mini-game-card {
-  background: var(--card-bg);
-  padding: 14px 14px 12px;
-  box-shadow: var(--soft-shadow);
-  border: 1px solid rgba(32, 100, 124, 0.08);
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, #ffffff 0%, #f7fbf9 100%);
-  border-radius: 18px;
-  transition:
-    transform .2s ease,
-    box-shadow .25s ease,
-    border-color .25s ease;
-}
-.mini-game-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: 0;
-  background: linear-gradient(135deg, rgba(32,164,76,.08), rgba(32,100,124,.08));
-  opacity: 0;
-  transition: opacity .35s ease-in-out;
-}
-/* keep card content above the overlay */
-.mini-game-card > * {
-  position: relative;
-  z-index: 1;
-}
-/* on hover: reveal the gradient smoothly */
-.mini-game-card:hover::before {
-  opacity: 1;
-}
-.mini-game-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px rgba(32, 100, 124, 0.12);
-  border-color: rgba(32, 100, 124, 0.18);
-}
-/* joystick icon with subtle gradient */
-.mg-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  background: linear-gradient(
-    135deg,
-    color-mix(in srgb, var(--brand-green) 85%, #fff 15%),
-    color-mix(in srgb, var(--brand-azure) 85%, #fff 15%)
-  );
-  box-shadow: 0 6px 14px rgba(32, 100, 124, 0.22);
-  font-size: 1.1rem;
-}
-/* ADD: thin shimmering accent that slides across the card */
-.mg-accent{
-  position:absolute; top:0; left:-30%;
-  height:4px; width:60%;
-  background: linear-gradient(90deg, transparent, rgba(32,100,124,.35), transparent);
-  filter: blur(0.6px);
-  animation: mgSlide 3s ease-in-out infinite;
-  z-index:1;
-}
-@keyframes mgSlide{
-  0%{ left:-30%; } 50%{ left:70%; } 100%{ left:-30%; }
-}
-/* metadata list */
-.mg-meta li {
-  padding: 0.35rem 0;
-  border-bottom: 1px dashed rgba(0, 0, 0, 0.06);
-}
-.mg-meta li:last-child {
-  border-bottom: 0;
-}
-.mg-meta i {
-  color: color-mix(in srgb, var(--brand-azure) 85%, black 15%);
-}
-/* Fill-rate progress */
-.mg-progress{
-  position: relative;
-  background: rgba(32,100,124,.08);
-  height: 8px;
+.avatar-circle {
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
-  overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,.04);
-}
-.mg-progress-bar{
-  height: 100%;
-  width: var(--p, 0%);
-  background: linear-gradient(90deg, #20a44c, #20647c);
-  border-radius: inherit;
-  transition: width .5s ease;
-}
-.mg-progress-caption{ margin-top: .35rem; }
-/* status pills colors DO NOT CHANGE */
-.status-pill {
-  font-size: 0.75rem;
-  padding: 0.25rem 0.55rem;
-  border-radius: 999px;
-  font-weight: 700;
-  letter-spacing: 0.2px;
-  border: 1px solid transparent;
-}
-.pill-draft {
-  background: rgba(0,0,0,.06);
-  color: #5b6770;
-  border: 1px solid rgba(0,0,0,.18);
-}
-.pill-open {
-  background: rgba(32,164,76,.12);    /* green */
-  color: #20a44c;
-  border: 1px solid rgba(32,164,76,.35);
-}
-.pill-locked {
-  background: rgba(255,165,0,.12);    /* amber */
-  color: #b36b00;
-  border: 1px solid rgba(255,165,0,.35);
-}
-.pill-spun {
-  background: rgba(79,70,229,.12);    /* indigo */
-  color: #4f46e5;
-  border: 1px solid rgba(79,70,229,.35);
-}
-.pill-settled {
-  background: rgba(32,100,124,.12);   /* azure */
-  color: #20647c;
-  border: 1px solid rgba(32,100,124,.35);
-}
-.pill-cancelled {
-  background: rgba(220,53,69,.12);    /* red */
-  color: #c02232;
-  border: 1px solid rgba(220,53,69,.35);
+  background: linear-gradient(135deg, #20a44c, #20647c);
+  box-shadow: 0 4px 12px rgba(32, 100, 124, 0.5);
 }
 
-
-
-
-/* Recent Activity — card shell */
-.activity-card {
-  box-shadow: var(--soft-shadow);
-  background: #fff;
-}
-/* soft pastel header */
-.activity-header {
-  background-image: linear-gradient(135deg, #F9FFFB 0%, #EAFBF3 50%, #E8F4FF 100%);
-  border-bottom: 1px solid rgba(0,0,0,.06);
-}
-/* each row */
-.activity-item{
-  position:relative;
-  display:flex; align-items:flex-start; gap:.75rem;
-  padding: 14px 16px 14px 56px;
-  transition: background .25s ease;
-}
-.activity-item:hover { background: rgba(32,100,124,.06); }
-/* small icon tile */
-.activity-item .icon{
-  width:34px; height:34px; border-radius:10px;
-  display:grid; place-items:center; flex:0 0 34px;
-  background: linear-gradient(135deg, rgba(32,164,76,.12), rgba(32,100,124,.12));
-  color: var(--brand-azure);
-}
-.activity-item .icon .material-symbols-outlined{
-  font-size:20px; line-height:1;
-  font-variation-settings:'FILL' 1,'wght' 500,'GRAD' 0,'opsz' 20;
-}
-/* text */
-.activity-item .meta{ font-size:.85rem; color:#6c757d; }
-/* tags */
-.tag{
-  margin-left:auto; align-self:center;
-  padding:.25rem .6rem; border-radius:999px;
-  font-size:.75rem; font-weight:600;
-  border:1px solid transparent;
-}
-.tag-success{ background: rgba(32,164,76,.12); color:#1d7e3b; border-color: rgba(32,164,76,.28); }
-.tag-info   { background: rgba(32,100,124,.12); color:#20647c; border-color: rgba(32,100,124,.28); }
-.tag-warning{ background: rgba(255,165,0,.12);  color:#9a6b00; border-color: rgba(255,165,0,.32); }
-
-
-
-/* ghost brand button */
-.btn-brand-ghost {
-  border: 1px solid color-mix(in srgb, var(--brand-azure) 70%, #fff 30%);
-  color: var(--brand-azure);
-  background: transparent;
-  padding: 0.25rem 0.6rem;
-  border-radius: 10px;
+.profile-name {
+  font-size: 0.86rem;
   font-weight: 600;
 }
-.btn-brand-ghost:hover {
-  border-color: var(--brand-azure);
-  color: #fff;
-  background: linear-gradient(135deg, var(--brand-azure), var(--brand-green));
+
+.profile-role {
+  font-size: 0.78rem;
 }
 
-.card h6 {
-  font-size: 1rem;
+/* ===== Content ===== */
+.admin-content {
+  padding-top: 1rem;
 }
-.card p {
+
+.section-title {
+  font-weight: 600;
   font-size: 0.9rem;
+  color: #374151;
+}
+
+.extra-small {
+  font-size: 0.75rem;
+}
+
+/* ===== Cards & stats ===== */
+.stat-card {
+  background: #ffffff;
+  box-shadow: var(--shadow-soft);
+}
+
+.stat-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+}
+
+/* Skeletons */
+.skel {
+  display: inline-block;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    #e5e7eb 0%,
+    #f3f4f6 30%,
+    #e5e7eb 60%
+  );
+  background-size: 200% 100%;
+  animation: skelPulse 1.4s ease-in-out infinite;
+}
+
+.skel-line {
+  height: 8px;
+}
+
+.skel-value {
+  height: 18px;
+}
+
+.skel-pill {
+  width: 40px;
+  height: 16px;
+  border-radius: 999px;
+}
+
+.skel-pill-inline {
+  width: 60px;
+  height: 18px;
+}
+
+.skel-hero-img {
+  width: 100%;
+  height: 150px;
+  border-radius: 16px;
+}
+
+@keyframes skelPulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* ===== Mini Games Hero ===== */
+.mg-hero {
+  background: radial-gradient(circle at top left, #f0fdf4 0%, #ffffff 45%, #ecfdf5 100%);
+  box-shadow: var(--shadow-soft);
+  padding: 0.9rem 1.1rem;
+}
+
+.mg-hero-inner {
+  display: flex;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+.mg-hero-content {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.mg-hero-image-wrap {
+  flex: 0 0 230px;
+  max-width: 230px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mg-hero-img {
+  width: 100%;
+  height: 160px;
+  border-radius: 18px;
+  object-fit: cover;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 10px 28px rgba(22, 163, 74, 0.25);
+  background: #f9fafb;
+}
+
+.mg-hero-placeholder {
+  width: 100%;
+  height: 160px;
+  border-radius: 18px;
+  border: 1px dashed rgba(148, 163, 184, 0.6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+
+.mg-hero-placeholder i {
+  font-size: 1.3rem;
+}
+
+.mg-hero-badge-row {
+  font-size: 0.78rem;
+}
+
+.mg-hero-pill {
+  padding: 0.1rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.mg-hero-status {
+  color: #4b5563;
+}
+
+.mg-hero-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #022c22;
+}
+
+.mg-hero-sub {
+  font-size: 0.9rem;
+  color: #065f46;
+}
+
+.mg-hero-progress {
+  position: relative;
+  width: 100%;
+  height: 7px;
+  border-radius: 999px;
+  background: rgba(31, 41, 55, 0.06);
+  overflow: hidden;
+}
+
+.mg-hero-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-green), var(--brand-azure));
+  transition: width 0.25s ease;
+}
+
+.mg-hero-meta {
+  font-size: 0.78rem;
+}
+
+/* Hero avatars */
+.mg-hero-avatars {
+  margin-top: 0.4rem;
+}
+
+.avatar-stack {
+  display: flex;
+  align-items: center;
+}
+
+.avatar-pill-small {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 2px solid #ecfdf5;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: #4b5563;
+  margin-right: -8px;
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.2);
+}
+
+.avatar-pill-small img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-more {
+  margin-left: 0.85rem;
+  font-size: 0.78rem;
+  color: #4b5563;
+}
+
+/* ===== Mini games dashboard cards ===== */
+.mg-card {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 0.9rem 0.9rem 0.8rem;
+  box-shadow: var(--shadow-soft);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+  cursor: pointer;
+}
+
+.mg-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+  border-color: rgba(32, 100, 124, 0.45);
+  background: radial-gradient(circle at top left, #f1fdf7, #ffffff 45%);
+}
+
+.mg-card-active {
+  border-color: var(--brand-azure);
+  box-shadow: 0 16px 40px rgba(37, 99, 235, 0.25);
+}
+
+.mg-card-skeleton {
+  box-shadow: none;
+  cursor: default;
+}
+
+.mg-card-header {
+  margin-bottom: 0.4rem;
+}
+
+.mg-title-wrap {
+  min-width: 0;
+}
+
+.mg-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #111827;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mg-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7280;
+  background: rgba(148, 163, 184, 0.12);
+  margin-bottom: 0.25rem;
+}
+
+.mg-players {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+/* Thumbnail */
+.mg-thumbnail-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #f3f4f6;
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mg-thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mg-thumbnail-placeholder i {
+  font-size: 1.1rem;
+  color: #9ca3af;
+}
+
+.mg-progress {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(31, 41, 55, 0.06);
+  overflow: hidden;
+}
+
+.mg-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--brand-green), var(--brand-azure));
+  transition: width 0.25s ease;
+}
+
+.mg-meta-row {
+  margin-top: 0.3rem;
+}
+
+.mg-capacity-label {
+  font-size: 0.78rem;
+  color: #374151;
+}
+
+.mg-percent {
+  font-size: 0.76rem;
+}
+
+/* Status pill */
+.status-pill {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.status-pill-open {
+  background: rgba(34, 197, 94, 0.1);
+  color: #15803d;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+
+/* Placeholder pill */
+.status-pill-placeholder {
+  width: 44px;
+  height: 18px;
+  border-radius: 999px;
+  background: #e5e7eb;
+}
+
+/* Overview footer separator */
+.overview-footer {
+  padding-top: 0.4rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.5);
+}
+
+/* Icon ghost button (3 dots) */
+.btn-icon-ghost {
+  border: 0;
+  border-radius: 999px;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #4b5563;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.btn-icon-ghost:hover {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+/* ===== Table ===== */
+.minimalist-table table {
+  border: 0;
+}
+
+.minimalist-table thead th {
+  font-size: 0.75rem;
+  border: 0;
+  color: #9ca3af;
+}
+
+.minimalist-table tbody td {
+  border-top: 1px solid #f3f4f6;
+}
+
+/* Brand button */
+.btn-brand {
+  background: linear-gradient(135deg, var(--brand-azure), var(--brand-green));
+  border: none;
+  color: #ffffff;
+  box-shadow: 0 6px 18px rgba(32, 100, 124, 0.35);
+}
+
+.btn-brand:hover {
+  opacity: 0.95;
+}
+
+/* ===== Notes transactions widget ===== */
+.notes-tx-widget {
+  border-top: 1px dashed rgba(148, 163, 184, 0.5);
+  padding-top: 0.5rem;
+}
+
+.notes-tx-skel-row {
+  margin-bottom: 0.4rem;
+}
+
+.notes-tx-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.notes-tx-item {
+  padding: 0.2rem 0;
+}
+
+.notes-tx-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.notes-tx-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.notes-status-pill {
+  font-size: 0.65rem;
+}
+
+/* ===== Responsive tweaks ===== */
+@media (max-width: 992px) {
+  .mg-hero-inner {
+    flex-direction: column;
+  }
+  .mg-hero-image-wrap {
+    flex: 0 0 auto;
+    max-width: 100%;
+  }
+  .mg-hero-img,
+  .mg-hero-placeholder {
+    height: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-topbar {
+    height: auto;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+
+  .admin-content {
+    padding-top: 0.75rem;
+  }
 }
 </style>
