@@ -404,6 +404,7 @@
                     {{ d.redemptions_count ?? 0 }} used
                     <div class="text-muted tiny-text">
                       {{
+
                         (d.redemptions_count ?? 0) === 1
                           ? '1 user has used this discount'
                           : (d.redemptions_count ?? 0) + ' users have used this discount'
@@ -621,7 +622,12 @@
                   <!-- insert -->
                   <div class="input-group" v-if="!form.id">
                     <span class="input-group-text bg-light"><i class="bi bi-tags"></i></span>
-                    <select v-model="form.type" class="form-select" :class="errors.type && 'is-invalid'" :required="true">
+                    <select
+                      v-model="form.type"
+                      class="form-select"
+                      :class="errors.type && 'is-invalid'"
+                      :required="true"
+                    >
                       <option value="percent">% Percentage</option>
                       <option value="fixed_amount">₱ Fixed Amount</option>
                     </select>
@@ -662,7 +668,9 @@
                   <!-- edit: display-only -->
                   <div v-else class="display-field">
                     <i class="bi bi-lock text-muted me-1"></i>
-                    <template v-if="(originalDiscount && originalDiscount.type === 'percent') || form.type === 'percent'">
+                    <template
+                      v-if="(originalDiscount && originalDiscount.type === 'percent') || form.type === 'percent'"
+                    >
                       {{ formatNumber(originalDiscount?.percent_off ?? form.value ?? 0) }}%
                     </template>
                     <template v-else>
@@ -683,7 +691,12 @@
                   </label>
                   <div class="input-group">
                     <span class="input-group-text bg-light"><i class="bi bi-upc"></i></span>
-                    <input v-model.trim="form.code" type="text" class="form-control" placeholder="E.g., PAYDAY10" />
+                    <input
+                      v-model.trim="form.code"
+                      type="text"
+                      class="form-control"
+                      placeholder="E.g., PAYDAY10"
+                    />
                   </div>
                   <div class="form-text">Unique (case-insensitive) if provided.</div>
                 </div>
@@ -702,12 +715,25 @@
 
                   <div class="input-group product-picker-trigger" @click.stop="toggleProductDropdown">
                     <span class="input-group-text bg-light"><i class="bi bi-box2"></i></span>
-                    <button type="button" class="form-control d-flex align-items-center justify-content-between gap-2">
+                    <button
+                      type="button"
+                      class="form-control d-flex align-items-center justify-content-between gap-2"
+                    >
                       <div class="d-flex align-items-center gap-2 text-start">
                         <div class="picker-thumb">
-                          <img v-if="selectedProduct?.signed_url" :src="selectedProduct.signed_url" alt="product" />
-                          <img v-else-if="selectedProduct?.product_url && selectedProduct.product_url.length" :src="selectedProduct.product_url[0]" alt="product" />
-                          <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+                          <img
+                            v-if="selectedProduct?.signed_url"
+                            :src="selectedProduct.signed_url"
+                            alt="product"
+                          />
+                          <img
+                            v-else-if="selectedProduct?.product_url && selectedProduct.product_url.length"
+                            :src="selectedProduct.product_url[0]"
+                            alt="product"
+                          />
+                          <div v-else class="empty-thumb">
+                            <i class="bi bi-image text-muted"></i>
+                          </div>
                         </div>
                         <div class="picker-label">
                           <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
@@ -716,7 +742,12 @@
                       </div>
                       <i class="bi" :class="productDropdownOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
                     </button>
-                    <button v-if="selectedProduct" type="button" class="btn btn-outline-secondary btn-sm" @click.stop="clearProduct">
+                    <button
+                      v-if="selectedProduct"
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      @click.stop="clearProduct"
+                    >
                       <i class="bi bi-x-lg"></i>
                     </button>
                   </div>
@@ -727,22 +758,38 @@
                     :class="['product-dropdown','shadow-sm','rounded-3', portalReady ? 'd-none' : '']"
                   >
                     <div class="product-dropdown-item" @click="selectProduct(null)">
-                      <div class="picker-thumb"><div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div></div>
+                      <div class="picker-thumb">
+                        <div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div>
+                      </div>
                       <div class="flex-grow-1">
                         <div class="fw-semibold">All products</div>
                         <div class="text-muted small">Discount will apply to any product</div>
                       </div>
                     </div>
 
-                    <div v-for="p in products" :key="p.id" class="product-dropdown-item" @click="selectProduct(p)">
+                    <div
+                      v-for="p in products"
+                      :key="p.id"
+                      class="product-dropdown-item"
+                      @click="selectProduct(p)"
+                    >
                       <div class="picker-thumb">
                         <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
-                        <img v-else-if="p.product_url && p.product_url.length" :src="p.product_url[0]" alt="p" />
-                        <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+                        <img
+                          v-else-if="p.product_url && p.product_url.length"
+                          :src="p.product_url[0]"
+                          alt="p"
+                        />
+                        <div v-else class="empty-thumb">
+                          <i class="bi bi-image text-muted"></i>
+                        </div>
                       </div>
                       <div class="flex-grow-1">
                         <div class="fw-semibold">{{ p.name }}</div>
-                        <div class="text-muted small">Stock: {{ p.stock }} <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span></div>
+                        <div class="text-muted small">
+                          Stock: {{ p.stock }}
+                          <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -764,12 +811,16 @@
                     <span v-if="selectedProduct">{{ selectedProduct.name }}</span>
                     <span v-else class="text-muted">All products</span>
                   </div>
-                  <div class="form-text small text-muted">Product applicability can’t be changed after creation.</div>
+                  <div class="form-text small text-muted">
+                    Product applicability can’t be changed after creation.
+                  </div>
                 </div>
               </div>
 
               <!-- Section: Availability & Limits -->
-              <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">Availability & Limits</p>
+              <p class="text-uppercase small text-muted mb-2 fw-semibold mt-2 breath">
+                Availability & Limits
+              </p>
 
               <!-- INSERT or EDIT(DRAFT/EXPIRED/SCHEDULED): Launch mode toggle (unified) -->
               <div class="row g-3 breath" v-if="showCreateModeOptions">
@@ -779,12 +830,24 @@
                     Launch Mode
                   </label>
                   <div class="btn-group btn-group-sm" role="group" aria-label="Launch mode">
-                    <input class="btn-check" type="radio" id="lm-now" value="draftactive" v-model="form.insert_kind" />
+                    <input
+                      class="btn-check"
+                      type="radio"
+                      id="lm-now"
+                      value="draftactive"
+                      v-model="form.insert_kind"
+                    />
                     <label class="btn btn-outline-secondary" for="lm-now">
                       <i class="bi bi-bolt"></i> Now / Draft
                     </label>
 
-                    <input class="btn-check" type="radio" id="lm-sched" value="scheduled" v-model="form.insert_kind" />
+                    <input
+                      class="btn-check"
+                      type="radio"
+                      id="lm-sched"
+                      value="scheduled"
+                      v-model="form.insert_kind"
+                    />
                     <label class="btn btn-outline-secondary" for="lm-sched">
                       <i class="bi bi-calendar-event"></i> Schedule
                     </label>
@@ -801,13 +864,22 @@
                       Activate on Save?
                     </label>
                     <div class="form-check form-switch">
-                      <input class="form-check-input" type="checkbox" id="activateNow" v-model="form.activate_now" />
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        id="activateNow"
+                        v-model="form.activate_now"
+                      />
                       <label class="form-check-label" for="activateNow">
-                        <span v-if="form.activate_now">Will be <strong>Active</strong> immediately</span>
+                        <span v-if="form.activate_now"
+                          >Will be <strong>Active</strong> immediately</span
+                        >
                         <span v-else>Will be <strong>Draft</strong> (you can activate later)</span>
                       </label>
                     </div>
-                    <div class="form-text small">Start time will be set to <strong>now</strong>.</div>
+                    <div class="form-text small">
+                      Start time will be set to <strong>now</strong>.
+                    </div>
                   </div>
 
                   <div class="col-12 col-md-4 breath">
@@ -838,8 +910,12 @@
                         :required="true"
                       />
                     </div>
-                    <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
-                    <div class="form-text text-warning small">Must be a future date and time.</div>
+                    <div v-if="errors.starts_at" class="invalid-feedback d-block">
+                      {{ errors.starts_at }}
+                    </div>
+                    <div class="form-text text-warning small">
+                      Must be a future date and time.
+                    </div>
                   </div>
                 </template>
 
@@ -868,10 +944,16 @@
                       {{ form.starts_at ? fmtDate(form.starts_at) : '—' }}
                     </div>
 
-                    <div v-if="errors.starts_at" class="invalid-feedback d-block">{{ errors.starts_at }}</div>
-                    <div class="form-text small" :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'">
+                    <div v-if="errors.starts_at" class="invalid-feedback d-block">
+                      {{ errors.starts_at }}
+                    </div>
+                    <div
+                      class="form-text small"
+                      :class="originalStatus === 'scheduled' ? 'text-warning' : 'text-muted'"
+                    >
                       <template v-if="originalStatus === 'scheduled'">
-                        Start time can be changed while the discount is scheduled (must be in the future).
+                        Start time can be changed while the discount is scheduled (must be in the
+                        future).
                       </template>
                       <template v-else>
                         Start time can’t be changed for non-scheduled discounts.
@@ -898,8 +980,12 @@
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.expires_at" class="invalid-feedback d-block">{{ errors.expires_at }}</div>
-                  <div class="form-text small text-muted">Must be after the start time (or now).</div>
+                  <div v-if="errors.expires_at" class="invalid-feedback d-block">
+                    {{ errors.expires_at }}
+                  </div>
+                  <div class="form-text small text-muted">
+                    Must be after the start time (or now).
+                  </div>
                 </div>
 
                 <!-- === Limits === -->
@@ -923,7 +1009,9 @@
                         :required="true"
                       />
                     </div>
-                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
+                      {{ errors.max_uses_per_user }}
+                    </div>
                     <div class="form-text small text-muted">
                       We’ll auto-calculate Global uses as <b>per-user × total users</b> on the server.
                     </div>
@@ -949,7 +1037,9 @@
                         :required="true"
                       />
                     </div>
-                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">{{ errors.max_uses_per_user }}</div>
+                    <div v-if="errors.max_uses_per_user" class="invalid-feedback d-block">
+                      {{ errors.max_uses_per_user }}
+                    </div>
                     <div class="form-text small text-muted">
                       Global uses stays managed server-side; you can adjust per-user here.
                     </div>
@@ -974,10 +1064,18 @@
                       :required="true"
                     />
                   </div>
-                  <div v-if="errors.min_subtotal" class="invalid-feedback d-block">{{ errors.min_subtotal }}</div>
+                  <div v-if="errors.min_subtotal" class="invalid-feedback d-block">
+                    {{ errors.min_subtotal }}
+                  </div>
                 </div>
 
-                <div class="col-12 col-md-6 breath" v-if="(form.type === 'percent') || (originalDiscount && originalDiscount.type === 'percent')">
+                <div
+                  class="col-12 col-md-6 breath"
+                  v-if="
+                    (form.type === 'percent') ||
+                    (originalDiscount && originalDiscount.type === 'percent')
+                  "
+                >
                   <label class="form-label d-flex align-items-center gap-1">
                     <i class="bi bi-shield-check text-primary"></i>
                     Max Discount Cap
@@ -995,7 +1093,9 @@
                       placeholder="e.g. 150.00"
                     />
                   </div>
-                  <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">{{ errors.max_discount_amount }}</div>
+                  <div v-if="errors.max_discount_amount" class="invalid-feedback d-block">
+                    {{ errors.max_discount_amount }}
+                  </div>
                   <div class="form-text">
                     Optional cap (₱0 or higher). Leave blank for no cap.
                   </div>
@@ -1025,22 +1125,38 @@
         @click.stop
       >
         <div class="product-dropdown-item" @click="selectProduct(null)">
-          <div class="picker-thumb"><div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div></div>
+          <div class="picker-thumb">
+            <div class="empty-thumb"><i class="bi bi-grid text-muted"></i></div>
+          </div>
           <div class="flex-grow-1">
             <div class="fw-semibold">All products</div>
             <div class="text-muted small">Discount will apply to any product</div>
           </div>
         </div>
 
-        <div v-for="p in products" :key="p.id" class="product-dropdown-item" @click="selectProduct(p)">
+        <div
+          v-for="p in products"
+          :key="p.id"
+          class="product-dropdown-item"
+          @click="selectProduct(p)"
+        >
           <div class="picker-thumb">
             <img v-if="p.signed_url" :src="p.signed_url" alt="p" />
-            <img v-else-if="p.product_url && p.product_url.length" :src="p.product_url[0]" alt="p" />
-            <div v-else class="empty-thumb"><i class="bi bi-image text-muted"></i></div>
+            <img
+              v-else-if="p.product_url && p.product_url.length"
+              :src="p.product_url[0]"
+              alt="p"
+            />
+            <div v-else class="empty-thumb">
+              <i class="bi bi-image text-muted"></i>
+            </div>
           </div>
           <div class="flex-grow-1">
             <div class="fw-semibold">{{ p.name }}</div>
-            <div class="text-muted small">Stock: {{ p.stock }} <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span></div>
+            <div class="text-muted small">
+              Stock: {{ p.stock }}
+              <span v-if="p.price">· ₱{{ formatNumber(p.price) }}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1050,6 +1166,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch, onBeforeUnmount, nextTick } from 'vue'
+import { useRoute } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 
 type DbDiscount = {
@@ -1084,6 +1201,8 @@ type GameProduct = {
   price?: number | null
   signed_url?: string | null
 }
+
+const route = useRoute()
 
 const items = ref<DbDiscount[]>([])
 const products = ref<GameProduct[]>([])
@@ -1342,7 +1461,10 @@ function selectProduct(p: GameProduct | null) {
   form.value.product_id = p ? p.id : null
   productDropdownOpen.value = false
 }
-function clearProduct() { form.value.product_id = null; productDropdownOpen.value = false }
+function clearProduct() {
+  form.value.product_id = null
+  productDropdownOpen.value = false
+}
 
 function formatNumber(n: number | undefined | null) {
   if (n == null || Number.isNaN(n)) return '0'
@@ -2136,8 +2258,20 @@ onMounted(async () => {
   window.addEventListener('click', onWindowClick, true)
   window.addEventListener('scroll', onAnyScrollOrResize, true)
   window.addEventListener('resize', onAnyScrollOrResize, { passive: true })
-  nextTick(() => setupFlatpickr())
+  nextTick(() => {
+    setupFlatpickr()
+
+    // AUTO-OPEN "NEW DISCOUNT" MODAL WHEN ?focus=openmodal
+    const focus = route.query.focus
+    if (
+      focus === 'openmodal' ||
+      (Array.isArray(focus) && focus.includes('openmodal'))
+    ) {
+      openInsertUnified()
+    }
+  })
 })
+
 onBeforeUnmount(() => {
   window.removeEventListener('click', onWindowClick, true)
   window.removeEventListener('scroll', onAnyScrollOrResize, true)

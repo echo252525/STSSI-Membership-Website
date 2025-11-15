@@ -86,7 +86,13 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="tx in filtered" :key="tx.id">
+              <!-- ✅ Entire row opens modal -->
+              <tr
+                v-for="tx in filtered"
+                :key="tx.id"
+                class="tx-click-row"
+                @click="openView(tx)"
+              >
                 <td>
                   <div class="d-flex align-items-center gap-2">
                     <div class="tx-avatar">
@@ -119,11 +125,14 @@
                 <td>{{ formatTime(tx.created_at) }}</td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <!-- Always visible -->
-                    <button class="btn btn-outline-secondary" title="View" @click="openView(tx)">
-                      <i class="bi bi-eye"></i>
-                    </button>
-                    <button class="btn btn-outline-secondary" title="Copy Ref #" @click="copyRef(tx.reference_number)">
+                    <!-- ❌ View button removed -->
+
+                    <!-- ✅ Copy button now stops row-click propagation -->
+                    <button
+                      class="btn btn-outline-secondary"
+                      title="Copy Ref #"
+                      @click.stop="copyRef(tx.reference_number)"
+                    >
                       <i class="bi bi-clipboard-check"></i>
                     </button>
 
@@ -146,7 +155,7 @@
                       :class="isRejectLocked(tx) ? 'btn-disabled-like' : ''"
                       :aria-disabled="isRejectLocked(tx) ? 'true' : 'false'"
                       :title="rejectTitle(tx)"
-                      @click="handleRejectClick(tx)"
+                      @click.stop="handleRejectClick(tx)"
                     >
                       <span v-if="rejecting.has(tx.id)" class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                       <i v-else class="bi bi-x-circle"></i>
@@ -184,8 +193,23 @@
 
                 <dt class="col-4">User</dt>
                 <dd class="col-8">
-                  <div class="fw-semibold">{{ selectedTx.user_name }}</div>
-                  <div class="text-muted small">{{ selectedTx.user_email }}</div>
+                  <!-- Avatar + user info in modal -->
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="tx-avatar">
+                      <img
+                        v-if="selectedAvatarUrl"
+                        :src="selectedAvatarUrl"
+                        :alt="selectedTx.user_name || 'User avatar'"
+                      />
+                      <span v-else class="tx-avatar-fallback">
+                        {{ selectedTx.user_name ? selectedTx.user_name.charAt(0).toUpperCase() : '?' }}
+                      </span>
+                    </div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">{{ selectedTx.user_name }}</div>
+                      <div class="text-muted small">{{ selectedTx.user_email }}</div>
+                    </div>
+                  </div>
                 </dd>
 
                 <dt class="col-4">Amount</dt>
@@ -237,8 +261,6 @@
                 <i v-else class="bi bi-check2-circle me-1"></i>
                 Disburse
               </button>
-
-              <button class="btn btn-light ms-auto order-3" data-bs-dismiss="modal">Close</button>
             </div>
           </div>
         </div>
@@ -269,7 +291,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { currentUser } from '@/lib/authState'
 import Swal from 'sweetalert2'
 
@@ -278,6 +300,7 @@ const log = (...args: any[]) => { if (DEBUG) console.log('[TX]', ...args) }
 const now = () => new Date().toISOString()
 
 const router = useRouter()
+const route = useRoute()
 const user = computed(() => currentUser.value)
 
 /** Turn OFF optimistic local status flip to avoid any chance of double effects. */
@@ -333,6 +356,7 @@ async function swSuccess(message: string, title = 'All set!') {
   })
 }
 
+/* ===== First onMounted: auth + BroadcastChannel init ===== */
 onMounted(async () => {
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
@@ -409,6 +433,7 @@ const timeSince = (d: Date) => {
   return `${h}h`
 }
 
+/* Existing watcher just for logging (kept) */
 watch(transactions, (val) => {
   log('[State] transactions changed. Total:', val.length, {
     pending: pendingCount.value,
@@ -552,6 +577,11 @@ function enrichRowToTx(r: any): Tx {
 const selectedTx = ref<Tx | null>(null)
 const viewModalEl = ref<HTMLDivElement | null>(null)
 let viewModal: any = null
+
+/* Avatar URL for the currently selected transaction in the modal */
+const selectedAvatarUrl = computed(() =>
+  selectedTx.value ? userAvatarUrl(selectedTx.value as Tx) : ''
+)
 
 const openView = (tx: Tx) => {
   selectedTx.value = tx
@@ -837,7 +867,6 @@ const onRtEvent = async (payload: any) => {
   }
 }
 
-
 const upsertOne = async (row: any) => {
   console.log('[TX] [RT] upsertOne raw row ->', row)
 
@@ -867,7 +896,6 @@ const upsertOne = async (row: any) => {
       console.warn('[TX] [RT] user hydrate exception:', err)
     }
   }
-
 
   const tx = enrichRowToTx(row)
   const idx = transactions.value.findIndex(t => t.id === tx.id)
@@ -956,6 +984,56 @@ const startPollingFallback = () => {
   }, 20000)
 }
 
+/* ===== FOCUS PARAM HANDLING ===== */
+/** Store a focus ref that we want to open once the data is available */
+const pendingFocusRef = ref<string | null>(null)
+
+/**
+ * Try to apply a ?focus=REF param:
+ * - Save it to pendingFocusRef
+ * - If the transaction is already in memory, open the modal immediately
+ * - Otherwise, a watcher on `transactions` will open it when it appears
+ */
+const applyFocusParam = (focusRaw: string | null | undefined) => {
+  if (!focusRaw) return
+  const focus = String(focusRaw).trim()
+  if (!focus) return
+
+  pendingFocusRef.value = focus
+
+  const match = transactions.value.find(t => t.reference_number === focus)
+  if (match) {
+    openView(match)
+    pendingFocusRef.value = null
+  }
+}
+
+/* Watch for changes in the route query (?focus=...) */
+watch(
+  () => route.query.focus,
+  (val) => {
+    if (typeof val === 'string' && val.trim()) {
+      log('[FOCUS] Route query focus changed ->', val)
+      applyFocusParam(val)
+    }
+  }
+)
+
+/* Watch transactions so if data arrives AFTER we set pendingFocusRef, we still open the modal */
+watch(
+  transactions,
+  (list) => {
+    if (!pendingFocusRef.value) return
+    const match = list.find(t => t.reference_number === pendingFocusRef.value)
+    if (match) {
+      log('[FOCUS] transactions updated; opening focus tx ->', pendingFocusRef.value)
+      openView(match)
+      pendingFocusRef.value = null
+    }
+  }
+)
+
+/* ===== Second onMounted: modal/bootstrap init, load + realtime ===== */
 onMounted(async () => {
   // init modal instance if Bootstrap JS is present
   const w = window as any
@@ -972,6 +1050,9 @@ onMounted(async () => {
   }
 
   await loadTransactions()
+
+  // 🔍 After initial load, check if we have a ?focus=REF in the URL
+  applyFocusParam(route.query.focus as string | undefined)
 
   log('[RT] Subscribing to ewallet.transactions…')
   rtChannel = supabase
@@ -1123,6 +1204,14 @@ onBeforeUnmount(() => {
   font-size: 0.8rem;
   font-weight: 600;
   color: #4b5563;
+}
+
+/* ✅ Clickable row styling */
+.tx-click-row {
+  cursor: pointer;
+}
+.tx-click-row:hover {
+  background-color: #f9fafb;
 }
 
 /* Slightly tighten layout on small screens */

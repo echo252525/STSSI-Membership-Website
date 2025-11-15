@@ -1117,11 +1117,12 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watchEffect } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { currentUser } from '@/lib/authState'
 import Swal from 'sweetalert2'
 
 const router = useRouter()
+const route = useRoute()
 const user = computed(() => currentUser.value)
 
 onMounted(async () => {
@@ -2037,8 +2038,14 @@ async function saveEdit() {
   }
 }
 
+/** INITIAL LOAD + FOCUS-BASED MODAL OPEN */
 onMounted(() => {
   loadProducts()
+
+  const focus = route.query.focus
+  if (focus === 'openmodal' || (Array.isArray(focus) && focus.includes('openmodal'))) {
+    showForm.value = true
+  }
 })
 </script>
 

@@ -8,11 +8,21 @@
           Membership Tiers
         </h3>
         <p class="text-muted small mb-0">
+          <i class="bi bi-sliders2-vertical me-1"></i>
           Manage tier names, order, discounts, and delivery perks.
         </p>
       </div>
       <div class="d-flex align-items-center gap-2">
         <!-- controls removed as requested: Refresh + New Tier -->
+        <!-- NEW: Manage Users button -->
+        <button
+          type="button"
+          class="btn btn-outline-primary btn-sm d-flex align-items-center gap-1"
+          @click="openManageUsers"
+        >
+          <i class="bi bi-people-gear"></i>
+          Manage Users
+        </button>
       </div>
     </div>
 
@@ -32,7 +42,10 @@
           />
         </div>
       </div>
-      <div class="ms-md-auto small text-muted pt-1 pt-md-0">Total: {{ total }}</div>
+      <div class="ms-md-auto small text-muted pt-1 pt-md-0">
+        <i class="bi bi-123 me-1"></i>
+        Total: {{ total }}
+      </div>
     </div>
 
     <!-- Stair row (5 fixed columns) -->
@@ -65,7 +78,7 @@
       <!-- Empty -->
       <div v-else-if="displayTiers.length === 0" class="col">
         <div class="text-center text-muted py-4">
-          <i class="bi bi-stars"></i> No tiers found.
+          <i class="bi bi-stars me-1"></i> No tiers found.
         </div>
       </div>
 
@@ -83,53 +96,71 @@
           @click="openMembers(t)"
         >
           <div class="card-body d-flex flex-column">
-            <div v-if="isDiamond(t)" class="ribbon-popular">Most Popular</div>
+            <div v-if="isDiamond(t)" class="ribbon-popular">
+              <i class="bi bi-stars me-1"></i>
+              Most Popular
+            </div>
 
             <div class="text-center mb-2">
-              <div class="pricing-rank">#{{ t.membership_tier_order }}</div>
+              <div class="pricing-rank">
+                <i class="bi bi-hash me-1"></i>#{{ t.membership_tier_order }}
+              </div>
               <img
                 v-if="t._icon_signed_url"
                 :src="t._icon_signed_url"
                 class="pricing-icon-vert"
                 alt="Tier icon"
               />
-              <h3 class="h5 mt-2 mb-1 text-truncate fw-bold">{{ t.membership_name }}</h3>
+              <h3 class="h5 mt-2 mb-1 text-truncate fw-bold">
+                <i class="bi bi-gem me-1" v-if="isDiamond(t)"></i>
+                {{ t.membership_name }}
+              </h3>
 
               <span
                 class="badge rounded-pill"
                 :class="t.is_free_delivery ? 'text-bg-success' : 'text-bg-secondary'"
               >
+                <i class="bi bi-truck me-1"></i>
                 {{ t.is_free_delivery ? 'Free Delivery' : 'No Free Delivery' }}
               </span>
 
-              <div class="text-muted small mt-1">Updated {{ fmtDate(t.updated_at) }}</div>
+              <div class="text-muted small mt-1">
+                <i class="bi bi-clock-history me-1"></i>
+                Updated {{ fmtDate(t.updated_at) }}
+              </div>
             </div>
 
             <ul class="pricing-features small mt-3 fs-7">
               <li>
-                <strong>Members</strong> <span>{{ memberCounts[t.id] ?? 0 }}</span>
+                <strong><i class="bi bi-people me-1"></i>Members</strong>
+                <span>{{ memberCounts[t.id] ?? 0 }}</span>
               </li>
               <li>
-                <strong
-                  >Monthly <br />
-                  Credits</strong
-                >
+                <strong>
+                  <i class="bi bi-wallet2 me-1"></i>
+                  Monthly <br />
+                  Credits
+                </strong>
                 <span>₱{{ toMoney(t.discount_credits) }}</span>
               </li>
               <li>
-                <strong>Discount</strong> <span>{{ toPercent(t.discount_per_purchase) }}</span>
+                <strong><i class="bi bi-tag me-1"></i>Discount</strong>
+                <span>{{ toPercent(t.discount_per_purchase) }}</span>
               </li>
               <li>
-                <strong>Purchases</strong> <span>{{ t.purchases_count }}</span>
+                <strong><i class="bi bi-cart-check me-1"></i>Purchases</strong>
+                <span>{{ t.purchases_count }}</span>
               </li>
               <li>
-                <strong>Referral Req</strong> <span>{{ t.referral_count_requirements }}</span>
+                <strong><i class="bi bi-person-plus me-1"></i>Referral Req</strong>
+                <span>{{ t.referral_count_requirements }}</span>
               </li>
               <li>
-                <strong
-                  >Orders for <br />
-                  Free Delivery</strong
-                >
+                <strong>
+                  <i class="bi bi-box-seam me-1"></i>
+                  Orders for <br />
+                  Free Delivery
+                </strong>
                 <span>{{ t.purchase_requirements_for_free_delivery }}</span>
               </li>
             </ul>
@@ -140,6 +171,7 @@
                 :class="isDiamond(t) ? 'btn-diamond' : ''"
                 @click.stop="openEdit(t)"
               >
+                <i class="bi bi-gear me-1"></i>
                 Manage
               </button>
               <!-- delete button removed as requested -->
@@ -152,15 +184,22 @@
     <!-- Pagination removed as requested -->
 
     <!-- Alerts (kept) -->
-    <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">{{ error }}</p>
-    <p v-if="notice" class="alert alert-success mt-3 mb-0" role="alert">{{ notice }}</p>
+    <p v-if="error" class="alert alert-danger mt-3 mb-0" role="alert">
+      <i class="bi bi-exclamation-triangle me-1"></i>{{ error }}
+    </p>
+    <p v-if="notice" class="alert alert-success mt-3 mb-0" role="alert">
+      <i class="bi bi-check-circle me-1"></i>{{ notice }}
+    </p>
 
     <!-- Create/Edit Modal -->
     <div class="modal fade" id="tierModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">{{ form.id ? 'Edit Tier' : 'New Tier' }}</h5>
+            <h5 class="modal-title">
+              <i class="bi bi-pencil-square me-1"></i>
+              {{ form.id ? 'Edit Tier' : 'New Tier' }}
+            </h5>
             <button
               type="button"
               class="btn-close"
@@ -171,7 +210,10 @@
           <form @submit.prevent="save">
             <div class="modal-body row g-3">
               <div class="col-md-6">
-                <label class="form-label">Tier Name</label>
+                <label class="form-label">
+                  <i class="bi bi-type me-1"></i>
+                  Tier Name
+                </label>
                 <input
                   v-model.trim="form.membership_name"
                   type="text"
@@ -181,7 +223,10 @@
                 />
               </div>
               <div class="col-md-3">
-                <label class="form-label">Display Order</label>
+                <label class="form-label">
+                  <i class="bi bi-list-ol me-1"></i>
+                  Display Order
+                </label>
                 <input
                   v-model.number="form.membership_tier_order"
                   type="number"
@@ -192,7 +237,10 @@
                 />
               </div>
               <div class="col-md-3">
-                <label class="form-label">Total Purchases (All-Time)</label>
+                <label class="form-label">
+                  <i class="bi bi-cart-check me-1"></i>
+                  Total Purchases (All-Time)
+                </label>
                 <input
                   v-model.number="form.purchases_count"
                   type="number"
@@ -204,7 +252,10 @@
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">Referral Count Requirement</label>
+                <label class="form-label">
+                  <i class="bi bi-person-plus me-1"></i>
+                  Referral Count Requirement
+                </label>
                 <input
                   v-model.number="form.referral_count_requirements"
                   type="number"
@@ -215,7 +266,10 @@
                 />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Purchases per Referral</label>
+                <label class="form-label">
+                  <i class="bi bi-diagram-3 me-1"></i>
+                  Purchases per Referral
+                </label>
                 <input
                   v-model.number="form.purchases_per_referrals"
                   type="number"
@@ -226,7 +280,10 @@
                 />
               </div>
               <div class="col-md-4">
-                <label class="form-label">Free Delivery?</label>
+                <label class="form-label">
+                  <i class="bi bi-truck me-1"></i>
+                  Free Delivery?
+                </label>
                 <select v-model="form.is_free_delivery" class="form-select">
                   <option :value="true">Yes</option>
                   <option :value="false">No</option>
@@ -234,7 +291,10 @@
               </div>
 
               <div class="col-md-4">
-                <label class="form-label">Discount Credits (₱ / month)</label>
+                <label class="form-label">
+                  <i class="bi bi-wallet2 me-1"></i>
+                  Discount Credits (₱ / month)
+                </label>
                 <input
                   v-model="form.discount_credits"
                   type="number"
@@ -244,10 +304,16 @@
                   placeholder="e.g., 2000.00"
                   required
                 />
-                <div class="form-text">Monthly credits applied to member purchases.</div>
+                <div class="form-text">
+                  <i class="bi bi-info-circle me-1"></i>
+                  Monthly credits applied to member purchases.
+                </div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Discount per Purchase</label>
+                <label class="form-label">
+                  <i class="bi bi-percent me-1"></i>
+                  Discount per Purchase
+                </label>
                 <div class="input-group">
                   <input
                     v-model="form.discount_per_purchase"
@@ -268,11 +334,15 @@
                   </select>
                 </div>
                 <div class="form-text">
+                  <i class="bi bi-info-circle me-1"></i>
                   Enter a fixed peso amount or choose % for a percentage (0–100).
                 </div>
               </div>
               <div class="col-md-4">
-                <label class="form-label">Orders Required for Free Delivery</label>
+                <label class="form-label">
+                  <i class="bi bi-box-seam me-1"></i>
+                  Orders Required for Free Delivery
+                </label>
                 <input
                   v-model.number="form.purchase_requirements_for_free_delivery"
                   type="number"
@@ -285,7 +355,10 @@
 
               <!-- Icon uploader -->
               <div class="col-12">
-                <label class="form-label">Tier Icon (PNG/JPG/SVG)</label>
+                <label class="form-label">
+                  <i class="bi bi-image me-1"></i>
+                  Tier Icon (PNG/JPG/SVG)
+                </label>
                 <input
                   ref="iconInput"
                   type="file"
@@ -294,6 +367,7 @@
                   @change="onIconPicked"
                 />
                 <div class="form-text">
+                  <i class="bi bi-cloud-arrow-up me-1"></i>
                   Stored in <code>tier_icons</code> with a signed URL used for display.
                 </div>
                 <div v-if="iconPreview" class="mt-2 d-flex align-items-center gap-3">
@@ -304,6 +378,7 @@
                     style="width: 56px; height: 56px; object-fit: cover"
                   />
                   <button type="button" class="btn btn-outline-secondary btn-sm" @click="clearIcon">
+                    <i class="bi bi-x-circle me-1"></i>
                     Remove Icon
                   </button>
                 </div>
@@ -319,10 +394,12 @@
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                <i class="bi bi-x-circle me-1"></i>
                 Cancel
               </button>
               <button type="submit" class="btn btn-primary" :disabled="busy.save">
                 <span v-if="busy.save" class="spinner-border spinner-border-sm me-2"></span>
+                <i class="bi bi-save me-1" v-if="!busy.save"></i>
                 Save
               </button>
             </div>
@@ -336,7 +413,10 @@
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Delete Tier</h5>
+            <h5 class="modal-title">
+              <i class="bi bi-trash3 me-1"></i>
+              Delete Tier
+            </h5>
             <button
               type="button"
               class="btn-close"
@@ -350,10 +430,12 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              <i class="bi bi-x-circle me-1"></i>
               Cancel
             </button>
             <button type="button" class="btn btn-danger" :disabled="busy.del" @click="del">
               <span v-if="busy.del" class="spinner-border spinner-border-sm me-2"></span>
+              <i class="bi bi-trash3" v-if="!busy.del"></i>
               Delete
             </button>
           </div>
@@ -368,9 +450,11 @@
           <div class="modal-header">
             <div>
               <h5 class="modal-title">
+                <i class="bi bi-people me-1"></i>
                 Tier Members – {{ membersTier?.membership_name || 'Tier' }}
               </h5>
               <p class="small text-muted mb-0">
+                <i class="bi bi-info-circle me-1"></i>
                 See the people in this tier, their credits, purchases, and referrals.
               </p>
             </div>
@@ -400,6 +484,7 @@
 
             <!-- Error -->
             <div v-else-if="membersError" class="alert alert-danger mb-0" role="alert">
+              <i class="bi bi-exclamation-triangle me-1"></i>
               {{ membersError }}
             </div>
 
@@ -441,20 +526,30 @@
                       </div>
                     </div>
                     <div class="member-joined small text-muted">
+                      <i class="bi bi-calendar-event me-1"></i>
                       Joined {{ fmtDate(m.created_at) }}
                     </div>
                   </div>
                   <div class="member-stats">
                     <div class="stat-pill">
-                      <span class="stat-label">Credits</span>
+                      <span class="stat-label">
+                        <i class="bi bi-wallet2 me-1"></i>
+                        Credits
+                      </span>
                       <span class="stat-value">₱{{ toMoney(m.discount_credits) }}</span>
                     </div>
                     <div class="stat-pill">
-                      <span class="stat-label">Purchases (month)</span>
+                      <span class="stat-label">
+                        <i class="bi bi-cart3 me-1"></i>
+                        Purchases (month)
+                      </span>
                       <span class="stat-value">{{ toMoney(m.purchases_per_month) }}</span>
                     </div>
                     <div class="stat-pill">
-                      <span class="stat-label">Referrals</span>
+                      <span class="stat-label">
+                        <i class="bi bi-people-fill me-1"></i>
+                        Referrals
+                      </span>
                       <span class="stat-value">{{ m.referral_count }}</span>
                     </div>
                   </div>
@@ -469,6 +564,171 @@
               class="btn btn-outline-secondary"
               data-bs-dismiss="modal"
             >
+              <i class="bi bi-x-circle me-1"></i>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW: Manage ALL Users Modal -->
+    <div class="modal fade" id="manageUsersModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content members-modal">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title">
+                <i class="bi bi-people-gear me-1"></i>
+                Manage Users
+              </h5>
+              <p class="small text-muted mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                View all users, their membership tier, and manage promotions or deletions.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body breath-in-section">
+            <!-- Loading skeleton -->
+            <div v-if="manageUsersBusy" class="members-skeleton">
+              <div v-for="n in 6" :key="n" class="member-row member-row-skel">
+                <div class="member-avatar-skel shimmer"></div>
+                <div class="member-main">
+                  <div class="skel-line skel-line-lg shimmer mb-1"></div>
+                  <div class="skel-line skel-line-sm shimmer mb-2"></div>
+                  <div class="member-stats">
+                    <div class="stat-pill skel-pill shimmer"></div>
+                    <div class="stat-pill skel-pill shimmer"></div>
+                    <div class="stat-pill skel-pill shimmer"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Error -->
+            <div v-else-if="manageUsersError" class="alert alert-danger mb-0" role="alert">
+              <i class="bi bi-exclamation-triangle me-1"></i>
+              {{ manageUsersError }}
+            </div>
+
+            <!-- Empty -->
+            <div v-else-if="allUsers.length === 0" class="text-center py-4 text-muted">
+              <i class="bi bi-people me-1"></i>
+              No users found.
+            </div>
+
+            <!-- List -->
+            <div v-else class="members-list">
+              <div
+                v-for="u in allUsers"
+                :key="u.id"
+                class="member-row"
+              >
+                <div class="member-avatar-wrap">
+                  <div
+                    v-if="u.profile_img"
+                    class="member-avatar"
+                    :style="{ backgroundImage: `url('${u.profile_img}')` }"
+                  ></div>
+                  <div
+                    v-else
+                    class="member-avatar member-avatar-fallback"
+                    :style="{ backgroundImage: avatarBg(u.full_name || u.email || u.id) }"
+                  >
+                    <span>{{ initials(u.full_name || u.email) }}</span>
+                  </div>
+                </div>
+                <div class="member-main">
+                  <div class="member-name-line">
+                    <div class="member-name-email">
+                      <div class="member-name">
+                        {{ u.full_name || 'No name' }}
+                      </div>
+                      <div class="member-email">
+                        {{ u.email }}
+                      </div>
+                    </div>
+                    <div class="text-end small">
+                      <div class="fw-semibold">
+                        <i class="bi bi-award me-1"></i>
+                        {{ tierLabel(u) }}
+                      </div>
+                      <div class="text-muted">
+                        <i class="bi bi-calendar-event me-1"></i>
+                        Joined {{ fmtDate(u.created_at) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="member-stats mb-2">
+                    <div class="stat-pill">
+                      <span class="stat-label">
+                        <i class="bi bi-wallet2 me-1"></i>
+                        Credits
+                      </span>
+                      <span class="stat-value">₱{{ toMoney(u.discount_credits) }}</span>
+                    </div>
+                    <div class="stat-pill">
+                      <span class="stat-label">
+                        <i class="bi bi-cart3 me-1"></i>
+                        Purchases (month)
+                      </span>
+                      <span class="stat-value">{{ toMoney(u.purchases_per_month) }}</span>
+                    </div>
+                  </div>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      :disabled="busyUserId === u.id"
+                      @click="deleteUser(u)"
+                    >
+                      <span
+                        v-if="busyUserId === u.id"
+                        class="spinner-border spinner-border-sm me-1"
+                      ></span>
+                      <i v-else class="bi bi-trash3 me-1"></i>
+                      Delete user
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary"
+                      :disabled="busyUserId === u.id || !canDemote(u)"
+                      @click="demoteUser(u)"
+                    >
+                      <i class="bi bi-arrow-down-circle me-1"></i>
+                      Demote
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-primary"
+                      :disabled="busyUserId === u.id || !canPromote(u)"
+                      @click="promoteUser(u)"
+                    >
+                      <i class="bi bi-arrow-up-circle me-1"></i>
+                      Promote
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer">
+            <div class="me-auto small text-muted">
+              Total users: {{ allUsers.length }}
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              data-bs-dismiss="modal"
+            >
+              <i class="bi bi-x-circle me-1"></i>
               Close
             </button>
           </div>
@@ -505,6 +765,7 @@ const notice = ref('')
 let modalTier: any = null
 let modalDelete: any = null
 let modalMembers: any = null
+let modalManageUsers: any = null
 
 const form = ref<any>(resetForm())
 const selected = ref<any | null>(null)
@@ -532,7 +793,24 @@ const members = ref<TierMember[]>([])
 const membersBusy = ref(false)
 const membersError = ref('')
 
-/* Profile image signed URL helpers (borrowed pattern from your other component) */
+/* NEW: manage-all-users modal state */
+type ManageUser = {
+  id: string
+  full_name: string | null
+  email: string
+  profile_url: string | null
+  profile_img: string | null
+  membership_id: string | null
+  discount_credits: number
+  purchases_per_month: number
+  created_at: string
+}
+const allUsers = ref<ManageUser[]>([])
+const manageUsersBusy = ref(false)
+const manageUsersError = ref('')
+const busyUserId = ref<string | null>(null)
+
+/* Profile image signed URL helpers */
 const PROFILE_BUCKET = 'user_profile'
 const signedUrlCache = new Map<string, string>()
 const SIGNED_URL_EXPIRES_IN = 60 * 60
@@ -612,6 +890,13 @@ function fmtDate(d?: string) {
 const displayTiers = computed(() =>
   [...(tiers.value || [])].sort(
     (a, b) => Number(b?.membership_tier_order ?? 0) - Number(a?.membership_tier_order ?? 0),
+  ),
+)
+
+/* Ascending tiers for promote/demote logic */
+const tiersAscending = computed(() =>
+  [...(tiers.value || [])].sort(
+    (a, b) => Number(a?.membership_tier_order ?? 0) - Number(b?.membership_tier_order ?? 0),
   ),
 )
 
@@ -721,7 +1006,6 @@ function openCreate() {
   iconPreview.value = null
   const el = document.getElementById('tierModal')
   if (!el) return
-  // use window as any to keep TS happy
   modalTier = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
   modalTier?.show()
 }
@@ -1003,6 +1287,179 @@ async function openMembers(row: any) {
     )
   } finally {
     membersBusy.value = false
+  }
+}
+
+/* ====== Helpers for Manage Users modal ====== */
+
+function userTier(u: { membership_id: string | null }) {
+  if (!u.membership_id) return null
+  return (tiers.value || []).find((t: any) => t.id === u.membership_id) || null
+}
+
+function tierLabel(u: ManageUser) {
+  const t = userTier(u)
+  if (!t) return 'No tier'
+  const ord = t.membership_tier_order != null ? `#${t.membership_tier_order} ` : ''
+  return `${ord}${t.membership_name ?? ''}`.trim()
+}
+
+function canPromote(u: ManageUser) {
+  if (!tiersAscending.value.length) return false
+  const arr = tiersAscending.value
+  const idx = arr.findIndex((t: any) => t.id === u.membership_id)
+  if (idx === -1) return arr.length > 0
+  return idx < arr.length - 1
+}
+
+function canDemote(u: ManageUser) {
+  if (!tiersAscending.value.length) return false
+  const arr = tiersAscending.value
+  const idx = arr.findIndex((t: any) => t.id === u.membership_id)
+  return idx > 0
+}
+
+async function loadAllUsers() {
+  manageUsersBusy.value = true
+  manageUsersError.value = ''
+  try {
+    const { data, error: usersErr } = await supabase
+      .from('users')
+      .select(
+        'id,email,full_name,profile_url,discount_credits,purchases_per_month,membership_id,created_at',
+      )
+      .order('created_at', { ascending: true })
+    if (usersErr) throw usersErr
+
+    const raw =
+      (data as Array<{
+        id: string
+        email: string
+        full_name: string | null
+        profile_url: string | null
+        discount_credits: any
+        purchases_per_month: any
+        membership_id: string | null
+        created_at: string
+      }>) || []
+
+    const avatarUrls = await Promise.all(raw.map((u) => buildProfileSignedUrl(u.profile_url)))
+
+    allUsers.value = raw.map((u, i) => ({
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name,
+      profile_url: u.profile_url,
+      profile_img: avatarUrls[i] || null,
+      membership_id: u.membership_id,
+      discount_credits: Number(u.discount_credits ?? 0),
+      purchases_per_month: Number(u.purchases_per_month ?? 0),
+      created_at: u.created_at,
+    }))
+  } catch (e: any) {
+    manageUsersError.value = e?.message || 'Failed to load users.'
+    swError(
+      'We couldn’t load the users list right now. Please close this window and try again later.',
+    )
+  } finally {
+    manageUsersBusy.value = false
+  }
+}
+
+function openManageUsers() {
+  manageUsersError.value = ''
+  allUsers.value = []
+  const el = document.getElementById('manageUsersModal')
+  if (!el) return
+  modalManageUsers = (window as any).bootstrap?.Modal.getOrCreateInstance(el)
+  modalManageUsers?.show()
+  void loadAllUsers()
+}
+
+async function updateUserTier(u: ManageUser, newTierId: string | null) {
+  if (busyUserId.value) return
+  busyUserId.value = u.id
+  try {
+    const { error: updErr } = await supabase
+      .from('users')
+      .update({ membership_id: newTierId })
+      .eq('id', u.id)
+    if (updErr) throw updErr
+    u.membership_id = newTierId
+    swSuccess('User tier has been updated.', 'Tier updated')
+  } catch (e: any) {
+    swError('We couldn’t update this user’s tier. Please try again.', 'Update failed')
+  } finally {
+    busyUserId.value = null
+  }
+}
+
+async function promoteUser(u: ManageUser) {
+  if (!tiersAscending.value.length) return
+  const arr = tiersAscending.value
+  const idx = arr.findIndex((t: any) => t.id === u.membership_id)
+  let targetTier: any | null = null
+
+  if (idx === -1) {
+    // No tier yet -> move to lowest tier
+    targetTier = arr[0]
+  } else if (idx < arr.length - 1) {
+    targetTier = arr[idx + 1]
+  } else {
+    swError('This user is already at the highest tier.', 'No higher tier')
+    return
+  }
+
+  await updateUserTier(u, targetTier.id)
+}
+
+async function demoteUser(u: ManageUser) {
+  if (!tiersAscending.value.length) return
+  const arr = tiersAscending.value
+  const idx = arr.findIndex((t: any) => t.id === u.membership_id)
+
+  if (idx <= 0) {
+    swError('This user is already at the lowest tier or has no tier.', 'No lower tier')
+    return
+  }
+
+  const targetTier = arr[idx - 1]
+  await updateUserTier(u, targetTier.id)
+}
+
+/* UPDATED: deleteUser now calls admin_delete_user edge function */
+async function deleteUser(u: ManageUser) {
+  const res = await Swal.fire({
+    icon: 'warning',
+    title: 'Delete user?',
+    text: `Are you sure you want to delete ${u.full_name || u.email}? This action cannot be undone.`,
+    showCancelButton: true,
+    confirmButtonText: 'Delete',
+    cancelButtonText: 'Cancel',
+    confirmButtonColor: '#dc3545',
+  })
+  if (!res.isConfirmed) return
+
+  busyUserId.value = u.id
+  try {
+    const { data, error } = await supabase.functions.invoke('admin_delete_user', {
+      body: { user_id: u.id },
+    })
+
+    if (error || (data as any)?.error) {
+      const msg = (error as any)?.message || (data as any)?.error || 'Failed to delete user'
+      throw new Error(msg)
+    }
+
+    allUsers.value = allUsers.value.filter((x) => x.id !== u.id)
+    swSuccess('User has been deleted.', 'User deleted')
+  } catch (e: any) {
+    swError(
+      e?.message || 'We couldn’t delete this user. Please try again in a moment.',
+      'Delete failed',
+    )
+  } finally {
+    busyUserId.value = null
   }
 }
 

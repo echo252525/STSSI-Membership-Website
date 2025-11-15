@@ -23,20 +23,80 @@
 
     <!-- ===== Content ===== -->
     <main class="admin-content flex-grow-1 px-3 px-md-4 pb-4">
-      <!-- ===== Metrics row (template) ===== -->
-      <section class="row g-3 mb-4">
-        <div class="col-md-4" v-for="i in 3" :key="'metric-' + i">
-          <div class="card stat-card border-0 rounded-4">
-            <div class="card-body d-flex flex-column gap-2">
-              <div class="d-flex align-items-center justify-content-between mb-1">
-                <p class="stat-label text-muted mb-0">Metric label</p>
-                <i class="bi bi-dot text-muted"></i>
+      <!-- ===== Metrics row ===== -->
+      <section class="row g-3 mb-4 breath-in-section">
+        <!-- Skeleton while metrics are loading -->
+        <template v-if="metricsLoading">
+          <div class="col-md-4" v-for="i in 3" :key="'metric-skel-' + i">
+            <div class="card stat-card border-0 rounded-4">
+              <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <p class="stat-label text-muted mb-0">Metric label</p>
+                  <i class="bi bi-dot text-muted"></i>
+                </div>
+                <div class="skel skel-value w-50"></div>
+                <div class="skel skel-line w-75"></div>
               </div>
-              <div class="skel skel-value w-50"></div>
-              <div class="skel skel-line w-75"></div>
             </div>
           </div>
-        </div>
+        </template>
+
+        <!-- Live metrics -->
+        <template v-else>
+          <!-- Total users metric -->
+          <div class="col-md-4">
+            <div class="card stat-card border-0 rounded-4">
+              <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <p class="stat-label mb-0">Total users</p>
+                  <i class="bi bi-people text-muted"></i>
+                </div>
+                <div class="stat-value h3 mb-0">
+                  {{ formattedUserCount }}
+                </div>
+                <div class="text-muted extra-small">
+                  Registered accounts
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending orders metric -->
+          <div class="col-md-4">
+            <div class="card stat-card border-0 rounded-4">
+              <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <p class="stat-label mb-0">Pending orders</p>
+                  <i class="bi bi-bag-check text-muted"></i>
+                </div>
+                <div class="stat-value h3 mb-0">
+                  {{ formattedPendingOrdersCount }}
+                </div>
+                <div class="text-muted extra-small">
+                  Orders with status "pending"
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending transactions metric -->
+          <div class="col-md-4">
+            <div class="card stat-card border-0 rounded-4">
+              <div class="card-body d-flex flex-column gap-2">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <p class="stat-label mb-0">Pending transactions</p>
+                  <i class="bi bi-wallet2 text-muted"></i>
+                </div>
+                <div class="stat-value h3 mb-0">
+                  {{ formattedPendingTxCount }}
+                </div>
+                <div class="text-muted extra-small">
+                  Wallet transactions with status "pending"
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
       </section>
 
       <!-- ===== Main grid ===== -->
@@ -44,7 +104,10 @@
         <!-- Left column -->
         <div class="col-lg-8 d-flex flex-column gap-3">
           <!-- ===== Mini Games Hero Section ===== -->
-          <div class="card border-0 rounded-4 mg-hero" v-if="featuredGame || eventsLoading">
+          <div
+            class="card border-0 rounded-4 mg-hero breath-in-section"
+            v-if="featuredGame || eventsLoading"
+          >
             <!-- Loading hero skeleton -->
             <div v-if="eventsLoading" class="mg-hero-inner">
               <div class="mg-hero-content">
@@ -59,8 +122,16 @@
               </div>
             </div>
 
-            <!-- Hero with featured game -->
-            <div v-else-if="featuredGame" class="mg-hero-inner">
+            <!-- Hero with featured game (clickable -> focus on id) -->
+            <div
+              v-else-if="featuredGame"
+              class="mg-hero-inner mg-hero-click"
+              role="button"
+              tabindex="0"
+              @click="goFeaturedMiniGame"
+              @keydown.enter.prevent="goFeaturedMiniGame"
+              @keydown.space.prevent="goFeaturedMiniGame"
+            >
               <div class="mg-hero-content">
                 <div class="mg-hero-badge-row d-flex align-items-center gap-2 mb-2">
                   <span class="mg-hero-pill">Featured mini game</span>
@@ -140,7 +211,7 @@
           </div>
 
           <!-- ===== Mini games dashboard-style cards ===== -->
-          <div class="card border-0 rounded-4">
+          <div class="card border-0 rounded-4 breath-in-section">
             <div
               class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
             >
@@ -255,13 +326,14 @@
                 v-if="!eventsLoading && openEvents.length > 0"
                 class="overview-footer text-muted small mt-3"
               >
-                Click a mini game card to feature it above.
+                Click a mini game card to feature it above. Click the hero to open it in the
+                Mini Games admin page.
               </div>
             </div>
           </div>
 
           <!-- Generic table template -> now shows recent orders -->
-          <div class="card border-0 rounded-4">
+          <div class="card border-0 rounded-4 breath-in-section">
             <div
               class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
             >
@@ -306,7 +378,7 @@
                 No recent orders yet.
               </div>
 
-              <!-- Recent orders table -->
+              <!-- Recent orders table (rows clickable -> focus on reference) -->
               <div v-else class="table-responsive minimalist-table">
                 <table class="table align-middle mb-0">
                   <thead>
@@ -318,7 +390,16 @@
                     </tr>
                   </thead>
                   <tbody>
-                    <tr v-for="g in recentOrders" :key="g.reference_number">
+                    <tr
+                      v-for="g in recentOrders"
+                      :key="g.reference_number"
+                      class="table-row-clickable"
+                      role="button"
+                      tabindex="0"
+                      @click="goOrderFromDashboard(g)"
+                      @keydown.enter.prevent="goOrderFromDashboard(g)"
+                      @keydown.space.prevent="goOrderFromDashboard(g)"
+                    >
                       <td>
                         <div class="d-flex flex-column">
                           <span class="fw-semibold">{{ g.reference_number }}</span>
@@ -360,32 +441,52 @@
         <!-- Right column -->
         <div class="col-lg-4 d-flex flex-column gap-3">
           <!-- Quick actions -->
-          <div class="card border-0 rounded-4">
+          <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
               <p class="section-title mb-3">Quick actions</p>
               <div class="d-grid gap-2">
-                <button type="button" class="btn btn-outline-secondary text-start">
+                <!-- Manage users -> /admin/AdminMemberships?focus=openmodal -->
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary text-start"
+                  @click="goManageUsers"
+                >
                   <i class="bi bi-person-check me-2"></i>
                   Manage users
                 </button>
-                <button type="button" class="btn btn-outline-secondary text-start">
-                  <i class="bi bi-receipt me-2"></i>
-                  Review orders
-                </button>
-                <button type="button" class="btn btn-outline-secondary text-start">
+                <!-- Add event -> /admin/mini-games?focus=openmodal -->
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary text-start"
+                  @click="goAddEvent"
+                >
                   <i class="bi bi-joystick me-2"></i>
-                  Configure mini games
+                  Add an event
                 </button>
-                <button type="button" class="btn btn-outline-secondary text-start">
-                  <i class="bi bi-sliders me-2"></i>
-                  Edit settings
+                <!-- Add product -> /admin/products?focus=openmodal -->
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary text-start"
+                  @click="goAddProduct"
+                >
+                  <i class="bi bi-box-seam me-2"></i>
+                  Add a product
+                </button>
+                <!-- Add discount -> /admin/discount?focus=openmodal -->
+                <button
+                  type="button"
+                  class="btn btn-outline-secondary text-start"
+                  @click="goAddDiscount"
+                >
+                  <i class="bi bi-percent me-2"></i>
+                  Add a discount
                 </button>
               </div>
             </div>
           </div>
 
           <!-- System status template -->
-          <div class="card border-0 rounded-4">
+          <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
               <p class="section-title mb-3">System status</p>
               <div class="d-flex flex-column gap-2">
@@ -405,7 +506,7 @@
           </div>
 
           <!-- Notes / reminders template -> now shows latest transactions -->
-          <div class="card border-0 rounded-4">
+          <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
               <p class="section-title mb-2">Notes</p>
               <p class="text-muted small mb-2">
@@ -453,12 +554,17 @@
                   No transactions yet.
                 </div>
 
-                <!-- List -->
+                <!-- List (items clickable -> focus on transaction) -->
                 <ul v-else class="list-unstyled mb-0 notes-tx-list">
                   <li
                     v-for="tx in notesTxList"
                     :key="tx.id"
                     class="notes-tx-item d-flex align-items-center justify-content-between"
+                    role="button"
+                    tabindex="0"
+                    @click="goTransactionFromNotes(tx)"
+                    @keydown.enter.prevent="goTransactionFromNotes(tx)"
+                    @keydown.space.prevent="goTransactionFromNotes(tx)"
                   >
                     <div class="d-flex align-items-center gap-2 min-w-0">
                       <div class="notes-tx-avatar">
@@ -498,10 +604,12 @@
                 </ul>
               </div>
 
-              <!-- Original skeleton lines kept (purely visual, now below the list) -->
-              <div class="skel skel-line w-100 mb-1 mt-3"></div>
-              <div class="skel skel-line w-75 mb-1"></div>
-              <div class="skel skel-line w-50"></div>
+              <!-- Bottom skeleton lines shown only while loading -->
+              <div v-if="notesTxLoading">
+                <div class="skel skel-line w-100 mb-1 mt-3"></div>
+                <div class="skel skel-line w-75 mb-1"></div>
+                <div class="skel skel-line w-50"></div>
+              </div>
             </div>
           </div>
         </div>
@@ -518,6 +626,141 @@ import { currentUser } from '@/lib/authState'
 
 const router = useRouter()
 const user = computed(() => currentUser.value)
+
+/** ===================== QUICK ACTIONS NAVIGATION ===================== */
+
+function goManageUsers() {
+  router.push({
+    path: '/admin/AdminMemberships',
+    query: { focus: 'openmodal' },
+  })
+}
+
+function goAddEvent() {
+  router.push({
+    path: '/admin/mini-games',
+    query: { focus: 'openmodal' },
+  })
+}
+
+function goAddProduct() {
+  router.push({
+    path: '/admin/products',
+    query: { focus: 'openmodal' },
+  })
+}
+
+function goAddDiscount() {
+  router.push({
+    path: '/admin/discounts',
+    query: { focus: 'openmodal' },
+  })
+}
+
+/** ===================== DASHBOARD METRICS (TOP CARDS) ===================== */
+
+const metricsLoading = ref(true)
+const userCount = ref(0)
+const displayUserCount = ref(0)
+
+const pendingOrdersCount = ref(0)
+const displayPendingOrdersCount = ref(0)
+
+const pendingTxCount = ref(0)
+const displayPendingTxCount = ref(0)
+
+/** Generic counter animation (0 -> target) */
+function animateCount(
+  displayRef: { value: number },
+  target: number,
+  duration = 500,
+) {
+  const startValue = 0
+  let start: number | null = null
+
+  const step = (timestamp: number) => {
+    if (start === null) {
+      start = timestamp
+    }
+    const elapsed = timestamp - start
+    const progress = Math.min(elapsed / duration, 1)
+    displayRef.value = Math.floor(
+      startValue + (target - startValue) * progress,
+    )
+    if (progress < 1) {
+      requestAnimationFrame(step)
+    }
+  }
+
+  requestAnimationFrame(step)
+}
+
+const formattedUserCount = computed(() =>
+  displayUserCount.value.toLocaleString('en-US'),
+)
+
+const formattedPendingOrdersCount = computed(() =>
+  displayPendingOrdersCount.value.toLocaleString('en-US'),
+)
+
+const formattedPendingTxCount = computed(() =>
+  displayPendingTxCount.value.toLocaleString('en-US'),
+)
+
+async function loadDashboardMetrics() {
+  metricsLoading.value = true
+  try {
+    // Total users
+    const { count: userCountRaw, error: userErr } = await supabase
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+
+    if (userErr) throw userErr
+    const cUsers = typeof userCountRaw === 'number' ? userCountRaw : 0
+    userCount.value = cUsers
+    displayUserCount.value = 0
+    // Users count animation (normal speed)
+    animateCount(displayUserCount, cUsers, 500)
+
+    // Pending orders = status 'pending' ONLY
+    const { count: pendingRaw, error: pendingErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+
+    if (pendingErr) throw pendingErr
+    const cPending = typeof pendingRaw === 'number' ? pendingRaw : 0
+    pendingOrdersCount.value = cPending
+    displayPendingOrdersCount.value = 0
+    // Pending orders count animation (faster)
+    animateCount(displayPendingOrdersCount, cPending, 300)
+
+    // Pending wallet transactions = status 'pending'
+    const { count: pendingTxRaw, error: pendingTxErr } = await supabase
+      .schema('ewallet')
+      .from('transactions')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'pending')
+
+    if (pendingTxErr) throw pendingTxErr
+    const cPendingTx = typeof pendingTxRaw === 'number' ? pendingTxRaw : 0
+    pendingTxCount.value = cPendingTx
+    displayPendingTxCount.value = 0
+    // Pending transactions animation (also fast)
+    animateCount(displayPendingTxCount, cPendingTx, 300)
+  } catch (e: any) {
+    console.error('[dashboard] loadDashboardMetrics error:', e?.message || e)
+    userCount.value = 0
+    displayUserCount.value = 0
+    pendingOrdersCount.value = 0
+    displayPendingOrdersCount.value = 0
+    pendingTxCount.value = 0
+    displayPendingTxCount.value = 0
+  } finally {
+    metricsLoading.value = false
+  }
+}
 
 /** ===================== MINI GAMES (READ-ONLY) ===================== */
 
@@ -755,6 +998,16 @@ function setFeatured(ev: EventRow) {
   if (!avatarsByEvent[ev.id] || !avatarsByEvent[ev.id].length) {
     refreshParticipantAvatars(ev.id)
   }
+}
+
+/** NEW: when hero is clicked, go to mini-games page focused on this event id */
+function goFeaturedMiniGame() {
+  const fg = featuredGame.value
+  if (!fg) return
+  router.push({
+    path: '/admin/mini-games',
+    query: { focus: fg.id },
+  })
 }
 
 async function loadEvents() {
@@ -1022,6 +1275,15 @@ async function loadRecentOrders() {
   }
 }
 
+/** NEW: when order row is clicked, go to orders page focused on this reference */
+function goOrderFromDashboard(row: RecentOrderRow) {
+  if (!row?.reference_number) return
+  router.push({
+    path: '/admin/orders',
+    query: { focus: row.reference_number },
+  })
+}
+
 /** ===================== NOTES: LATEST TRANSACTIONS (ewallet.transactions) ===================== */
 
 type NotesTxStatus = 'pending' | 'disbursed' | 'rejected'
@@ -1153,6 +1415,17 @@ async function loadNotesTransactions() {
   }
 }
 
+/** NEW: when a wallet transaction is clicked, go to transactions page focused on it */
+function goTransactionFromNotes(tx: NotesTxRow) {
+  if (!tx) return
+  const ref = tx.reference_number || tx.id
+  if (!ref) return
+  router.push({
+    path: '/admin/transactions',
+    query: { focus: ref },
+  })
+}
+
 /** ===================== AUTH + INIT ===================== */
 onMounted(async () => {
   if (!user.value) {
@@ -1160,6 +1433,7 @@ onMounted(async () => {
     if (!data.user) return router.push({ name: 'login' })
   }
   await Promise.all([
+    loadDashboardMetrics(),
     loadEvents(),
     loadProducts(),
     loadRecentOrders(),
@@ -1182,6 +1456,23 @@ onMounted(async () => {
   --brand-azure: #20647c;
   --border-soft: rgba(15, 23, 42, 0.08);
   --shadow-soft: 0 10px 30px rgba(15, 23, 42, 0.08);
+}
+
+/* Simple "breath in" entrance animation for sections */
+.breath-in-section {
+  animation: breathIn 0.55s ease-out;
+  animation-fill-mode: both;
+}
+
+@keyframes breathIn {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* ===== Topbar ===== */
@@ -1240,6 +1531,11 @@ onMounted(async () => {
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
+}
+
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 /* Skeletons */
@@ -1301,6 +1597,16 @@ onMounted(async () => {
   display: flex;
   gap: 1.25rem;
   align-items: stretch;
+}
+
+/* NEW: clickable hero */
+.mg-hero-click {
+  cursor: pointer;
+}
+
+.mg-hero-click:focus-visible {
+  outline: 2px solid #20647c;
+  outline-offset: 2px;
 }
 
 .mg-hero-content {
@@ -1615,6 +1921,15 @@ onMounted(async () => {
   border-top: 1px solid #f3f4f6;
 }
 
+/* NEW: clickable table rows */
+.table-row-clickable {
+  cursor: pointer;
+}
+
+.table-row-clickable:hover {
+  background-color: #f9fafb;
+}
+
 /* Brand button */
 .btn-brand {
   background: linear-gradient(135deg, var(--brand-azure), var(--brand-green));
@@ -1644,6 +1959,15 @@ onMounted(async () => {
 
 .notes-tx-item {
   padding: 0.2rem 0;
+}
+
+.notes-tx-item[role='button'] {
+  cursor: pointer;
+}
+
+.notes-tx-item[role='button']:hover {
+  background-color: #f9fafb;
+  border-radius: 0.4rem;
 }
 
 .notes-tx-avatar {

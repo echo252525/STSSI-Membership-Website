@@ -26,9 +26,9 @@
             <i class="bi bi-controller"></i>
             Mini Game Command Center
           </div>
-          <h4 class="fw-bold mb-1">Spin &amp; Win Overview</h4>
+          <h4 class="fw-bold mb-1">Spin & Win Overview</h4>
           <p class="text-muted small mb-0">
-            Open rooms sit at the top, followed by locked &amp; spun games, with drafts and
+            Open rooms sit at the top, followed by locked & spun games, with drafts and
             finished rounds in the lower tier.
           </p>
         </div>
@@ -55,7 +55,7 @@
               <i class="bi bi-emoji-neutral"></i>
               <div>No open rooms right now.</div>
               <small class="text-muted">
-                Create a new Spin &amp; Win event or open a draft to get players in.
+                Create a new Spin & Win event or open a draft to get players in.
               </small>
             </div>
 
@@ -139,7 +139,7 @@
             <div class="hier-header d-flex align-items-center justify-content-between">
               <div class="d-flex align-items-center gap-2">
                 <span class="dot dot-upcoming"></span>
-                <span class="fw-semibold text-uppercase small">Locked &amp; Spun</span>
+                <span class="fw-semibold text-uppercase small">Locked & Spun</span>
               </div>
             </div>
 
@@ -286,7 +286,7 @@
               <i class="bi bi-calendar2"></i>
               <div>No draft events yet.</div>
               <small class="text-muted">
-                Start a draft when you’re planning the next Spin &amp; Win.
+                Start a draft when you’re planning the next Spin & Win.
               </small>
             </div>
 
@@ -486,7 +486,7 @@
       <div class="modal-card card shadow-lg breath-in-section">
         <div class="card-header d-flex justify-content-between align-items-center">
           <strong>
-            <i class="bi bi-magic me-1"></i>{{ editingId ? 'Edit' : 'Create' }} Spin &amp; Win Event
+            <i class="bi bi-magic me-1"></i>{{ editingId ? 'Edit' : 'Create' }} Spin & Win Event
           </strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeForm">✕</button>
         </div>
@@ -742,7 +742,7 @@
       <div class="modal-card card shadow-lg breath-in-section">
         <div class="card-header d-flex justify-content-between align-items-center">
           <strong>
-            <i class="bi bi-joystick me-1"></i>Spin &amp; Win Details
+            <i class="bi bi-joystick me-1"></i>Spin & Win Details
           </strong>
           <button class="btn btn-sm btn-outline-secondary" @click="closeDetails">✕</button>
         </div>
@@ -1054,12 +1054,13 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { currentUser } from '@/lib/authState'
 import Swal from 'sweetalert2'
 
 const router = useRouter()
 const user = computed(() => currentUser.value)
+const route = useRoute()
 
 /* ======================= SWEETALERT HELPERS ======================= */
 async function swInfo(message: string, title = 'Just a heads-up') {
@@ -1424,6 +1425,25 @@ function openDetails(ev: EventRow) {
 function closeDetails() {
   showDetails.value = false
   activeEvent.value = null
+}
+
+/* ===================== FOCUS PARAM FROM URL (OPEN MODALS) ===================== */
+/* If URL is /admin/mini-games?focus=openmodal -> open create modal
+   If URL is /admin/mini-games?focus=<eventId> -> open that event's details modal */
+function handleInitialFocusFromRoute() {
+  const raw = route.query.focus
+  const focus = typeof raw === 'string' ? raw.trim() : ''
+  if (!focus) return
+
+  if (focus === 'openmodal') {
+    openForm()
+    return
+  }
+
+  const ev = events.value.find((e) => e.id === focus)
+  if (ev) {
+    openDetails(ev)
+  }
 }
 
 /* ===================== AVATARS & WINNER DATA (NEW) ===================== */
@@ -1949,6 +1969,9 @@ onMounted(async () => {
 
   startPoll()
   document.addEventListener('visibilitychange', onVisibilityChange)
+
+  // NEW: open modal based on ?focus= query param
+  handleInitialFocusFromRoute()
 })
 
 onUnmounted(() => {
