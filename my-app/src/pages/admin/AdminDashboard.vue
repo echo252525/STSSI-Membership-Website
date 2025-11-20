@@ -12,10 +12,11 @@
       <div class="d-flex align-items-center gap-2 gap-md-3">
         <!-- Profile only (no notif, no logout) -->
         <div class="topbar-profile d-flex align-items-center gap-2">
-          <div class="avatar-circle"></div>
-          <div class="d-none d-sm-flex flex-column">
-            <span class="profile-name">Admin</span>
-            <span class="profile-role text-muted">Super user</span>
+          <!-- avatar-circle kept but hidden, so no visible profile pic -->
+          <div class="avatar-circle d-none"></div>
+          <div class="d-flex flex-column">
+            <span class="profile-name">{{ adminName || 'Admin' }}</span>
+            <span class="profile-role text-muted">admin</span>
           </div>
         </div>
       </div>
@@ -54,9 +55,7 @@
                 <div class="stat-value h3 mb-0">
                   {{ formattedUserCount }}
                 </div>
-                <div class="text-muted extra-small">
-                  Registered accounts
-                </div>
+                
               </div>
             </div>
           </div>
@@ -72,9 +71,6 @@
                 <div class="stat-value h3 mb-0">
                   {{ formattedPendingOrdersCount }}
                 </div>
-                <div class="text-muted extra-small">
-                  Orders with status "pending"
-                </div>
               </div>
             </div>
           </div>
@@ -89,9 +85,6 @@
                 </div>
                 <div class="stat-value h3 mb-0">
                   {{ formattedPendingTxCount }}
-                </div>
-                <div class="text-muted extra-small">
-                  Wallet transactions with status "pending"
                 </div>
               </div>
             </div>
@@ -321,14 +314,7 @@
                 </div>
               </div>
 
-              <!-- footer hint -->
-              <div
-                v-if="!eventsLoading && openEvents.length > 0"
-                class="overview-footer text-muted small mt-3"
-              >
-                Click a mini game card to feature it above. Click the hero to open it in the
-                Mini Games admin page.
-              </div>
+              
             </div>
           </div>
 
@@ -337,11 +323,7 @@
             <div
               class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
             >
-              <span class="section-title">Key lists</span>
-              <div class="d-flex gap-2">
-                <button type="button" class="btn btn-light btn-sm">Filter</button>
-                <button type="button" class="btn btn-brand btn-sm">New item</button>
-              </div>
+              <span class="section-title">Orders</span>
             </div>
             <div class="card-body">
               <!-- Loading skeleton (kept) -->
@@ -485,26 +467,6 @@
             </div>
           </div>
 
-          <!-- System status template -->
-          <div class="card border-0 rounded-4 breath-in-section">
-            <div class="card-body">
-              <p class="section-title mb-3">System status</p>
-              <div class="d-flex flex-column gap-2">
-                <div
-                  class="d-flex align-items-center justify-content-between"
-                  v-for="i in 3"
-                  :key="'status-' + i"
-                >
-                  <div class="me-2 flex-grow-1">
-                    <div class="skel skel-line w-75 mb-1"></div>
-                    <div class="skel skel-line w-50"></div>
-                  </div>
-                  <span class="status-pill-placeholder"></span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           <!-- Notes / reminders template -> now shows latest transactions -->
           <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
@@ -626,6 +588,35 @@ import { currentUser } from '@/lib/authState'
 
 const router = useRouter()
 const user = computed(() => currentUser.value)
+
+/** ===================== ADMIN PROFILE (TOPBAR NAME) ===================== */
+
+const adminName = ref('')
+
+async function loadAdminProfile() {
+  try {
+    // get current user id (from authState if available, otherwise from supabase auth)
+    let uid: string | undefined = user.value?.id as string | undefined
+
+    if (!uid) {
+      const { data, error } = await supabase.auth.getUser()
+      if (error || !data.user) return
+      uid = data.user.id
+    }
+
+    const { data: adminRow, error: adminErr } = await supabase
+      .from('admins')
+      .select('full_name')
+      .eq('id', uid)
+      .maybeSingle()
+
+    if (!adminErr && adminRow?.full_name) {
+      adminName.value = adminRow.full_name
+    }
+  } catch (e: any) {
+    console.error('[dashboard] loadAdminProfile error:', e?.message || e)
+  }
+}
 
 /** ===================== QUICK ACTIONS NAVIGATION ===================== */
 
@@ -1433,6 +1424,7 @@ onMounted(async () => {
     if (!data.user) return router.push({ name: 'login' })
   }
   await Promise.all([
+    loadAdminProfile(),
     loadDashboardMetrics(),
     loadEvents(),
     loadProducts(),
@@ -2022,4 +2014,10 @@ onMounted(async () => {
     padding-top: 0.75rem;
   }
 }
+
+/* Force status badge text to always be black */
+.badge.rounded-pill.px-2.py-1 {
+  color: #000 !important;
+}
+
 </style>
