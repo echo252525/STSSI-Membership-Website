@@ -743,6 +743,9 @@
 import { ref, onMounted, computed, reactive } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import Swal from 'sweetalert2'
+import { useRoute } from 'vue-router' // NEW: to read query param
+
+const route = useRoute() // NEW
 
 const BUCKET = 'tier_icons'
 
@@ -1463,8 +1466,16 @@ async function deleteUser(u: ManageUser) {
   }
 }
 
+/* MOUNT: load tiers and auto-open Manage Users when URL has ?focus=openmodal */
 onMounted(() => {
   load(true)
+  const focusParam = route.query.focus as string | undefined
+  if (focusParam === 'openmodal') {
+    // small delay to ensure modal DOM is ready
+    setTimeout(() => {
+      openManageUsers()
+    }, 0)
+  }
 })
 </script>
 

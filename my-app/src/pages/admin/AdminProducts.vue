@@ -325,8 +325,11 @@
                     </div>
 
                     <!-- Clamp to 2 lines for consistent height -->
-                    <div class="text-muted small mt-1 desc-clamp" :title="p.description || ''">
-                      {{ p.description || '—' }}
+                    <div
+                      class="text-muted small mt-1 desc-clamp"
+                      :title="p.description || ''"
+                    >
+                      {{ truncateDesc(p.description) }}
                     </div>
 
                     <div class="text-success xsmall fw-bold mt-1">
@@ -1217,6 +1220,14 @@ function closeView() {
 function specEntries(p: ProductRow) {
   const obj = p.specifications && typeof p.specifications === 'object' ? p.specifications : {}
   return Object.entries(obj)
+}
+
+/** Helper: truncate description to fixed length with ... */
+function truncateDesc(text: string | null | undefined, max = 80): string {
+  if (!text || !text.trim()) return '—'
+  const trimmed = text.trim()
+  if (trimmed.length <= max) return trimmed
+  return trimmed.slice(0, max) + '...'
 }
 
 /** ===== Pagination state (windowed 1–10) ===== */
@@ -2126,7 +2137,7 @@ onMounted(() => {
 .desc-clamp {
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  line-clamp: 2;
+  -webkit-line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
   min-height: 2.4em;
