@@ -3693,4 +3693,81 @@ function iconForStatus(s?: string): string {
   text-overflow: clip;
   word-break: break-word;
 }
+
+.tabbar {
+  background: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  z-index: 1020; /* above content */
+}
+
+/* Horizontal scroll container */
+.tabbar__scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  list-style: none;
+  scrollbar-width: none; /* Firefox */
+}
+.tabbar__scroll::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* Pills */
+.tabbar__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.875rem; /* ~14px */
+  white-space: nowrap;
+}
+
+/* Let Bootstrap handle colors, just tweak weight for active */
+.tabbar__pill.active {
+  font-weight: 600;
+}
+
+/* Badge */
+.tabbar__count {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+/* ===== Mobile tweaks (phones) ===== */
+@media (max-width: 576px) {
+  .tabbar {
+    top: 0; /* for .sticky-top */
+  }
+
+  .tabbar__scroll {
+    padding-inline: 0.5rem;
+  }
+
+  /* Make pills more compact */
+  .tabbar__pill {
+    padding: 0.25rem 0.6rem;
+    gap: 0.25rem;
+  }
+
+  /* 👉 Icon-only on mobile: hide text label */
+  .tabbar__label {
+    display: none;
+  }
+
+  /* Small circular badge beside icon */
+  .tabbar__count {
+    min-width: 1.25rem;
+    height: 1.25rem;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+  }
+}
 </style>

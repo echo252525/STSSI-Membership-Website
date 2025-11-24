@@ -31,12 +31,12 @@
           <!-- Basic -->
           <div class="col-12 breath-in">
             <label class="form-label">First Name *</label>
-            <input v-model.trim="firstName" type="text" class="form-control" placeholder="Firstname" required />
+            <input v-model.trim="firstName" type="text" class="form-control" required />
           </div>
 
           <div class="col-12 breath-in">
             <label class="form-label">Last Name *</label>
-            <input v-model.trim="lastName" type="text" class="form-control" placeholder="Lastname" required />
+            <input v-model.trim="lastName" type="text" class="form-control" required />
           </div>
 
           <div class="col-12 breath-in">
@@ -84,7 +84,10 @@
           <!-- NOTE: Only the address-dependent fields show skeleton while PSGC data is loading -->
           <template v-if="!isBooting">
             <!-- Region -->
-            <div class="col-md-6 position-relative breath-in">
+            <div
+              class="col-md-6 position-relative breath-in address-field"
+              :class="{ 'z-top': showRegionSuggest }"
+            >
               <label class="form-label">Region *</label>
               <input
                 v-model.trim="addrRegion"
@@ -95,7 +98,10 @@
                 @focus="showRegionSuggest = true"
                 @input="onRegionInput"
               />
-              <div v-if="showRegionSuggest && filteredRegions.length" class="typeahead-menu list-group shadow position-absolute w-100">
+              <div
+                v-if="showRegionSuggest && filteredRegions.length"
+                class="typeahead-menu list-group shadow position-absolute w-100"
+              >
                 <button
                   v-for="r in filteredRegions"
                   :key="r.code"
@@ -109,7 +115,10 @@
             </div>
 
             <!-- City / Municipality -->
-            <div class="col-md-6 position-relative breath-in delay-050">
+            <div
+              class="col-md-6 position-relative breath-in delay-050 address-field"
+              :class="{ 'z-top': showCitySuggest }"
+            >
               <label class="form-label">City / Municipality *</label>
               <input
                 v-model.trim="addrCity"
@@ -120,7 +129,10 @@
                 @focus="showCitySuggest = true"
                 @input="onCityInput"
               />
-              <div v-if="showCitySuggest && filteredLGUs.length" class="typeahead-menu list-group shadow position-absolute w-100">
+              <div
+                v-if="showCitySuggest && filteredLGUs.length"
+                class="typeahead-menu list-group shadow position-absolute w-100"
+              >
                 <button
                   v-for="l in filteredLGUs"
                   :key="l.code"
@@ -135,27 +147,53 @@
             </div>
 
             <!-- Barangay -->
-            <div class="col-md-6 position-relative breath-in">
+            <div
+              class="col-md-6 position-relative breath-in address-field"
+              :class="{ 'z-top': showBarangaySuggest }"
+            >
               <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
-              <input
-                v-model.trim="addrLine2"
-                type="text"
-                class="form-control"
-                placeholder="Type to search barangay…"
-                @focus="showBarangaySuggest = true"
-                @input="onBarangayInput"
-              />
-              <div v-if="showBarangaySuggest && filteredBarangays.length" class="typeahead-menu list-group shadow position-absolute w-100">
-                <button
-                  v-for="b in filteredBarangays"
+
+              <!-- NEW: Dropdown when barangays for the selected city are loaded -->
+              <select
+                v-if="barangays.length"
+                v-model="addrLine2"
+                class="form-select"
+              >
+                <option value="">Select barangay…</option>
+                <option
+                  v-for="b in barangays"
                   :key="b.code"
-                  type="button"
-                  class="list-group-item list-group-item-action"
-                  @mousedown.prevent="pickBarangay(b)"
+                  :value="b.name"
                 >
                   {{ b.name }}
-                </button>
-              </div>
+                </option>
+              </select>
+
+              <!-- ORIGINAL typeahead input kept as fallback (do not remove code) -->
+              <template v-else>
+                <input
+                  v-model.trim="addrLine2"
+                  type="text"
+                  class="form-control"
+                  placeholder="Type here"
+                  @focus="showBarangaySuggest = true"
+                  @input="onBarangayInput" 
+                />
+                <div
+                  v-if="showBarangaySuggest && filteredBarangays.length"
+                  class="typeahead-menu list-group shadow position-absolute w-100"
+                >
+                  <button
+                    v-for="b in filteredBarangays"
+                    :key="b.code"
+                    type="button"
+                    class="list-group-item list-group-item-action"
+                    @mousedown.prevent="pickBarangay(b)"
+                  >
+                    {{ b.name }}
+                  </button>
+                </div>
+              </template>
             </div>
 
             <!-- ZIP -->
@@ -662,17 +700,38 @@ const onSubmit = async () => {
   max-width: 720px;
   width: 100%;
   backdrop-filter: blur(6px);
+  overflow: visible; /* allow dropdowns to escape card bounds */
+}
+.card-body {
+  position: relative;
+  overflow: visible;
 }
 .login-logo {
   height: 58px;
   width: auto;
 }
+
+/* 🔹 Address fields & stacking */
+.position-relative {
+  position: relative;
+  z-index: 1;
+}
+.address-field {
+  position: relative;
+}
+.z-top {
+  z-index: 50; /* currently active field with open dropdown */
+}
+
+/* 🔹 Dropdown menu fix */
 .typeahead-menu {
-  z-index: 1050;
+  z-index: 2000;
   max-height: 280px;
   overflow: auto;
   top: 100%;
   left: 0;
+  background: #fff;
+  border-radius: 0 0 0.5rem 0.5rem;
 }
 
 /* =========================

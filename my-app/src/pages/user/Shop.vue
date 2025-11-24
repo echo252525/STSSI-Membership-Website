@@ -2,36 +2,60 @@
   <div class="shop-page container-xxl py-0 px-0">
     <!-- Delivery / shipping setup -->
     <div class="card shadow-sm border-0 mb-3">
-      <div class="card-body d-flex flex-wrap align-items-center gap-3">
-        <i class="bi bi-geo-alt fs-4 text-primary"></i>
-        <div class="flex-grow-1">
-          <div class="fw-semibold">
-            Delivery details
-            <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
-          </div>
-
-          <!-- ADDED: shipping skeleton -->
-          <div v-if="!shippingLoaded" class="mt-1">
-            <div class="skeleton skeleton-text w-50 mb-1"></div>
-            <div class="skeleton skeleton-text w-75"></div>
-          </div>
-
-          <div class="text-muted small" v-if="shippingLoaded && hasShipping">
-            {{ shippingSummary }}
-          </div>
-          <div class="text-muted small" v-else-if="shippingLoaded">
-            No delivery info yet. Add your contact number and address for faster checkout.
-          </div>
-        </div>
-        <router-link
-  class="btn btn-outline-primary"
-  :to="{ name: 'user.settings' }"
+      <div
+  class="card-body d-flex flex-wrap align-items-center gap-3 delivery-card"
+  :class="{ 'delivery-collapsed': !showDeliveryMobile }"
 >
-  <i class="bi bi-pencil-square me-1"></i>
-  {{ hasShipping ? 'Manage in Settings' : 'Set up in Settings' }}
-</router-link>
+  <i class="bi bi-geo-alt fs-4 text-primary"></i>
 
+  <div class="flex-grow-1">
+    <div class="fw-semibold d-flex align-items-center justify-content-between">
+      <div>
+        Delivery details
+        <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
       </div>
+
+      <!-- Mobile toggle button -->
+     <button
+  type="button"
+  class="btn btn-link btn-sm p-0 d-md-none ms-2"
+  @click="showDeliveryMobile = !showDeliveryMobile"
+  :aria-expanded="showDeliveryMobile ? 'true' : 'false'"
+  aria-controls="deliveryBody"
+>
+  <i
+    class="bi delivery-toggle-icon"
+    :class="showDeliveryMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
+  ></i>
+</button>
+
+    </div>
+
+    <div id="deliveryBody" class="delivery-body mt-1">
+      <!-- shipping skeleton -->
+      <div v-if="!shippingLoaded">
+        <div class="skeleton skeleton-text w-50 mb-1"></div>
+        <div class="skeleton skeleton-text w-75"></div>
+      </div>
+
+      <div class="text-muted small" v-else-if="shippingLoaded && hasShipping">
+        {{ shippingSummary }}
+      </div>
+      <div class="text-muted small" v-else-if="shippingLoaded">
+        No delivery info yet. Add your contact number and address for faster checkout.
+      </div>
+    </div>
+  </div>
+
+  <router-link
+    class="btn btn-outline-primary delivery-action"
+    :to="{ name: 'user.settings' }"
+  >
+    <i class="bi bi-pencil-square me-1"></i>
+    {{ hasShipping ? 'Manage in Settings' : 'Set up in Settings' }}
+  </router-link>
+</div>
+
     </div>
     <!-- Shipping modal -->
     <div v-if="showShipping" class="modal-backdrop-custom">
@@ -111,62 +135,187 @@
     </div>
     <!-- Top controls -->
     <div class="card shadow-sm border-0 mb-3">
-      <div class="card-body d-flex flex-wrap align-items-center gap-2">
-        <div class="input-group" style="max-width: 360px">
-          <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-          <input
-            v-model.trim="search"
-            type="search"
-            class="form-control"
-            placeholder="Search for products"
-            @keyup.enter="applyAndFetch"
-          />
-          <button class="btn btn-outline-secondary" :disabled="loading" @click="applyAndFetch">
-            <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
-            Search
+  <div class="card-body">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <!-- Search (full width on mobile) -->
+      <div class="input-group search-group flex-grow-1" style="max-width: 360px">
+        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+        <input
+          v-model.trim="search"
+          type="search"
+          class="form-control"
+          placeholder="Search for products"
+          @keyup.enter="applyAndFetch"
+        />
+        <button class="btn btn-outline-secondary" :disabled="loading" @click="applyAndFetch">
+          <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
+          Search
+        </button>
+      </div>
+
+      <!-- ===== DESKTOP CONTROLS (md and up) ===== -->
+      <div class="ms-auto d-none d-md-flex align-items-center gap-2 flex-wrap">
+        <div class="btn-group" role="group" aria-label="Sort group">
+          <button
+            :class="['btn', sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary']"
+            @click="changeSort('relevance')"
+          >
+            Relevance
+          </button>
+          <button
+            :class="['btn', sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary']"
+            @click="changeSort('newest')"
+          >
+            Newest
+          </button>
+          <button
+            :class="['btn', sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary']"
+            @click="changeSort('price_asc')"
+            title="Price: Low to High"
+          >
+            <i class="bi bi-arrow-down-up me-1"></i>Price ↑
+          </button>
+          <button
+            :class="['btn', sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary']"
+            @click="changeSort('price_desc')"
+            title="Price: High to Low"
+          >
+            <i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓
           </button>
         </div>
-        <div class="ms-auto d-flex align-items-center gap-2 flex-wrap">
-          <div class="btn-group" role="group" aria-label="Sort group">
+
+        <div class="form-check form-switch">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="inStockSwitch"
+            v-model="inStockOnly"
+            @change="applyAndFetch"
+          />
+          <label class="form-check-label" for="inStockSwitch">In Stock</label>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <label class="text-muted small mb-0">Per page</label>
+          <select
+            v-model.number="pageSize"
+            class="form-select form-select-sm"
+            style="width: 84px"
+            @change="goToPage(1)"
+          >
+            <option :value="12">12</option>
+            <option :value="24">24</option>
+            <option :value="36">36</option>
+          </select>
+        </div>
+
+        <button
+          ref="cartBtnRef"
+          class="btn btn-outline-dark position-relative"
+          @click="openCartModal"
+        >
+          <i class="bi bi-cart3 me-1"></i>
+          <span class="d-none d-md-inline">View Cart</span>
+          <span
+            v-if="cartTotalItemsRaw > 0"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+          >
+            {{ cartTotalItemsDisplay }}
+          </span>
+        </button>
+      </div>
+
+      <!-- ===== MOBILE CONTROLS (below md) ===== -->
+      <div class="ms-auto d-flex d-md-none align-items-center gap-2">
+        <!-- Filter/sort dropdown toggle (icon only) -->
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          @click="showMobileFilters = !showMobileFilters"
+          :aria-expanded="showMobileFilters ? 'true' : 'false'"
+          aria-controls="mobileFilterPanel"
+        >
+          <i class="bi bi-sliders"></i>
+        </button>
+
+        <!-- Cart icon only on mobile -->
+        <button
+          ref="cartBtnRef"
+          class="btn btn-outline-dark btn-sm position-relative"
+          @click="openCartModal"
+        >
+          <i class="bi bi-cart3"></i>
+          <span
+            v-if="cartTotalItemsRaw > 0"
+            class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+          >
+            {{ cartTotalItemsDisplay }}
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MOBILE DROPDOWN PANEL -->
+    <transition name="fade-slide-y">
+      <div
+        v-if="showMobileFilters"
+        id="mobileFilterPanel"
+        class="mt-3 d-md-none border-top pt-3"
+      >
+        <!-- Sort buttons, full width but stacked nicely -->
+        <div class="mb-2">
+          <label class="text-muted small d-block mb-1">Sort by</label>
+          <div class="btn-group w-100" role="group" aria-label="Sort group mobile">
             <button
-              :class="['btn', sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary']"
+              class="btn btn-sm"
+              :class="sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary'"
               @click="changeSort('relevance')"
             >
-              Relevance
+              <i class="bi bi-stars me-1"></i>Rel
             </button>
             <button
-              :class="['btn', sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary']"
+              class="btn btn-sm"
+              :class="sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary'"
               @click="changeSort('newest')"
             >
-              Newest
+              <i class="bi bi-clock-history me-1"></i>New
             </button>
             <button
-              :class="['btn', sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary']"
+              class="btn btn-sm"
+              :class="sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary'"
               @click="changeSort('price_asc')"
               title="Price: Low to High"
             >
-              <i class="bi bi-arrow-down-up me-1"></i>Price ↑
+              <i class="bi bi-sort-numeric-down me-1"></i>↑
             </button>
             <button
-              :class="['btn', sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary']"
+              class="btn btn-sm"
+              :class="sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary'"
               @click="changeSort('price_desc')"
               title="Price: High to Low"
             >
-              <i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓
+              <i class="bi bi-sort-numeric-up me-1"></i>↓
             </button>
           </div>
-          <div class="form-check form-switch">
+        </div>
+
+        <!-- In stock + per page in one row -->
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <div class="form-check form-switch mb-0">
             <input
               class="form-check-input"
               type="checkbox"
-              id="inStockSwitch"
+              id="inStockSwitchMobile"
               v-model="inStockOnly"
               @change="applyAndFetch"
             />
-            <label class="form-check-label" for="inStockSwitch">In Stock</label>
+            <label class="form-check-label small" for="inStockSwitchMobile">
+              In stock only
+            </label>
           </div>
+
           <div class="d-flex align-items-center gap-2">
-            <label class="text-muted small">Per page</label>
+            <label class="text-muted small mb-0">Per page</label>
             <select
               v-model.number="pageSize"
               class="form-select form-select-sm"
@@ -178,170 +327,187 @@
               <option :value="36">36</option>
             </select>
           </div>
-          <button
-            ref="cartBtnRef"
-            class="btn btn-outline-dark position-relative"
-            @click="openCartModal"
-          >
-            <i class="bi bi-cart3 me-1"></i>
-            View Cart
-            <span
-  v-if="cartTotalItemsRaw > 0"
-  class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
->
-  {{ cartTotalItemsDisplay }}
-</span>
+        </div>
+      </div>
+    </transition>
+  </div>
+</div>
 
-            >
-          </button>
+    <div class="row g-3">
+      <!-- Sidebar -->
+      <aside
+  class="col-12 col-xxl-3 product-sidebar"
+  :class="{ 'sidebar-collapsed': !showSidebarMobile }"
+>
+  <!-- MOBILE TOGGLE HEADER -->
+  <div class="d-flex align-items-center justify-content-between mb-2 d-md-none">
+    <div class="fw-semibold d-flex align-items-center gap-2">
+      <i class="bi bi-funnel fs-5 text-primary"></i>
+      <span class="small">Filters & Pending Orders</span>
+    </div>
+    <button
+      type="button"
+      class="btn btn-link btn-sm p-0"
+      @click="showSidebarMobile = !showSidebarMobile"
+      :aria-expanded="showSidebarMobile ? 'true' : 'false'"
+      aria-controls="sidebarBody"
+    >
+      <i
+        class="bi sidebar-toggle-icon"
+        :class="showSidebarMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
+      ></i>
+    </button>
+  </div>
+
+  <!-- COLLAPSIBLE BODY (mobile) / NORMAL BODY (desktop) -->
+  <div id="sidebarBody" class="sidebar-body">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-white"><strong>Filters</strong></div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label class="form-label">Price range</label>
+          <div class="input-group mb-2">
+            <span class="input-group-text">₱</span>
+            <input
+              v-model.number="minPrice"
+              type="number"
+              min="0"
+              class="form-control"
+              placeholder="Min"
+            />
+          </div>
+          <div class="input-group">
+            <span class="input-group-text">₱</span>
+            <input
+              v-model.number="maxPrice"
+              type="number"
+              min="0"
+              class="form-control"
+              placeholder="Max"
+            />
+          </div>
+          <div class="d-grid mt-2">
+            <button class="btn btn-outline-primary btn-sm" @click="applyAndFetch">Apply</button>
+          </div>
+        </div>
+        <div class="small text-muted">
+          Showing only <span class="fw-semibold">published</span> products.
         </div>
       </div>
     </div>
-    <div class="row g-3">
-      <!-- Sidebar -->
-      <aside class="col-12 col-xxl-3">
-        <div class="card shadow-sm border-0">
-          <div class="card-header bg-white"><strong>Filters</strong></div>
-          <div class="card-body">
-            <div class="mb-3">
-              <label class="form-label">Price range</label>
-              <div class="input-group mb-2">
-                <span class="input-group-text">₱</span>
-                <input
-                  v-model.number="minPrice"
-                  type="number"
-                  min="0"
-                  class="form-control"
-                  placeholder="Min"
-                />
-              </div>
-              <div class="input-group">
-                <span class="input-group-text">₱</span>
-                <input
-                  v-model.number="maxPrice"
-                  type="number"
-                  min="0"
-                  class="form-control"
-                  placeholder="Max"
-                />
-              </div>
-              <div class="d-grid mt-2">
-                <button class="btn btn-outline-primary btn-sm" @click="applyAndFetch">Apply</button>
-              </div>
-            </div>
-            <div class="small text-muted">
-              Showing only <span class="fw-semibold">published</span> products.
-            </div>
-          </div>
-        </div>
-        <!-- Pending Orders List (below Filters) -->
-        <div class="card shadow-sm border-0 mt-3">
-          <div class="card-header bg-white d-flex align-items-center justify-content-between">
-            <strong>Your Pending Orders</strong>
-            <button
-              class="btn btn-sm btn-outline-secondary"
-              @click="loadPendingOrders"
-              title="Refresh"
-            >
-              <i class="bi bi-arrow-clockwise"></i>
-            </button>
-          </div>
-          <div class="card-body p-0">
-            <!-- ADDED: pending list skeleton -->
-            <div v-if="pendingLoading" class="p-3">
-              <div v-for="i in 3" :key="'pend-skel-'+i" class="mb-3">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="pending-thumb skeleton"></div>
-                    <div>
-                      <div class="skeleton skeleton-text w-50 mb-1"></div>
-                      <div class="skeleton skeleton-text w-25"></div>
-                    </div>
-                  </div>
-                  <div class="skeleton skeleton-pill"></div>
-                </div>
-                <div class="d-flex align-items-center justify-content-between">
+
+    <!-- Pending Orders List (below Filters) -->
+    <div class="card shadow-sm border-0 mt-3">
+      <div class="card-header bg-white d-flex align-items-center justify-content-between">
+        <strong>Your Pending Orders</strong>
+        <button
+          class="btn btn-sm btn-outline-secondary"
+          @click="loadPendingOrders"
+          title="Refresh"
+        >
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <!-- ADDED: pending list skeleton -->
+        <div v-if="pendingLoading" class="p-3">
+          <div v-for="i in 3" :key="'pend-skel-'+i" class="mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="d-flex align-items-center gap-2">
+                <div class="pending-thumb skeleton"></div>
+                <div>
+                  <div class="skeleton skeleton-text w-50 mb-1"></div>
                   <div class="skeleton skeleton-text w-25"></div>
-                  <div class="skeleton skeleton-btn"></div>
                 </div>
               </div>
+              <div class="skeleton skeleton-pill"></div>
             </div>
-
-            <div v-else-if="pendingGroups.length === 0" class="p-3 text-muted small">
-              No pending orders yet.
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="skeleton skeleton-text w-25"></div>
+              <div class="skeleton skeleton-btn"></div>
             </div>
-            <ul v-else class="list-group list-group-flush">
-              <li
-                v-for="g in pendingGroups"
-                :key="g.ref"
-                class="list-group-item d-flex flex-column gap-2"
-              >
-                <!-- header row: tiny pic + name + ref + items badge -->
-                <div class="d-flex align-items-center justify-content-between">
-                  <div class="d-flex align-items-center gap-2">
-                    <div class="pending-thumb">
-                      <img
-                        v-if="g.sampleImageUrl"
-                        :src="g.sampleImageUrl"
-                        alt=""
-                        class="w-100 h-100 object-fit-cover rounded"
-                      />
-                      <div
-                        v-else
-                        class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                      >
-                        <i class="bi bi-image"></i>
-                      </div>
-                    </div>
-                    <div class="d-flex flex-column">
-                      <div class="pending-sample-name" :title="g.sampleName || '—'">
-                        {{ g.sampleName || '—' }}
-                      </div>
-                      <div class="small text-muted">
-                        Ref: <span class="text-monospace">{{ g.ref }}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <span class="badge rounded-pill text-bg-secondary">
-                    {{ g.itemsCount }} item{{ g.itemsCount > 1 ? 's' : '' }}
-                  </span>
-                </div>
-                <!-- admin shipping & button -->
-                <div class="d-flex align-items-center justify-content-between">
-                  <div class="small">
-  Admin shipping fee:
-  <strong v-if="g.hasFreeShipping">Free Shipping</strong>
-  <strong v-else-if="g.highestShippingFee > 0">₱ {{ number(g.highestShippingFee) }}</strong>
-  <span v-else class="text-warning">awaiting…</span>
-</div>
-
-                  <button
-                    class="btn btn-sm btn-primary"
-                    :disabled="placingOrder || g.itemsCount === 0"
-                    @click="openPlacePending(g.ref)"
-                    title="Review & Place"
-                  >
-                    Review & Place
-                  </button>
-                </div>
-                <div class="fw-semibold">
-                  ₱
-                  {{
-                    number(
-                      g.displayTotal ??
-                        g.itemsTotal + (g.highestShippingFee > 0 ? g.highestShippingFee : 0),
-                    )
-                  }}
-                  <span v-if="g.highestShippingFee === 0" class="text-muted small"
-                    >(+ shipping)</span
-                  >
-                </div>
-              </li>
-            </ul>
           </div>
         </div>
-        <!-- /Pending Orders List -->
-      </aside>
+
+        <div v-else-if="pendingGroups.length === 0" class="p-3 text-muted small">
+          No pending orders yet.
+        </div>
+        <ul v-else class="list-group list-group-flush">
+          <li
+            v-for="g in pendingGroups"
+            :key="g.ref"
+            class="list-group-item d-flex flex-column gap-2"
+          >
+            <!-- header row: tiny pic + name + ref + items badge -->
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <div class="pending-thumb">
+                  <img
+                    v-if="g.sampleImageUrl"
+                    :src="g.sampleImageUrl"
+                    alt=""
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
+                <div class="d-flex flex-column">
+                  <div class="pending-sample-name" :title="g.sampleName || '—'">
+                    {{ g.sampleName || '—' }}
+                  </div>
+                  <div class="small text-muted">
+                    Ref: <span class="text-monospace">{{ g.ref }}</span>
+                  </div>
+                </div>
+              </div>
+              <span class="badge rounded-pill text-bg-secondary">
+                {{ g.itemsCount }} item{{ g.itemsCount > 1 ? 's' : '' }}
+              </span>
+            </div>
+            <!-- admin shipping & button -->
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="small">
+                Admin shipping fee:
+                <strong v-if="g.hasFreeShipping">Free Shipping</strong>
+                <strong v-else-if="g.highestShippingFee > 0">
+                  ₱ {{ number(g.highestShippingFee) }}
+                </strong>
+                <span v-else class="text-warning">awaiting…</span>
+              </div>
+
+              <button
+                class="btn btn-sm btn-primary"
+                :disabled="placingOrder || g.itemsCount === 0"
+                @click="openPlacePending(g.ref)"
+                title="Review & Place"
+              >
+                Review & Place
+              </button>
+            </div>
+            <div class="fw-semibold">
+              ₱
+              {{
+                number(
+                  g.displayTotal ??
+                    g.itemsTotal + (g.highestShippingFee > 0 ? g.highestShippingFee : 0),
+                )
+              }}
+              <span v-if="g.highestShippingFee === 0" class="text-muted small">
+                (+ shipping)
+              </span>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+    <!-- /Pending Orders List -->
+  </div>
+</aside>
+
       <!-- Products -->
       <section class="col-12 col-xxl-9" :class="{ 'is-loading': loading }">
 
@@ -1506,7 +1672,9 @@ async function swConfirm(message: string, title = 'Are you sure?', confirmText =
   })
   return res.isConfirmed
 }
-
+const showMobileFilters = ref(false)
+const showDeliveryMobile = ref(false)
+const showSidebarMobile = ref(false)
 const routers = useRouter()
 const route = useRoute() // ⬅️ ADDED
 const user = computed(() => currentUser.value)
@@ -5532,6 +5700,113 @@ const displayAddressForEdit = computed(() => {
 }
 .ticket::before { left: -6px; }
 .ticket::after  { right: -6px; }
+
+/* Make search bar full width on small screens */
+@media (max-width: 767.98px) {
+  .search-group {
+    max-width: 100% !important;
+  }
+}
+
+/* Simple fade/slide animation for mobile dropdown */
+.fade-slide-y-enter-active,
+.fade-slide-y-leave-active {
+  transition: all 0.15s ease-out;
+}
+.fade-slide-y-enter-from,
+.fade-slide-y-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+/* Optional: rotate icon utility you already used */
+.rotate-180 {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 767.98px) {
+  .delivery-card {
+    align-items: flex-start;
+  }
+
+  .delivery-card .delivery-action {
+    margin-left: auto;
+    margin-top: 0.25rem;
+  }
+
+  /* Animate the content + button */
+  .delivery-card .delivery-body,
+  .delivery-card .delivery-action {
+    overflow: hidden;
+    transition:
+      max-height 0.2s ease-out,
+      opacity 0.2s ease-out,
+      transform 0.2s ease-out;
+  }
+
+  /* Expanded (default) state */
+  .delivery-card .delivery-body {
+    max-height: 300px; /* enough for text/skeleton */
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .delivery-card .delivery-action {
+    max-height: 40px; /* approx button height */
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Collapsed state */
+  .delivery-card.delivery-collapsed .delivery-body,
+  .delivery-card.delivery-collapsed .delivery-action {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  /* Smooth chevron rotation */
+  .delivery-toggle-icon {
+    transition: transform 0.2s ease-out;
+  }
+  .delivery-card.delivery-collapsed .delivery-toggle-icon {
+    transform: rotate(0deg);
+  }
+}
+
+@media (max-width: 767.98px) {
+  .product-sidebar {
+    margin-top: 0.5rem;
+  }
+
+  /* Animated body (filters + pending card) */
+  .product-sidebar .sidebar-body {
+    overflow: hidden;
+    transition:
+      max-height 0.2s ease-out,
+      opacity 0.2s ease-out,
+      transform 0.2s ease-out;
+    max-height: 1200px; /* enough for both cards */
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .product-sidebar.sidebar-collapsed .sidebar-body {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  /* A bit tighter spacing when visible */
+  .product-sidebar .sidebar-body > .card:first-child {
+    margin-top: 0.25rem;
+  }
+
+  /* Chevron animation */
+  .sidebar-toggle-icon {
+    transition: transform 0.2s ease-out;
+  }
+}
+
 
 </style>
 

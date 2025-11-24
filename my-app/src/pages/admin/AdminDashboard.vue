@@ -24,11 +24,11 @@
 
     <!-- ===== Content ===== -->
     <main class="admin-content flex-grow-1 px-3 px-md-4 pb-4">
-      <!-- ===== Metrics row ===== -->
+      <!-- ===== Metrics row / Overview ===== -->
       <section class="row g-3 mb-4 breath-in-section">
         <!-- Skeleton while metrics are loading -->
         <template v-if="metricsLoading">
-          <div class="col-md-4" v-for="i in 3" :key="'metric-skel-' + i">
+          <div class="col-4 col-md-4" v-for="i in 3" :key="'metric-skel-' + i">
             <div class="card stat-card border-0 rounded-4">
               <div class="card-body d-flex flex-column gap-2">
                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -45,7 +45,7 @@
         <!-- Live metrics -->
         <template v-else>
           <!-- Total users metric -->
-          <div class="col-md-4">
+          <div class="col-4 col-md-4">
             <div class="card stat-card border-0 rounded-4">
               <div class="card-body d-flex flex-column gap-2">
                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -55,13 +55,12 @@
                 <div class="stat-value h3 mb-0">
                   {{ formattedUserCount }}
                 </div>
-                
               </div>
             </div>
           </div>
 
           <!-- Pending orders metric -->
-          <div class="col-md-4">
+          <div class="col-4 col-md-4">
             <div class="card stat-card border-0 rounded-4">
               <div class="card-body d-flex flex-column gap-2">
                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -76,7 +75,7 @@
           </div>
 
           <!-- Pending transactions metric -->
-          <div class="col-md-4">
+          <div class="col-4 col-md-4">
             <div class="card stat-card border-0 rounded-4">
               <div class="card-body d-flex flex-column gap-2">
                 <div class="d-flex align-items-center justify-content-between mb-1">
@@ -96,7 +95,7 @@
       <section class="row g-3">
         <!-- Left column -->
         <div class="col-lg-8 d-flex flex-column gap-3">
-          <!-- ===== Mini Games Hero Section ===== -->
+          <!-- ===== Mini Games Hero Section (+ inline icons) ===== -->
           <div
             class="card border-0 rounded-4 mg-hero breath-in-section"
             v-if="featuredGame || eventsLoading"
@@ -201,120 +200,31 @@
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- ===== Mini games dashboard-style cards ===== -->
-          <div class="card border-0 rounded-4 breath-in-section">
+            <!-- 🔹 Inline mini-game icons (below featured, side-by-side) -->
             <div
-              class="card-header bg-white border-0 d-flex align-items-center justify-content-between"
+              v-if="!eventsLoading && openEvents.length"
+              class="mg-inline-strip"
             >
-              <span class="section-title">Mini games at a glance</span>
-              <button type="button" class="btn-icon-ghost" title="More options">
-                <i class="bi bi-three-dots"></i>
-              </button>
-            </div>
-            <div class="card-body">
-              <!-- Loading skeleton: grid of placeholder cards -->
-              <div v-if="eventsLoading" class="row g-3">
-                <div
-                  class="col-md-6 col-xl-4"
-                  v-for="i in 3"
-                  :key="'mg-skel-' + i"
-                >
-                  <div class="mg-card mg-card-skeleton">
-                    <div class="d-flex align-items-center justify-content-between mb-2">
-                      <span class="skel skel-line w-75"></span>
-                      <span class="status-pill-placeholder"></span>
-                    </div>
-                    <div class="skel skel-line w-50 mb-2"></div>
-                    <div class="skel skel-line w-100 mb-1"></div>
-                    <div class="skel skel-line w-75"></div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Empty state -->
-              <div
-                v-else-if="openEvents.length === 0"
-                class="text-center text-muted small py-4"
+              <button
+                v-for="ev in openEvents.slice(0, 6)"
+                :key="ev.id"
+                type="button"
+                class="mg-inline-icon"
+                :class="{ 'mg-inline-icon-active': featuredGame && ev.id === featuredGame.id }"
+                @click.stop="setFeatured(ev)"
+                @keydown.enter.prevent.stop="setFeatured(ev)"
+                @keydown.space.prevent.stop="setFeatured(ev)"
               >
-                No mini games are open right now.
-                <div class="mt-1">
-                  Create or open a game from the Mini Games admin page.
-                </div>
-              </div>
-
-              <!-- Open mini games as dashboard cards -->
-              <div v-else class="row g-3">
-                <div
-                  class="col-md-6 col-xl-4"
-                  v-for="ev in openEvents.slice(0, 6)"
-                  :key="ev.id"
-                >
-                  <div
-                    class="mg-card"
-                    :class="{ 'mg-card-active': featuredGame && ev.id === featuredGame.id }"
-                    role="button"
-                    tabindex="0"
-                    @click="setFeatured(ev)"
-                    @keydown.enter.prevent="setFeatured(ev)"
-                    @keydown.space.prevent="setFeatured(ev)"
-                  >
-                    <div class="mg-card-header d-flex align-items-start justify-content-between">
-                      <div class="mg-title-wrap">
-                        <div class="mg-pill">Spin &amp; Win</div>
-                        <h6 class="mg-title mb-0" :title="ev.title">
-                          {{ ev.title || 'Untitled mini game' }}
-                        </h6>
-                      </div>
-                      <span class="status-pill status-pill-open">
-                        Open
-                      </span>
-                    </div>
-
-                    <div class="d-flex align-items-center gap-2 mb-2">
-                      <div class="mg-thumbnail-wrap">
-                        <img
-                          v-if="eventImageUrl(ev)"
-                          :src="eventImageUrl(ev)"
-                          alt="Prize product"
-                          class="mg-thumbnail-img"
-                        />
-                        <div v-else class="mg-thumbnail-placeholder">
-                          <i class="bi bi-image"></i>
-                        </div>
-                      </div>
-                      <p class="mg-players mb-0">
-                        <i class="bi bi-people me-1"></i>
-                        <span class="text-muted">Players</span>
-                        <strong class="ms-1">
-                          {{ ev.player_count }}
-                        </strong>
-                        <span class="text-muted">
-                          / {{ ev.player_cap || defaultCap }}
-                        </span>
-                      </p>
-                    </div>
-
-                    <div class="mg-progress mb-1">
-                      <div
-                        class="mg-progress-bar"
-                        :style="{ width: fillPercent(ev) + '%' }"
-                      ></div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mg-meta-row">
-                      <span class="mg-capacity-label">
-                        {{ capacityLabel(ev) }}
-                      </span>
-                      <span class="mg-percent text-muted small">
-                        {{ fillPercent(ev) }}% full
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              
+                <img
+                  v-if="eventImageUrl(ev)"
+                  :src="eventImageUrl(ev)"
+                  :alt="ev.title || 'Mini game'"
+                />
+                <span v-else class="mg-inline-icon-letter">
+                  {{ (ev.title || 'M').charAt(0).toUpperCase() }}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -426,42 +336,42 @@
           <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
               <p class="section-title mb-3">Quick actions</p>
-              <div class="d-grid gap-2">
+              <div class="d-grid gap-2 quick-actions-grid">
                 <!-- Manage users -> /admin/AdminMemberships?focus=openmodal -->
                 <button
                   type="button"
-                  class="btn btn-outline-secondary text-start"
+                  class="btn btn-outline-secondary text-start quick-action-btn"
                   @click="goManageUsers"
                 >
                   <i class="bi bi-person-check me-2"></i>
-                  Manage users
+                  <span class="qa-label">Manage users</span>
                 </button>
                 <!-- Add event -> /admin/mini-games?focus=openmodal -->
                 <button
                   type="button"
-                  class="btn btn-outline-secondary text-start"
+                  class="btn btn-outline-secondary text-start quick-action-btn"
                   @click="goAddEvent"
                 >
                   <i class="bi bi-joystick me-2"></i>
-                  Add an event
+                  <span class="qa-label">Add an event</span>
                 </button>
                 <!-- Add product -> /admin/products?focus=openmodal -->
                 <button
                   type="button"
-                  class="btn btn-outline-secondary text-start"
+                  class="btn btn-outline-secondary text-start quick-action-btn"
                   @click="goAddProduct"
                 >
                   <i class="bi bi-box-seam me-2"></i>
-                  Add a product
+                  <span class="qa-label">Add a product</span>
                 </button>
                 <!-- Add discount -> /admin/discount?focus=openmodal -->
                 <button
                   type="button"
-                  class="btn btn-outline-secondary text-start"
+                  class="btn btn-outline-secondary text-start quick-action-btn"
                   @click="goAddDiscount"
                 >
                   <i class="bi bi-percent me-2"></i>
-                  Add a discount
+                  <span class="qa-label">Add a discount</span>
                 </button>
               </div>
             </div>
@@ -470,9 +380,9 @@
           <!-- Notes / reminders template -> now shows latest transactions -->
           <div class="card border-0 rounded-4 breath-in-section">
             <div class="card-body">
-              <p class="section-title mb-2">Notes</p>
+              <p class="section-title mb-2">Transactions</p>
               <p class="text-muted small mb-2">
-                Use this space to add reminders for your admin team.
+                Pending top ups
               </p>
 
               <!-- 🔹 Latest transactions snapshot (ewallet.transactions) -->
@@ -1728,7 +1638,56 @@ onMounted(async () => {
   color: #4b5563;
 }
 
-/* ===== Mini games dashboard cards ===== */
+/* 🔹 Mini games inline icons under hero */
+.mg-inline-strip {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed rgba(148, 163, 184, 0.4);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mg-inline-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.7);
+  background: #f3f4f6;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  overflow: hidden;
+  cursor: pointer;
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.15);
+}
+
+.mg-inline-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mg-inline-icon-letter {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.mg-inline-icon-active {
+  border-color: var(--brand-azure);
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  transform: translateY(-1px);
+}
+
+/* ===== Mini games dashboard cards (kept styles, even though cards were removed here) ===== */
 .mg-card {
   background: #ffffff;
   border-radius: 18px;
@@ -2015,9 +1974,85 @@ onMounted(async () => {
   }
 }
 
+/* ===== Mobile tweaks: overview metrics & quick actions ===== */
+@media (max-width: 576px) {
+  /* Keep three metrics lined up and compact */
+  .stat-card .card-body {
+    padding: 0.5rem 0.55rem;
+  }
+
+  .stat-label {
+    display: none; /* hide text labels, leave icon + number */
+  }
+
+  .stat-value {
+    font-size: 1.15rem;
+  }
+
+  .stat-card i {
+    font-size: 1.1rem;
+  }
+
+  /* Quick actions: icon-only to save space */
+  .quick-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 0.5rem;
+  }
+
+  .quick-action-btn .qa-label {
+    display: none;
+  }
+
+  .quick-action-btn i {
+    margin-right: 0 !important;
+    font-size: 1.2rem;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  /* Make inline icons slightly smaller on very small screens */
+  .mg-inline-icon {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+/* Mini games at a glance – compact mobile look (kept for mg-card reuse) */
+.mg-card {
+  padding: 0.45rem 0.55rem 0.5rem;
+  border-radius: 14px;
+}
+
+.mg-card-header {
+  /* can be hidden where needed */
+}
+
+.mg-thumbnail-wrap {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.mg-players {
+  font-size: 0.78rem;
+  margin-bottom: 0.1rem !important;
+}
+
+.mg-progress {
+  height: 5px;
+  margin-bottom: 0.15rem;
+}
+
+.mg-meta-row {
+  /* can be hidden where needed */
+}
+
 /* Force status badge text to always be black */
 .badge.rounded-pill.px-2.py-1 {
   color: #000 !important;
 }
-
 </style>

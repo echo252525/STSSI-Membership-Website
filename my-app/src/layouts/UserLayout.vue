@@ -109,7 +109,7 @@
             Got it
           </button>
           <button
-           v-if="route.name === 'user.minigames'"
+            v-if="route.name === 'user.minigames'"
             type="button"
             class="btn btn-secondary btn-sm"
             @click="router.push('minigames/tutorial')"
@@ -217,6 +217,7 @@
                   <div class="eyebrow">
                     <span v-if="tierChange?.status === 'promoted'">🎉 Promotion</span>
                     <span v-else-if="tierChange?.status === 'demoted'">🌱 Reset</span>
+                    <span v-else-if="tierChange?.status === 'new'">✨ Welcome</span>
                     <span v-else>✅ Maintained</span>
                   </div>
                   <h2 class="hero-title display-6 m-0">
@@ -282,7 +283,7 @@
               </div>
 
               <!-- What changed -->
-              <div v-if="tierDiffs.length" class="diff-block mb-3">
+              <div v-if="tierDiffs.length && tierChange?.status !== 'new'" class="diff-block mb-3">
                 <div class="small text-muted mb-2">What changed</div>
                 <ul class="diff-list">
                   <li v-for="d in tierDiffs" :key="d.label">
@@ -311,7 +312,7 @@
               <div
                 class="alert mt-3"
                 :class="{
-                  'alert-success': tierChange?.status === 'promoted',
+                  'alert-success': tierChange?.status === 'promoted' || tierChange?.status === 'new',
                   'alert-secondary': tierChange?.status === 'stayed',
                   'alert-warning': tierChange?.status === 'demoted',
                 }"
@@ -325,6 +326,11 @@
                 </template>
                 <template v-else-if="tierChange?.status === 'demoted'">
                   ⚠️ It’s okay — you can climb back next month. We believe in you!
+                </template>
+                <template v-else-if="tierChange?.status === 'new'">
+                  ✨ Welcome! You’re starting at
+                  <strong>{{ tierChange?.neu?.membership_name || 'your starting tier' }}</strong
+                  >. Enjoy your member perks!
                 </template>
               </div>
             </section>
@@ -669,7 +675,7 @@ async function signedUrlOrNull(path: string | null | undefined): Promise<string 
 const tierChange = ref<{
   old?: TierRow
   neu?: TierRow
-  status?: 'promoted' | 'demoted' | 'stayed'
+  status?: 'promoted' | 'demoted' | 'stayed' | 'new'
 } | null>(null)
 
 const tierHeadline = computed(() => {
@@ -679,6 +685,7 @@ const tierHeadline = computed(() => {
   if (!s || !newName) return ''
   if (s === 'promoted') return `Congrats! You’ve been promoted to ${newName}.`
   if (s === 'stayed') return `You stayed in ${newName}.`
+  if (s === 'new') return `Welcome! You’re starting at ${newName}.`
   return `Your tier changed from ${oldName || 'previous'} to ${newName}.`
 })
 
@@ -771,6 +778,12 @@ const heroCopy = computed(() => {
       subtitle: `You’re now in ${newName}. It’s okay — you can climb back up this month.`,
     }
   }
+  if (status === 'new') {
+    return {
+      title: 'Welcome!',
+      subtitle: `You’re starting at ${newName}. Enjoy your member perks and explore what you can do here.`,
+    }
+  }
   return {
     title: 'Nice work!',
     subtitle: `You maintained your ${newName} status. Aim for a promotion next month!`,
@@ -810,7 +823,40 @@ async function checkTierChangeAndShow() {
     const currentId = (userRow as any)['membership_id'] as string | null
     const lastId = (userRow as any)['lastMembership_id'] as string | null
     const alreadyShown = (userRow as any)['isdisplaytiershowed'] as boolean
-    if (!lastId || !currentId || alreadyShown) return
+
+    if (!currentId || alreadyShown) return
+
+    // 🆕 New user: no lastMembership_id → welcome display
+    if (!lastId) {
+      const { data: newTier, error: newErr } = await supabase
+        .schema('membership')
+        .from('tiers')
+        .select(
+          `
+          id,
+          membership_name,
+          membership_tier_order,
+          icon_url,
+          discount_credits,
+          discount_per_purchase,
+          is_free_delivery,
+          purchase_requirements_for_free_delivery,
+          referral_count_requirements,
+          purchases_count
+        `,
+        )
+        .eq('id', currentId)
+        .maybeSingle()
+
+      if (!newErr && newTier) {
+        const neu = newTier as TierRow
+        neu.icon_signed_url = await signedUrlOrNull(neu.icon_url)
+        tierChange.value = { neu, status: 'new' }
+        isTierModalOpen.value = true
+        await markTierShown()
+      }
+      return
+    }
 
     const { data: tiers, error: tiersErr } = await supabase
       .schema('membership')
@@ -843,7 +889,7 @@ async function checkTierChangeAndShow() {
     if (oldTier) oldTier.icon_signed_url = await signedUrlOrNull(oldTier.icon_url)
     if (newTier) newTier.icon_signed_url = await signedUrlOrNull(newTier.icon_url)
 
-    let status: 'promoted' | 'demoted' | 'stayed' = 'stayed'
+    let status: 'promoted' | 'demoted' | 'stayed' | 'new' = 'stayed'
     if (oldTier && newTier) {
       if (oldTier.id === newTier.id) status = 'stayed'
       else if ((newTier.membership_tier_order ?? 0) > (oldTier.membership_tier_order ?? 0))
@@ -1221,6 +1267,9 @@ function closeTierModal() {
 .tier-hero-big.status-stayed {
   background: linear-gradient(135deg, #eef2ff, #ffffff);
 }
+.tier-hero-big.status-new {
+  background: linear-gradient(135deg, #fff8e6, #ffffff);
+}
 
 .hero-icon-wrap {
   width: 72px;
@@ -1430,7 +1479,7 @@ function closeTierModal() {
     opacity: 0;
   }
   to {
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
     opacity: 1;
   }
 }

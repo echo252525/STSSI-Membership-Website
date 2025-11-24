@@ -9,7 +9,8 @@
           @click="activeTab = 'wallet'"
         >
           <i class="bi bi-wallet2 me-2" aria-hidden="true"></i>
-          E-Wallet
+          <!-- Text hidden on mobile, shown from sm+ -->
+          <span class="d-none d-sm-inline">E-Wallet</span>
         </button>
       </li>
       <li class="nav-item">
@@ -19,7 +20,8 @@
           @click="activeTab = 'discount'"
         >
           <i class="bi bi-percent me-2" aria-hidden="true"></i>
-          Discount Credits
+          <!-- Text hidden on mobile, shown from sm+ -->
+          <span class="d-none d-sm-inline">Discount Credits</span>
         </button>
       </li>
     </ul>
@@ -36,11 +38,16 @@
       </h1>
       <button
         v-if="activeTab === 'wallet'"
-        class="btn btn-primary"
+        class="btn btn-primary topup-btn"
         @click="openTopUp"
       >
-        <i class="bi bi-plus-circle"></i>
-        <span class="ms-2">Top Up</span>
+        <!-- Mobile: icon-only (just the plus icon) -->
+        <i class="bi bi-plus-circle d-inline d-sm-none" aria-hidden="true"></i>
+        <!-- Desktop/tablet: icon + text -->
+        <span class="d-none d-sm-inline-flex align-items-center">
+          <i class="bi bi-plus-circle me-1" aria-hidden="true"></i>
+          <span class="ms-1">Top Up</span>
+        </span>
       </button>
       <!-- No top up button for Discount Credits -->
     </div>
@@ -105,8 +112,15 @@
                 aria-controls="filterMenu"
               >
                 <i class="bi bi-funnel" aria-hidden="true"></i>
-                {{ filterLabel }}
-                <i class="bi" :class="showFilters ? 'bi-chevron-up' : 'bi-chevron-down'" aria-hidden="true"></i>
+                <!-- Label + chevron hidden on mobile, shown from sm+ -->
+                <span class="d-none d-sm-inline-flex align-items-center gap-1">
+                  {{ filterLabel }}
+                  <i
+                    class="bi"
+                    :class="showFilters ? 'bi-chevron-up' : 'bi-chevron-down'"
+                    aria-hidden="true"
+                  ></i>
+                </span>
               </button>
 
               <transition name="fade">
@@ -117,8 +131,6 @@
                   role="menu"
                   aria-label="Filter by status"
                 >
-                  
-
                   <!-- ✅ Vertical list (not sideways) -->
                   <ul class="list-unstyled m-0 py-1 filter-list" role="menu">
                     <li>
@@ -1775,6 +1787,35 @@ onBeforeUnmount(() => {
 @media (prefers-reduced-motion: reduce) {
   .breath-in { animation: none !important; }
 }
+
+/* ====== Mobile tweaks: icon-only, compact layout ====== */
+@media (max-width: 575.98px) {
+  /* Tabs: icon-only & compact */
+  .nav.nav-pills {
+    gap: 0.5rem;
+  }
+  .nav-pills .nav-link {
+    padding: 0.4rem 0.6rem;
+    border-radius: 999px;
+  }
+  .nav-pills .nav-link i {
+    margin-right: 0 !important;
+  }
+
+  /* Top-up button: icon-only + compact */
+  .topup-btn {
+    padding-inline: 0.6rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Filter toggle: a bit tighter */
+  .filter-dropdown .pretty-toggle {
+    padding-inline: 0.45rem;
+  }
+}
 </style>
 
 <!-- 🔸 Global (non-scoped) CSS to guarantee a dim backdrop -->
@@ -1783,3 +1824,4 @@ onBeforeUnmount(() => {
 .modal-backdrop { background-color: #000; }
 .modal-backdrop.show { opacity: 0.5; } /* tweak intensity as you like (0.3–0.7) */
 </style>
+ 
