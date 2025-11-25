@@ -48,6 +48,12 @@
       </div>
     </div>
 
+    <!-- Mobile swipe hint -->
+    <div class="tier-swipe-hint d-sm-none text-muted small mt-1 mb-1">
+      <i class="bi bi-arrow-left-right me-1"></i>
+      Swipe cards sideways to see all tiers.
+    </div>
+
     <!-- Stair row (5 fixed columns) -->
     <div
       class="row g-2 g-md-3 row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-5 align-items-end stairs-row mt-2 breath-in-section"
@@ -723,14 +729,6 @@
             <div class="me-auto small text-muted">
               Total users: {{ allUsers.length }}
             </div>
-            <button
-              type="button"
-              class="btn btn-outline-secondary"
-              data-bs-dismiss="modal"
-            >
-              <i class="bi bi-x-circle me-1"></i>
-              Close
-            </button>
           </div>
         </div>
       </div>
@@ -1951,6 +1949,62 @@ onMounted(() => {
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
+  }
+}
+
+/* ==================== EXTRA: responsive + swipe tweaks ==================== */
+
+/* Respect reduced-motion for the breath-in sections */
+@media (prefers-reduced-motion: reduce) {
+  .breath-in-section {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* Hint text */
+.tier-swipe-hint {
+  text-align: center;
+  opacity: 0.85;
+}
+
+/* Mobile: make the tier row behave like a horizontal swipe slider */
+@media (max-width: 767.98px) {
+  .stairs-row {
+    flex-wrap: nowrap;                /* all cards in one horizontal line */
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;    /* snap cards into place */
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;              /* keep vertical scrolling smooth */
+    padding-bottom: 0.5rem;
+  }
+
+  .stairs-row > .col {
+    flex: 0 0 88%;                    /* card width on phones */
+    max-width: 88%;
+    scroll-snap-align: center;
+  }
+
+  .stairs-row > .col:first-child {
+    margin-left: 0.5rem;
+  }
+  .stairs-row > .col:last-child {
+    margin-right: 0.5rem;
+  }
+
+  /* Slightly soften the hover lift on very small touch screens */
+  .pricing-vert:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* Ultra-small phones: card a bit narrower so edges peek in */
+@media (max-width: 400px) {
+  .stairs-row > .col {
+    flex-basis: 92%;
+    max-width: 92%;
   }
 }
 </style>

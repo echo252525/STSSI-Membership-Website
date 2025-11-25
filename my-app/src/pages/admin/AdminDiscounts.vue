@@ -112,50 +112,80 @@
 
         <!-- Content -->
         <div v-else class="new-layout">
-          <!-- Quick tabs -->
-          <div
-            class="disc-tabs d-flex flex-wrap align-items-center gap-2 mb-3 breath breath-delay-3"
-          >
-            <button
-              class="pill"
-              :class="{ active: activeTab === 'active' }"
-              @click="activeTab = 'active'"
-            >
-              <i class="bi bi-lightning-charge me-1"></i> Active
-              <span class="count">{{ activeItems.length }}</span>
-            </button>
+          <!-- Quick tabs: dropdown on mobile, pills on desktop -->
+          <div class="disc-tabs-wrapper mb-3 breath breath-delay-3">
+            <!-- Mobile dropdown -->
+            <div class="disc-tabs-mobile d-sm-none">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text bg-light">
+                  <i class="bi bi-funnel"></i>
+                </span>
+                <select v-model="activeTab" class="form-select">
+                  <option value="active">
+                    Active ({{ activeItems.length }})
+                  </option>
+                  <option value="scheduled">
+                    Scheduled ({{ scheduledItems.length }})
+                  </option>
+                  <option value="expired">
+                    Expired ({{ expiredItems.length }})
+                  </option>
+                  <option value="all">
+                    All ({{ items.length }})
+                  </option>
+                </select>
+              </div>
+            </div>
 
-            <button
-              class="pill"
-              :class="{ active: activeTab === 'scheduled' }"
-              @click="activeTab = 'scheduled'"
+            <!-- Desktop pills -->
+            <div
+              class="disc-tabs d-none d-sm-flex flex-wrap align-items-center gap-2"
             >
-              <i class="bi bi-calendar3 me-1"></i> Scheduled
-              <span class="count">{{ scheduledItems.length }}</span>
-            </button>
+              <button
+                class="pill"
+                :class="{ active: activeTab === 'active' }"
+                @click="activeTab = 'active'"
+              >
+                <i class="bi bi-lightning-charge me-1"></i> Active
+                <span class="count">{{ activeItems.length }}</span>
+              </button>
 
-            <button
-              class="pill"
-              :class="{ active: activeTab === 'expired' }"
-              @click="activeTab = 'expired'"
-            >
-              <i class="bi bi-calendar-x me-1"></i> Expired
-              <span class="count">{{ expiredItems.length }}</span>
-            </button>
+              <button
+                class="pill"
+                :class="{ active: activeTab === 'scheduled' }"
+                @click="activeTab = 'scheduled'"
+              >
+                <i class="bi bi-calendar3 me-1"></i> Scheduled
+                <span class="count">{{ scheduledItems.length }}</span>
+              </button>
 
-            <button
-              class="pill"
-              :class="{ active: activeTab === 'all' }"
-              @click="activeTab = 'all'"
-            >
-              <i class="bi bi-grid me-1"></i> All
-              <span class="count">{{ items.length }}</span>
-            </button>
+              <button
+                class="pill"
+                :class="{ active: activeTab === 'expired' }"
+                @click="activeTab = 'expired'"
+              >
+                <i class="bi bi-calendar-x me-1"></i> Expired
+                <span class="count">{{ expiredItems.length }}</span>
+              </button>
+
+              <button
+                class="pill"
+                :class="{ active: activeTab === 'all' }"
+                @click="activeTab = 'all'"
+              >
+                <i class="bi bi-grid me-1"></i> All
+                <span class="count">{{ items.length }}</span>
+              </button>
+            </div>
           </div>
 
           <!-- Grid -->
           <div class="row g-3">
-            <div v-for="d in filteredByTab" :key="d.id" class="col-12 col-md-6 col-xl-4">
+            <div
+              v-for="d in filteredByTab"
+              :key="d.id"
+              class="col-12 col-md-6 col-xl-4 discount-col"
+            >
               <div class="discount-card h-100 d-flex flex-column modern-card">
                 <!-- Header -->
                 <div class="d-flex justify-content-between align-items-start mb-2">
@@ -270,6 +300,7 @@
 
                     <!-- Expired: Renew / Archive / Delete -->
                     <div v-else-if="cardStatus(d) === 'expired'" class="btn-group btn-group-sm">
+                      <!-- RENEW -->
                       <button
                         class="btn btn-primary"
                         type="button"
@@ -281,8 +312,13 @@
                           v-if="busy.statusId === d.id"
                           class="spinner-border spinner-border-sm"
                         ></span>
-                        Renew
+                        <template v-else>
+                          <i class="bi bi-arrow-repeat"></i>
+                          <span class="btn-label-mobile-hide ms-1">Renew</span>
+                        </template>
                       </button>
+
+                      <!-- ARCHIVE -->
                       <button
                         class="btn btn-outline-dark"
                         type="button"
@@ -290,8 +326,11 @@
                         @click="archiveDiscount(d)"
                         title="Archive"
                       >
-                        Archive
+                        <i class="bi bi-archive"></i>
+                        <span class="btn-label-mobile-hide ms-1">Archive</span>
                       </button>
+
+                      <!-- DELETE -->
                       <button
                         class="btn btn-outline-danger"
                         type="button"
@@ -404,7 +443,6 @@
                     {{ d.redemptions_count ?? 0 }} used
                     <div class="text-muted tiny-text">
                       {{
-
                         (d.redemptions_count ?? 0) === 1
                           ? '1 user has used this discount'
                           : (d.redemptions_count ?? 0) + ' users have used this discount'
@@ -427,10 +465,12 @@
           <!-- Pagination -->
           <div
             v-if="!busy.load && items.length > 0"
-            class="d-flex align-items-center justify-content-between pt-3 mt-2 border-top breath breath-delay-2"
+            class="d-flex align-items-center justify-content-between pt-3 mt-2 border-top breath breath-delay-2 discounts-pagination"
           >
-            <div class="small text-muted">
-              Showing <strong>{{ items.length }}</strong>
+            <div class="small text-muted" v-if="pageInfo">
+              Showing
+              <strong>{{ pageInfo.from }}</strong>–<strong>{{ pageInfo.to }}</strong>
+              of <strong>{{ pageInfo.total }}</strong>
             </div>
             <div class="btn-group">
               <button class="btn btn-outline-secondary btn-sm" :disabled="!canPrev" @click="prev">
@@ -460,7 +500,7 @@
               <div
                 v-for="d in archivedItems"
                 :key="'arch-' + d.id"
-                class="col-12 col-md-6 col-xl-4"
+                class="col-12 col-md-6 col-xl-4 discount-col"
               >
                 <div class="discount-card h-100 d-flex flex-column modern-card">
                   <div class="d-flex justify-content-between align-items-start mb-2">
@@ -1231,6 +1271,7 @@ const query = ref<{ search: string; status: string; type: string; page: number; 
 
 const canPrev = ref(false)
 const canNext = ref(false)
+const totalCount = ref(0)
 
 const editorEl = ref<HTMLDivElement | null>(null)
 const pickerEl = ref<HTMLElement | null>(null)
@@ -1566,6 +1607,17 @@ const filteredByTab = computed<DbDiscount[]>(() => {
     default:
       return items.value
   }
+})
+
+/** Pagination info */
+const pageInfo = computed(() => {
+  if (!totalCount.value) return null
+  const pageSize = query.value.pageSize
+  const page = query.value.page
+  const total = totalCount.value
+  const from = (page - 1) * pageSize + 1
+  const to = Math.min(total, page * pageSize)
+  return { from, to, total, page }
 })
 
 /** Insert view: show calculated global (internal only, not displayed) */
@@ -2041,6 +2093,7 @@ async function load() {
       (d) => d.type === 'percent' || d.type === 'fixed_amount',
     )
     const total = count ?? 0
+    totalCount.value = total
     const totalPages = Math.max(1, Math.ceil(total / query.value.pageSize))
     canPrev.value = query.value.page > 1
     canNext.value = query.value.page < totalPages
@@ -2324,6 +2377,13 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(148, 163, 184, 0.1);
 }
 
+/* Tabs wrapper */
+.disc-tabs-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 /* ================== NEW minimalist nav pills ================== */
 .disc-tabs .pill {
   border: 1px solid rgba(15, 23, 42, 0.08);
@@ -2354,6 +2414,14 @@ onBeforeUnmount(() => {
 }
 .disc-tabs .pill:active {
   transform: translateY(1px);
+}
+
+/* Mobile tabs dropdown tweaks */
+.disc-tabs-mobile .input-group-text {
+  border-right: 0;
+}
+.disc-tabs-mobile .form-select {
+  border-left: 0;
 }
 
 /* Stagger the card entrances per row (1000ms) */
@@ -2487,9 +2555,8 @@ onBeforeUnmount(() => {
   max-height: 230px;
   overflow-y: auto;
   width: 100%;
-  margin-top: 4px;
-  border: 1px solid rgba(15, 23, 42, 0.07);
 }
+
 .product-dropdown-item {
   display: flex;
   align-items: center;
@@ -2666,6 +2733,209 @@ input[type='time']::-webkit-calendar-picker-indicator {
 
 /* responsive tweak */
 @media (max-width: 575.98px) { .title-text { max-width: 10rem; } }
+
+/* ===================== MOBILE OPTIMIZATIONS (ADDED) ===================== */
+
+/* General mobile spacing & typography */
+@media (max-width: 575.98px) {
+  .discounts-page {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  .filters-card .card-body,
+  .list-card .card-body {
+    padding: 0.75rem !important;
+  }
+
+  .discounts-page h1.h4 {
+    font-size: 1.05rem;
+  }
+
+  .discounts-page .text-muted.small {
+    font-size: 0.7rem;
+  }
+
+  .discounts-page .btn.btn-sm {
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+  }
+
+  .new-layout .row.g-3 {
+    row-gap: 0.75rem;
+  }
+
+  .disc-tabs-mobile {
+    margin-bottom: 0.25rem;
+  }
+}
+
+/* Tabs: old pill container scrolling (kept, though hidden on XS) */
+@media (max-width: 575.98px) {
+  .disc-tabs {
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .disc-tabs .pill {
+    white-space: nowrap;
+    font-size: 0.75rem;
+    padding: 0.25rem 0.6rem;
+  }
+  .disc-tabs .pill .count {
+    font-size: 0.7rem;
+    padding: 0.05rem 0.3rem;
+  }
+}
+
+/* Cards: smaller footprint on mobile */
+@media (max-width: 575.98px) {
+  .discount-card {
+    padding: 0.75rem 0.75rem 0.6rem;
+    border-radius: 0.9rem;
+    min-height: 0; /* let content define height */
+  }
+
+  .modern-card {
+    border-radius: 0.9rem;
+  }
+
+  .value-bubble {
+    width: 56px;
+    height: 56px;
+    font-size: 0.95rem;
+    border-radius: 0.9rem;
+  }
+
+  .discount-card .small,
+  .discount-card .tiny-text {
+    font-size: 0.7rem;
+  }
+
+  .title-text {
+    max-width: 8.5rem;
+    font-size: 0.85rem;
+  }
+
+  .small-badge {
+    font-size: 0.55rem;
+  }
+}
+
+/* 2 columns per row on mobile for each discount card */
+.discount-col {
+  /* default uses bootstrap grid */
+}
+@media (max-width: 575.98px) {
+  .discount-col {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+/* Card header: stack actions under title on mobile */
+@media (max-width: 575.98px) {
+  .discount-card > .d-flex.justify-content-between.align-items-start {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.35rem;
+  }
+
+  .discount-card .d-flex.flex-column.align-items-end.gap-1 {
+    align-self: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.25rem;
+  }
+
+  .discount-card .btn-group.btn-group-sm {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* Timeline row: stack date & usage on mobile for more width */
+@media (max-width: 575.98px) {
+  .discount-card .border-top.small.text-muted {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 0.25rem;
+  }
+  .discount-card .border-top.small.text-muted .text-end {
+    text-align: left !important;
+  }
+}
+
+/* Filters: tighter layout on mobile */
+@media (max-width: 575.98px) {
+  .filters-card .row.g-2 {
+    row-gap: 0.35rem;
+  }
+
+  .filters-card .form-label.small {
+    font-size: 0.7rem;
+  }
+
+  .filters-card .input-group-sm .form-control,
+  .filters-card .input-group-sm .form-select {
+    font-size: 0.75rem;
+    padding-top: 0.25rem;
+    padding-bottom: 0.25rem;
+  }
+}
+
+/* Skeleton: slightly smaller on mobile */
+@media (max-width: 575.98px) {
+  .skeleton {
+    min-height: 7.5rem;
+    padding: 0.75rem;
+  }
+}
+
+/* Product picker: keep compact on mobile */
+@media (max-width: 575.98px) {
+  .picker-thumb {
+    width: 32px;
+    height: 32px;
+  }
+  .product-dropdown {
+    max-height: 200px;
+  }
+}
+
+/* Icon-only labels on mobile */
+.btn-label-mobile-hide {
+  display: inline;
+}
+
+@media (max-width: 575.98px) {
+  .btn-label-mobile-hide {
+    display: none !important;
+  }
+}
+
+/* Pagination layout tweaks */
+.discounts-pagination {
+  gap: 0.5rem;
+}
+
+@media (max-width: 575.98px) {
+  .discounts-pagination {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 0.35rem;
+  }
+
+  .discounts-pagination .btn-group {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .discounts-pagination .small.text-muted {
+    text-align: center;
+  }
+}
 </style>
 
 <!-- EXTRA: global (non-scoped) z-index guard so modal/backdrop always sit above sticky/blurred parents -->

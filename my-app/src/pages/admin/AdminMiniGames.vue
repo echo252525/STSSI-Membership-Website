@@ -33,7 +33,7 @@
           </p>
         </div>
 
-        <!-- 🔶 Hierarchical layout (treemap style) -->
+        <!-- 🔶 Hierarchical layout (treemap style) - DESKTOP / TABLET -->
         <div class="hier-grid">
           <!-- TOP LARGE: OPEN -->
           <div class="hier-card hier-open game-card">
@@ -477,6 +477,202 @@
           </div>
         </div>
         <!-- /hier-grid -->
+
+        <!-- 🔶 Mobile-friendly stacked layout (OPEN hero + filterable statuses) -->
+        <div class="hier-mobile">
+          <!-- Mobile: Open Rooms hero at top -->
+          <div class="mobile-open-wrapper">
+            <div class="hier-card hier-open game-card">
+              <div class="hier-header d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center gap-2">
+                  <span class="dot dot-live"></span>
+                  <span class="fw-semibold text-uppercase small">Open Rooms</span>
+                </div>
+                <small class="text-muted">{{ nowFmt }}</small>
+              </div>
+
+              <div v-if="eventsLoading" class="hier-skeleton">
+                <div class="hier-skel-line w-75"></div>
+                <div class="hier-skel-line w-50"></div>
+                <div class="hier-skel-line w-60"></div>
+              </div>
+
+              <div v-else-if="openEvents.length === 0" class="empty-state">
+                <i class="bi bi-emoji-neutral"></i>
+                <div>No open rooms right now.</div>
+                <small class="text-muted">
+                  Create a new Spin & Win event or open a draft to get players in.
+                </small>
+              </div>
+
+              <div v-else class="hier-list hier-list-open">
+                <article
+                  v-for="ev in openEvents"
+                  :key="'open-m-' + ev.id"
+                  class="hier-item hier-item-open"
+                  @click="openDetails(ev)"
+                >
+                  <div class="d-flex align-items-start gap-2 open-card-header">
+                    <!-- Prize avatar -->
+                    <div class="prize-avatar prize-avatar-open">
+                      <img
+                        v-if="eventImageUrl(ev)"
+                        :src="eventImageUrl(ev)"
+                        :alt="ev.title"
+                      />
+                      <div v-else class="prize-avatar-fallback">
+                        <i class="bi bi-gift"></i>
+                      </div>
+                    </div>
+
+                    <div class="flex-grow-1">
+                      <div
+                        class="d-flex justify-content-between align-items-start mb-1 title-row"
+                      >
+                        <span class="title open-title text-truncate">{{ ev.title }}</span>
+                        <span class="badge rounded-pill text-bg-success text-uppercase small">
+                          open
+                        </span>
+                      </div>
+
+                      <div class="small text-muted meta-row">
+                        <span>
+                          <i class="bi bi-people me-1"></i>
+                          {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}
+                        </span>
+                        <span>
+                          <i class="bi bi-cash-coin me-1"></i>
+                          ₱ {{ number(ev.entry_fee) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Joined players avatars footer -->
+                  <div
+                    v-if="joinedAvatars(ev).length"
+                    class="avatars-row mt-2 d-flex align-items-center justify-content-between"
+                  >
+                    <div class="avatar-stack">
+                      <span
+                        v-for="(av, idx) in joinedAvatars(ev)"
+                        :key="av.user_id + '-m-' + idx"
+                        class="avatar-chip"
+                        :title="av.name || 'Player'"
+                        :style="{ zIndex: String(20 - idx) }"
+                      >
+                        <img
+                          v-if="av.avatarUrl"
+                          :src="av.avatarUrl"
+                          :alt="av.name || 'Player avatar'"
+                        />
+                        <span v-else class="avatar-fallback">
+                          {{ av.name ? av.name.charAt(0).toUpperCase() : 'P' }}
+                        </span>
+                      </span>
+                      <span
+                        v-if="ev.player_count > joinedAvatars(ev).length"
+                        class="avatar-more small text-muted ms-1"
+                      >
+                        +{{ ev.player_count - joinedAvatars(ev).length }}
+                      </span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile: One section with filter for other statuses -->
+          <div class="hier-card game-card mobile-others-card">
+            <div class="mobile-others-header">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-layers"></i>
+                <span class="fw-semibold text-uppercase small">Other Games</span>
+              </div>
+              <div class="d-flex align-items-center gap-1">
+                <i class="bi bi-funnel"></i>
+                <select
+                  v-model="statusFilter"
+                  class="form-select form-select-sm status-filter-select"
+                >
+                  <option value="all">All</option>
+                  <option value="locked">Locked</option>
+                  <option value="spun">Spun</option>
+                  <option value="settled">Settled</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="draft">Draft</option>
+                </select>
+              </div>
+            </div>
+
+            <div v-if="eventsLoading" class="hier-skeleton">
+              <div class="hier-skel-line w-80"></div>
+              <div class="hier-skel-line w-60"></div>
+            </div>
+
+            <div
+              v-else-if="filteredOtherEvents.length === 0"
+              class="empty-state mobile-others-empty"
+            >
+              <i class="bi bi-disc"></i>
+              <div>No games found for this status.</div>
+              <small class="text-muted">
+                Try switching the filter to see other game statuses.
+              </small>
+            </div>
+
+            <div v-else class="hier-list hier-list-mobile">
+              <article
+                v-for="ev in filteredOtherEvents"
+                :key="'mobile-' + ev.id"
+                class="hier-item"
+                @click="openDetails(ev)"
+              >
+                <div class="d-flex align-items-center gap-2">
+                  <!-- Prize avatar -->
+                  <div class="prize-avatar">
+                    <img
+                      v-if="eventImageUrl(ev)"
+                      :src="eventImageUrl(ev)"
+                      :alt="ev.title"
+                    />
+                    <div class="prize-avatar-fallback" v-else>
+                      <i class="bi bi-gift"></i>
+                    </div>
+                  </div>
+
+                  <div class="flex-grow-1">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                      <span class="title text-truncate">{{ ev.title }}</span>
+                      <span
+                        class="badge rounded-pill text-uppercase small"
+                        :class="statusBadge(ev.status)"
+                      >
+                        {{ ev.status }}
+                      </span>
+                    </div>
+                    <div class="small text-muted d-flex justify-content-between">
+                      <span>
+                        <i class="bi bi-people me-1"></i>
+                        {{ ev.player_count }}/{{ ev.player_cap || PLAYER_LOCK_CAP }}
+                      </span>
+                      <span v-if="ev.status === 'spun' || ev.status === 'settled'">
+                        <i class="bi bi-cash-stack me-1"></i>
+                        Winner: ₱ {{ number(ev.winner_refund_amount) }}
+                      </span>
+                      <span v-else>
+                        <i class="bi bi-cash-coin me-1"></i>
+                        ₱ {{ number(ev.entry_fee) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </div>
+          </div>
+        </div>
+        <!-- /hier-mobile -->
       </div>
     </section>
     <!-- ===================== / HIERARCHICAL HERO ====================== -->
@@ -1171,6 +1367,9 @@ type WinnerInfo = {
 const events = ref<EventRow[]>([])
 const eventsLoading = ref(true)
 
+/* Mobile filter for non-open statuses */
+const statusFilter = ref<'all' | EventRow['status']>('all')
+
 const showForm = ref(false)
 const submitting = ref(false)
 
@@ -1651,7 +1850,10 @@ async function submit() {
     return
   }
   if (!selectedProductId.value) {
-    await swWarn('Please choose a prize product to link to this Spin & Win game.', 'Select a product')
+    await swWarn(
+      'Please choose a prize product to link to this Spin & Win game.',
+      'Select a product',
+    )
     return
   }
 
@@ -1999,6 +2201,13 @@ const lockedEvents = computed(() => events.value.filter((e) => e.status === 'loc
 const spunEvents = computed(() => events.value.filter((e) => e.status === 'spun'))
 const settledEvents = computed(() => events.value.filter((e) => e.status === 'settled'))
 const cancelledEvents = computed(() => events.value.filter((e) => e.status === 'cancelled'))
+
+/* For mobile: combine non-open statuses and filter by statusFilter */
+const filteredOtherEvents = computed(() => {
+  const base = events.value.filter((e) => e.status !== 'open')
+  if (statusFilter.value === 'all') return base
+  return base.filter((e) => e.status === statusFilter.value)
+})
 </script>
 
 <style scoped>
@@ -2145,6 +2354,11 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
 /* open section can be a bit taller */
 .hier-list-open {
   max-height: 280px;
+}
+
+/* mobile-only list for combined statuses */
+.hier-list-mobile {
+  max-height: 260px;
 }
 
 /* Minimalist scrollbar (WebKit) */
@@ -2550,7 +2764,31 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
   font-weight: 500;
 }
 
-/* Responsive polish */
+/* =========== MOBILE STACKED LAYOUT HELPERS =========== */
+.hier-mobile {
+  display: none;
+}
+.mobile-open-wrapper {
+  margin-bottom: 0.75rem;
+}
+.mobile-others-card {
+  margin-top: 0.25rem;
+}
+.mobile-others-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+.status-filter-select {
+  min-width: 120px;
+}
+.mobile-others-empty {
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+/* Responsive polish for grid on tablets / small desktops */
 @media (max-width: 992px) {
   .hier-grid {
     grid-template-areas: none;
@@ -2563,6 +2801,26 @@ const cancelledEvents = computed(() => events.value.filter((e) => e.status === '
   .hier-list,
   .hier-list-open {
     max-height: 260px;
+  }
+}
+
+/* Phone layout: hide treemap, show mobile stack */
+@media (max-width: 576px) {
+  .hier-grid {
+    display: none;
+  }
+  .hier-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+  }
+  .hier-item .title,
+  .hier-item-open .open-title {
+    max-width: 140px;
+  }
+  .modal-card {
+    width: 96vw;
   }
 }
 

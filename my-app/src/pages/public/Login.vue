@@ -162,7 +162,7 @@ const onSubmit = async () => {
     // 3) Check that a corresponding row exists in public.users
     const { data: profile, error: profileErr } = await supabase
       .from('users')
-      .select('id')
+      .select('id, created_at') // ⬅️ created_at used to detect "new" users
       .eq('id', uid)
       .maybeSingle()
 
@@ -171,12 +171,25 @@ const onSubmit = async () => {
       throw new Error('Incorrect email or password.')
     }
 
+    // Determine if this is a "new" user based on how recently the row was created
+    let isNewUser = false
+    const createdAtRaw = (profile as any).created_at as string | null | undefined
+    if (createdAtRaw) {
+      const createdAt = new Date(createdAtRaw)
+      const now = new Date()
+      const diffMinutes = (now.getTime() - createdAt.getTime()) / 1000 / 60
+      // Treat accounts created in the last 10 minutes as "new"
+      if (diffMinutes < 10) {
+        isNewUser = true
+      }
+    }
+
     // 4) Sweet, we’re in — show a friendly success then redirect
     const redirect = (route.query.redirect as string) || '/app'
     await Swal.fire({
       icon: 'success',
-      title: 'Welcome back!',
-      text: 'Login successful.',
+      title: isNewUser ? 'Welcome, new member!' : 'Welcome back!',
+      text: isNewUser ? 'Your account is all set. Let’s get you started.' : 'Login successful.',
       timer: 1100,
       showConfirmButton: false,
     })

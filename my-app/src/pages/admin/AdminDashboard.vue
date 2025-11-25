@@ -332,8 +332,8 @@
 
         <!-- Right column -->
         <div class="col-lg-4 d-flex flex-column gap-3">
-          <!-- Quick actions -->
-          <div class="card border-0 rounded-4 breath-in-section">
+          <!-- Quick actions (desktop / tablet panel) -->
+          <div class="card border-0 rounded-4 breath-in-section quick-actions-panel">
             <div class="card-body">
               <p class="section-title mb-3">Quick actions</p>
               <div class="d-grid gap-2 quick-actions-grid">
@@ -486,12 +486,69 @@
           </div>
         </div>
       </section>
+
+      <!-- 🔹 Mobile floating Quick Actions FAB + dropdown -->
+      <div v-if="isMobile" class="quick-actions-fab-wrapper">
+        <!-- Floating icon (top-right) -->
+        <button
+          type="button"
+          class="btn btn-brand quick-actions-fab"
+          :class="{ 'quick-actions-fab-hidden': !showQuickFab }"
+          @click="toggleQuickActionsMobile"
+        >
+          <i class="bi bi-lightning-charge-fill"></i>
+        </button>
+
+        <!-- Dropdown with actions -->
+        <div
+          class="quick-actions-dropdown card border-0 rounded-4"
+          :class="{ 'quick-actions-dropdown-open': quickActionsOpenMobile }"
+        >
+          <div class="card-body py-2">
+            <p class="section-title mb-2">Quick actions</p>
+            <div class="d-grid gap-2">
+              <button
+                type="button"
+                class="btn btn-outline-secondary text-start"
+                @click="handleMobileQuickAction(goManageUsers)"
+              >
+                <i class="bi bi-person-check me-2"></i>
+                Manage users
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary text-start"
+                @click="handleMobileQuickAction(goAddEvent)"
+              >
+                <i class="bi bi-joystick me-2"></i>
+                Add an event
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary text-start"
+                @click="handleMobileQuickAction(goAddProduct)"
+              >
+                <i class="bi bi-box-seam me-2"></i>
+                Add a product
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary text-start"
+                @click="handleMobileQuickAction(goAddDiscount)"
+              >
+                <i class="bi bi-percent me-2"></i>
+                Add a discount
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { supabase } from '@/lib/supabaseClient'
 import { currentUser } from '@/lib/authState'
@@ -556,6 +613,12 @@ function goAddDiscount() {
     path: '/admin/discounts',
     query: { focus: 'openmodal' },
   })
+}
+
+/** Mobile quick actions helper: close dropdown before navigating */
+function handleMobileQuickAction(fn: () => void) {
+  quickActionsOpenMobile.value = false
+  fn()
 }
 
 /** ===================== DASHBOARD METRICS (TOP CARDS) ===================== */
@@ -1327,8 +1390,47 @@ function goTransactionFromNotes(tx: NotesTxRow) {
   })
 }
 
+/** ===================== RESPONSIVE STATE: MOBILE + SCROLL (FAB visibility) ===================== */
+
+const isMobile = ref(false)
+const showQuickFab = ref(true)
+const quickActionsOpenMobile = ref(false)
+const lastScrollY = ref(0)
+
+function updateIsMobile() {
+  if (typeof window === 'undefined') return
+  isMobile.value = window.innerWidth <= 576
+}
+
+/** Hide FAB when scrolling down, show when scrolling up */
+function handleScroll() {
+  if (!isMobile.value || typeof window === 'undefined') return
+  const current = window.scrollY || 0
+
+  if (current > lastScrollY.value && current > 80) {
+    // scrolling down
+    showQuickFab.value = false
+    quickActionsOpenMobile.value = false
+  } else if (current < lastScrollY.value - 5) {
+    // scrolling up
+    showQuickFab.value = true
+  }
+
+  lastScrollY.value = current
+}
+
+function toggleQuickActionsMobile() {
+  quickActionsOpenMobile.value = !quickActionsOpenMobile.value
+}
+
 /** ===================== AUTH + INIT ===================== */
 onMounted(async () => {
+  updateIsMobile()
+  if (typeof window !== 'undefined') {
+    window.addEventListener('resize', updateIsMobile)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+  }
+
   if (!user.value) {
     const { data } = await supabase.auth.getUser()
     if (!data.user) return router.push({ name: 'login' })
@@ -1341,6 +1443,12 @@ onMounted(async () => {
     loadRecentOrders(),
     loadNotesTransactions(),
   ])
+})
+
+onUnmounted(() => {
+  if (typeof window === 'undefined') return
+  window.removeEventListener('resize', updateIsMobile)
+  window.removeEventListener('scroll', handleScroll)
 })
 </script>
 
@@ -1993,7 +2101,7 @@ onMounted(async () => {
     font-size: 1.1rem;
   }
 
-  /* Quick actions: icon-only to save space */
+  /* Quick actions: icon-only to save space (for non-floating panel) */
   .quick-action-btn {
     display: inline-flex;
     align-items: center;
@@ -2014,10 +2122,9 @@ onMounted(async () => {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
-  /* Make inline icons slightly smaller on very small screens */
-  .mg-inline-icon {
-    width: 34px;
-    height: 34px;
+  /* Hide side panel quick actions on very small screens (we use floating FAB) */
+  .quick-actions-panel {
+    display: none;
   }
 }
 
@@ -2054,5 +2161,70 @@ onMounted(async () => {
 /* Force status badge text to always be black */
 .badge.rounded-pill.px-2.py-1 {
   color: #000 !important;
+}
+
+/* ===== Floating Quick Actions FAB + dropdown (mobile) ===== */
+
+.quick-actions-fab-wrapper {
+  position: fixed;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 1050;
+  pointer-events: none; /* let inner elements handle clicks */
+}
+
+.quick-actions-fab {
+  pointer-events: auto;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transform: translateX(0);
+  transition:
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.quick-actions-fab-hidden {
+  transform: translateX(120%);
+  opacity: 0;
+}
+
+.quick-actions-fab i {
+  font-size: 1.3rem;
+}
+
+.quick-actions-dropdown {
+  position: fixed;
+  top: 3.5rem;
+  right: 0.5rem;
+  width: 220px;
+  max-width: 80vw;
+  transform: translateY(-10px);
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: var(--shadow-soft);
+  background: #ffffff;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+  z-index: 1049;
+}
+
+.quick-actions-dropdown-open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* Hide FAB system on larger screens */
+@media (min-width: 577px) {
+  .quick-actions-fab-wrapper,
+  .quick-actions-dropdown {
+    display: none;
+  }
 }
 </style>

@@ -61,7 +61,7 @@
             <div class="tx-skel-cell w-15"></div>
             <div class="tx-skel-cell w-15"></div>
             <div class="tx-skel-cell w-15 d-none d-md-block"></div>
-            <div class="tx-skel-cell w-10 d-none d-md-block"></div>
+            <div class="tx-skel-cell w-15 d-none d-md-block"></div>
             <div class="tx-skel-cell w-10 d-none d-lg-block"></div>
           </div>
         </div>
@@ -125,9 +125,7 @@
                 <td>{{ formatTime(tx.created_at) }}</td>
                 <td class="text-end">
                   <div class="btn-group btn-group-sm">
-                    <!-- ❌ View button removed -->
-
-                    <!-- ✅ Copy button now stops row-click propagation -->
+                    <!-- Copy button -->
                     <button
                       class="btn btn-outline-secondary"
                       title="Copy Ref #"
@@ -136,7 +134,7 @@
                       <i class="bi bi-clipboard-check"></i>
                     </button>
 
-                    <!-- Keep original buttons but hidden (actions moved to modal) -->
+                    <!-- Hidden inline actions (kept for logic; actions moved to modal) -->
                     <button
                       v-if="tx.status==='pending'"
                       class="btn btn-outline-success d-none"
@@ -148,7 +146,6 @@
                       <i v-else class="bi bi-check2-circle"></i>
                     </button>
 
-                    <!-- 🔴 Reject (hidden here; moved to modal) -->
                     <button
                       v-if="tx.status==='pending'"
                       class="btn btn-outline-danger d-none"
@@ -1100,7 +1097,7 @@ onBeforeUnmount(() => {
   pointer-events: auto;
 }
 
-/* ====== Clean, equal, centered table columns ====== */
+/* ====== Clean, equal, centered table columns (desktop / default) ====== */
 .table-center-equal {
   table-layout: fixed;               /* equalize column widths */
   width: 100%;
@@ -1214,8 +1211,70 @@ onBeforeUnmount(() => {
   background-color: #f9fafb;
 }
 
-/* Slightly tighten layout on small screens */
-@media (max-width: 576px) {
+/* ===== Mobile responsiveness & compact view ===== */
+@media (max-width: 576.98px) {
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .breath-section {
+    margin-bottom: 0.75rem;
+  }
+
+  /* Slightly smaller title + filter buttons */
+  .breath-section h3.fw-bold.m-0 {
+    font-size: 1rem;
+  }
+
+  .btn-group[role="group"] .btn {
+    padding-inline: 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  /* Smaller summary badges */
+  .breath-section .badge {
+    font-size: 0.72rem;
+    padding: 0.2rem 0.5rem;
+  }
+
+  /* Compact avatar */
+  .tx-avatar {
+    width: 26px;
+    height: 26px;
+  }
+
+  /* Let the table compress naturally and be scrollable */
+  .table-center-equal {
+    table-layout: auto; /* allow natural widths on mobile */
+  }
+
+  .table-center-equal thead th,
+  .table-center-equal tbody td {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.25rem;
+    text-align: left;     /* more readable on narrow screens */
+  }
+
+  /* Give some relative width hints to key columns */
+  .table-center-equal thead th:nth-child(1),
+  .table-center-equal tbody td:nth-child(1) {
+    max-width: 40%;
+  }
+  .table-center-equal thead th:nth-child(2),
+  .table-center-equal tbody td:nth-child(2) {
+    max-width: 26%;
+  }
+  .table-center-equal thead th:nth-child(3),
+  .table-center-equal tbody td:nth-child(3) {
+    max-width: 16%;
+  }
+  .table-center-equal thead th:nth-child(4),
+  .table-center-equal tbody td:nth-child(4) {
+    max-width: 18%;
+  }
+
+  /* Skeleton row layout on mobile */
   .tx-skel-row {
     grid-template-columns: 2fr 1.5fr 1fr;
   }
@@ -1232,3 +1291,4 @@ onBeforeUnmount(() => {
 /* Toast layer slightly above modal so it's always visible */
 .copy-toast-layer { z-index: 20500 !important; }
 </style>
+  
