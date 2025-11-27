@@ -79,10 +79,11 @@
                 <th style="min-width: 180px;">User</th>
                 <th style="min-width: 160px;">Reference #</th>
                 <th class="text-end" style="min-width: 120px;">Amount</th>
-                <th style="min-width: 130px;">Status</th>
-                <th style="min-width: 150px;">Date</th>
-                <th style="min-width: 110px;">Time</th>
-                <th class="text-end" style="min-width: 120px;">Actions</th>
+                <!-- 🔹 Hide these columns on mobile (xs) -->
+                <th class="d-none d-sm-table-cell" style="min-width: 130px;">Status</th>
+                <th class="d-none d-sm-table-cell" style="min-width: 150px;">Date</th>
+                <th class="d-none d-sm-table-cell" style="min-width: 110px;">Time</th>
+                <th class="text-end d-none d-sm-table-cell" style="min-width: 120px;">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -113,7 +114,8 @@
                 </td>
                 <td class="font-monospace">{{ tx.reference_number }}</td>
                 <td class="text-end">₱ {{ formatAmount(tx.amount) }}</td>
-                <td>
+                <!-- 🔹 Hidden on mobile -->
+                <td class="d-none d-sm-table-cell">
                   <span
                     class="badge"
                     :class="tx.status === 'pending' ? 'text-bg-warning' : (tx.status === 'disbursed' ? 'text-bg-success' : 'text-bg-danger')"
@@ -121,9 +123,9 @@
                     {{ capitalize(tx.status) }}
                   </span>
                 </td>
-                <td>{{ formatDate(tx.created_at) }}</td>
-                <td>{{ formatTime(tx.created_at) }}</td>
-                <td class="text-end">
+                <td class="d-none d-sm-table-cell">{{ formatDate(tx.created_at) }}</td>
+                <td class="d-none d-sm-table-cell">{{ formatTime(tx.created_at) }}</td>
+                <td class="text-end d-none d-sm-table-cell">
                   <div class="btn-group btn-group-sm">
                     <!-- Copy button -->
                     <button
@@ -1291,4 +1293,3 @@ onBeforeUnmount(() => {
 /* Toast layer slightly above modal so it's always visible */
 .copy-toast-layer { z-index: 20500 !important; }
 </style>
-  
