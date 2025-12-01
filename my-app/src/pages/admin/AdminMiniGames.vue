@@ -2227,10 +2227,11 @@ const filteredOtherEvents = computed(() => {
   background:
     radial-gradient(1100px 400px at -10% -20%, #38bdf833, transparent 60%),
     radial-gradient(900px 500px at 120% 130%, #22c55e33, transparent 60%),
-    linear-gradient(180deg, #020617, #020617);
+    linear-gradient(180deg, #ffffff, #f3f4f6);
   animation: float-bg 12s ease-in-out infinite alternate;
-  filter: saturate(1.08);
+  filter: saturate(1.02);
 }
+
 @keyframes float-bg {
   0% {
     transform: translateY(0px);
@@ -2242,7 +2243,7 @@ const filteredOtherEvents = computed(() => {
 .events-hero .hero-content {
   position: relative;
   padding: 1rem;
-  color: #e5e7eb;
+  color: #000f42;
 }
 
 /* Breath-in entrance animation */
@@ -2268,14 +2269,15 @@ const filteredOtherEvents = computed(() => {
   gap: 0.35rem;
   padding: 4px 12px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(94, 234, 212, 0.5);
-  color: #a5b4fc;
+  background: rgba(239, 246, 255, 0.95);
+  border: 1px solid rgba(129, 140, 248, 0.6);
+  color: #4f46e5;
   font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
+
 .mode-badge i {
   font-size: 0.9rem;
 }
@@ -2318,18 +2320,18 @@ const filteredOtherEvents = computed(() => {
   min-height: 0;
 }
 
-/* Dark, arcadey cards */
+/* light, arcadey cards */
 .game-card {
   background:
-    radial-gradient(circle at top left, rgba(59, 130, 246, 0.28), transparent 55%),
-    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.24), transparent 55%),
-    rgba(15, 23, 42, 0.96);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.6);
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.18), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(16, 185, 129, 0.16), transparent 55%),
+    rgba(248, 250, 252, 0.98);
   animation: breathIn 0.25s ease-out;
 }
+
 .game-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.75);
+  box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 6px -1px, rgba(0, 0, 0, 0.06) 0px 2px 4px -1px;
 }
 
 .hier-header {
@@ -2384,21 +2386,22 @@ const filteredOtherEvents = computed(() => {
 .hier-item {
   border-radius: 8px;
   padding: 6px 8px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.55);
+  background: rgba(248, 250, 252, 0.96); /* light, near-white */
+  border: 1px solid rgba(148, 163, 184, 0.7); /* soft gray border */
   font-size: 0.8rem;
-  color: #e5e7eb;
+  color: #0f172a; /* slate-900 for text */
   cursor: pointer;
   transition:
     background 0.15s ease,
     transform 0.15s ease,
     box-shadow 0.15s ease;
 }
+
 .hier-item:hover,
 .hier-item:focus-within {
-  background: rgba(15, 23, 42, 0.95);
+  background: #e5edf7;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
   transform: translateY(-1px);
-  box-shadow: 0 0 0 1px rgba(148, 163, 184, 0.8);
 }
 
 /* Title truncation for all items */
@@ -2454,11 +2457,12 @@ const filteredOtherEvents = computed(() => {
 .hier-skel-line {
   height: 9px;
   border-radius: 999px;
-  background: linear-gradient(110deg, #1e293b 8%, #334155 18%, #1e293b 33%);
+  background: linear-gradient(110deg, #e5e7eb 8%, #f3f4f6 18%, #e5e7eb 33%);
   background-size: 200% 100%;
   animation: skeleton-shimmer 1.2s ease-in-out infinite;
   margin-bottom: 4px;
 }
+
 @keyframes skeleton-shimmer {
   0% {
     background-position: 100% 0;
@@ -2630,13 +2634,13 @@ const filteredOtherEvents = computed(() => {
 
 /* NEW: winner pill styles */
 .winner-row {
-  color: #cbd5f5;
+  color: #000f42;
 }
 .winner-pill {
   padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(96, 165, 250, 0.7);
+  background: rgba(248, 250, 252, 0.98); /* light surface */
+  border: 1px solid rgba(59, 130, 246, 0.6); /* soft blue accent */
 }
 .winner-avatar {
   width: 20px;
@@ -2644,7 +2648,7 @@ const filteredOtherEvents = computed(() => {
   border-radius: 999px;
   overflow: hidden;
   border: 1px solid rgba(30, 64, 175, 0.9);
-  background: rgba(15, 23, 42, 0.96);
+  background: #e5f0ff;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2658,7 +2662,7 @@ const filteredOtherEvents = computed(() => {
 .winner-avatar-fallback {
   font-size: 0.7rem;
   font-weight: 600;
-  color: #e5e7eb;
+  color: #000f42;
 }
 .winner-name {
   max-width: 140px;

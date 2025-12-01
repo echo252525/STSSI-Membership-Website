@@ -1460,8 +1460,7 @@ onUnmounted(() => {
 }
 
 /* Tokens */
-:root,
-:host {
+:root {
   --brand-green: #20a44c;
   --brand-azure: #20647c;
   --border-soft: rgba(15, 23, 42, 0.08);
@@ -1488,7 +1487,7 @@ onUnmounted(() => {
 /* ===== Topbar ===== */
 .admin-topbar {
   height: 64px;
-  border-bottom: 1px solid var(--border-soft);
+  border-bottom: 1px solid 0 10px 30px rgba(15, 23, 42, 0.08);
   background: #ffffff;
 }
 
@@ -1534,7 +1533,7 @@ onUnmounted(() => {
 /* ===== Cards & stats ===== */
 .stat-card {
   background: #ffffff;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
 }
 
 .stat-label {
@@ -1599,7 +1598,7 @@ onUnmounted(() => {
 /* ===== Mini Games Hero ===== */
 .mg-hero {
   background: radial-gradient(circle at top left, #f0fdf4 0%, #ffffff 45%, #ecfdf5 100%);
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   padding: 0.9rem 1.1rem;
 }
 
@@ -1700,7 +1699,7 @@ onUnmounted(() => {
 .mg-hero-progress-bar {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--brand-green), var(--brand-azure));
+  background: linear-gradient(90deg, #20a44c, #20647c);
   transition: width 0.25s ease;
 }
 
@@ -1789,7 +1788,7 @@ onUnmounted(() => {
 }
 
 .mg-inline-icon-active {
-  border-color: var(--brand-azure);
+  border-color: #20647c;
   background: #eff6ff;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
   transform: translateY(-1px);
@@ -1800,7 +1799,7 @@ onUnmounted(() => {
   background: #ffffff;
   border-radius: 18px;
   padding: 0.9rem 0.9rem 0.8rem;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   border: 1px solid rgba(148, 163, 184, 0.18);
   transition:
     transform 0.14s ease,
@@ -1818,7 +1817,7 @@ onUnmounted(() => {
 }
 
 .mg-card-active {
-  border-color: var(--brand-azure);
+  border-color: #20647c;
   box-shadow: 0 16px 40px rgba(37, 99, 235, 0.25);
 }
 
@@ -1898,7 +1897,7 @@ onUnmounted(() => {
 .mg-progress-bar {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--brand-green), var(--brand-azure));
+  background: linear-gradient(90deg, #20a44c, #20647c);
   transition: width 0.25s ease;
 }
 
@@ -1991,14 +1990,16 @@ onUnmounted(() => {
 
 /* Brand button */
 .btn-brand {
-  background: linear-gradient(135deg, var(--brand-azure), var(--brand-green));
-  border: none;
-  color: #ffffff;
-  box-shadow: 0 6px 18px rgba(32, 100, 124, 0.35);
+  background: #ffffff; /* light surface */
+  border: 1px solid rgba(32, 100, 124, 0.22); /* subtle tint from brand colors */
+  color: #20647c;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08);
 }
 
 .btn-brand:hover {
-  opacity: 0.95;
+  background: linear-gradient(135deg, #20647c, #20a44c);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(32, 100, 124, 0.3);
 }
 
 /* ===== Notes transactions widget ===== */
@@ -2206,7 +2207,7 @@ onUnmounted(() => {
   transform: translateY(-10px);
   opacity: 0;
   pointer-events: none;
-  box-shadow: var(--shadow-soft);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
   background: #ffffff;
   transition:
     opacity 0.18s ease,
