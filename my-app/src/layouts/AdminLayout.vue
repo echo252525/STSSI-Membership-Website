@@ -23,7 +23,7 @@
       </header>
 
       <!-- Content outlet -->
-      <main class="flex-grow-1 p-4 ps-5 bg-light">
+      <main class="flex-grow-1 p-4 ps-5 ms-5 bg-light">
         <router-view />
       </main>
     </div>

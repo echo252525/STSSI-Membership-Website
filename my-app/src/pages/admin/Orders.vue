@@ -12,22 +12,21 @@
     </div>
 
     <!-- Tabs (statuses) -->
-   <ul class="nav nav-pills mb-2 flex-wrap status-tabs">
-  <li v-for="t in tabs" :key="t.value" class="nav-item">
-    <button
-      class="nav-link d-flex align-items-center justify-content-center gap-2 status-tab-btn"
-      :class="{ active: statusFilter === t.value }"
-      @click="setStatus(t.value)"
-    >
-      <!-- Icon -->
-      <i :class="['bi', tabIconClass(t.value), 'status-tab-icon']"></i>
+    <ul class="nav nav-pills mb-2 flex-wrap status-tabs">
+      <li v-for="t in tabs" :key="t.value" class="nav-item">
+        <button
+          class="nav-link d-flex align-items-center justify-content-center gap-2 status-tab-btn"
+          :class="{ active: statusFilter === t.value }"
+          @click="setStatus(t.value)"
+        >
+          <!-- Icon -->
+          <i :class="['bi', tabIconClass(t.value), 'status-tab-icon']"></i>
 
-      <!-- Text -->
-      <span class="status-tab-label">{{ t.label }}</span>
-    </button>
-  </li>
-</ul>
-
+          <!-- Text -->
+          <span class="status-tab-label">{{ t.label }}</span>
+        </button>
+      </li>
+    </ul>
 
     <!-- SUB-TABS (visible only for Return/Refund) -->
     <ul v-if="statusFilter === STATUS.RETURN_REFUND" class="nav nav-pills mb-3 flex-wrap gap-2">
@@ -72,77 +71,76 @@
     </ul>
 
     <!-- Filters -->
-<div class="card shadow-sm mb-3 filters-card">
-  <!-- Mobile-only header with collapse toggle -->
-  <div
-    class="card-header bg-white border-0 d-flex align-items-center justify-content-between d-md-none"
-  >
-    <span class="small text-muted fw-semibold">Filters</span>
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
-      @click="filtersOpen = !filtersOpen"
-    >
-      <i class="bi" :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-      <span class="small">
-        {{ filtersOpen ? 'Hide' : 'Show' }}
-      </span>
-    </button>
-  </div>
-
-  <div
-    class="card-body d-flex flex-wrap g-2 align-items-end gap-2 filters-body"
-    :class="{ 'is-collapsed': !filtersOpen }"
-  >
-    <div class="flex-grow-1" style="min-width: 240px">
-      <label class="form-label small text-muted mb-1">Search</label>
-      <div class="input-group">
-        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-        <input
-          v-model.trim="search"
-          type="search"
-          class="form-control"
-          placeholder="Search address, phone, order/ref no…"
-          @keyup.enter="applyFilters"
-        />
-        <button class="btn btn-outline-secondary" :disabled="busy.load" @click="applyFilters">
-          Search
+    <div class="card shadow-sm mb-3 filters-card">
+      <!-- Mobile-only header with collapse toggle -->
+      <div
+        class="card-header bg-white border-0 d-flex align-items-center justify-content-between d-md-none"
+      >
+        <span class="small text-muted fw-semibold">Filters</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1"
+          @click="filtersOpen = !filtersOpen"
+        >
+          <i class="bi" :class="filtersOpen ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          <span class="small">
+            {{ filtersOpen ? 'Hide' : 'Show' }}
+          </span>
         </button>
       </div>
-    </div>
 
-    <div>
-      <label class="form-label small text-muted mb-1">Payment</label>
-      <select v-model="payment" class="form-select">
-        <option value="">All</option>
-        <option value="COD">Cash on Delivery</option>
-        <option value="Prepaid">Prepaid</option>
-      </select>
-    </div>
+      <div
+        class="card-body d-flex flex-wrap g-2 align-items-end gap-2 filters-body"
+        :class="{ 'is-collapsed': !filtersOpen }"
+      >
+        <div class="flex-grow-1" style="min-width: 240px">
+          <label class="form-label small text-muted mb-1">Search</label>
+          <div class="input-group">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input
+              v-model.trim="search"
+              type="search"
+              class="form-control"
+              placeholder="Search address, phone, order/ref no…"
+              @keyup.enter="applyFilters"
+            />
+            <button class="btn btn-outline-secondary" :disabled="busy.load" @click="applyFilters">
+              Search
+            </button>
+          </div>
+        </div>
 
-    <div class="d-flex gap-2">
-      <div>
-        <label class="form-label small text-muted mb-1">From</label>
-        <input v-model="dateFrom" type="date" class="form-control" />
+        <div>
+          <label class="form-label small text-muted mb-1">Payment</label>
+          <select v-model="payment" class="form-select">
+            <option value="">All</option>
+            <option value="COD">Cash on Delivery</option>
+            <option value="Prepaid">Prepaid</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2">
+          <div>
+            <label class="form-label small text-muted mb-1">From</label>
+            <input v-model="dateFrom" type="date" class="form-control" />
+          </div>
+          <div>
+            <label class="form-label small text-muted mb-1">To</label>
+            <input v-model="dateTo" type="date" class="form-control" />
+          </div>
+        </div>
+
+        <div class="ms-auto d-flex align-items-end gap-2">
+          <button class="btn btn-outline-secondary" @click="clearFilters" :disabled="busy.load">
+            Clear
+          </button>
+          <button class="btn btn-primary" @click="applyFilters" :disabled="busy.load">
+            <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
+            Apply
+          </button>
+        </div>
       </div>
-      <div>
-        <label class="form-label small text-muted mb-1">To</label>
-        <input v-model="dateTo" type="date" class="form-control" />
-      </div>
     </div>
-
-    <div class="ms-auto d-flex align-items-end gap-2">
-      <button class="btn btn-outline-secondary" @click="clearFilters" :disabled="busy.load">
-        Clear
-      </button>
-      <button class="btn btn-primary" @click="applyFilters" :disabled="busy.load">
-        <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
-        Apply
-      </button>
-    </div>
-  </div>
-</div>
-
 
     <!-- Loading -->
     <div v-if="busy.load" class="text-center text-muted py-5">
@@ -159,446 +157,464 @@
     <!-- Orders list (GROUPED by reference_number) -->
     <div v-else class="vstack gap-3">
       <div v-for="g in orderGroups" :key="g.groupKey" class="card shadow-sm rounded-4">
-       <div class="card-body">
-  <!-- =============== MOBILE COMPACT VIEW (≤ md) =============== -->
-  <div class="d-md-none">
-    <!-- Top summary row -->
-    <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
-      <div class="d-flex flex-column">
-        <div class="fw-semibold">
-          <span class="text-muted">Ref#</span>
-          <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
-        </div>
-        <div class="small text-muted">Created: {{ formatClean(g.created_at) }}</div>
-        <div class="small text-muted" v-if="g.updated_at">
-          Updated: {{ formatClean(g.updated_at) }}
-        </div>
-      </div>
+        <div class="card-body">
+          <!-- =============== MOBILE COMPACT VIEW (≤ md) =============== -->
+          <div class="d-md-none">
+            <!-- Top summary row -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between mb-2">
+              <div class="d-flex flex-column">
+                <div class="fw-semibold">
+                  <span class="text-muted">Ref#</span>
+                  <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
+                </div>
+                <div class="small text-muted">Created: {{ formatClean(g.created_at) }}</div>
+                <div class="small text-muted" v-if="g.updated_at">
+                  Updated: {{ formatClean(g.updated_at) }}
+                </div>
+              </div>
 
-      <div class="text-end">
-        <span
-          class="badge mb-1 d-inline-block"
-          :class="statusClass(g.statusSummaryClassKey)"
-        >
-          {{ g.statusSummaryLabel }}
-        </span>
-        <span
-          class="badge text-bg-light border d-inline-block"
-          :title="g.paymentSummaryTitle"
-        >
-          {{ g.paymentSummaryLabel }}
-        </span>
-      </div>
-    </div>
-
-    <!-- Ref-level tracking link for TO_RECEIVE -->
-    <div
-      v-if="statusFilter === STATUS.TO_RECEIVE && refTrackingLink(g.reference_number)"
-      class="mt-1 small"
-    >
-      <i class="bi bi-truck me-1"></i>
-      <a :href="refTrackingLink(g.reference_number)" target="_blank" rel="noopener">
-        Tracking link
-      </a>
-    </div>
-
-    <!-- COMPACT PRODUCT LIST (still visible on mobile) -->
-    <div class="mt-2">
-      <div
-        v-for="it in g.items"
-        :key="g.groupKey + ':' + it.product_id + ':' + it.order_id"
-        class="d-flex align-items-center gap-2 border rounded p-2 bg-light-subtle mb-1 small"
-      >
-        <div
-          class="order-thumb ratio ratio-1x1 bg-white rounded flex-shrink-0"
-          style="width: 56px; max-width: 56px"
-        >
-          <img
-            v-if="productThumb(it.product)"
-            :src="productThumb(it.product)"
-            :alt="it.product?.name || 'Product'"
-            class="w-100 h-100 object-fit-cover rounded"
-          />
-          <div
-            v-else
-            class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-          >
-            <i class="bi bi-image"></i>
-          </div>
-        </div>
-
-        <div class="flex-grow-1">
-          <!-- Title: single line, ellipsis -->
-          <div
-            class="fw-semibold text-truncate"
-            :title="it.product?.name || it.product_id"
-          >
-            {{ it.product?.name || it.product_id }}
-          </div>
-
-          <!-- ORIGINAL PRICE / DISCOUNT LOGIC (kept, just smaller) -->
-          <div
-            class="text-muted"
-            v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)"
-          >
-            ₱ {{ number(it.price_each) }} × {{ it.qty }}
-          </div>
-
-          <div class="small" v-else-if="hasEventDiscount(g.reference_number)">
-            <span class="text-muted text-decoration-line-through me-1">
-              ₱ {{ number(it.price_each) }}
-            </span>
-            <span class="fw-semibold text-danger">
-              ₱ {{ number(discountedPriceEachForItem(it, g.reference_number)) }}
-            </span>
-            <span class="text-muted">× {{ it.qty }}</span>
-          </div>
-
-          <div class="small" v-else-if="hasItemOnlyDiscount(it)">
-            <span class="text-muted text-decoration-line-through me-1">
-              ₱ {{ number(it.price_each) }}
-            </span>
-            <span class="fw-semibold text-primary">
-              ₱ {{ number(itemOnlyDiscountedEach(it)) }}
-            </span>
-            <span class="text-muted">× {{ it.qty }}</span>
-          </div>
-
-          <!-- Per-item tracking link ONLY if no ref-level link -->
-          <div
-            class="mt-1 small"
-            v-if="
-              purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE &&
-              !refTrackingLink(g.reference_number) &&
-              purchaseTrackingLink(g, it.order_id)
-            "
-          >
-            <a
-              :href="purchaseTrackingLink(g, it.order_id)!"
-              target="_blank"
-              rel="noopener"
-            >
-              Tracking link
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Bottom row: total + view details -->
-    <div class="mt-3 d-flex align-items-center justify-content-between">
-      <div class="small text-muted">
-        Recorded total:
-        <span class="fw-semibold">₱ {{ number(g.total_amount) }}</span>
-      </div>
-      <button
-        class="btn btn-outline-secondary btn-sm d-flex align-items-center"
-        @click="openGroupModal(g)"
-      >
-        <i class="bi bi-eye me-1"></i>
-        View details
-      </button>
-    </div>
-  </div>
-  <!-- ============ / MOBILE COMPACT VIEW ============ -->
-
-  <!-- =============== DESKTOP / TABLET DETAILED VIEW (≥ md) =============== -->
-  <div class="d-none d-md-block">
-    <!-- Row 1: Group meta -->
-    <div class="d-flex flex-wrap align-items-center justify-content-between">
-      <div class="d-flex flex-column">
-        <div class="fw-semibold">
-          <span class="text-muted">Ref#</span>
-          <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
-        </div>
-        <!-- UPDATED: clean date/time + updated_at -->
-        <div class="small text-muted">Created: {{ formatClean(g.created_at) }}</div>
-        <div class="small text-muted" v-if="g.updated_at">
-          Updated: {{ formatClean(g.updated_at) }}
-        </div>
-      </div>
-
-      <div class="d-flex align-items-center gap-2 statusInfos">
-        <span class="badge" :class="statusClass(g.statusSummaryClassKey)">
-          {{ g.statusSummaryLabel }}
-        </span>
-        <span class="badge text-bg-light border" :title="g.paymentSummaryTitle">
-          {{ g.paymentSummaryLabel }}
-        </span>
-
-        <!-- NEW: open modal button (per reference) -->
-        <button
-          class="btn btn-outline-secondary btn-sm d-flex"
-          @click="openGroupModal(g)"
-        >
-          <i class="bi bi-eye me-1"></i> View details
-        </button>
-        <!-- /NEW -->
-      </div>
-    </div>
-
-    <!-- Single tracking link shown at top for TO_RECEIVE (per reference) -->
-    <div
-      v-if="statusFilter === STATUS.TO_RECEIVE && refTrackingLink(g.reference_number)"
-      class="mt-2"
-    >
-      <div class="small">
-        <i class="bi bi-truck me-1"></i>
-        <a :href="refTrackingLink(g.reference_number)" target="_blank" rel="noopener">
-          Tracking link
-        </a>
-      </div>
-    </div>
-    <!-- /NEW -->
-
-    <!-- Offer Shipping controls (only show in the Offer Shipping tab) -->
-    <div
-      v-if="statusFilter === TAB_OFFER_SHIPPING && isGroupPendingShipping(g)"
-      class="mt-3 border rounded p-3 bg-body"
-    >
-      <!-- Tier + eligibility line -->
-      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
-        <div class="small">
-          <span class="text-muted">Member tier:</span>
-          <strong>{{ g.memberTierName || '—' }}</strong>
-          <span
-            v-if="g.tierIsFreeDelivery"
-            class="badge text-bg-success-subtle border ms-2"
-          >
-            Free-delivery perk
-          </span>
-          <span v-else class="badge text-bg-light border ms-2">No free-delivery perk</span>
-        </div>
-        <div class="small">
-          <template v-if="isFreeShippingCandidate(g)">
-            <span class="badge text-bg-success-subtle border">
-              Candidate for free shipping
-            </span>
-          </template>
-          <template v-else>
-            <span class="badge text-bg-light border">Not a candidate</span>
-          </template>
-          <span class="text-muted ms-2">
-            Req: ₱ {{ number(g.tierFreeShipRequirement) }} • Order: ₱
-            {{ number(groupItemsNet(g)) }}
-          </span>
-        </div>
-      </div>
-
-      <!-- note if free shipping already applied -->
-      <div v-if="groupFreeShipping(g.reference_number)" class="small text-success mb-2">
-        Free shipping already applied for this reference.
-      </div>
-
-      <div class="small text-muted mb-2">Shipping offer (₱)</div>
-      <div class="d-flex flex-wrap align-items-end gap-2" style="max-width: 600px">
-        <div class="flex-grow-1">
-          <input
-            v-model="shippingOfferInputByRef[g.reference_number]"
-            type="number"
-            min="0"
-            step="0.01"
-            class="form-control"
-            :placeholder="`₱ ${number(0)}`"
-            :disabled="groupFreeShipping(g.reference_number)"
-          />
-        </div>
-        <button
-          class="btn btn-primary"
-          :disabled="
-            isOffering(g) || !canOfferShipping(g) || groupFreeShipping(g.reference_number)
-          "
-          @click="offerShipping(g)"
-          title="Save shipping fee for all purchases under this reference"
-        >
-          <span v-if="isOffering(g)" class="spinner-border spinner-border-sm me-2"></span>
-          Offer shipping
-        </button>
-
-        <button
-          class="btn btn-outline-success"
-          :disabled="isOffering(g)"
-          @click="makeFreeShipping(g)"
-          title="Mark this reference as free shipping (sets is_free_shipping=true and shipping_fee=0)"
-        >
-          Make Free Shipping
-        </button>
-
-        <button
-          class="btn btn-outline-danger"
-          :disabled="isOffering(g)"
-          @click="cancelGroup(g)"
-          title="Cancel all purchases under this reference"
-        >
-          Cancel
-        </button>
-      </div>
-      <div
-        class="small mt-2"
-        v-if="shippingForRef(g.reference_number) > 0 && !groupFreeShipping(g.reference_number)"
-      >
-        Current saved shipping fee:
-        <strong>₱ {{ number(shippingForRef(g.reference_number)) }}</strong>
-      </div>
-    </div>
-    <!-- /NEW -->
-
-    <!-- Row 2: Items for the whole group -->
-    <div class="mt-3">
-      <div
-        v-for="it in g.items"
-        :key="g.groupKey + ':' + it.product_id + ':' + it.order_id"
-        class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle mb-2"
-      >
-        <div class="order-thumb ratio ratio-1x1 bg-white rounded">
-          <img
-            v-if="productThumb(it.product)"
-            :src="productThumb(it.product)"
-            :alt="it.product?.name || 'Product'"
-            class="w-100 h-100 object-fit-cover rounded"
-          />
-          <div
-            v-else
-            class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-          >
-            <i class="bi bi-image"></i>
-          </div>
-        </div>
-
-        <div class="flex-grow-1">
-          <!-- ellipsis title -->
-          <div class="fw-semibold" :title="it.product?.name || it.product_id">
-            {{ it.product?.name || it.product_id }}
-          </div>
-
-          <!-- HIDDEN but kept (do not remove existing code) -->
-          <div
-            class="text-muted small text-truncate order-desc"
-            v-if="it.product?.description"
-          >
-            {{ it.product?.description }}
-          </div>
-
-          <!-- ORIGINAL (kept when no event & no item-only redemption) -->
-          <div
-            class="text-muted small"
-            v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)"
-          >
-            ₱ {{ number(it.price_each) }} × {{ it.qty }}
-          </div>
-
-          <!-- EVENT/PER-PURCHASE discounted (kept) -->
-          <div class="small" v-else-if="hasEventDiscount(g.reference_number)">
-            <span class="text-muted text-decoration-line-through me-1">
-              ₱ {{ number(it.price_each) }}
-            </span>
-            <span class="fw-semibold text-danger">
-              ₱ {{ number(discountedPriceEachForItem(it, g.reference_number)) }}
-            </span>
-            <span class="text-muted">× {{ it.qty }}</span>
-          </div>
-
-          <!-- ITEM-ONLY redemption display -->
-          <div class="small" v-else-if="hasItemOnlyDiscount(it)">
-            <span class="text-muted text-decoration-line-through me-1">
-              ₱ {{ number(it.price_each) }}
-            </span>
-            <span class="fw-semibold text-primary">
-              ₱ {{ number(itemOnlyDiscountedEach(it)) }}
-            </span>
-            <span class="text-muted">× {{ it.qty }}</span>
-            <span
-              class="badge ms-2 badge-tight text-bg-primary-subtle border"
-              title="This discount applies only to this product (discounts.product_id set)."
-            >
-              Item-only discount
-            </span>
-          </div>
-
-          <!-- per-item tracking link ONLY if no ref-level link -->
-          <div
-            class="mt-1 small"
-            v-if="
-              purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE &&
-              !refTrackingLink(g.reference_number) &&
-              purchaseTrackingLink(g, it.order_id)
-            "
-          >
-            <a
-              :href="purchaseTrackingLink(g, it.order_id)!"
-              target="_blank"
-              rel="noopener"
-            >
-              Tracking link
-            </a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Row 3: shipping + totals -->
-    <div class="col-12 col-md-7">
-      <div class="small text-muted mb-1">Shipping info</div>
-      <div class="border rounded p-2 bg-body small">
-        <div class="d-flex align-items-center gap-2 mb-1">
-          <div
-            class="rounded-circle overflow-hidden bg-light d-inline-flex align-items-center justify-content-center"
-            style="width: 36px; height: 36px"
-          >
-            <img
-              v-if="buyerAvatar(g.purchases[0]?.user_id)"
-              :src="buyerAvatar(g.purchases[0]?.user_id)!"
-              alt="Buyer avatar"
-              class="w-100 h-100 object-fit-cover"
-            />
-            <i v-else class="bi bi-person-circle text-muted fs-4"></i>
-          </div>
-          <div>
-            <div class="fw-semibold">{{ g.shipping_name || '—' }}</div>
-            <div class="text-muted">{{ g.phone_number || '—' }}</div>
-          </div>
-        </div>
-        <div>{{ g.shipping_address || '—' }}</div>
-      </div>
-    </div>
-
-    <div class="col-12 col-md-5 d-flex align-items-end justify-content-end">
-      <div class="text-end ms-auto">
-        <!-- Shipping line with free-shipping rules -->
-        <div v-if="statusFilter !== STATUS.RETURN_REFUND">
-          <template v-if="groupFreeShipping(g.reference_number)">
-            <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
-              Shipping fee:
-              <span class="text-decoration-line-through">
-                ₱ {{ number(shippingForRef(g.reference_number)) }}
-              </span>
+              <div class="text-end">
+                <span
+                  class="badge mb-1 d-inline-block"
+                  :class="statusClass(g.statusSummaryClassKey)"
+                >
+                  {{ g.statusSummaryLabel }}
+                </span>
+                <span
+                  class="badge text-bg-light border d-inline-block"
+                  :title="g.paymentSummaryTitle"
+                >
+                  {{ g.paymentSummaryLabel }}
+                </span>
+              </div>
             </div>
-            <div class="small text-success fw-semibold">Free shipping</div>
-          </template>
-        </div>
 
-        <!-- Recorded total -->
-        <div class="fw-semibold fs-5">
-          Recorded total: ₱ {{ number(g.total_amount) }}
-        </div>
+            <!-- Ref-level tracking link for TO_RECEIVE -->
+            <div
+              v-if="statusFilter === STATUS.TO_RECEIVE && refTrackingLink(g.reference_number)"
+              class="mt-1 small"
+            >
+              <i class="bi bi-truck me-1"></i>
+              <a :href="refTrackingLink(g.reference_number)" target="_blank" rel="noopener">
+                Tracking link
+              </a>
+            </div>
 
-        <!-- order-wide discount labels -->
-        <div class="mt-1" v-if="orderWideLabelsForRef(g.reference_number).length">
-          <span
-            v-for="lbl in orderWideLabelsForRef(g.reference_number)"
-            :key="g.reference_number + ':' + lbl"
-            class="badge badge-tight text-bg-light border ms-1"
-            :title="lbl"
-          >
-            {{ trimLabel(lbl) }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </div>
-  <!-- ============ / DESKTOP / TABLET VIEW ============ -->
-</div>
+            <!-- COMPACT PRODUCT LIST (still visible on mobile) -->
+            <div class="mt-2">
+              <div
+                v-for="it in g.items"
+                :key="g.groupKey + ':' + it.product_id + ':' + it.order_id"
+                class="d-flex align-items-center gap-2 border rounded p-2 bg-light-subtle mb-1 small"
+              >
+                <div
+                  class="order-thumb ratio ratio-1x1 bg-white rounded flex-shrink-0"
+                  style="width: 56px; max-width: 56px"
+                >
+                  <img
+                    v-if="productThumb(it.product)"
+                    :src="productThumb(it.product)"
+                    :alt="it.product?.name || 'Product'"
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
 
+                <div class="flex-grow-1">
+                  <!-- Title: single line, ellipsis -->
+                  <div class="fw-semibold text-truncate" :title="it.product?.name || it.product_id">
+                    {{ it.product?.name || it.product_id }}
+                  </div>
+
+                  <!-- ORIGINAL PRICE / DISCOUNT LOGIC (kept, just smaller) -->
+                  <div
+                    class="text-muted"
+                    v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)"
+                  >
+                    ₱ {{ number(it.price_each) }} × {{ it.qty }}
+                  </div>
+
+                  <div class="small" v-else-if="hasEventDiscount(g.reference_number)">
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(it.price_each) }}
+                    </span>
+                    <span class="fw-semibold text-danger">
+                      ₱ {{ number(discountedPriceEachForItem(it, g.reference_number)) }}
+                    </span>
+                    <span class="text-muted">× {{ it.qty }}</span>
+                  </div>
+
+                  <div class="small" v-else-if="hasItemOnlyDiscount(it)">
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(it.price_each) }}
+                    </span>
+                    <span class="fw-semibold text-primary">
+                      ₱ {{ number(itemOnlyDiscountedEach(it)) }}
+                    </span>
+                    <span class="text-muted">× {{ it.qty }}</span>
+                  </div>
+
+                  <!-- Per-item tracking link ONLY if no ref-level link -->
+                  <div
+                    class="mt-1 small"
+                    v-if="
+                      purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE &&
+                      !refTrackingLink(g.reference_number) &&
+                      purchaseTrackingLink(g, it.order_id)
+                    "
+                  >
+                    <a :href="purchaseTrackingLink(g, it.order_id)!" target="_blank" rel="noopener">
+                      Tracking link
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Bottom row: total + view details -->
+            <div class="mt-3 d-flex align-items-center justify-content-between">
+              <div class="small text-muted">
+                Recorded total:
+                <span class="fw-semibold">₱ {{ number(g.total_amount) }}</span>
+              </div>
+              <button
+                class="btn btn-outline-secondary btn-sm d-flex align-items-center"
+                @click="openGroupModal(g)"
+              >
+                <i class="bi bi-eye me-1"></i>
+                View details
+              </button>
+            </div>
+          </div>
+          <!-- ============ / MOBILE COMPACT VIEW ============ -->
+
+          <!-- =============== DESKTOP / TABLET DETAILED VIEW (≥ md) =============== -->
+          <div class="d-none d-md-block">
+            <!-- Row 1: Group meta -->
+            <div class="d-flex flex-wrap align-items-center justify-content-between">
+              <div class="d-flex flex-column">
+                <div class="fw-semibold">
+                  <span class="text-muted">Ref#</span>
+                  <span class="ms-1">{{ g.reference_number || shortId(g.groupKey) }}</span>
+                </div>
+                <!-- UPDATED: clean date/time + updated_at -->
+                <div class="small text-muted">Created: {{ formatClean(g.created_at) }}</div>
+                <div class="small text-muted" v-if="g.updated_at">
+                  Updated: {{ formatClean(g.updated_at) }}
+                </div>
+              </div>
+
+              <div class="d-flex align-items-center gap-2 statusInfos">
+                <span class="badge" :class="statusClass(g.statusSummaryClassKey)">
+                  {{ g.statusSummaryLabel }}
+                </span>
+                <span class="badge text-bg-light border" :title="g.paymentSummaryTitle">
+                  {{ g.paymentSummaryLabel }}
+                </span>
+
+                <!-- NEW: open modal button (per reference) -->
+                <button class="btn btn-outline-secondary btn-sm d-flex" @click="openGroupModal(g)">
+                  <i class="bi bi-eye me-1"></i> View details
+                </button>
+                <!-- /NEW -->
+              </div>
+            </div>
+
+            <!-- Single tracking link shown at top for TO_RECEIVE (per reference) -->
+            <div
+              v-if="statusFilter === STATUS.TO_RECEIVE && refTrackingLink(g.reference_number)"
+              class="mt-2"
+            >
+              <div class="small">
+                <i class="bi bi-truck me-1"></i>
+                <a :href="refTrackingLink(g.reference_number)" target="_blank" rel="noopener">
+                  Tracking link
+                </a>
+              </div>
+            </div>
+            <!-- /NEW -->
+
+            <!-- Offer Shipping controls (only show in the Offer Shipping tab) -->
+            <div
+              v-if="statusFilter === TAB_OFFER_SHIPPING && isGroupPendingShipping(g)"
+              class="mt-3 border rounded p-3 bg-body"
+            >
+              <!-- Tier + eligibility line -->
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                <div class="small">
+                  <span class="text-muted">Member tier:</span>
+                  <strong>{{ g.memberTierName || '—' }}</strong>
+                  <span
+                    v-if="g.tierIsFreeDelivery"
+                    class="badge text-bg-success-subtle border ms-2"
+                  >
+                    Free-delivery perk
+                  </span>
+                  <span v-else class="badge text-bg-light border ms-2">No free-delivery perk</span>
+                </div>
+                <div class="small">
+                  <template v-if="isFreeShippingCandidate(g)">
+                    <span class="badge text-bg-success-subtle border">
+                      Candidate for free shipping
+                    </span>
+                  </template>
+                  <template v-else>
+                    <span class="badge text-bg-light border">Not a candidate</span>
+                  </template>
+                  <span class="text-muted ms-2">
+                    Req: ₱ {{ number(g.tierFreeShipRequirement) }} • Order: ₱
+                    {{ number(groupItemsNet(g)) }}
+                  </span>
+                </div>
+              </div>
+
+              <!-- note if free shipping already applied -->
+              <div v-if="groupFreeShipping(g.reference_number)" class="small text-success mb-2">
+                Free shipping already applied for this reference.
+              </div>
+
+              <div class="small text-muted mb-2">Shipping offer (₱)</div>
+              <div class="d-flex flex-wrap align-items-end gap-2" style="max-width: 600px">
+                <div class="flex-grow-1">
+                  <input
+                    v-model="shippingOfferInputByRef[g.reference_number]"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="form-control"
+                    :placeholder="`₱ ${number(0)}`"
+                    :disabled="groupFreeShipping(g.reference_number)"
+                  />
+                </div>
+                <button
+                  class="btn btn-primary"
+                  :disabled="
+                    isOffering(g) || !canOfferShipping(g) || groupFreeShipping(g.reference_number)
+                  "
+                  @click="offerShipping(g)"
+                  title="Save shipping fee for all purchases under this reference"
+                >
+                  <span v-if="isOffering(g)" class="spinner-border spinner-border-sm me-2"></span>
+                  Offer shipping
+                </button>
+
+                <button
+                  class="btn btn-outline-success"
+                  :disabled="isOffering(g)"
+                  @click="makeFreeShipping(g)"
+                  title="Mark this reference as free shipping (sets is_free_shipping=true and shipping_fee=0)"
+                >
+                  Make Free Shipping
+                </button>
+
+                <button
+                  class="btn btn-outline-danger"
+                  :disabled="isOffering(g)"
+                  @click="cancelGroup(g)"
+                  title="Cancel all purchases under this reference"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div
+                class="small mt-2"
+                v-if="
+                  shippingForRef(g.reference_number) > 0 && !groupFreeShipping(g.reference_number)
+                "
+              >
+                Current saved shipping fee:
+                <strong>₱ {{ number(shippingForRef(g.reference_number)) }}</strong>
+              </div>
+            </div>
+            <!-- /NEW -->
+
+            <!-- Row 2: Items for the whole group -->
+            <div class="mt-3">
+              <div
+                v-for="it in g.items"
+                :key="g.groupKey + ':' + it.product_id + ':' + it.order_id"
+                class="d-flex align-items-center gap-3 border rounded p-2 bg-light-subtle mb-2"
+              >
+                <div class="order-thumb ratio ratio-1x1 bg-white rounded">
+                  <img
+                    v-if="productThumb(it.product)"
+                    :src="productThumb(it.product)"
+                    :alt="it.product?.name || 'Product'"
+                    class="w-100 h-100 object-fit-cover rounded"
+                  />
+                  <div
+                    v-else
+                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                  >
+                    <i class="bi bi-image"></i>
+                  </div>
+                </div>
+
+                <div class="flex-grow-1">
+                  <!-- ellipsis title -->
+                  <div class="fw-semibold" :title="it.product?.name || it.product_id">
+                    {{ it.product?.name || it.product_id }}
+                  </div>
+
+                  <!-- HIDDEN but kept (do not remove existing code) -->
+                  <div
+                    class="text-muted small text-truncate order-desc"
+                    v-if="it.product?.description"
+                  >
+                    {{ it.product?.description }}
+                  </div>
+
+                  <!-- ORIGINAL (kept when no event & no item-only redemption) -->
+                  <div
+                    class="text-muted small"
+                    v-if="!hasEventDiscount(g.reference_number) && !hasItemOnlyDiscount(it)"
+                  >
+                    ₱ {{ number(it.price_each) }} × {{ it.qty }}
+                  </div>
+
+                  <!-- EVENT/PER-PURCHASE discounted (kept) -->
+                  <div class="small" v-else-if="hasEventDiscount(g.reference_number)">
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(it.price_each) }}
+                    </span>
+                    <span class="fw-semibold text-danger">
+                      ₱ {{ number(discountedPriceEachForItem(it, g.reference_number)) }}
+                    </span>
+                    <span class="text-muted">× {{ it.qty }}</span>
+                  </div>
+
+                  <!-- ITEM-ONLY redemption display -->
+                  <div class="small" v-else-if="hasItemOnlyDiscount(it)">
+                    <span class="text-muted text-decoration-line-through me-1">
+                      ₱ {{ number(it.price_each) }}
+                    </span>
+                    <span class="fw-semibold text-primary">
+                      ₱ {{ number(itemOnlyDiscountedEach(it)) }}
+                    </span>
+                    <span class="text-muted">× {{ it.qty }}</span>
+                    <span
+                      class="badge ms-2 badge-tight text-bg-primary-subtle border"
+                      title="This discount applies only to this product (discounts.product_id set)."
+                    >
+                      Item-only discount
+                    </span>
+                  </div>
+
+                  <!-- per-item tracking link ONLY if no ref-level link -->
+                  <div
+                    class="mt-1 small"
+                    v-if="
+                      purchaseStatusKey(g, it.order_id) === STATUS.TO_RECEIVE &&
+                      !refTrackingLink(g.reference_number) &&
+                      purchaseTrackingLink(g, it.order_id)
+                    "
+                  >
+                    <a :href="purchaseTrackingLink(g, it.order_id)!" target="_blank" rel="noopener">
+                      Tracking link
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Row 3: shipping + totals -->
+            <div class="row mt-3 border rounded p-2 m-1">
+              <div class="col-12 col-md-7 mb-3 mb-md-0 border-end">
+                <div class="small text-muted mb-1">Shipping info</div>
+                <div class="bg-body small">
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <div
+                      class="rounded-circle overflow-hidden bg-light d-inline-flex align-items-center justify-content-center"
+                      style="width: 36px; height: 36px"
+                    >
+                      <img
+                        v-if="buyerAvatar(g.purchases[0]?.user_id)"
+                        :src="buyerAvatar(g.purchases[0]?.user_id)!"
+                        alt="Buyer avatar"
+                        class="w-100 h-100 object-fit-cover"
+                      />
+                      <i v-else class="bi bi-person-circle text-muted fs-4"></i>
+                    </div>
+                    <div>
+                      <div class="fw-semibold">{{ g.shipping_name || '—' }}</div>
+                      <div class="text-muted">{{ g.phone_number || '—' }}</div>
+                    </div>
+                  </div>
+                  <div>{{ g.shipping_address || '—' }}</div>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-5 d-flex align-items-end justify-content-end">
+                <div class="text-end w-100 ms-md-auto">
+                  <!-- Shipping line with free-shipping rules -->
+                  <div v-if="statusFilter !== STATUS.RETURN_REFUND">
+                    <template v-if="groupFreeShipping(g.reference_number)">
+                      <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
+                        Shipping fee:
+                        <span class="text-decoration-line-through">
+                          ₱ {{ number(shippingForRef(g.reference_number)) }}
+                        </span>
+                      </div>
+                      <div class="small text-success fw-semibold">Free shipping</div>
+                    </template>
+                  </div>
+
+                  <!-- Recorded total -->
+                  <div class="fw-semibold fs-5 mt-1">
+                    Recorded total: ₱ {{ number(g.total_amount) }}
+                  </div>
+
+                  <!-- order-wide discount labels -->
+                  <div class="mt-1" v-if="orderWideLabelsForRef(g.reference_number).length">
+                    <span
+                      v-for="lbl in orderWideLabelsForRef(g.reference_number)"
+                      :key="g.reference_number + ':' + lbl"
+                      class="badge badge-tight text-bg-light border ms-1"
+                      :title="lbl"
+                    >
+                      {{ trimLabel(lbl) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12 col-md-5 d-flex align-items-end justify-content-end">
+              <div class="text-end ms-auto">
+                <!-- Shipping line with free-shipping rules -->
+                <div v-if="statusFilter !== STATUS.RETURN_REFUND">
+                  <template v-if="groupFreeShipping(g.reference_number)">
+                    <div class="small text-muted" v-if="shippingForRef(g.reference_number) > 0">
+                      Shipping fee:
+                      <span class="text-decoration-line-through">
+                        ₱ {{ number(shippingForRef(g.reference_number)) }}
+                      </span>
+                    </div>
+                    <div class="small text-success fw-semibold">Free shipping</div>
+                  </template>
+                </div>
+
+                <!-- order-wide discount labels -->
+                <div class="mt-1" v-if="orderWideLabelsForRef(g.reference_number).length">
+                  <span
+                    v-for="lbl in orderWideLabelsForRef(g.reference_number)"
+                    :key="g.reference_number + ':' + lbl"
+                    class="badge badge-tight text-bg-light border ms-1"
+                    :title="lbl"
+                  >
+                    {{ trimLabel(lbl) }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- ============ / DESKTOP / TABLET VIEW ============ -->
+        </div>
 
         <!-- Row 3.5: Return/Refund info (per product rows) -->
         <div v-if="g.containsRR" class="mt-3">
@@ -931,7 +947,7 @@
         <!-- /NEW -->
 
         <!-- Row 4: group actions -->
-        <div class="mt-3 d-flex flex-wrap gap-2 justify-content-end">
+        <div class="m-3 d-flex flex-wrap gap-2 justify-content-end">
           <!-- Group Approve (only when ALL are TO_PAY) -->
           <button
             v-if="g.allToPay"
@@ -1526,13 +1542,15 @@ function swalInfo(message: string, title = 'Info') {
   })
 }
 
-async function swalConfirm(options: Partial<{
-  title: string
-  text: string
-  confirmButtonText: string
-  cancelButtonText: string
-  icon: SwalIcon
-}> = {}): Promise<boolean> {
+async function swalConfirm(
+  options: Partial<{
+    title: string
+    text: string
+    confirmButtonText: string
+    cancelButtonText: string
+    icon: SwalIcon
+  }> = {},
+): Promise<boolean> {
   const { isConfirmed } = await Swal.fire({
     title: options.title ?? 'Are you sure?',
     text: options.text ?? '',
@@ -1929,21 +1947,37 @@ function rrStatusForPurchase(purchaseId: string): string | null {
 }
 
 function tabIconClass(value: string): string {
-  switch (value) {
+  const v = value.toLowerCase()
+
+  switch (v) {
     case 'all':
       return 'bi-grid'
-    case 'pending':
-      return 'bi-hourglass-split'
+
+    case '_offer_shipping':
+      return 'bi-truck-front'
+
+    case 'to pay':
     case 'to_pay':
       return 'bi-credit-card'
+
+    case 'to ship':
     case 'to_ship':
       return 'bi-box-seam'
+
+    case 'to receive':
     case 'to_receive':
       return 'bi-truck'
+
     case 'completed':
       return 'bi-check-circle'
+
+    case 'return/refund':
+    case 'return_refund':
+      return 'bi-arrow-left-right'
+
     case 'cancelled':
       return 'bi-x-circle'
+
     default:
       return 'bi-circle'
   }
@@ -2929,10 +2963,7 @@ async function markAsShipped(purchaseId: string, silent = false) {
 
     if (!silent) {
       const refText = refLabel(ref)
-      await swalSuccess(
-        `Order under ${refText} has been marked as "To Receive".`,
-        'Status Updated',
-      )
+      await swalSuccess(`Order under ${refText} has been marked as "To Receive".`, 'Status Updated')
     }
   } finally {
     busy.value.action[purchaseId] = false
@@ -2942,10 +2973,7 @@ async function markAsCompleted(purchaseId: string) {
   const ok = await updateStatus(purchaseId, STATUS.COMPLETED)
   if (!ok) return
   const ref = refFromPurchaseId(purchaseId)
-  await swalSuccess(
-    `Order under ${refLabel(ref)} has been marked as Completed.`,
-    'Status Updated',
-  )
+  await swalSuccess(`Order under ${refLabel(ref)} has been marked as Completed.`, 'Status Updated')
 }
 
 function isEwalletPayment(method?: string | null) {
@@ -3139,7 +3167,10 @@ async function cancelOrder(purchaseId: string, skipConfirm = false, silent = fal
       await restoreStock(productIdForStock, qtyForStock)
 
       try {
-        if (order!.reference_number && (await allPurchasesCancelledForRef(order!.reference_number))) {
+        if (
+          order!.reference_number &&
+          (await allPurchasesCancelledForRef(order!.reference_number))
+        ) {
           const ship = shippingForRef(order!.reference_number)
           if (ship > 0) {
             await applyTxPesos(
@@ -3214,10 +3245,7 @@ async function cancelOrder(purchaseId: string, skipConfirm = false, silent = fal
     await restoreStock(productIdForStock, qtyForStock)
 
     if (ok && !silent) {
-      await swalSuccess(
-        `Order under ${refLabel(refForMsg)} has been cancelled.`,
-        'Order Cancelled',
-      )
+      await swalSuccess(`Order under ${refLabel(refForMsg)} has been cancelled.`, 'Order Cancelled')
     }
   } finally {
     busy.value.action[purchaseId] = false
@@ -3267,10 +3295,7 @@ async function approveOrder(order: ViewOrder, silent = false) {
 
     if (!silent) {
       const refText = refLabel(order.reference_number)
-      await swalSuccess(
-        `Order under ${refText} has been moved to "To Ship".`,
-        'Order Approved',
-      )
+      await swalSuccess(`Order under ${refText} has been moved to "To Ship".`, 'Order Approved')
     }
   } finally {
     busy.value.action[purchaseId] = false
@@ -3316,10 +3341,7 @@ async function approveRefund(rr: ReturnRefundRow) {
     rr.refund_tracking_link = link
 
     const ref = refFromPurchaseId(rr.purchase_id)
-    await swalSuccess(
-      `Refund request for ${refLabel(ref)} has been approved.`,
-      'Refund Approved',
-    )
+    await swalSuccess(`Refund request for ${refLabel(ref)} has been approved.`, 'Refund Approved')
   } finally {
     busy.value.action[rrId] = false
   }
@@ -3696,10 +3718,7 @@ async function offerShipping(g: ViewGroup) {
     shippingByRef[ref] = Number(amount.toFixed(2))
     freeShipByRef[ref] = false
     await loadOrders()
-    await swalSuccess(
-      `Shipping fee saved for ${refLabel(ref)}.`,
-      'Shipping Updated',
-    )
+    await swalSuccess(`Shipping fee saved for ${refLabel(ref)}.`, 'Shipping Updated')
   } finally {
     busy.value.action[`offer:${ref}`] = false
   }
@@ -3723,10 +3742,7 @@ async function makeFreeShipping(g: ViewGroup) {
     shippingByRef[ref] = 0
     shippingOfferInputByRef[ref] = '0'
     await loadOrders()
-    await swalSuccess(
-      `Marked ${refLabel(ref)} as Free Shipping.`,
-      'Shipping Updated',
-    )
+    await swalSuccess(`Marked ${refLabel(ref)} as Free Shipping.`, 'Shipping Updated')
   } finally {
     busy.value.action[`offer:${ref}`] = false
   }
@@ -3738,11 +3754,6 @@ onMounted(() => {
   loadOrders(true)
 })
 </script>
-
-
-
-
-
 
 <style scoped>
 /* Subtle card styling */
@@ -3875,14 +3886,14 @@ onMounted(() => {
 /* ===== MOBILE: side-by-side with icon + text ===== */
 @media (max-width: 576px) {
   .status-tabs {
-    flex-wrap: nowrap !important;         /* single row */
-    overflow-x: auto;                     /* horizontal scroll if many tabs */
+    flex-wrap: nowrap !important; /* single row */
+    overflow-x: auto; /* horizontal scroll if many tabs */
     -webkit-overflow-scrolling: touch;
     gap: 0.25rem;
   }
 
   .status-tabs .nav-item {
-    flex: 0 0 auto;                       /* keep each pill compact */
+    flex: 0 0 auto; /* keep each pill compact */
   }
 
   .status-tab-btn {
@@ -3900,7 +3911,6 @@ onMounted(() => {
   }
 }
 
-
 /* Mobile: hide filters when collapsed */
 @media (max-width: 767.98px) {
   .filters-body.is-collapsed {
@@ -3916,6 +3926,4 @@ onMounted(() => {
     padding: 0.6rem 0.75rem 0.75rem;
   }
 }
-
 </style>
-
