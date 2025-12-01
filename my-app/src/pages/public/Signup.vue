@@ -146,18 +146,19 @@
               </div>
             </div>
 
-            <!-- Barangay -->
+            <!-- Barangay (NOW REQUIRED) -->
             <div
               class="col-md-6 position-relative breath-in address-field"
               :class="{ 'z-top': showBarangaySuggest }"
             >
-              <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
+              <label class="form-label">Barangay *</label>
 
               <!-- NEW: Dropdown when barangays for the selected city are loaded -->
               <select
                 v-if="barangays.length"
                 v-model="addrLine2"
                 class="form-select"
+                required
               >
                 <option value="">Select barangay…</option>
                 <option
@@ -176,6 +177,7 @@
                   type="text"
                   class="form-control"
                   placeholder="Type here"
+                  required
                   @focus="showBarangaySuggest = true"
                   @input="onBarangayInput" 
                 />
@@ -306,7 +308,7 @@ const toggleConfirmPassword = () => (showConfirmPassword.value = !showConfirmPas
 /* Address state (PH order without province) */
 const addrRegion = ref('')     // Region (required)
 const addrCity = ref('')       // City/Municipality (required)
-const addrLine2 = ref('')      // Barangay (optional)
+const addrLine2 = ref('')      // Barangay (NOW REQUIRED)
 const addrZip = ref('')        // ZIP (required)
 const addrLine1 = ref('')      // House/Street (required)
 
@@ -509,7 +511,8 @@ watch([addrLine1, addrLine2, addrCity, addrRegion, addrZip], () => {
 })
 
 function isAddressComplete() {
-  return !!(addrRegion.value && addrCity.value && addrZip.value && addrLine1.value)
+  // Barangay (addrLine2) is now REQUIRED
+  return !!(addrRegion.value && addrCity.value && addrLine2.value && addrZip.value && addrLine1.value)
 }
 
 /* Referral capture */
@@ -563,11 +566,11 @@ const onSubmit = async () => {
       await Swal.fire({
         icon: 'warning',
         title: 'Address incomplete',
-        text: 'Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).',
+        text: 'Please complete your address (Region, City/Municipality, Barangay, ZIP, House/Street).',
         confirmButtonText: 'Fill address',
       })
       loading.value = false
-      error.value = 'Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).'
+      error.value = 'Please complete your address (Region, City/Municipality, Barangay, ZIP, House/Street).'
       return
     }
 

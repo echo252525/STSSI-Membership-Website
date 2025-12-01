@@ -128,6 +128,20 @@ const router = createRouter({
 })
 
 /**
+ * 🧠 Dynamic document.title
+ * Admin routes → "STSSI Admin Portal"
+ * All others → "STSSI Member Portal"
+ */
+router.afterEach((to) => {
+  const isAdminRoute = to.matched.some((record) => {
+    const name = (record.name ?? '') as string
+    return name.startsWith('admin.')
+  })
+
+  document.title = isAdminRoute ? 'STSSI Admin Portal' : 'STSSI Member Portal'
+})
+
+/**
  * 🔒 Admin-gate guard
  */
 router.beforeEach((to, _from, next) => {

@@ -180,12 +180,13 @@
 
           <!-- Barangay -->
           <div class="col-md-6 position-relative">
-            <label class="form-label">Barangay <span class="text-muted">(optional)</span></label>
+            <label class="form-label">Barangay <span class="text-muted">(required)</span></label>
             <input
               v-model.trim="addrBarangay"
               type="text"
               class="form-control"
-              placeholder="Type to search barangay…"
+              placeholder="Type here"
+              required
               @focus="showBarangaySuggest = true"
               @input="onBarangayInput"
             />
@@ -296,7 +297,7 @@ const toggleConfirmPassword = () => { showConfirmPassword.value = !showConfirmPa
 /** ===== Address State (No Province) ===== */
 const addrRegion = ref('')        // required
 const addrCity = ref('')          // required
-const addrBarangay = ref('')      // optional
+const addrBarangay = ref('')      // required
 const addrZip = ref('')           // required
 const addrLine1 = ref('')         // required
 
@@ -493,7 +494,7 @@ const fullAddress = computed(() => {
 
 /** ===== Validation ===== */
 function isAddressComplete() {
-  return !!(addrRegion.value && addrCity.value && addrZip.value && addrLine1.value)
+  return !!(addrRegion.value && addrCity.value && addrBarangay.value && addrZip.value && addrLine1.value)
 }
 
 /** ===== DB Insert Helper ===== */
@@ -537,7 +538,7 @@ const handleSignup = async () => {
     }
     // Address check
     if (!isAddressComplete()) {
-      throw new Error('Please complete your address (Region, City/Municipality, Barangay (optional), ZIP, House/Street).')
+      throw new Error('Please complete your address (Region, City/Municipality, Barangay, ZIP, House/Street).')
     }
 
     // 1) Create the auth user
