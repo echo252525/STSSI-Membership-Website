@@ -45,10 +45,19 @@
       </div>
 
       <!-- Profile (hidden when collapsed via CSS) -->
-      <div class="d-flex align-items-center justify-content-center">
+      <div
+        class="d-flex align-items-center justify-content-center m-3 my-5 gap-2"
+        role="link"
+        tabindex="0"
+        @click="goAbout"
+        @keydown.enter.prevent="goAbout"
+        @keydown.space.prevent="goAbout"
+        :title="'About Us'"
+        style="cursor: pointer"
+      >
         <img
           src="/STSSI_logo.png"
-          class="m-5"
+          class="m-0"
           style="width: 40px">
         </img>
         <h5 class="fw-bold steqLogoText" v-if="!isRail">STEQ ONLINE</h5>
@@ -344,6 +353,18 @@ onBeforeUnmount(() => {
   oc.value?.hide?.()
   killBackdrops()
 })
+
+const emit = defineEmits<{ (e: 'nav'): void }>()
+const closeMenu = () => emit('nav')
+
+function goAbout() {
+  try {
+    router.push({ name: 'user.about' })
+  } finally {
+    closeMenu()
+    closeOffcanvasIfMobile()
+  }
+}
 </script>
 
 <style scoped>

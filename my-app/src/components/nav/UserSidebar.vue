@@ -480,11 +480,9 @@ function goSettings() {
   }
 }
 
-/* ✅ NEW: go to About Us when logo clicked */
-/* ✅ NEW: go to About Us (user scope) when logo clicked */
 function goAbout() {
   try {
-    router.push({ name: 'user.about' }) // <-- now points to /app/about
+    router.push({ name: 'user.about' })
   } finally {
     closeMenu()
     closeOffcanvasIfMobile()
