@@ -3899,10 +3899,7 @@ onMounted(() => {
     font-size: 0.78rem;
   }
 }
-/* Filters collapse behavior */
-.filters-body.is-collapsed {
-  /* default: do nothing on larger screens */
-}
+
 
 /* Mobile: hide filters when collapsed */
 @media (max-width: 767.98px) {
