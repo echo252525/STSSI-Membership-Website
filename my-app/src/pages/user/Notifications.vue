@@ -17,10 +17,23 @@
           </span>
         </transition>
       </div>
-      <button class="btn btn-outline-secondary btn-sm" :disabled="busy.load" @click="reload">
-        <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
-        Refresh
-      </button>
+
+      <!-- 🆕 Wrap right-side controls so we can add 'Mark all read' -->
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm" :disabled="busy.load" @click="reload">
+          <span v-if="busy.load" class="spinner-border spinner-border-sm me-2"></span>
+          Refresh
+        </button>
+
+        <!-- 🆕 Mark all as read -->
+        <button
+          class="btn btn-outline-primary btn-sm"
+          :disabled="displayUnreadCount === 0"
+          @click="markAllSeen"
+        >
+          Mark all read
+        </button>
+      </div>
     </div>
 
     <div class="list-group list-group-flush">
@@ -139,7 +152,7 @@ function markViewed(_n: UiRow) { /* intentionally no-op for unread logic */ }
 
 function markSeen(n: UiRow) {
   if (!isSeen(n)) {
-    const next = new Set(seenIds.value)
+    const next = new Set<string>(seenIds.value)
     next.add(n.id)
     seenIds.value = next
     saveSeen()
@@ -148,6 +161,22 @@ function markSeen(n: UiRow) {
     emit('update:count', newCount)
     window.dispatchEvent(new CustomEvent('notif:count', { detail: newCount }))
   }
+}
+
+/* 🆕 Mark *all* notifications as read and reset count to 0 */
+function markAllSeen() {
+  if (!items.value.length) return
+  const next = new Set<string>(seenIds.value)
+  for (const n of items.value) {
+    next.add(n.id)
+  }
+  seenIds.value = next
+  saveSeen()
+
+  const newCount = 0
+  externalUnreadOverride.value = newCount
+  emit('update:count', newCount)
+  window.dispatchEvent(new CustomEvent('notif:count', { detail: newCount }))
 }
 
 // Unread = all items not seen (click-only marks as seen)

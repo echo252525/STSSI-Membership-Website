@@ -124,7 +124,7 @@
   <!-- ✅ Lightweight small modal for Notifications.vue -->
   <teleport to="body">
     <div
-      v-if="isNotifModalOpen"
+      v-show="isNotifModalOpen"
       class="notif-backdrop"
       role="dialog"
       aria-modal="true"
@@ -167,6 +167,23 @@
     </div>
   </teleport>
 
+  <!-- 🆕 Anchored popup above bell with real notif text + arrow (queue-based) -->
+  <teleport to="body">
+    <transition name="notif-toast">
+      <div v-if="showNewNotifToast" class="notif-toast-anchored">
+        <div class="notif-toast-card shadow-sm" @click="openNotifFromToast">
+          <div class="notif-toast-title">
+            <i class="bi bi-bell-fill me-1"></i>
+            New notification
+          </div>
+          <div class="notif-toast-text">
+            {{ activeToast }}
+          </div>
+        </div>
+      </div>
+    </transition>
+  </teleport>
+
   <!-- 🆕 Tier-change modal (LANDSCAPE with big hero; “View benefits” button removed) -->
   <teleport to="body">
     <div
@@ -179,7 +196,7 @@
     >
       <transition name="tier-zoom">
         <div class="tier-modal tier-modal-landscape" v-show="isTierModalOpen">
-          <!-- Keep your original small header bar (not removed) -->
+          <!-- Header -->
           <div class="d-flex align-items-center justify-content-between border-bottom px-3 py-2">
             <div class="fw-semibold d-flex align-items-center gap-2">
               <i class="bi bi-stars"></i>
@@ -336,7 +353,7 @@
             </section>
           </div>
 
-          <!-- Footer: only OK (removed View benefits) -->
+          <!-- Footer: only OK -->
           <div class="border-top px-3 py-2 d-flex justify-content-end gap-2">
             <button class="btn btn-primary btn-sm" @click="closeTierModal">OK</button>
           </div>
@@ -446,21 +463,90 @@ const openNotifModal = () => {
 const closeNotifModal = () => {
   isNotifModalOpen.value = false
 }
+
 const NOTIF_COUNT_KEY = 'notif:lastCount'
 const notifCount = ref<number>(0)
-const displayNotifCount = computed(() => (notifCount.value > 99 ? '99+' : String(notifCount.value)))
+const displayNotifCount = computed(() =>
+  notifCount.value > 99 ? '99+' : String(notifCount.value),
+)
+
+/* 🆕 Toast queue state: every notif shows */
+const notifQueue = ref<string[]>([])
+const activeToast = ref<string | null>(null)
+const showNewNotifToast = computed(() => !!activeToast.value)
+let notifToastTimer: number | undefined
+
+function showNextToast() {
+  if (isNotifModalOpen.value) {
+    activeToast.value = null
+    return
+  }
+  if (notifQueue.value.length === 0) {
+    activeToast.value = null
+    return
+  }
+  activeToast.value = notifQueue.value.shift() || null
+  if (notifToastTimer) window.clearTimeout(notifToastTimer)
+  notifToastTimer = window.setTimeout(() => {
+    activeToast.value = null
+    showNextToast()
+  }, 5000)
+}
+
+function enqueueToast(text: string) {
+  notifQueue.value.push(text)
+  if (!activeToast.value && !isNotifModalOpen.value) {
+    showNextToast()
+  }
+}
+
+/* Hide + clear toasts whenever the main notif modal opens */
+watch(isNotifModalOpen, (open) => {
+  if (open) {
+    activeToast.value = null
+    notifQueue.value = []
+    if (notifToastTimer) window.clearTimeout(notifToastTimer)
+  }
+})
+
+function openNotifFromToast() {
+  activeToast.value = null
+  notifQueue.value = []
+  if (notifToastTimer) window.clearTimeout(notifToastTimer)
+  openNotifModal()
+}
+
+// 🔹 base setter (no broadcast) – use this for updates coming FROM Notifications / events
+function setNotifCount(n: number) {
+  notifCount.value = n
+}
+
+// 🔹 internal setter (with broadcast) – use this when THIS layout decides the value
+function setNotifCountAndBroadcast(n: number) {
+  notifCount.value = n
+  try {
+    window.dispatchEvent(new CustomEvent('notif:count', { detail: n }))
+  } catch {
+    // ignore
+  }
+}
+
 watch(notifCount, (n) => {
   try {
     localStorage.setItem(NOTIF_COUNT_KEY, String(n))
   } catch {}
 })
+
+// from <Notifications @update:count="onNotifCount" />
 const onNotifCount = (n: number) => {
-  if (typeof n === 'number' && n >= 0) notifCount.value = n
+  if (typeof n === 'number' && n >= 0) setNotifCount(n)
 }
+
+// from window.addEventListener('notif:count', onNotifCountEvent)
 const onNotifCountEvent = (e: CustomEvent<number> | Event) => {
   const evt = e as CustomEvent<number>
   const n = Number(evt.detail)
-  if (!Number.isNaN(n) && n >= 0) notifCount.value = n
+  if (!Number.isNaN(n) && n >= 0) setNotifCount(n)
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -482,6 +568,38 @@ function loadSeen() {
 }
 const isSeenId = (id: string) => seenIds.value.has(id)
 
+/** Adjust fields here to match your ewallet.transactions columns */
+type TxRow = {
+  id: string
+  user_id: string
+  amount?: number | null
+  type?: string | null
+  description?: string | null
+  message?: string | null
+  created_at?: string | null
+}
+
+function formatPesoAmount(n: unknown): string | null {
+  const num = Number(n)
+  if (Number.isNaN(num)) return null
+  return `₱${num.toLocaleString('en-PH', { maximumFractionDigits: 2 })}`
+}
+
+/** Build a human readable notif text from transaction row */
+function formatTxAsNotif(tx: TxRow): string {
+  if (tx.description) return tx.description
+  if (tx.message) return tx.message
+
+  const amt = formatPesoAmount(tx.amount)
+  const type = (tx.type || '').toString().trim()
+
+  if (amt && type) return `${type} of ${amt} in your wallet.`
+  if (amt) return `New wallet activity: ${amt}.`
+  if (type) return `New ${type} activity in your wallet.`
+
+  return 'You have new wallet activity.'
+}
+
 async function primeCountFromTransactions() {
   if (!userId.value) return
   try {
@@ -492,9 +610,13 @@ async function primeCountFromTransactions() {
       .eq('user_id', userId.value)
       .order('updated_at', { ascending: false })
       .limit(50)
+
     if (!error && Array.isArray(data)) {
       const unseen = (data as { id: string }[]).filter((r) => !isSeenId(r.id)).length
-      if (unseen > notifCount.value) notifCount.value = unseen
+      if (unseen > notifCount.value) {
+        // 🔄 keep FAB + Notifications header in sync
+        setNotifCountAndBroadcast(unseen)
+      }
     }
   } catch {}
 }
@@ -512,12 +634,17 @@ function bindNotifRealtime() {
         filter: `user_id=eq.${userId.value}`,
       },
       (payload) => {
-        const tx = payload.new as { id: string; user_id: string }
+        const tx = payload.new as TxRow
         if (!isSeenId(tx.id)) {
-          notifCount.value = Math.max(0, (notifCount.value || 0) + 1)
-          try {
-            window.dispatchEvent(new CustomEvent('notif:count', { detail: notifCount.value }))
-          } catch {}
+          const next = Math.max(0, (notifCount.value || 0) + 1)
+          // 🔄 update FAB + broadcast the same count to Notifications.vue
+          setNotifCountAndBroadcast(next)
+
+          // 🆕 Queue popup with real notif info (every new notif)
+          if (!isNotifModalOpen.value) {
+            const text = formatTxAsNotif(tx)
+            enqueueToast(text)
+          }
         }
       },
     )
@@ -552,47 +679,38 @@ const ROUTE_TOUR_VERSION = 'v1'
 
 // Map your route names → copy
 const ROUTE_TOUR_COPY: Record<string, RouteTourCopy> = {
-  // Dashboard
   'user.dashboard': {
     title: 'Dashboard Overview',
     body: 'See your membership tier, wallet balances, and quick shortcuts to everything you use most.',
   },
-  // Membership
   'user.membership': {
     title: 'Membership & Perks',
     body: 'Check your current tier, see how close you are to the next level, and review all the perks you unlock.',
   },
-  // Deals & Rewards
   'user.deals': {
     title: 'Deals & Rewards',
     body: 'Grab active promos, member-only discounts, and limited-time offers before they expire.',
   },
-  // Shop
   'user.shop': {
     title: 'Shop Our Products',
     body: 'Browse products, apply your member perks, and checkout using your preferred payment methods.',
   },
-  // Purchases
   'user.purchases': {
     title: 'Purchase History',
     body: 'Review all your orders, open receipts, and track delivery or support updates in one place.',
   },
-  // 🆕 My Purchases alias
   'user.mypurchases': {
     title: 'Purchase History',
     body: 'Review all your orders, open receipts, and track delivery or support updates in one place.',
   },
-  // Mini Games
   'user.minigames': {
     title: 'Mini Games & Events',
     body: 'Join events, spin the wheel, and earn extra bonuses you can use on your next purchases.',
   },
-  // E-wallet
   'user.ewallet': {
     title: 'E-Wallet & Credits',
     body: 'Check your wallet balance, discount credits, and recent activity so you always know what you can spend.',
   },
-  // Settings
   'user.settings': {
     title: 'Account Settings',
     body: 'Update your profile, manage login details, and control the personal information linked to your account.',
@@ -619,7 +737,6 @@ function maybeShowRouteTour(name: typeof route.name) {
     if (seen === '1') return
     isRouteTourVisible.value = true
   } catch {
-    // if localStorage fails, still show tour (no persistence)
     isRouteTourVisible.value = true
   }
 }
@@ -642,6 +759,7 @@ watch(
     maybeShowRouteTour(name)
   },
 )
+
 /* ──────────────────────────────────────────────────────────────
    🆕 Tier change logic + big hero; landscape layout
    ────────────────────────────────────────────────────────────── */
@@ -709,7 +827,9 @@ function composeBenefits(row: Partial<TierRow> | undefined): string[] {
       Number(row.purchase_requirements_for_free_delivery) > 0
     ) {
       out.push(
-        `Free delivery for orders from ${formatPeso(Number(row.purchase_requirements_for_free_delivery))}`,
+        `Free delivery for orders from ${formatPeso(
+          Number(row.purchase_requirements_for_free_delivery),
+        )}`,
       )
     } else {
       out.push('Free delivery on eligible orders')
@@ -826,7 +946,7 @@ async function checkTierChangeAndShow() {
 
     if (!currentId || alreadyShown) return
 
-    // 🆕 New user: no lastMembership_id → welcome display
+    // New user: no lastMembership_id → welcome display
     if (!lastId) {
       const { data: newTier, error: newErr } = await supabase
         .schema('membership')
@@ -1093,7 +1213,6 @@ function closeTierModal() {
   display: grid;
   place-items: center;
   padding: 12px;
-  /* subtle fade-in on mount */
   animation: backdrop-fade 180ms ease-out both;
 }
 @keyframes backdrop-fade {
@@ -1118,7 +1237,6 @@ function closeTierModal() {
   transform-origin: bottom right;
   will-change: transform, opacity, filter;
 }
-/* ✨ Upgraded modal motion */
 .notif-zoom-enter-active,
 .notif-zoom-leave-active {
   transition:
@@ -1140,6 +1258,61 @@ function closeTierModal() {
   max-height: min(70vh, 540px);
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+/* 🆕 Anchored popup above bell */
+.notif-toast-anchored {
+  position: fixed;
+  right: 16px;
+  bottom: calc(24px + 56px + 12px); /* just above FAB */
+  z-index: 1125;
+}
+
+.notif-toast-card {
+  position: relative;
+  background: #ffffff;
+  border-radius: 0.75rem;
+  padding: 8px 12px;
+  max-width: min(260px, 90vw);
+  font-size: 13px;
+  box-shadow: 0 0.75rem 1.75rem rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+}
+
+.notif-toast-title {
+  font-weight: 600;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.notif-toast-text {
+  color: #495057;
+  word-break: break-word;
+}
+
+/* Arrow pointing down at bell */
+.notif-toast-card::after {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  right: 24px; /* roughly centered over FAB */
+  border-width: 8px 8px 0 8px;
+  border-style: solid;
+  border-color: #ffffff transparent transparent transparent;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.12));
+}
+
+/* Toast transition */
+.notif-toast-enter-from,
+.notif-toast-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+.notif-toast-enter-active,
+.notif-toast-leave-active {
+  transition: all 0.18s ease;
 }
 
 /* 🔰 Quick Tour per nav */
@@ -1181,7 +1354,7 @@ function closeTierModal() {
   }
 }
 
-/* ——————————————————————————————— */
+/* Sidebar tweaks */
 .sidebar-shell :deep(.sidebar.collapsed .nav-link .bi),
 .drawer-panel :deep(.sidebar.collapsed .nav-link .bi) {
   height: var(--sb-icon-h);
@@ -1226,7 +1399,7 @@ function closeTierModal() {
   will-change: transform, opacity, filter;
 }
 
-/* 🆕 LANDSCAPE sizing */
+/* LANDSCAPE sizing */
 .tier-modal-landscape {
   width: 960px;
   max-width: min(96vw, 960px);
@@ -1238,7 +1411,7 @@ function closeTierModal() {
   }
 }
 
-/* 🆕 Landscape grid */
+/* Landscape grid */
 .tier-content-grid {
   display: grid;
   grid-template-columns: 1fr 1.25fr;
@@ -1250,7 +1423,7 @@ function closeTierModal() {
   }
 }
 
-/* 🆕 Big hero (left) */
+/* Big hero (left) */
 .tier-hero-big {
   padding: 18px;
   border-right: 1px solid rgba(0, 0, 0, 0.06);
@@ -1280,7 +1453,6 @@ function closeTierModal() {
   display: grid;
   place-items: center;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  /* subtle pop on open */
   animation: rise-in 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both 80ms;
 }
 .hero-icon-wrap img {
@@ -1319,7 +1491,6 @@ function closeTierModal() {
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.05);
   border: 1px solid rgba(0, 0, 0, 0.06);
-  /* cascade-in effect */
   animation: chip-pop 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .chip:nth-child(1) {
@@ -1352,7 +1523,7 @@ function closeTierModal() {
   font-weight: 700;
 }
 
-/* 🆕 Details (right) */
+/* Details (right) */
 .tier-details {
   background: #fff;
 }
@@ -1374,7 +1545,6 @@ function closeTierModal() {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* stagger diff rows slightly */
   animation: fade-slide-up 360ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 .diff-list li:nth-child(1) {
@@ -1433,7 +1603,7 @@ function closeTierModal() {
   color: #198754;
 }
 
-/* ✨ Upgraded tier modal motion */
+/* Tier modal motion */
 .tier-zoom-enter-active,
 .tier-zoom-leave-active {
   transition:
@@ -1489,7 +1659,9 @@ function closeTierModal() {
   .notif-zoom-enter-active,
   .notif-zoom-leave-active,
   .tier-zoom-enter-active,
-  .tier-zoom-leave-active {
+  .tier-zoom-leave-active,
+  .notif-toast-enter-active,
+  .notif-toast-leave-active {
     transition: none;
   }
   .notif-zoom-enter-from,
@@ -1504,7 +1676,8 @@ function closeTierModal() {
   .diff-list li,
   .notif-backdrop,
   .tier-backdrop,
-  .qt-card {
+  .qt-card,
+  .notif-toast-anchored {
     animation: none !important;
     transform: none !important;
     opacity: 1 !important;
