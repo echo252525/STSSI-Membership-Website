@@ -51,6 +51,7 @@
           class="m-5"
           style="width: 40px">
         </img>
+        <h5 class="fw-bold steqLogoText" v-if="!isRail">STEQ ONLINE</h5>
       </div>
 
       <!-- Nav -->
@@ -448,5 +449,11 @@ onBeforeUnmount(() => {
 .icon-only.btn.btn-outline-danger:hover {
   background: #fff5f5;
   border-color: #f1c2c2;
+}
+
+.steqLogoText {
+  background: linear-gradient(135deg, #20a44c, #20647c);
+  background-clip: text;
+  color: transparent;
 }
 </style>
