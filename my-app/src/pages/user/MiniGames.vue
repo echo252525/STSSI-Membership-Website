@@ -1,6 +1,6 @@
 <template>
   <!-- (UNCHANGED TEMPLATE, includes the avatar row I added earlier) -->
-  <div class="container-fluid game-surface">
+  <div class="container-fluid">
     <div class="card border-0 padding-0 margin-0 shadow-sm rounded-4 game-card">
       <div class="card-body game-card__body">
         <!-- ⭐ NEW BG: decorative, non-interactive animated background -->
@@ -1922,8 +1922,6 @@ async function loadHistory() {
   display: grid;
   place-items: center;
   font-size: 22px;
-  line-height: 1;
-  margin: 0 8px;
   transition:
     background 0.2s ease,
     transform 0.15s ease;

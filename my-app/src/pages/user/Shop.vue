@@ -3,59 +3,57 @@
     <!-- Delivery / shipping setup -->
     <div class="card shadow-sm border-0 mb-3">
       <div
-  class="card-body d-flex flex-wrap align-items-center gap-3 delivery-card"
-  :class="{ 'delivery-collapsed': !showDeliveryMobile }"
->
-  <i class="bi bi-geo-alt fs-4 text-primary"></i>
+        class="card-body d-flex flex-wrap align-items-center gap-3 delivery-card"
+        :class="{ 'delivery-collapsed': !showDeliveryMobile }"
+      >
+        <i class="bi bi-geo-alt fs-4 text-primary p-0"></i>
 
-  <div class="flex-grow-1">
-    <div class="fw-semibold d-flex align-items-center justify-content-between">
-      <div>
-        Delivery details
-        <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
+        <div class="flex-grow-1">
+          <div class="fw-semibold d-flex align-items-center justify-content-between">
+            <div>
+              Delivery details
+              <span v-if="!shippingLoaded" class="text-muted small ms-2">(loading…)</span>
+            </div>
+
+            <!-- Mobile toggle button -->
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 d-md-none ms-2"
+              @click="showDeliveryMobile = !showDeliveryMobile"
+              :aria-expanded="showDeliveryMobile ? 'true' : 'false'"
+              aria-controls="deliveryBody"
+            >
+              <i
+                class="bi delivery-toggle-icon"
+                :class="showDeliveryMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
+              ></i>
+            </button>
+          </div>
+
+          <div id="deliveryBody" class="delivery-body mt-1">
+            <!-- shipping skeleton -->
+            <div v-if="!shippingLoaded">
+              <div class="skeleton skeleton-text w-50 mb-1"></div>
+              <div class="skeleton skeleton-text w-75"></div>
+            </div>
+
+            <div class="text-muted small" v-else-if="shippingLoaded && hasShipping">
+              {{ shippingSummary }}
+            </div>
+            <div class="text-muted small" v-else-if="shippingLoaded">
+              No delivery info yet. Add your contact number and address for faster checkout.
+            </div>
+          </div>
+        </div>
+
+        <router-link
+          class="btn btn-outline-primary delivery-action"
+          :to="{ name: 'user.settings' }"
+        >
+          <i class="bi bi-pencil-square me-1"></i>
+          {{ hasShipping ? 'Manage in Settings' : 'Set up in Settings' }}
+        </router-link>
       </div>
-
-      <!-- Mobile toggle button -->
-     <button
-  type="button"
-  class="btn btn-link btn-sm p-0 d-md-none ms-2"
-  @click="showDeliveryMobile = !showDeliveryMobile"
-  :aria-expanded="showDeliveryMobile ? 'true' : 'false'"
-  aria-controls="deliveryBody"
->
-  <i
-    class="bi delivery-toggle-icon"
-    :class="showDeliveryMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
-  ></i>
-</button>
-
-    </div>
-
-    <div id="deliveryBody" class="delivery-body mt-1">
-      <!-- shipping skeleton -->
-      <div v-if="!shippingLoaded">
-        <div class="skeleton skeleton-text w-50 mb-1"></div>
-        <div class="skeleton skeleton-text w-75"></div>
-      </div>
-
-      <div class="text-muted small" v-else-if="shippingLoaded && hasShipping">
-        {{ shippingSummary }}
-      </div>
-      <div class="text-muted small" v-else-if="shippingLoaded">
-        No delivery info yet. Add your contact number and address for faster checkout.
-      </div>
-    </div>
-  </div>
-
-  <router-link
-    class="btn btn-outline-primary delivery-action"
-    :to="{ name: 'user.settings' }"
-  >
-    <i class="bi bi-pencil-square me-1"></i>
-    {{ hasShipping ? 'Manage in Settings' : 'Set up in Settings' }}
-  </router-link>
-</div>
-
     </div>
     <!-- Shipping modal -->
     <div v-if="showShipping" class="modal-backdrop-custom">
@@ -135,389 +133,393 @@
     </div>
     <!-- Top controls -->
     <div class="card shadow-sm border-0 mb-3">
-  <div class="card-body">
-    <div class="d-flex flex-wrap align-items-center gap-2">
-      <!-- Search (full width on mobile) -->
-      <div class="input-group search-group flex-grow-1" style="max-width: 360px">
-        <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-        <input
-          v-model.trim="search"
-          type="search"
-          class="form-control"
-          placeholder="Search for products"
-          @keyup.enter="applyAndFetch"
-        />
-        <button class="btn btn-outline-secondary" :disabled="loading" @click="applyAndFetch">
-          <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
-          Search
-        </button>
-      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <!-- Search (full width on mobile) -->
+          <div class="input-group search-group flex-grow-1" style="max-width: 360px">
+            <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+            <input
+              v-model.trim="search"
+              type="search"
+              class="form-control"
+              placeholder="Search for products"
+              @keyup.enter="applyAndFetch"
+            />
+            <button class="btn btn-outline-secondary" :disabled="loading" @click="applyAndFetch">
+              <span v-if="loading" class="spinner-border spinner-border-sm me-1"></span>
+              Search
+            </button>
+          </div>
 
-      <!-- ===== DESKTOP CONTROLS (md and up) ===== -->
-      <div class="ms-auto d-none d-md-flex align-items-center gap-2 flex-wrap">
-        <div class="btn-group" role="group" aria-label="Sort group">
-          <button
-            :class="['btn', sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary']"
-            @click="changeSort('relevance')"
-          >
-            Relevance
-          </button>
-          <button
-            :class="['btn', sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary']"
-            @click="changeSort('newest')"
-          >
-            Newest
-          </button>
-          <button
-            :class="['btn', sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary']"
-            @click="changeSort('price_asc')"
-            title="Price: Low to High"
-          >
-            <i class="bi bi-arrow-down-up me-1"></i>Price ↑
-          </button>
-          <button
-            :class="['btn', sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary']"
-            @click="changeSort('price_desc')"
-            title="Price: High to Low"
-          >
-            <i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓
-          </button>
+          <!-- ===== DESKTOP CONTROLS (md and up) ===== -->
+          <div class="ms-auto d-none d-md-flex align-items-center gap-2 flex-wrap">
+            <div class="btn-group" role="group" aria-label="Sort group">
+              <button
+                :class="['btn', sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary']"
+                @click="changeSort('relevance')"
+              >
+                Relevance
+              </button>
+              <button
+                :class="['btn', sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary']"
+                @click="changeSort('newest')"
+              >
+                Newest
+              </button>
+              <button
+                :class="['btn', sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary']"
+                @click="changeSort('price_asc')"
+                title="Price: Low to High"
+              >
+                <i class="bi bi-arrow-down-up me-1"></i>Price ↑
+              </button>
+              <button
+                :class="['btn', sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary']"
+                @click="changeSort('price_desc')"
+                title="Price: High to Low"
+              >
+                <i class="bi bi-arrow-down-up me-1 rotate-180"></i>Price ↓
+              </button>
+            </div>
+
+            <div class="form-check form-switch">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                id="inStockSwitch"
+                v-model="inStockOnly"
+                @change="applyAndFetch"
+              />
+              <label class="form-check-label" for="inStockSwitch">In Stock</label>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <label class="text-muted small mb-0">Per page</label>
+              <select
+                v-model.number="pageSize"
+                class="form-select form-select-sm"
+                style="width: 84px"
+                @change="goToPage(1)"
+              >
+                <option :value="12">12</option>
+                <option :value="24">24</option>
+                <option :value="36">36</option>
+              </select>
+            </div>
+
+            <button
+              ref="cartBtnRef"
+              class="btn btn-outline-dark position-relative"
+              @click="openCartModal"
+            >
+              <i class="bi bi-cart3 me-1"></i>
+              <span class="d-none d-md-inline">View Cart</span>
+              <span
+                v-if="cartTotalItemsRaw > 0"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+              >
+                {{ cartTotalItemsDisplay }}
+              </span>
+            </button>
+          </div>
+
+          <!-- ===== MOBILE CONTROLS (below md) ===== -->
+          <div class="ms-auto d-flex d-md-none align-items-center gap-2">
+            <!-- Filter/sort dropdown toggle (icon only) -->
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              @click="showMobileFilters = !showMobileFilters"
+              :aria-expanded="showMobileFilters ? 'true' : 'false'"
+              aria-controls="mobileFilterPanel"
+            >
+              <i class="bi bi-sliders"></i>
+            </button>
+
+            <!-- Cart icon only on mobile -->
+            <button
+              ref="cartBtnRef"
+              class="btn btn-outline-dark btn-sm position-relative"
+              @click="openCartModal"
+            >
+              <i class="bi bi-cart3"></i>
+              <span
+                v-if="cartTotalItemsRaw > 0"
+                class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
+              >
+                {{ cartTotalItemsDisplay }}
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div class="form-check form-switch">
-          <input
-            class="form-check-input"
-            type="checkbox"
-            id="inStockSwitch"
-            v-model="inStockOnly"
-            @change="applyAndFetch"
-          />
-          <label class="form-check-label" for="inStockSwitch">In Stock</label>
-        </div>
-
-        <div class="d-flex align-items-center gap-2">
-          <label class="text-muted small mb-0">Per page</label>
-          <select
-            v-model.number="pageSize"
-            class="form-select form-select-sm"
-            style="width: 84px"
-            @change="goToPage(1)"
+        <!-- MOBILE DROPDOWN PANEL -->
+        <transition name="fade-slide-y">
+          <div
+            v-if="showMobileFilters"
+            id="mobileFilterPanel"
+            class="mt-3 d-md-none border-top pt-3"
           >
-            <option :value="12">12</option>
-            <option :value="24">24</option>
-            <option :value="36">36</option>
-          </select>
-        </div>
+            <!-- Sort buttons, full width but stacked nicely -->
+            <div class="mb-2">
+              <label class="text-muted small d-block mb-1">Sort by</label>
+              <div class="btn-group w-100" role="group" aria-label="Sort group mobile">
+                <button
+                  class="btn btn-sm"
+                  :class="sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary'"
+                  @click="changeSort('relevance')"
+                >
+                  <i class="bi bi-stars me-1"></i>Rel
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :class="sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary'"
+                  @click="changeSort('newest')"
+                >
+                  <i class="bi bi-clock-history me-1"></i>New
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :class="sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary'"
+                  @click="changeSort('price_asc')"
+                  title="Price: Low to High"
+                >
+                  <i class="bi bi-sort-numeric-down me-1"></i>↑
+                </button>
+                <button
+                  class="btn btn-sm"
+                  :class="sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary'"
+                  @click="changeSort('price_desc')"
+                  title="Price: High to Low"
+                >
+                  <i class="bi bi-sort-numeric-up me-1"></i>↓
+                </button>
+              </div>
+            </div>
 
-        <button
-          ref="cartBtnRef"
-          class="btn btn-outline-dark position-relative"
-          @click="openCartModal"
-        >
-          <i class="bi bi-cart3 me-1"></i>
-          <span class="d-none d-md-inline">View Cart</span>
-          <span
-            v-if="cartTotalItemsRaw > 0"
-            class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
-          >
-            {{ cartTotalItemsDisplay }}
-          </span>
-        </button>
-      </div>
+            <!-- In stock + per page in one row -->
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div class="form-check form-switch mb-0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="inStockSwitchMobile"
+                  v-model="inStockOnly"
+                  @change="applyAndFetch"
+                />
+                <label class="form-check-label small" for="inStockSwitchMobile">
+                  In stock only
+                </label>
+              </div>
 
-      <!-- ===== MOBILE CONTROLS (below md) ===== -->
-      <div class="ms-auto d-flex d-md-none align-items-center gap-2">
-        <!-- Filter/sort dropdown toggle (icon only) -->
-        <button
-          type="button"
-          class="btn btn-outline-secondary btn-sm"
-          @click="showMobileFilters = !showMobileFilters"
-          :aria-expanded="showMobileFilters ? 'true' : 'false'"
-          aria-controls="mobileFilterPanel"
-        >
-          <i class="bi bi-sliders"></i>
-        </button>
-
-        <!-- Cart icon only on mobile -->
-        <button
-          ref="cartBtnRef"
-          class="btn btn-outline-dark btn-sm position-relative"
-          @click="openCartModal"
-        >
-          <i class="bi bi-cart3"></i>
-          <span
-            v-if="cartTotalItemsRaw > 0"
-            class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger"
-          >
-            {{ cartTotalItemsDisplay }}
-          </span>
-        </button>
+              <div class="d-flex align-items-center gap-2">
+                <label class="text-muted small mb-0">Per page</label>
+                <select
+                  v-model.number="pageSize"
+                  class="form-select form-select-sm"
+                  style="width: 84px"
+                  @change="goToPage(1)"
+                >
+                  <option :value="12">12</option>
+                  <option :value="24">24</option>
+                  <option :value="36">36</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </transition>
       </div>
     </div>
-
-    <!-- MOBILE DROPDOWN PANEL -->
-    <transition name="fade-slide-y">
-      <div
-        v-if="showMobileFilters"
-        id="mobileFilterPanel"
-        class="mt-3 d-md-none border-top pt-3"
-      >
-        <!-- Sort buttons, full width but stacked nicely -->
-        <div class="mb-2">
-          <label class="text-muted small d-block mb-1">Sort by</label>
-          <div class="btn-group w-100" role="group" aria-label="Sort group mobile">
-            <button
-              class="btn btn-sm"
-              :class="sortKey === 'relevance' ? 'btn-primary' : 'btn-outline-secondary'"
-              @click="changeSort('relevance')"
-            >
-              <i class="bi bi-stars me-1"></i>Rel
-            </button>
-            <button
-              class="btn btn-sm"
-              :class="sortKey === 'newest' ? 'btn-primary' : 'btn-outline-secondary'"
-              @click="changeSort('newest')"
-            >
-              <i class="bi bi-clock-history me-1"></i>New
-            </button>
-            <button
-              class="btn btn-sm"
-              :class="sortKey === 'price_asc' ? 'btn-primary' : 'btn-outline-secondary'"
-              @click="changeSort('price_asc')"
-              title="Price: Low to High"
-            >
-              <i class="bi bi-sort-numeric-down me-1"></i>↑
-            </button>
-            <button
-              class="btn btn-sm"
-              :class="sortKey === 'price_desc' ? 'btn-primary' : 'btn-outline-secondary'"
-              @click="changeSort('price_desc')"
-              title="Price: High to Low"
-            >
-              <i class="bi bi-sort-numeric-up me-1"></i>↓
-            </button>
-          </div>
-        </div>
-
-        <!-- In stock + per page in one row -->
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
-          <div class="form-check form-switch mb-0">
-            <input
-              class="form-check-input"
-              type="checkbox"
-              id="inStockSwitchMobile"
-              v-model="inStockOnly"
-              @change="applyAndFetch"
-            />
-            <label class="form-check-label small" for="inStockSwitchMobile">
-              In stock only
-            </label>
-          </div>
-
-          <div class="d-flex align-items-center gap-2">
-            <label class="text-muted small mb-0">Per page</label>
-            <select
-              v-model.number="pageSize"
-              class="form-select form-select-sm"
-              style="width: 84px"
-              @change="goToPage(1)"
-            >
-              <option :value="12">12</option>
-              <option :value="24">24</option>
-              <option :value="36">36</option>
-            </select>
-          </div>
-        </div>
-      </div>
-    </transition>
-  </div>
-</div>
 
     <div class="row g-3">
       <!-- Sidebar -->
       <aside
-  class="col-12 col-xxl-3 product-sidebar"
-  :class="{ 'sidebar-collapsed': !showSidebarMobile }"
->
-  <!-- MOBILE TOGGLE HEADER -->
-  <div class="d-flex align-items-center justify-content-between mb-2 d-md-none">
-    <div class="fw-semibold d-flex align-items-center gap-2">
-      <i class="bi bi-funnel fs-5 text-primary"></i>
-      <span class="small">Filters & Pending Orders</span>
-    </div>
-    <button
-      type="button"
-      class="btn btn-link btn-sm p-0"
-      @click="showSidebarMobile = !showSidebarMobile"
-      :aria-expanded="showSidebarMobile ? 'true' : 'false'"
-      aria-controls="sidebarBody"
-    >
-      <i
-        class="bi sidebar-toggle-icon"
-        :class="showSidebarMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
-      ></i>
-    </button>
-  </div>
-
-  <!-- COLLAPSIBLE BODY (mobile) / NORMAL BODY (desktop) -->
-  <div id="sidebarBody" class="sidebar-body">
-    <div class="card shadow-sm border-0">
-      <div class="card-header bg-white"><strong>Filters</strong></div>
-      <div class="card-body">
-        <div class="mb-3">
-          <label class="form-label">Price range</label>
-          <div class="input-group mb-2">
-            <span class="input-group-text">₱</span>
-            <input
-              v-model.number="minPrice"
-              type="number"
-              min="0"
-              class="form-control"
-              placeholder="Min"
-            />
+        class="col-12 col-xxl-3 product-sidebar"
+        :class="{ 'sidebar-collapsed': !showSidebarMobile }"
+      >
+        <!-- MOBILE TOGGLE HEADER -->
+        <div class="d-flex align-items-center justify-content-between mb-2 d-md-none">
+          <div class="fw-semibold d-flex align-items-center gap-2">
+            <i class="bi bi-funnel fs-5 text-primary"></i>
+            <span class="small">Filters & Pending Orders</span>
           </div>
-          <div class="input-group">
-            <span class="input-group-text">₱</span>
-            <input
-              v-model.number="maxPrice"
-              type="number"
-              min="0"
-              class="form-control"
-              placeholder="Max"
-            />
-          </div>
-          <div class="d-grid mt-2">
-            <button class="btn btn-outline-primary btn-sm" @click="applyAndFetch">Apply</button>
-          </div>
-        </div>
-        <div class="small text-muted">
-          Showing only <span class="fw-semibold">published</span> products.
-        </div>
-      </div>
-    </div>
-
-    <!-- Pending Orders List (below Filters) -->
-    <div class="card shadow-sm border-0 mt-3">
-      <div class="card-header bg-white d-flex align-items-center justify-content-between">
-        <strong>Your Pending Orders</strong>
-        <button
-          class="btn btn-sm btn-outline-secondary"
-          @click="loadPendingOrders"
-          title="Refresh"
-        >
-          <i class="bi bi-arrow-clockwise"></i>
-        </button>
-      </div>
-      <div class="card-body p-0">
-        <!-- ADDED: pending list skeleton -->
-        <div v-if="pendingLoading" class="p-3">
-          <div v-for="i in 3" :key="'pend-skel-'+i" class="mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <div class="d-flex align-items-center gap-2">
-                <div class="pending-thumb skeleton"></div>
-                <div>
-                  <div class="skeleton skeleton-text w-50 mb-1"></div>
-                  <div class="skeleton skeleton-text w-25"></div>
-                </div>
-              </div>
-              <div class="skeleton skeleton-pill"></div>
-            </div>
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="skeleton skeleton-text w-25"></div>
-              <div class="skeleton skeleton-btn"></div>
-            </div>
-          </div>
-        </div>
-
-        <div v-else-if="pendingGroups.length === 0" class="p-3 text-muted small">
-          No pending orders yet.
-        </div>
-        <ul v-else class="list-group list-group-flush">
-          <li
-            v-for="g in pendingGroups"
-            :key="g.ref"
-            class="list-group-item d-flex flex-column gap-2"
+          <button
+            type="button"
+            class="btn btn-link btn-sm p-0"
+            @click="showSidebarMobile = !showSidebarMobile"
+            :aria-expanded="showSidebarMobile ? 'true' : 'false'"
+            aria-controls="sidebarBody"
           >
-            <!-- header row: tiny pic + name + ref + items badge -->
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="d-flex align-items-center gap-2">
-                <div class="pending-thumb">
-                  <img
-                    v-if="g.sampleImageUrl"
-                    :src="g.sampleImageUrl"
-                    alt=""
-                    class="w-100 h-100 object-fit-cover rounded"
-                  />
-                  <div
-                    v-else
-                    class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
-                  >
-                    <i class="bi bi-image"></i>
-                  </div>
-                </div>
-                <div class="d-flex flex-column">
-                  <div class="pending-sample-name" :title="g.sampleName || '—'">
-                    {{ g.sampleName || '—' }}
-                  </div>
-                  <div class="small text-muted">
-                    Ref: <span class="text-monospace">{{ g.ref }}</span>
-                  </div>
-                </div>
-              </div>
-              <span class="badge rounded-pill text-bg-secondary">
-                {{ g.itemsCount }} item{{ g.itemsCount > 1 ? 's' : '' }}
-              </span>
-            </div>
-            <!-- admin shipping & button -->
-            <div class="d-flex align-items-center justify-content-between">
-              <div class="small">
-                Admin shipping fee:
-                <strong v-if="g.hasFreeShipping">Free Shipping</strong>
-                <strong v-else-if="g.highestShippingFee > 0">
-                  ₱ {{ number(g.highestShippingFee) }}
-                </strong>
-                <span v-else class="text-warning">awaiting…</span>
-              </div>
+            <i
+              class="bi sidebar-toggle-icon"
+              :class="showSidebarMobile ? 'bi-chevron-up' : 'bi-chevron-down'"
+            ></i>
+          </button>
+        </div>
 
+        <!-- COLLAPSIBLE BODY (mobile) / NORMAL BODY (desktop) -->
+        <div id="sidebarBody" class="sidebar-body">
+          <div class="card shadow-sm border-0">
+            <div class="card-header bg-white"><strong>Filters</strong></div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label class="form-label">Price range</label>
+                <div class="input-group mb-2">
+                  <span class="input-group-text">₱</span>
+                  <input
+                    v-model.number="minPrice"
+                    type="number"
+                    min="0"
+                    class="form-control"
+                    placeholder="Min"
+                  />
+                </div>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input
+                    v-model.number="maxPrice"
+                    type="number"
+                    min="0"
+                    class="form-control"
+                    placeholder="Max"
+                  />
+                </div>
+                <div class="d-grid mt-2">
+                  <button class="btn btn-outline-primary btn-sm" @click="applyAndFetch">
+                    Apply
+                  </button>
+                </div>
+              </div>
+              <div class="small text-muted">
+                Showing only <span class="fw-semibold">published</span> products.
+              </div>
+            </div>
+          </div>
+
+          <!-- Pending Orders List (below Filters) -->
+          <div class="card shadow-sm border-0 mt-3">
+            <div class="card-header bg-white d-flex align-items-center justify-content-between">
+              <strong>Your Pending Orders</strong>
               <button
-                class="btn btn-sm btn-primary"
-                :disabled="placingOrder || g.itemsCount === 0"
-                @click="openPlacePending(g.ref)"
-                title="Review & Place"
+                class="btn btn-sm btn-outline-secondary"
+                @click="loadPendingOrders"
+                title="Refresh"
               >
-                Review & Place
+                <i class="bi bi-arrow-clockwise"></i>
               </button>
             </div>
-            <div class="fw-semibold">
-              ₱
-              {{
-                number(
-                  g.displayTotal ??
-                    g.itemsTotal + (g.highestShippingFee > 0 ? g.highestShippingFee : 0),
-                )
-              }}
-              <span v-if="g.highestShippingFee === 0" class="text-muted small">
-                (+ shipping)
-              </span>
+            <div class="card-body p-0">
+              <!-- ADDED: pending list skeleton -->
+              <div v-if="pendingLoading" class="p-3">
+                <div v-for="i in 3" :key="'pend-skel-' + i" class="mb-3">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="pending-thumb skeleton"></div>
+                      <div>
+                        <div class="skeleton skeleton-text w-50 mb-1"></div>
+                        <div class="skeleton skeleton-text w-25"></div>
+                      </div>
+                    </div>
+                    <div class="skeleton skeleton-pill"></div>
+                  </div>
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div class="skeleton skeleton-text w-25"></div>
+                    <div class="skeleton skeleton-btn"></div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-else-if="pendingGroups.length === 0" class="p-3 text-muted small">
+                No pending orders yet.
+              </div>
+              <ul v-else class="list-group list-group-flush">
+                <li
+                  v-for="g in pendingGroups"
+                  :key="g.ref"
+                  class="list-group-item d-flex flex-column gap-2"
+                >
+                  <!-- header row: tiny pic + name + ref + items badge -->
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                      <div class="pending-thumb">
+                        <img
+                          v-if="g.sampleImageUrl"
+                          :src="g.sampleImageUrl"
+                          alt=""
+                          class="w-100 h-100 object-fit-cover rounded"
+                        />
+                        <div
+                          v-else
+                          class="w-100 h-100 d-flex align-items-center justify-content-center text-muted"
+                        >
+                          <i class="bi bi-image"></i>
+                        </div>
+                      </div>
+                      <div class="d-flex flex-column">
+                        <div class="pending-sample-name" :title="g.sampleName || '—'">
+                          {{ g.sampleName || '—' }}
+                        </div>
+                        <div class="small text-muted">
+                          Ref: <span class="text-monospace">{{ g.ref }}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <span class="badge rounded-pill text-bg-secondary">
+                      {{ g.itemsCount }} item{{ g.itemsCount > 1 ? 's' : '' }}
+                    </span>
+                  </div>
+                  <!-- admin shipping & button -->
+                  <div class="d-flex align-items-center justify-content-between">
+                    <div class="small">
+                      Admin shipping fee:
+                      <strong v-if="g.hasFreeShipping">Free Shipping</strong>
+                      <strong v-else-if="g.highestShippingFee > 0">
+                        ₱ {{ number(g.highestShippingFee) }}
+                      </strong>
+                      <span v-else class="text-warning">awaiting…</span>
+                    </div>
+
+                    <button
+                      class="btn btn-sm btn-primary"
+                      :disabled="placingOrder || g.itemsCount === 0"
+                      @click="openPlacePending(g.ref)"
+                      title="Review & Place"
+                    >
+                      Review & Place
+                    </button>
+                  </div>
+                  <div class="fw-semibold">
+                    ₱
+                    {{
+                      number(
+                        g.displayTotal ??
+                          g.itemsTotal + (g.highestShippingFee > 0 ? g.highestShippingFee : 0),
+                      )
+                    }}
+                    <span v-if="g.highestShippingFee === 0" class="text-muted small">
+                      (+ shipping)
+                    </span>
+                  </div>
+                </li>
+              </ul>
             </div>
-          </li>
-        </ul>
-      </div>
-    </div>
-    <!-- /Pending Orders List -->
-  </div>
-</aside>
+          </div>
+          <!-- /Pending Orders List -->
+        </div>
+      </aside>
 
       <!-- Products -->
       <section class="col-12 col-xxl-9" :class="{ 'is-loading': loading }">
-
         <div v-if="loading" class="text-center text-muted py-5">
           <span class="spinner-border me-2"></span> Loading products…
 
           <!-- ADDED: product card skeletons -->
           <div class="row g-3 mt-3 text-start">
-
-            <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="n in Math.min(pageSize, 12)" :key="'prod-skel-'+n">
+            <div
+              class="col-12 col-lg-6 col-xxl-4 products-div"
+              v-for="n in Math.min(pageSize, 12)"
+              :key="'prod-skel-' + n"
+            >
               <div class="card h-100 product-card border-0 shadow-sm">
                 <div class="ratio product-thumb bg-light">
                   <div class="skeleton skeleton-fill rounded-top"></div>
@@ -548,7 +550,7 @@
             </div>
           </div>
           <!-- 2 / 3 / 4 cards per row -->
-          <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id" >
+          <div class="col-12 col-lg-6 col-xxl-4 products-div" v-for="p in products" :key="p.id">
             <div
               class="card h-100 product-card border-0 shadow-sm product-card--clickable"
               @click="openProductModal(p)"
@@ -706,14 +708,18 @@
         <div class="card-body">
           <!-- ADDED: cart skeleton -->
           <div v-if="cartLoading" class="vstack gap-3">
-            <div v-for="i in 3" :key="'cart-skel-'+i" class="d-flex align-items-center gap-3 border rounded-3 p-2">
+            <div
+              v-for="i in 3"
+              :key="'cart-skel-' + i"
+              class="d-flex align-items-center gap-3 border rounded-3 p-2"
+            >
               <div class="cart-thumb ratio ratio-1x1 bg-light">
                 <div class="skeleton w-100 h-100 rounded"></div>
               </div>
               <div class="flex-grow-1">
                 <div class="skeleton skeleton-text w-75 mb-2"></div>
                 <div class="skeleton skeleton-text w-25 mb-3"></div>
-                <div class="skeleton skeleton-input mb-2" style="max-width: 140px;"></div>
+                <div class="skeleton skeleton-input mb-2" style="max-width: 140px"></div>
                 <div class="skeleton skeleton-text w-50"></div>
               </div>
             </div>
@@ -752,7 +758,8 @@
                   <template v-if="hasMemberDiscount && isItemDiscounted(it.product.id)">
                     <strong class="me-2 text-danger">₱{{ number(it.unit) }}</strong>
                     <span class="text-muted text-decoration-line-through"
-                      >₱{{ number(it.originalUnit) }}</span>
+                      >₱{{ number(it.originalUnit) }}</span
+                    >
                     <span class="badge ms-1 text-bg-warning small">-{{ discountLabel }}</span>
                   </template>
                   <template v-else>₱{{ number(it.unit) }}</template>
@@ -795,7 +802,7 @@
                 </div>
               </div>
             </div>
-            
+
             <div class="d-flex align-items-center justify-content-between fs-5">
               <div class="fw-semibold">Merchandise Subtotal</div>
               <div class="fw-bold text-success">₱{{ number(cartGrandTotal) }}</div>
@@ -1039,140 +1046,162 @@
                   </div>
                 </div>
                 <!-- ===== Discount Ticket Picker (ADD) ===== -->
-<div class="discount-picker position-relative mb-3">
-  <!-- Trigger -->
-  <button
-    type="button"
-    class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between gap-2"
-    @click="openDiscountMenu"
-    :disabled="discountsLoading"
-  >
-    <div class="d-flex align-items-center gap-2">
-      <i class="bi bi-ticket-perforated"></i>
-      <div class="text-start">
-        <div class="fw-semibold">
-          {{ chosenTicket?.title || 'Pick an active discount' }}
-        </div>
-        <div class="small text-muted" v-if="chosenTicket">
-          <span class="me-2">{{ chosenTicket.valueText }}</span>
-          <span class="badge bg-light text-dark border">{{ chosenTicket.scopeText }}</span>
-          <template v-if="chosenTicket.minSubtotal && chosenTicket.minSubtotal > 0">
-            <span class="ms-2 small">Min ₱ {{ number(chosenTicket.minSubtotal) }}</span>
-          </template>
-          <template v-if="chosenTicket.maxCap != null">
-            <span class="ms-2 small">Cap ₱ {{ number(chosenTicket.maxCap) }}</span>
-          </template>
-        </div>
-        <div class="small text-muted" v-else>
-          {{ discountsLoading ? 'Loading discounts…' : 'Tap to see available vouchers' }}
-        </div>
-      </div>
-    </div>
-    <i class="bi" :class="showDiscountMenu ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
-  </button>
+                <div class="discount-picker position-relative mb-3">
+                  <!-- Trigger -->
+                  <button
+                    type="button"
+                    class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between gap-2"
+                    @click="openDiscountMenu"
+                    :disabled="discountsLoading"
+                  >
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-ticket-perforated"></i>
+                      <div class="text-start">
+                        <div class="fw-semibold">
+                          {{ chosenTicket?.title || 'Pick an active discount' }}
+                        </div>
+                        <div class="small text-muted" v-if="chosenTicket">
+                          <span class="me-2">{{ chosenTicket.valueText }}</span>
+                          <span class="badge bg-light text-dark border">{{
+                            chosenTicket.scopeText
+                          }}</span>
+                          <template v-if="chosenTicket.minSubtotal && chosenTicket.minSubtotal > 0">
+                            <span class="ms-2 small"
+                              >Min ₱ {{ number(chosenTicket.minSubtotal) }}</span
+                            >
+                          </template>
+                          <template v-if="chosenTicket.maxCap != null">
+                            <span class="ms-2 small">Cap ₱ {{ number(chosenTicket.maxCap) }}</span>
+                          </template>
+                        </div>
+                        <div class="small text-muted" v-else>
+                          {{
+                            discountsLoading
+                              ? 'Loading discounts…'
+                              : 'Tap to see available vouchers'
+                          }}
+                        </div>
+                      </div>
+                    </div>
+                    <i
+                      class="bi"
+                      :class="showDiscountMenu ? 'bi-chevron-up' : 'bi-chevron-down'"
+                    ></i>
+                  </button>
 
-  <!-- Dropdown -->
-  <div
-    v-if="showDiscountMenu"
-    class="ticket-menu card shadow-lg border-0 mt-2"
-    style="position:absolute; inset-inline:0; z-index:1100;"
-  >
-    <div class="card-body p-2">
-      <div v-if="discountsLoading" class="p-3 text-center text-muted small">
-        Loading…
-      </div>
+                  <!-- Dropdown -->
+                  <div
+                    v-if="showDiscountMenu"
+                    class="ticket-menu card shadow-lg border-0 mt-2"
+                    style="position: absolute; inset-inline: 0; z-index: 1100"
+                  >
+                    <div class="card-body p-2">
+                      <div v-if="discountsLoading" class="p-3 text-center text-muted small">
+                        Loading…
+                      </div>
 
-      <template v-else>
-        <div
-          v-if="pickableDiscounts.length === 0"
-          class="p-3 text-center text-muted small"
-        >
-          No active discounts applicable to your items.
-        </div>
+                      <template v-else>
+                        <div
+                          v-if="pickableDiscounts.length === 0"
+                          class="p-3 text-center text-muted small"
+                        >
+                          No active discounts applicable to your items.
+                        </div>
 
-        <ul class="list-unstyled m-0 d-flex flex-column gap-2">
-          <li
-            v-for="d in pickableDiscounts"
-            :key="d.id"
-            class="ticket d-flex align-items-stretch"
-          >
-            <button
-              type="button"
-              class="ticket-btn w-100"
-              @click="chooseDiscount(d.id)"
-            >
-              <!-- Left: product avatar when product-scoped -->
-              <div class="ticket-left" v-if="d.productId">
-                <div class="ticket-avatar">
-                  <img v-if="d.productThumb" :src="d.productThumb" alt="" />
-                  <div v-else class="ticket-avatar-fallback">
-                    <i class="bi bi-box"></i>
+                        <ul class="list-unstyled m-0 d-flex flex-column gap-2">
+                          <li
+                            v-for="d in pickableDiscounts"
+                            :key="d.id"
+                            class="ticket d-flex align-items-stretch"
+                          >
+                            <button
+                              type="button"
+                              class="ticket-btn w-100"
+                              @click="chooseDiscount(d.id)"
+                            >
+                              <!-- Left: product avatar when product-scoped -->
+                              <div class="ticket-left" v-if="d.productId">
+                                <div class="ticket-avatar">
+                                  <img v-if="d.productThumb" :src="d.productThumb" alt="" />
+                                  <div v-else class="ticket-avatar-fallback">
+                                    <i class="bi bi-box"></i>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <!-- Main -->
+                              <div class="ticket-main">
+                                <div
+                                  class="d-flex align-items-center justify-content-between gap-2"
+                                >
+                                  <div class="ticket-title fw-semibold">
+                                    {{ d.title }}
+                                  </div>
+                                  <div class="ticket-value">
+                                    {{ d.valueText }}
+                                  </div>
+                                </div>
+
+                                <div class="ticket-sub small text-muted">
+                                  <span class="badge bg-light text-dark border me-2">{{
+                                    d.scopeText
+                                  }}</span>
+                                  <template v-if="d.productId && d.productName">
+                                    <span class="text-truncate"
+                                      >for <strong>{{ d.productName }}</strong></span
+                                    >
+                                  </template>
+                                </div>
+
+                                <div class="ticket-foot small text-muted">
+                                  <template v-if="d.minSubtotal && d.minSubtotal > 0">
+                                    Min: ₱ {{ number(d.minSubtotal) }}
+                                  </template>
+                                  <template v-if="d.maxCap != null">
+                                    <span class="ms-2">Cap: ₱ {{ number(d.maxCap) }}</span>
+                                  </template>
+                                </div>
+
+                                <div class="ticket-blurb small mt-1" v-if="d.blurb">
+                                  {{ d.blurb }}
+                                </div>
+                              </div>
+
+                              <!-- Perforation & stub -->
+                              <div
+                                class="ticket-stub d-none d-sm-flex flex-column align-items-center justify-content-center"
+                              >
+                                <i
+                                  class="bi"
+                                  :class="
+                                    selectedDiscountId === d.id
+                                      ? 'bi-check2-circle'
+                                      : 'bi-plus-circle'
+                                  "
+                                ></i>
+                                <div class="small mt-1">
+                                  {{ selectedDiscountId === d.id ? 'Selected' : 'Use' }}
+                                </div>
+                              </div>
+                            </button>
+                          </li>
+
+                          <!-- Clear selection -->
+                          <li>
+                            <button
+                              type="button"
+                              class="btn btn-sm btn-outline-secondary w-100"
+                              @click="chooseDiscount(null)"
+                            >
+                              Clear selection
+                            </button>
+                          </li>
+                        </ul>
+                      </template>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              <!-- Main -->
-              <div class="ticket-main">
-                <div class="d-flex align-items-center justify-content-between gap-2">
-                  <div class="ticket-title fw-semibold">
-                    {{ d.title }}
-                  </div>
-                  <div class="ticket-value">
-                    {{ d.valueText }}
-                  </div>
-                </div>
-
-                <div class="ticket-sub small text-muted">
-                  <span class="badge bg-light text-dark border me-2">{{ d.scopeText }}</span>
-                  <template v-if="d.productId && d.productName">
-                    <span class="text-truncate">for <strong>{{ d.productName }}</strong></span>
-                  </template>
-                </div>
-
-                <div class="ticket-foot small text-muted">
-                  <template v-if="d.minSubtotal && d.minSubtotal > 0">
-                    Min: ₱ {{ number(d.minSubtotal) }}
-                  </template>
-                  <template v-if="d.maxCap != null">
-                    <span class="ms-2">Cap: ₱ {{ number(d.maxCap) }}</span>
-                  </template>
-                </div>
-
-                <div class="ticket-blurb small mt-1" v-if="d.blurb">
-                  {{ d.blurb }}
-                </div>
-              </div>
-
-              <!-- Perforation & stub -->
-              <div class="ticket-stub d-none d-sm-flex flex-column align-items-center justify-content-center">
-                <i
-                  class="bi"
-                  :class="selectedDiscountId === d.id ? 'bi-check2-circle' : 'bi-plus-circle'"
-                ></i>
-                <div class="small mt-1">
-                  {{ selectedDiscountId === d.id ? 'Selected' : 'Use' }}
-                </div>
-              </div>
-            </button>
-          </li>
-
-          <!-- Clear selection -->
-          <li>
-            <button
-              type="button"
-              class="btn btn-sm btn-outline-secondary w-100"
-              @click="chooseDiscount(null)"
-            >
-              Clear selection
-            </button>
-          </li>
-        </ul>
-      </template>
-    </div>
-  </div>
-</div>
-<!-- ===== End Ticket Picker ===== -->
-
+                <!-- ===== End Ticket Picker ===== -->
               </div>
               <div class="mt-3 small">
                 <div class="d-flex align-items-center justify-content-between">
@@ -1215,12 +1244,11 @@
           <button class="btn btn-sm btn-outline-secondary" @click="closePlacePending">✕</button>
         </div>
         <div class="card-body vstack gap-3">
-
           <!-- ADDED: place-pending skeleton -->
           <template v-if="pendingPlaceLoading">
             <div class="border rounded-3 p-3">
               <div class="skeleton skeleton-text w-25 mb-2"></div>
-              <div class="skeleton skeleton-pill" style="width: 80px;"></div>
+              <div class="skeleton skeleton-pill" style="width: 80px"></div>
             </div>
             <div class="border rounded-3 p-3">
               <div class="skeleton skeleton-text w-50 mb-2"></div>
@@ -1232,7 +1260,11 @@
             </div>
             <div class="border rounded-3 p-3">
               <div class="skeleton skeleton-text w-25 mb-3"></div>
-              <div v-for="i in 3" :key="'pp-skel-'+i" class="d-flex align-items-center gap-3 mb-2">
+              <div
+                v-for="i in 3"
+                :key="'pp-skel-' + i"
+                class="d-flex align-items-center gap-3 mb-2"
+              >
                 <div class="pending-item-thumb skeleton"></div>
                 <div class="flex-grow-1">
                   <div class="skeleton skeleton-text w-75 mb-1"></div>
@@ -1456,7 +1488,6 @@
         </div>
         <div class="card-body">
           <div class="row g-4">
-
             <!-- ADDED: product-modal skeleton -->
             <template v-if="productModalLoading">
               <div class="col-12 col-lg-6">
@@ -1469,8 +1500,8 @@
                 <div class="skeleton skeleton-text w-25 mb-3"></div>
                 <div class="skeleton skeleton-text w-100 mb-2"></div>
                 <div class="skeleton skeleton-text w-100 mb-2"></div>
-                <div class="skeleton skeleton-input mb-2" style="max-width: 240px;"></div>
-                <div class="skeleton skeleton-btn" style="width: 160px;"></div>
+                <div class="skeleton skeleton-input mb-2" style="max-width: 240px"></div>
+                <div class="skeleton skeleton-btn" style="width: 160px"></div>
               </div>
             </template>
 
@@ -1619,7 +1650,6 @@
                     Add to cart
                   </button>
                 </div>
-               
               </div>
             </template>
           </div>
@@ -1630,17 +1660,8 @@
   </div>
 </template>
 
-
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  watch,
-  reactive,
-  onMounted,
-  onUnmounted,
-  nextTick,
-} from 'vue'
+import { ref, computed, watch, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter, useRoute } from 'vue-router' // ⬅️ ADDED useRoute
 import { currentUser } from '@/lib/authState'
@@ -1661,7 +1682,12 @@ async function swSuccess(message: string, title = 'Success') {
 async function swWarn(message: string, title = 'Please check') {
   await Swal.fire({ icon: 'warning', title, text: message })
 }
-async function swConfirm(message: string, title = 'Are you sure?', confirmText = 'Yes', cancelText = 'Cancel') {
+async function swConfirm(
+  message: string,
+  title = 'Are you sure?',
+  confirmText = 'Yes',
+  cancelText = 'Cancel',
+) {
   const res = await Swal.fire({
     icon: 'question',
     title,
@@ -1730,7 +1756,7 @@ type PickableTicket = {
 const pickableDiscounts = computed<PickableTicket[]>(() => {
   return (discounts.value || []).map((d) => {
     const pid = d.product_id || null
-    const productName = pid ? (productByIdFromCart.value[pid]?.name || '') : ''
+    const productName = pid ? productByIdFromCart.value[pid]?.name || '' : ''
     const productThumb = pid ? thumbForProductId(pid) : ''
     const scopeText = pid ? 'Product Only' : 'All Products'
     const valueText = discountValueText(d)
@@ -1763,7 +1789,7 @@ const chosenTicket = computed<PickableTicket | null>(() => {
       minSubtotal: Number(d.min_subtotal ?? 0) || 0,
       maxCap: d.max_discount_amount == null ? null : Number(d.max_discount_amount),
       productId: pid,
-      productName: pid ? (productByIdFromCart.value[pid]?.name || '') : '',
+      productName: pid ? productByIdFromCart.value[pid]?.name || '' : '',
       productThumb: pid ? thumbForProductId(pid) : '',
     }
   }
@@ -2031,11 +2057,11 @@ function isNew(created_at: string) {
   const days = (now - created) / (1000 * 60 * 60 * 24)
   return days <= 7
 }
-const pendingLoading = ref(false)        // for "Your Pending Orders"
-const cartLoading = ref(false)            // for Cart modal items
-const discountsLoading = ref(false)       // for discount picker in Request Order modal
-const pendingPlaceLoading = ref(false)    // (optional) while building Place Pending view
-const productModalLoading = ref(false)  
+const pendingLoading = ref(false) // for "Your Pending Orders"
+const cartLoading = ref(false) // for Cart modal items
+const discountsLoading = ref(false) // for discount picker in Request Order modal
+const pendingPlaceLoading = ref(false) // (optional) while building Place Pending view
+const productModalLoading = ref(false)
 /* ========================================================================
    AUTH HELPERS
    ======================================================================== */
@@ -2280,44 +2306,42 @@ const resolvedDiscountByCode = ref<Discount | null>(null)
 async function loadActiveDiscounts() {
   discountsLoading.value = true
   try {
-  const nowIso = new Date().toISOString()
-  const { data, error } = await supabase
-    .schema('rewards')
-    .from('discounts')
-    .select(
-      'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user,product_id,max_discount_amount',
-    )
-    .eq('is_public', true)
-    .eq('status', 'active')
-    .lte('starts_at', nowIso)
-    .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
-    .order('starts_at', { ascending: false })
+    const nowIso = new Date().toISOString()
+    const { data, error } = await supabase
+      .schema('rewards')
+      .from('discounts')
+      .select(
+        'id,title,description,code,type,percent_off,amount_off,starts_at,expires_at,status,is_public,min_subtotal,max_uses_per_user,product_id,max_discount_amount',
+      )
+      .eq('is_public', true)
+      .eq('status', 'active')
+      .lte('starts_at', nowIso)
+      .or(`expires_at.is.null,expires_at.gt.${nowIso}`)
+      .order('starts_at', { ascending: false })
 
-  if (error) {
-    console.warn('loadActiveDiscounts error:', error)
-    discounts.value = []
-    return
-  }
+    if (error) {
+      console.warn('loadActiveDiscounts error:', error)
+      discounts.value = []
+      return
+    }
 
     const cartProductIds = new Set(cartItems.value.map((it) => it.product.id))
     // UPDATED: when in pending context, filter using pending purchase product IDs
-  const productIdsForScope = new Set<string>(
-    (showPendingPlace.value || inPendingContext.value || pendingPurchases.value.length > 0)
-      ? pendingPurchases.value.map(p => p.product_id)
-      : cartItems.value.map(it => it.product.id)
-  )
+    const productIdsForScope = new Set<string>(
+      showPendingPlace.value || inPendingContext.value || pendingPurchases.value.length > 0
+        ? pendingPurchases.value.map((p) => p.product_id)
+        : cartItems.value.map((it) => it.product.id),
+    )
 
-  const filtered = (data || []).filter((d: any) => {
-    if (!d.product_id) return true
-    return productIdsForScope.has(d.product_id)
-  })
+    const filtered = (data || []).filter((d: any) => {
+      if (!d.product_id) return true
+      return productIdsForScope.has(d.product_id)
+    })
 
-  discounts.value = filtered as Discount[]
+    discounts.value = filtered as Discount[]
 
-
-  discounts.value = filtered as Discount[]
-
-   } finally {
+    discounts.value = filtered as Discount[]
+  } finally {
     discountsLoading.value = false
   }
 }
@@ -2332,12 +2356,14 @@ const pickedDiscount = computed<Discount | null>(() => {
 
 /* === UI helpers for product-scoped discounts (ADDED) === */
 // UPDATED: fall back to pendingDiscountProductId when pickedDiscount is not in the list
-const scopedDiscountProductId = computed(() => pickedDiscount.value?.product_id ?? pendingDiscountProductId.value ?? null)
+const scopedDiscountProductId = computed(
+  () => pickedDiscount.value?.product_id ?? pendingDiscountProductId.value ?? null,
+)
 
 const scopedDiscountProductName = computed(() => {
   const pid = scopedDiscountProductId.value
   if (!pid) return ''
-  const hit = cartItems.value.find(i => i.product.id === pid)
+  const hit = cartItems.value.find((i) => i.product.id === pid)
   return hit?.product.name ?? ''
 })
 
@@ -2406,7 +2432,7 @@ async function applyCode() {
         }
       }
       resolvedDiscountByCode.value = disc
-            // NEW: remember the target product for pending flows too
+      // NEW: remember the target product for pending flows too
       pendingDiscountProductId.value = disc.product_id ?? null
 
       selectedDiscountId.value = ''
@@ -2560,8 +2586,7 @@ async function refreshDiscountEligibilityForRequest() {
     return
   }
   const usedId =
-    (resolvedDiscountByCode.value?.id?.trim() || '') ||
-    (selectedDiscountId.value?.trim() || '')
+    resolvedDiscountByCode.value?.id?.trim() || '' || selectedDiscountId.value?.trim() || ''
   if (!usedId) {
     // No discount chosen → do not block
     discountEligibilityState.value = 'ok'
@@ -2579,7 +2604,10 @@ async function refreshDiscountEligibilityForRequest() {
   if (!ok) {
     discountEligibilityState.value = 'exceeded'
     discountEligibilityMessage.value =
-      message || (max != null ? `You’ve already used this discount the maximum of ${max} time(s).` : 'This discount cannot be used.')
+      message ||
+      (max != null
+        ? `You’ve already used this discount the maximum of ${max} time(s).`
+        : 'This discount cannot be used.')
   } else {
     discountEligibilityState.value = 'ok'
     discountEligibilityMessage.value = ''
@@ -2597,7 +2625,8 @@ const enoughBalanceForOrder = computed(
 
 // 🔁 UPDATED: also disable when discount has reached per-user max uses
 const disableRequestOrder = computed(() => {
-  const walletBlock = placingOrder.value || (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value)
+  const walletBlock =
+    placingOrder.value || (paymentMethod.value === 'ewallet' && !enoughBalanceForItems.value)
   const discountBlock =
     discountMode.value === 'discount' && discountEligibilityState.value === 'exceeded'
   return walletBlock || discountBlock
@@ -2662,78 +2691,78 @@ async function assertPerUserEligible(
 async function loadCartDetails() {
   cartLoading.value = true
   try {
-  const uid = await ensureUser()
-  cartItems.value = []
-  if (!uid) return
-  const { data: rows, error: cartErr } = await supabase
-    .schema('games')
-    .from('cart')
-    .select('product_id, qty')
-    .eq('user_id', uid)
-  if (cartErr || !rows) return
-  const ids = (rows as Array<{ product_id: string; qty: number }>).map((r) => r.product_id)
-  if (ids.length === 0) return
-  const { data: prodRows, error: prodErr } = await supabase
-    .schema('games')
-    .from('products')
-    .select(
-      'id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty',
-    )
-    .in('id', ids)
-  if (prodErr || !prodRows) return
-  const map = new Map<string, Product>()
-  for (const p of prodRows as Product[]) map.set(p.id, p)
-  const list: Array<{
-    product: Product
-    qty: number
-    imageUrl: string | null
-    lineTotal: number
-    unit: number
-    originalUnit: number
-  }> = []
-  let remainingCredits =
-    discountMode.value === 'credits' && hasMemberDiscount.value
-      ? Number(userDiscountCredits.value || 0)
-      : 0
-  for (const row of rows as Array<{ product_id: string; qty: number }>) {
-    const p = map.get(row.product_id)
-    if (!p) continue
-    let img = imageUrl(p) || null
-    if (!img) {
-      const raw = firstUrl(p.product_url)
-      if (raw && isStoragePath(raw)) {
-        const { data } = await supabase.storage.from('prize_product').createSignedUrl(raw, 3600)
-        img = data?.signedUrl ?? null
-      } else {
-        img = raw || null
+    const uid = await ensureUser()
+    cartItems.value = []
+    if (!uid) return
+    const { data: rows, error: cartErr } = await supabase
+      .schema('games')
+      .from('cart')
+      .select('product_id, qty')
+      .eq('user_id', uid)
+    if (cartErr || !rows) return
+    const ids = (rows as Array<{ product_id: string; qty: number }>).map((r) => r.product_id)
+    if (ids.length === 0) return
+    const { data: prodRows, error: prodErr } = await supabase
+      .schema('games')
+      .from('products')
+      .select(
+        'id,name,description,price,product_url,ispublish,stock,created_at,specifications,warranty',
+      )
+      .in('id', ids)
+    if (prodErr || !prodRows) return
+    const map = new Map<string, Product>()
+    for (const p of prodRows as Product[]) map.set(p.id, p)
+    const list: Array<{
+      product: Product
+      qty: number
+      imageUrl: string | null
+      lineTotal: number
+      unit: number
+      originalUnit: number
+    }> = []
+    let remainingCredits =
+      discountMode.value === 'credits' && hasMemberDiscount.value
+        ? Number(userDiscountCredits.value || 0)
+        : 0
+    for (const row of rows as Array<{ product_id: string; qty: number }>) {
+      const p = map.get(row.product_id)
+      if (!p) continue
+      let img = imageUrl(p) || null
+      if (!img) {
+        const raw = firstUrl(p.product_url)
+        if (raw && isStoragePath(raw)) {
+          const { data } = await supabase.storage.from('prize_product').createSignedUrl(raw, 3600)
+          img = data?.signedUrl ?? null
+        } else {
+          img = raw || null
+        }
       }
+      const qty = Number(row.qty || 0)
+      const originalUnit = Number(p.price || 0)
+      const discountedUnitMember = hasMemberDiscount.value
+        ? discountedPrice(originalUnit)
+        : originalUnit
+      const needPerUnit = Math.max(0, originalUnit - discountedUnitMember)
+      const needForItem = needPerUnit * qty
+      let unitToUse = originalUnit
+      let lineTotal = originalUnit * qty
+      if (
+        discountMode.value === 'credits' &&
+        hasMemberDiscount.value &&
+        needPerUnit > 0 &&
+        remainingCredits >= needForItem
+      ) {
+        unitToUse = discountedUnitMember
+        lineTotal = discountedUnitMember * qty
+        remainingCredits = Number((remainingCredits - needForItem).toFixed(2))
+        discountedItemMap[p.id] = true
+      } else {
+        discountedItemMap[p.id] = false
+      }
+      list.push({ product: p, qty, imageUrl: img, lineTotal, unit: unitToUse, originalUnit })
+      dbCartByProduct[p.id] = qty
     }
-    const qty = Number(row.qty || 0)
-    const originalUnit = Number(p.price || 0)
-    const discountedUnitMember = hasMemberDiscount.value
-      ? discountedPrice(originalUnit)
-      : originalUnit
-    const needPerUnit = Math.max(0, originalUnit - discountedUnitMember)
-    const needForItem = needPerUnit * qty
-    let unitToUse = originalUnit
-    let lineTotal = originalUnit * qty
-    if (
-      discountMode.value === 'credits' &&
-      hasMemberDiscount.value &&
-      needPerUnit > 0 &&
-      remainingCredits >= needForItem
-    ) {
-      unitToUse = discountedUnitMember
-      lineTotal = discountedUnitMember * qty
-      remainingCredits = Number((remainingCredits - needForItem).toFixed(2))
-      discountedItemMap[p.id] = true
-    } else {
-      discountedItemMap[p.id] = false
-    }
-    list.push({ product: p, qty, imageUrl: img, lineTotal, unit: unitToUse, originalUnit })
-    dbCartByProduct[p.id] = qty
-  }
-  cartItems.value = list
+    cartItems.value = list
   } finally {
     cartLoading.value = false
   }
@@ -2842,7 +2871,10 @@ async function onAddToCart(ev: MouseEvent, p: Product) {
       const { error: upErr } = await supabase
         .schema('games')
         .from('cart')
-        .upsert({ user_id: uid, product_id: p.id, qty: stockCap }, { onConflict: 'user_id,product_id' })
+        .upsert(
+          { user_id: uid, product_id: p.id, qty: stockCap },
+          { onConflict: 'user_id,product_id' },
+        )
       if (!upErr) {
         dbCartByProduct[p.id] = stockCap
         cartByProduct[p.id] = 1
@@ -2907,7 +2939,10 @@ async function updateCartQty(productId: string, newQty: number, product?: Produc
     const { error } = await supabase
       .schema('games')
       .from('cart')
-      .upsert({ user_id: uid, product_id: productId, qty: capped }, { onConflict: 'user_id,product_id' })
+      .upsert(
+        { user_id: uid, product_id: productId, qty: capped },
+        { onConflict: 'user_id,product_id' },
+      )
     if (error) {
       await swError(error.message)
       return
@@ -3120,7 +3155,11 @@ async function placeOrder() {
         } else {
           const { purchaseId, qty } = target
           const parts = splitAmountAcrossQty(orderDiscountAmtAtRequest, qty)
-          console.log('[discount] product-scoped split', { qty, total: orderDiscountAmtAtRequest, parts })
+          console.log('[discount] product-scoped split', {
+            qty,
+            total: orderDiscountAmtAtRequest,
+            parts,
+          })
 
           const rows = parts.map((amt) => ({
             discount_id: usedDiscountId!,
@@ -3238,8 +3277,8 @@ const pendingGroups = ref<
     itemsTotal: number
     sampleName: string
     sampleImageUrl: string | null
-    hasFreeShipping: boolean               // ✅ NEW
-    shippingStatusLabel: string  
+    hasFreeShipping: boolean // ✅ NEW
+    shippingStatusLabel: string
     displayTotal?: number
   }>
 >([])
@@ -3357,9 +3396,13 @@ async function loadPendingOrders() {
         .schema('games')
         .from('products')
         .select('id,name,product_url')
-      .in('id', sampleIds)
+        .in('id', sampleIds)
 
-      for (const p of (prods || []) as Array<{ id: string; name: string; product_url: string[] | string | null }>) {
+      for (const p of (prods || []) as Array<{
+        id: string
+        name: string
+        product_url: string[] | string | null
+      }>) {
         prodMap.set(p.id, { name: p.name, product_url: p.product_url })
       }
     }
@@ -3464,58 +3507,57 @@ async function loadPendingOrders() {
   }
 }
 
-
 async function openPlacePending(refNumber: string) {
   pendingPlaceLoading.value = true
   try {
-  const uid = await ensureUser()
-  if (!uid) return
-  const { data } = await supabase
-    .schema('games')
-    .from('purchases')
-    .select(
-      'id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment, is_free_shipping',
-    )
-    .eq('user_id', uid)
-    .eq('reference_number', refNumber)
-    .eq('status', 'pending')
-
-  inPendingContext.value = true
-  pendingPurchases.value = data as PurchaseRow[]
-  pendingRefNumber.value = refNumber
-  pendingHighestShippingFee.value = pendingPurchases.value.reduce(
-    (mx, r) => Math.max(mx, Number(r.shipping_fee || 0)),
-    0,
-  )
-  pendingHasFreeShipping.value = pendingPurchases.value.some((r) => r.is_free_shipping === true)
-
-  const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
-  paymentMethod.value = dbPayment
-
-  recordedOrderDiscountAmount.value = null
-  let foundDiscountId: string | null = null
-  if (pendingPurchases.value.length > 0) {
-    const ids = pendingPurchases.value.map((p) => p.id)
-    const { data: reds } = await supabase
-      .schema('rewards')
-      .from('discount_redemptions')
-      .select('purchase_id, discount_id, redeemed_amount')
+    const uid = await ensureUser()
+    if (!uid) return
+    const { data } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select(
+        'id, product_id, qty, reference_number, created_at, shipping_fee, status, discounted_price, modeofpayment, is_free_shipping',
+      )
       .eq('user_id', uid)
-      .in('purchase_id', ids)
-    if (reds && (reds as any[]).length > 0) {
-      let sum = 0
-      for (const r of reds as Array<{
-        purchase_id: string
-        discount_id: string
-        redeemed_amount: number
-      }>) {
-        sum += Number(r.redeemed_amount || 0)
-        if (!foundDiscountId) foundDiscountId = r.discount_id
+      .eq('reference_number', refNumber)
+      .eq('status', 'pending')
+
+    inPendingContext.value = true
+    pendingPurchases.value = data as PurchaseRow[]
+    pendingRefNumber.value = refNumber
+    pendingHighestShippingFee.value = pendingPurchases.value.reduce(
+      (mx, r) => Math.max(mx, Number(r.shipping_fee || 0)),
+      0,
+    )
+    pendingHasFreeShipping.value = pendingPurchases.value.some((r) => r.is_free_shipping === true)
+
+    const dbPayment = (pendingPurchases.value[0]?.modeofpayment as 'cod' | 'ewallet') || 'cod'
+    paymentMethod.value = dbPayment
+
+    recordedOrderDiscountAmount.value = null
+    let foundDiscountId: string | null = null
+    if (pendingPurchases.value.length > 0) {
+      const ids = pendingPurchases.value.map((p) => p.id)
+      const { data: reds } = await supabase
+        .schema('rewards')
+        .from('discount_redemptions')
+        .select('purchase_id, discount_id, redeemed_amount')
+        .eq('user_id', uid)
+        .in('purchase_id', ids)
+      if (reds && (reds as any[]).length > 0) {
+        let sum = 0
+        for (const r of reds as Array<{
+          purchase_id: string
+          discount_id: string
+          redeemed_amount: number
+        }>) {
+          sum += Number(r.redeemed_amount || 0)
+          if (!foundDiscountId) foundDiscountId = r.discount_id
+        }
+        recordedOrderDiscountAmount.value = Number(sum.toFixed(2))
       }
-      recordedOrderDiscountAmount.value = Number(sum.toFixed(2))
     }
-  }
-pendingDiscountProductId.value = null
+    pendingDiscountProductId.value = null
     if (foundDiscountId) {
       const { data: drow } = await supabase
         .schema('rewards')
@@ -3528,25 +3570,23 @@ pendingDiscountProductId.value = null
       }
     }
     //
-  await loadActiveDiscounts()
-  if (recordedOrderDiscountAmount.value != null && foundDiscountId) {
-    discountMode.value = 'discount'
-    selectedDiscountId.value = foundDiscountId
-    discountCodeInput.value = ''
-    resolvedDiscountByCode.value = null
-  } else {
-    discountMode.value = 'credits'
-    selectedDiscountId.value = ''
-    discountCodeInput.value = ''
-    resolvedDiscountByCode.value = null
-  }
-  await buildPendingCartItems()
-  showPendingPlace.value = true
+    await loadActiveDiscounts()
+    if (recordedOrderDiscountAmount.value != null && foundDiscountId) {
+      discountMode.value = 'discount'
+      selectedDiscountId.value = foundDiscountId
+      discountCodeInput.value = ''
+      resolvedDiscountByCode.value = null
+    } else {
+      discountMode.value = 'credits'
+      selectedDiscountId.value = ''
+      discountCodeInput.value = ''
+      resolvedDiscountByCode.value = null
+    }
+    await buildPendingCartItems()
+    showPendingPlace.value = true
   } finally {
     pendingPlaceLoading.value = false
   }
-
-  
 }
 function closePlacePending() {
   showPendingPlace.value = false
@@ -3647,7 +3687,7 @@ async function placePendingOrder() {
 
   // ✅ NEW: close the review/place modal before showing the Swal
   if (pendingHighestShippingFee.value <= 0 && !pendingHasFreeShipping.value) {
-    await preConfirmClosePlaceModals()                 // <— closes overlays cleanly
+    await preConfirmClosePlaceModals() // <— closes overlays cleanly
     await swInfo('Shipping fee not yet set by admin.') // <— Swal now visible
     return
   }
@@ -3937,7 +3977,10 @@ async function placePendingOrder() {
               .from('discount_redemptions')
               .insert(rows as any)
             if (redInsErr) {
-              console.error('[discount_redemptions insert failed at placePending]', redInsErr.message)
+              console.error(
+                '[discount_redemptions insert failed at placePending]',
+                redInsErr.message,
+              )
               await swError('Failed to record discount at placement: ' + redInsErr.message)
               return
             }
@@ -3968,7 +4011,8 @@ async function placePendingOrder() {
           }
         } else {
           // global discount -> single redemption record (keep your original pattern)
-          const anyPurchaseId = lines[0]?.purchaseId || (await getAnyPurchaseIdForRef(pendingRefNumber.value!, uid))
+          const anyPurchaseId =
+            lines[0]?.purchaseId || (await getAnyPurchaseIdForRef(pendingRefNumber.value!, uid))
           if (anyPurchaseId) {
             const { error: redInsErr } = await supabase
               .schema('rewards')
@@ -3983,7 +4027,10 @@ async function placePendingOrder() {
                 },
               ])
             if (redInsErr) {
-              console.error('[discount_redemptions insert failed at placePending]', redInsErr.message)
+              console.error(
+                '[discount_redemptions insert failed at placePending]',
+                redInsErr.message,
+              )
               await swError('Failed to record discount at placement: ' + redInsErr.message)
               return
             }
@@ -4074,9 +4121,10 @@ async function placePendingOrder() {
     if (isEwallet) {
       await swSuccess('Payment successful! Your order is now set to ship.')
     } else {
-      await preConfirmClosePlaceModals();
-      await swSuccess('Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.')
-      
+      await preConfirmClosePlaceModals()
+      await swSuccess(
+        'Order placed! Status is to pay. Please prepare payment upon delivery or await admin instructions.',
+      )
     }
   } finally {
     placingOrder.value = false
@@ -4152,7 +4200,6 @@ async function cancelPendingOrder() {
     placingOrder.value = false
   }
 }
-
 
 /* ========================================================================
    FETCH PRODUCTS (LIST VIEW)
@@ -4345,7 +4392,7 @@ async function onAddToCartFromModal(ev: MouseEvent) {
    SPECIFICATIONS HELPERS
    ======================================================================== */
 
-   async function preConfirmClosePlaceModals() {
+async function preConfirmClosePlaceModals() {
   // remember which UI sheets were open
   const prior = {
     pending: showPendingPlace.value,
@@ -4722,9 +4769,7 @@ function disablePSGCLookup() {
    LOAD SHIPPING (FROM DB) + MEMBERSHIP DISCOUNT
    ======================================================================== */
 function buildAddressString(s: ShippingRow): string {
-  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code]
-    .filter(Boolean)
-    .join(', ')
+  return [s.address_line1, s.barangay, s.city, s.province, s.postal_code].filter(Boolean).join(', ')
 }
 function parseAddressToParts(addr: string | null): Partial<ShippingRow> {
   if (!addr) return {}
@@ -4914,22 +4959,6 @@ const displayAddressForEdit = computed(() => {
 // (none)
 </script>
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 <style scoped>
 /* ================================
    ORIGINAL STYLES (UNCHANGED)
@@ -4990,7 +5019,7 @@ const displayAddressForEdit = computed(() => {
 .product-title {
   font-size: 1rem;
   line-height: 1.25;
-} 
+}
 .price {
   font-size: 1.06rem;
   letter-spacing: 0.2px;
@@ -5346,12 +5375,24 @@ const displayAddressForEdit = computed(() => {
 .breath-stagger > * {
   animation: breathIn var(--breath-duration) ease both;
 }
-.breath-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.breath-stagger > *:nth-child(2) { animation-delay: 60ms; }
-.breath-stagger > *:nth-child(3) { animation-delay: 120ms; }
-.breath-stagger > *:nth-child(4) { animation-delay: 180ms; }
-.breath-stagger > *:nth-child(5) { animation-delay: 240ms; }
-.breath-stagger > *:nth-child(6) { animation-delay: 300ms; }
+.breath-stagger > *:nth-child(1) {
+  animation-delay: 0ms;
+}
+.breath-stagger > *:nth-child(2) {
+  animation-delay: 60ms;
+}
+.breath-stagger > *:nth-child(3) {
+  animation-delay: 120ms;
+}
+.breath-stagger > *:nth-child(4) {
+  animation-delay: 180ms;
+}
+.breath-stagger > *:nth-child(5) {
+  animation-delay: 240ms;
+}
+.breath-stagger > *:nth-child(6) {
+  animation-delay: 300ms;
+}
 
 /* Respect reduced motion */
 @media (prefers-reduced-motion: reduce) {
@@ -5364,55 +5405,110 @@ const displayAddressForEdit = computed(() => {
 
 /* --- Skeleton shimmer core --- */
 @keyframes shimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
   position: relative;
   display: block;
   border-radius: var(--skeleton-radius);
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
 
 /* Sub-variants */
-.skeleton--text { height: 0.9rem; border-radius: 8px; }
-.skeleton--title { height: 1.05rem; border-radius: 8px; }
-.skeleton--badge { height: 1.1rem; border-radius: 999px; }
-.skeleton--btn   { height: 2.25rem; border-radius: 10px; }
-.skeleton--thumb { width: 100%; aspect-ratio: 4 / 3; border-radius: var(--card-radius); }
-.skeleton--square { aspect-ratio: 1 / 1; }
-.skeleton--circle { border-radius: 999px; }
+.skeleton--text {
+  height: 0.9rem;
+  border-radius: 8px;
+}
+.skeleton--title {
+  height: 1.05rem;
+  border-radius: 8px;
+}
+.skeleton--badge {
+  height: 1.1rem;
+  border-radius: 999px;
+}
+.skeleton--btn {
+  height: 2.25rem;
+  border-radius: 10px;
+}
+.skeleton--thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--card-radius);
+}
+.skeleton--square {
+  aspect-ratio: 1 / 1;
+}
+.skeleton--circle {
+  border-radius: 999px;
+}
 
 /* Width helpers (avoid Tailwind name collisions) */
-.sk-w-25 { width: 25%; }
-.sk-w-35 { width: 35%; }
-.sk-w-50 { width: 50%; }
-.sk-w-65 { width: 65%; }
-.sk-w-75 { width: 75%; }
-.sk-w-100 { width: 100%; }
+.sk-w-25 {
+  width: 25%;
+}
+.sk-w-35 {
+  width: 35%;
+}
+.sk-w-50 {
+  width: 50%;
+}
+.sk-w-65 {
+  width: 65%;
+}
+.sk-w-75 {
+  width: 75%;
+}
+.sk-w-100 {
+  width: 100%;
+}
 
 /* Height helpers */
-.sk-h-8 { height: 8px; }
-.sk-h-10 { height: 10px; }
-.sk-h-12 { height: 12px; }
-.sk-h-16 { height: 16px; }
-.sk-h-24 { height: 24px; }
+.sk-h-8 {
+  height: 8px;
+}
+.sk-h-10 {
+  height: 10px;
+}
+.sk-h-12 {
+  height: 12px;
+}
+.sk-h-16 {
+  height: 16px;
+}
+.sk-h-24 {
+  height: 24px;
+}
 
 /* Stack helper for spacing groups of skeleton lines */
-.sk-stack > * + * { margin-top: 8px; }
+.sk-stack > * + * {
+  margin-top: 8px;
+}
 
 /* Show/Hide helpers for loading state:
    Add .is-loading to a container to reveal placeholders */
-.show-when-loading { display: none; }
-.is-loading .show-when-loading { display: block !important; }
-.is-loading .hide-when-loading { visibility: hidden !important; }
+.show-when-loading {
+  display: none;
+}
+.is-loading .show-when-loading {
+  display: block !important;
+}
+.is-loading .hide-when-loading {
+  visibility: hidden !important;
+}
 
 /* --- Product card specific skeletons --- */
 
@@ -5423,23 +5519,31 @@ const displayAddressForEdit = computed(() => {
 }
 
 .product-card.is-loading .product-thumb::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-top-left-radius: var(--card-radius);
   border-top-right-radius: var(--card-radius);
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
 
 /* Optional placeholders inside card-body (if you add elements) */
-.product-card .sk-title { height: 14px; border-radius: 8px; }
-.product-card .sk-price { height: 16px; border-radius: 8px; width: 40%; }
+.product-card .sk-title {
+  height: 14px;
+  border-radius: 8px;
+}
+.product-card .sk-price {
+  height: 16px;
+  border-radius: 8px;
+  width: 40%;
+}
 
 /* --- Modal specific skeletons --- */
 .modal-card.is-loading .card-header,
@@ -5451,46 +5555,49 @@ const displayAddressForEdit = computed(() => {
   visibility: hidden;
 }
 .modal-card.is-loading .card-body::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: 12px;
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
 
 /* --- Pending list skeletons --- */
 .pending-thumb.is-loading::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
 
 /* --- Carousel thumb skeleton (when images are not ready) --- */
 .carousel-thumb.is-loading::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-top-left-radius: var(--card-radius);
   border-top-right-radius: var(--card-radius);
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
@@ -5498,15 +5605,16 @@ const displayAddressForEdit = computed(() => {
 /* --- Quantity / small UI skeletons --- */
 .qty-field.is-loading::after,
 .pending-icon.is-loading::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background:
-    linear-gradient(90deg,
-      var(--skeleton-base) 0%,
-      var(--skeleton-highlight) 45%,
-      var(--skeleton-base) 80%);
+  background: linear-gradient(
+    90deg,
+    var(--skeleton-base) 0%,
+    var(--skeleton-highlight) 45%,
+    var(--skeleton-base) 80%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
@@ -5520,7 +5628,7 @@ const displayAddressForEdit = computed(() => {
 }
 
 /* Optional darker theme tweak if your page is dark */
-:where(.dark, [data-theme="dark"]) .skeleton {
+:where(.dark, [data-theme='dark']) .skeleton {
   --skeleton-base: #1f2937;
   --skeleton-highlight: #374151;
 }
@@ -5528,7 +5636,9 @@ const displayAddressForEdit = computed(() => {
 /* End of new additions */
 /* === Skeleton / shimmer === */
 @keyframes shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 .skeleton {
@@ -5538,23 +5648,53 @@ const displayAddressForEdit = computed(() => {
   border-radius: 8px;
 }
 .skeleton::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.45), rgba(255,255,255,0));
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0),
+    rgba(255, 255, 255, 0.45),
+    rgba(255, 255, 255, 0)
+  );
   animation: shimmer 1.2s infinite;
 }
 
-.skeleton-text { height: 0.875rem; border-radius: 6px; }
-.skeleton-pill { height: 20px; border-radius: 999px; width: 64px; }
-.skeleton-btn { height: 36px; border-radius: 10px; width: 120px; }
-.skeleton-input { height: 38px; border-radius: 10px; }
-.skeleton-select { height: 38px; border-radius: 10px; }
+.skeleton-text {
+  height: 0.875rem;
+  border-radius: 6px;
+}
+.skeleton-pill {
+  height: 20px;
+  border-radius: 999px;
+  width: 64px;
+}
+.skeleton-btn {
+  height: 36px;
+  border-radius: 10px;
+  width: 120px;
+}
+.skeleton-input {
+  height: 38px;
+  border-radius: 10px;
+}
+.skeleton-select {
+  height: 38px;
+  border-radius: 10px;
+}
 
 /* match your existing sizes */
-.pending-thumb.skeleton { width: 48px; height: 48px; border-radius: 10px; }
-.pending-item-thumb.skeleton { width: 56px; height: 56px; border-radius: 10px; }
+.pending-thumb.skeleton {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+}
+.pending-item-thumb.skeleton {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+}
 
 /* make big image corners match your cards */
 .product-thumb .skeleton,
@@ -5570,29 +5710,48 @@ const displayAddressForEdit = computed(() => {
   border-radius: 8px;
 }
 .skeleton::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
   animation: sk-shimmer 1.2s infinite;
 }
 @keyframes sk-shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* text/blocks */
-.skeleton-text { height: .9rem; border-radius: .25rem; }
-.skeleton-pill { width: 72px; height: 1.25rem; border-radius: 999px; }
-.skeleton-btn { width: 120px; height: 2.25rem; border-radius: .5rem; }
-.skeleton-input { height: 2rem; border-radius: .5rem; }
-.skeleton-select { height: 2.5rem; border-radius: .5rem; }
+.skeleton-text {
+  height: 0.9rem;
+  border-radius: 0.25rem;
+}
+.skeleton-pill {
+  width: 72px;
+  height: 1.25rem;
+  border-radius: 999px;
+}
+.skeleton-btn {
+  width: 120px;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+}
+.skeleton-input {
+  height: 2rem;
+  border-radius: 0.5rem;
+}
+.skeleton-select {
+  height: 2.5rem;
+  border-radius: 0.5rem;
+}
 
 /* --- Important: make skeletons fill Bootstrap .ratio boxes --- */
 .ratio > .skeleton,
 .ratio .skeleton-fill {
   position: absolute;
-  inset: 0;           /* top:0; right:0; bottom:0; left:0 */
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
 }
 
 /* Skeleton base + shimmer */
@@ -5603,32 +5762,55 @@ const displayAddressForEdit = computed(() => {
   border-radius: 8px;
 }
 .skeleton::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.45), transparent);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.45), transparent);
   animation: sk-shimmer 1.2s infinite;
 }
 @keyframes sk-shimmer {
-  100% { transform: translateX(100%); }
+  100% {
+    transform: translateX(100%);
+  }
 }
 
 /* Blocks */
-.skeleton-text { height: .9rem; border-radius: .25rem; }
-.skeleton-pill { width: 72px; height: 1.25rem; border-radius: 999px; }
-.skeleton-btn { width: 120px; height: 2.25rem; border-radius: .5rem; }
-.skeleton-input { height: 2rem; border-radius: .5rem; }
+.skeleton-text {
+  height: 0.9rem;
+  border-radius: 0.25rem;
+}
+.skeleton-pill {
+  width: 72px;
+  height: 1.25rem;
+  border-radius: 999px;
+}
+.skeleton-btn {
+  width: 120px;
+  height: 2.25rem;
+  border-radius: 0.5rem;
+}
+.skeleton-input {
+  height: 2rem;
+  border-radius: 0.5rem;
+}
 
 /* Fill the Bootstrap .ratio box correctly */
-.ratio > .skeleton-fill { position: absolute; inset: 0; }
+.ratio > .skeleton-fill {
+  position: absolute;
+  inset: 0;
+}
 
 /* Prevent absolute children (like the image-area skeleton) from bleeding */
-.product-card { overflow: hidden; }
+.product-card {
+  overflow: hidden;
+}
 
 /* IMPORTANT: your .products-div sets a max-height at some breakpoints.
    That clips tall skeletons. Loosen it only while loading. */
-.is-loading .products-div { max-height: none !important; }
+.is-loading .products-div {
+  max-height: none !important;
+}
 
 /* ===== Discount Ticket UI ===== */
 .discount-picker .ticket-menu {
@@ -5640,7 +5822,7 @@ const displayAddressForEdit = computed(() => {
 .ticket {
   border-radius: 14px;
   background: #fff;
-  border: 1px dashed rgba(0,0,0,.12);
+  border: 1px dashed rgba(0, 0, 0, 0.12);
   position: relative;
   overflow: hidden;
 }
@@ -5657,27 +5839,47 @@ const displayAddressForEdit = computed(() => {
 }
 
 .ticket-left {
-  display: flex; align-items: center;
+  display: flex;
+  align-items: center;
 }
 
 .ticket-avatar {
-  width: 48px; height: 48px; border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: #f3f4f6;
-  overflow: hidden; display: grid; place-items: center;
-  border: 1px solid rgba(0,0,0,.06);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(0, 0, 0, 0.06);
 }
 .ticket-avatar img {
-  width: 100%; height: 100%; object-fit: cover;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.ticket-avatar-fallback { color: #6c757d; font-size: 20px; }
+.ticket-avatar-fallback {
+  color: #6c757d;
+  font-size: 20px;
+}
 
-.ticket-main .ticket-title { line-height: 1.2; }
-.ticket-main .ticket-value { font-weight: 700; white-space: nowrap; }
-.ticket-main .ticket-sub { margin-top: 2px; }
-.ticket-main .ticket-foot { margin-top: 2px; opacity: .85; }
+.ticket-main .ticket-title {
+  line-height: 1.2;
+}
+.ticket-main .ticket-value {
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ticket-main .ticket-sub {
+  margin-top: 2px;
+}
+.ticket-main .ticket-foot {
+  margin-top: 2px;
+  opacity: 0.85;
+}
 
 .ticket-stub {
-  border-left: 1px dashed rgba(0,0,0,.12);
+  border-left: 1px dashed rgba(0, 0, 0, 0.12);
   padding-inline: 10px;
   min-width: 64px;
   color: #0d6efd;
@@ -5688,18 +5890,23 @@ const displayAddressForEdit = computed(() => {
 }
 
 /* Little perforation effect */
-.ticket::before, .ticket::after {
+.ticket::before,
+.ticket::after {
   content: '';
   position: absolute;
-  top: 0; bottom: 0;
+  top: 0;
+  bottom: 0;
   width: 12px;
-  background:
-    radial-gradient(circle at center, #fff 6px, transparent 6px) center/12px 16px repeat-y;
-  opacity: .8;
+  background: radial-gradient(circle at center, #fff 6px, transparent 6px) center/12px 16px repeat-y;
+  opacity: 0.8;
   pointer-events: none;
 }
-.ticket::before { left: -6px; }
-.ticket::after  { right: -6px; }
+.ticket::before {
+  left: -6px;
+}
+.ticket::after {
+  right: -6px;
+}
 
 /* Make search bar full width on small screens */
 @media (max-width: 767.98px) {
@@ -5771,9 +5978,6 @@ const displayAddressForEdit = computed(() => {
   .delivery-card.delivery-collapsed .delivery-toggle-icon {
     transform: rotate(0deg);
   }
-}
-
-@media (max-width: 767.98px) {
   .product-sidebar {
     margin-top: 0.5rem;
   }
@@ -5806,7 +6010,4 @@ const displayAddressForEdit = computed(() => {
     transition: transform 0.2s ease-out;
   }
 }
-
-
 </style>
-

@@ -233,28 +233,28 @@
         <div class="row g-4">
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100 reveal" v-reveal style="--delay: 0ms">
-              <div class="icon-wrap"><i class="bi bi-bar-chart-line"></i></div>
+              <div class="icon-wrap"><i class="bi bi-bar-chart-line fs-1"></i></div>
               <h5 class="card-title mb-2">Track Progress</h5>
               <p class="text-secondary mb-3">Monitor purchases & referrals.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100 reveal" v-reveal style="--delay: 120ms">
-              <div class="icon-wrap"><i class="bi bi-graph-up-arrow"></i></div>
+              <div class="icon-wrap"><i class="bi bi-graph-up-arrow fs-1"></i></div>
               <h5 class="card-title mb-2">Tier Upgrades</h5>
               <p class="text-secondary mb-3">Unlock higher membership levels.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100 reveal" v-reveal style="--delay: 240ms">
-              <div class="icon-wrap"><i class="bi bi-gift"></i></div>
+              <div class="icon-wrap"><i class="bi bi-gift fs-1"></i></div>
               <h5 class="card-title mb-2">Bigger Discounts</h5>
               <p class="text-secondary mb-3">Higher tiers = bigger savings.</p>
             </div>
           </div>
           <div class="col-12 col-sm-6 col-lg-3">
             <div class="feature-card h-100 reveal" v-reveal style="--delay: 360ms">
-              <div class="icon-wrap"><i class="bi bi-unlock2"></i></div>
+              <div class="icon-wrap"><i class="bi bi-unlock2 fs-1"></i></div>
               <h5 class="card-title mb-2">Exclusive Vouchers</h5>
               <p class="text-secondary mb-3">Tier-locked rewards and credits.</p>
             </div>
@@ -271,21 +271,19 @@
           <p class="text-secondary mb-0">More perks as you progress.</p>
         </div>
 
-        <div class="row g-4 align-items-stretch">
+        <div class="row g-2">
           <!-- Regular -->
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 highlight border-success-subtle reveal floatable-card" v-reveal style="--delay: 0ms">
-              <div class="price-head text-success">Regular</div>
-              <div class="tier-logoDiv border-bottom pb-4">
+            <div class="price-card h-100 reveal floatable-card" v-reveal style="--delay: 0ms">
+              <div class="price-head text-success mt-4">Regular</div>
+              <div class="tier-logoDiv">
                 <img src="/regular.png" alt="tier_logo" class="tier-logo img-fluid" />
               </div>
               <!-- Floating modal on hover -->
               <div class="tier-pop" aria-hidden="true">
                 <div class="tier-modal">
-                  <h6 class="mb-2 fw-semibold text-success text-center">Regular</h6>
                   <img src="/regular.png" alt="" class="tier-logo tier-logo--pop" />
                   <div class="tier-info">
-                    
                     <ul class="list-unstyled mb-0 text-secondary">
                       <li><i class="bi bi-check2"></i> Free Membership</li>
                       <li><i class="bi bi-check2"></i> ₱2,000 discount credits per month</li>
@@ -299,17 +297,16 @@
 
           <!-- Silver -->
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 highlight border-primary-subtle reveal floatable-card" v-reveal style="--delay: 120ms">
-              <div class="price-head text-primary">Silver</div>
-              <div class="tier-logoDiv border-bottom pb-4">
+            <div class="price-card h-100 reveal floatable-card" v-reveal style="--delay: 120ms">
+              <div class="price-head text-secondary mt-4">Silver</div>
+              <div class="tier-logoDiv">
                 <img src="/silver.png" alt="tier_logo" class="tier-logo img-fluid" />
               </div>
+              <!-- Floating modal on hover -->
               <div class="tier-pop" aria-hidden="true">
                 <div class="tier-modal">
-                  <h6 class="mb-2 fw-semibold text-primary text-center">Silver</h6>
                   <img src="/silver.png" alt="" class="tier-logo tier-logo--pop" />
                   <div class="tier-info">
-                    
                     <ul class="list-unstyled mb-0 text-secondary">
                       <li><i class="bi bi-check2"></i> ₱10,000 purchases</li>
                       <li><i class="bi bi-check2"></i> 10 referrals (₱5,000 each)</li>
@@ -324,17 +321,16 @@
 
           <!-- Gold -->
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-warning-subtle reveal floatable-card" v-reveal style="--delay: 240ms">
-              <div class="price-head text-warning">Gold</div>
-              <div class="tier-logoDiv border-bottom pb-4">
+            <div class="price-card h-100 reveal floatable-card" v-reveal style="--delay: 240ms">
+              <div class="price-head text-warning mt-4">Gold</div>
+              <div class="tier-logoDiv">
                 <img src="/gold.png" alt="tier_logo" class="tier-logo img-fluid" />
               </div>
+              <!-- Floating modal on hover -->
               <div class="tier-pop" aria-hidden="true">
                 <div class="tier-modal">
-                  <h6 class="mb-2 fw-semibold text-warning text-center">Gold</h6>
                   <img src="/gold.png" alt="" class="tier-logo tier-logo--pop" />
                   <div class="tier-info">
-                    
                     <ul class="list-unstyled mb-0 text-secondary">
                       <li><i class="bi bi-check2"></i> ₱20,000 purchases</li>
                       <li><i class="bi bi-check2"></i> 20 referrals (₱10,000 each)</li>
@@ -350,17 +346,16 @@
 
           <!-- Platinum -->
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-dark-subtle reveal floatable-card" v-reveal style="--delay: 360ms">
-              <div class="price-head text-dark">Platinum</div>
-              <div class="tier-logoDiv border-bottom pb-4">
+            <div class="price-card h-100 reveal floatable-card" v-reveal style="--delay: 360ms">
+              <div class="price-head text-dark mt-4">Platinum</div>
+              <div class="tier-logoDiv">
                 <img src="/platinum.png" alt="tier_logo" class="tier-logo img-fluid" />
               </div>
+              <!-- Floating modal on hover -->
               <div class="tier-pop" aria-hidden="true">
                 <div class="tier-modal">
-                  <h6 class="mb-2 fw-semibold text-dark text-center">Platinum</h6>
                   <img src="/platinum.png" alt="" class="tier-logo tier-logo--pop" />
                   <div class="tier-info">
-                    
                     <ul class="list-unstyled mb-0 text-secondary">
                       <li><i class="bi bi-check2"></i> ₱50,000 purchases</li>
                       <li><i class="bi bi-check2"></i> 50 referrals (₱20,000 each)</li>
@@ -376,17 +371,16 @@
 
           <!-- Diamond -->
           <div class="col-12 col-md-4 col-xl">
-            <div class="price-card h-100 border-info-subtle reveal floatable-card" v-reveal style="--delay: 480ms">
-              <div class="price-head text-info">Diamond</div>
-              <div class="tier-logoDiv border-bottom pb-4">
+            <div class="price-card h-100 reveal floatable-card" v-reveal style="--delay: 480ms">
+              <div class="price-head text-info mt-4">Diamond</div>
+              <div class="tier-logoDiv">
                 <img src="/diamond.png" alt="tier_logo" class="tier-logo img-fluid" />
               </div>
+              <!-- Floating modal on hover -->
               <div class="tier-pop" aria-hidden="true">
                 <div class="tier-modal">
-                  <h6 class="mb-2 fw-semibold text-info text-center">Diamond</h6>
                   <img src="/diamond.png" alt="" class="tier-logo tier-logo--pop" />
                   <div class="tier-info">
-                    
                     <ul class="list-unstyled mb-0 text-secondary">
                       <li><i class="bi bi-check2"></i> ₱100,000 purchases</li>
                       <li><i class="bi bi-check2"></i> 100 referrals (₱50,000 each)</li>
@@ -423,7 +417,8 @@
                 :aria-expanded="open === q.id"
                 :aria-controls="'a' + q.id"
               >
-                {{ q.title }}
+              {{ q.title }}
+                
               </button>
             </h2>
             <div
@@ -432,7 +427,7 @@
               :class="{ show: open === q.id }"
               :aria-labelledby="'q' + q.id"
             >
-              <div class="accordion-body">{{ q.body }}</div>
+              <div class="accordion-body text-info ms-3">{{ q.body }}</div>
             </div>
           </div>
         </div>
@@ -858,6 +853,15 @@ html {
   background: radial-gradient(800px 400px at 0% 0%, #f4f8ff 0%, transparent 60%), var(--soft);
 }
 
+/* ====== Features Area ====== */
+.feature-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
 /* ====== Membership cards + hover modal ====== */
 .price-card {
   display: flex;
@@ -866,9 +870,7 @@ html {
   border-radius: 16px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.06);
-  box-shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px,
-    rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px 0px;
   transition:
     transform 0.28s cubic-bezier(.2,.8,.2,1),
     box-shadow 0.28s ease,
@@ -882,7 +884,6 @@ html {
   transform: translateY(-10px) scale(1.04);
   z-index: 5;
   box-shadow: 0 1.5rem 3rem rgba(15, 23, 42, 0.16);
-  border-color: rgba(13, 110, 253, 0.2);
   outline: 2px solid var(--ring);
 }
 .price-card.highlight {
@@ -890,9 +891,7 @@ html {
 }
 .price-head {
   font-weight: 700;
-  letter-spacing: 0.02em;
   text-align: center;
-  margin-bottom: .5rem;
 }
 .tier-logoDiv {
   display: flex;
@@ -948,21 +947,19 @@ html {
 
 /* The modal itself — PORTRAIT layout + gentle float */
 .tier-modal {
-  width: min(92%, 520px);
+  width: min(100%, 520px);
   background: rgba(255,255,255,.95);
-  backdrop-filter: saturate(1.1) blur(4px);
   border-radius: 16px;
   box-shadow: 0 1.25rem 2.5rem rgba(15, 23, 42, 0.18);
-  border: 1px solid rgba(0,0,0,.06);
+  border: 1px solid rgba(0, 0, 0, 0.221);
   padding: 1rem 1.25rem;
   display: flex;
-  flex-direction: column;        /* portrait: stack vertically */
-  align-items: center;           /* center icon + text block */
-  gap: .75rem;
-  text-align: left;              /* keep list left-aligned */
+  flex-direction: column;
+  align-items: center;
+  text-align: left;
   transform: translateY(0) scale(.985);
   transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s ease;
-  pointer-events: auto;          /* enable interactions inside */
+  pointer-events: auto;
 }
 .floatable-card:hover .tier-modal {
   transform: translateY(-2px) scale(1);
@@ -973,17 +970,6 @@ html {
   0%   { transform: translateY(-2px) scale(1); }
   50%  { transform: translateY(-6px) scale(1); }
   100% { transform: translateY(-2px) scale(1); }
-}
-
-/* Enlarged icon (top) */
-.tier-logo--pop {
-  max-height: 110px;
-  filter: drop-shadow(0 10px 24px rgba(13,110,253,.18));
-  transform: scale(.92);
-  transition: transform .35s cubic-bezier(.2,.8,.2,1), filter .35s ease, opacity .2s ease;
-}
-.floatable-card:hover .tier-logo--pop {
-  transform: scale(1.05);
 }
 
 /* Modal text area (below the icon) */
@@ -998,11 +984,8 @@ html {
 
 @media (max-width: 480px) {
   .tier-modal {
-    width: 94%;
+    width: 100%;
     padding: .75rem 1rem;
-  }
-  .tier-logo--pop {
-    max-height: 92px;
   }
 }
 
@@ -1032,6 +1015,7 @@ html {
   background: #f7f9ff;
   box-shadow: inset 0 0 0 1px rgba(13, 110, 253, 0.15);
 }
+
 
 .cta-grad {
   height: 50vh;
