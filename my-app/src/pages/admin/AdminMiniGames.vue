@@ -784,7 +784,7 @@
                     required
                   />
                 </div>
-                <div class="form-text">Auto-filled from product cost; still editable.</div>
+               
               </div>
 
               <!-- Entry Fee -->
@@ -823,9 +823,6 @@
                   />
                   <span class="input-group-text">%</span>
                 </div>
-                <div class="form-text">
-                  Used in: <code>(Entry Fee − Supplier Cost) × Percent</code>.
-                </div>
               </div>
 
               <!-- Interest Pool -->
@@ -845,7 +842,7 @@
                     required
                   />
                 </div>
-                <div class="form-text">Evenly shared across all players (player cap).</div>
+          
               </div>
 
               <!-- Player Cap -->
@@ -864,7 +861,6 @@
                     required
                   />
                 </div>
-                <div class="form-text">Room auto-locks once this number is reached.</div>
               </div>
 
               <!-- Status -->

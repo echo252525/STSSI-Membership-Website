@@ -227,9 +227,14 @@
 
                 <div class="flex-grow-1">
                   <!-- Title: single line, ellipsis -->
-                  <div class="fw-semibold text-truncate" :title="it.product?.name || it.product_id">
-                    {{ it.product?.name || it.product_id }}
-                  </div>
+                 <div
+  class="fw-semibold text-truncate"
+  style="max-width: 140px;"
+  :title="it.product?.name || it.product_id"
+>
+  {{ it.product?.name || it.product_id }}
+</div>
+
 
                   <!-- ORIGINAL PRICE / DISCOUNT LOGIC (kept, just smaller) -->
                   <div

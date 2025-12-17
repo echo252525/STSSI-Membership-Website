@@ -3005,4 +3005,74 @@ function startsInLabel(iso: string) {
 .side-list-discounts .tiny {
   color: var(--dk-muted);
 }
+
+/* Sharp base image */
+.pp-hero {
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/* Hover-only blur layer (same image) */
+.pp-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: inherit;                 /* uses same bg image */
+  background-size: inherit;
+  background-position: inherit;
+  background-repeat: inherit;
+
+  opacity: 0;                          /* off by default */
+  filter: blur(14px);
+  transform: scale(1.08);              /* prevents blur edges */
+  transition: opacity 220ms ease;
+  z-index: 1;
+}
+
+/* Optional dark tint so text is readable */
+.pp-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 220ms ease;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+/* Turn blur + tint ON only when hovered/focused */
+.pp-hero--reveal:hover::before,
+.pp-hero--reveal:focus-visible::before {
+  opacity: 1;
+}
+.pp-hero--reveal:hover::after,
+.pp-hero--reveal:focus-visible::after {
+  opacity: 1;
+}
+
+/* Make sure your UI sits above the blur layers */
+.pp-nav,
+.pp-progress,
+.pp-dots,
+.pp-hero__content {
+  position: relative;
+  z-index: 3;
+}
+
+/* Hide info by default, reveal on hover */
+.pp-hero--reveal .pp-hero__content {
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+
+.pp-hero--reveal:hover .pp-hero__content,
+.pp-hero--reveal:focus-visible .pp-hero__content {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
 </style>

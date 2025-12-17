@@ -2917,4 +2917,6 @@ function goToMinigames() {
 @media (prefers-reduced-motion: reduce) {
   .wheel-sheen, .winner-sparkles, .rim, .bulb, .confetti-piece { animation: none !important; }
 }
+
+
 </style>

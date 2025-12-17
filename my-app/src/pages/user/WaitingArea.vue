@@ -27,234 +27,215 @@
     </div>
 
     <div class="card border-0 shadow-sm rounded-4 wa-card">
-      <div class="card-body p-4 text-center position-relative">
-        <!-- Title / subtitle -->
-        <div class="wa-title-wrap">
-          <h2 class="h4 mb-2 fw-semibold wa-title">Waiting Area</h2>
-          <p class="text-secondary mb-0 wa-subtext">
-            You’ve joined <strong>{{ event?.title || 'the event' }}</strong
-            >. Settle in—your game starts soon.
-          </p>
-        </div>
+      <div class="d-flex justify-content-center">
+  <!-- ✅ Centered container with max width -->
+  <div class="card-body p-4 text-center position-relative wa-center">
+    <!-- Title / subtitle -->
+    <div class="wa-title-wrap">
+      <h2 class="h4 mb-2 fw-semibold wa-title">Waiting Area</h2>
+      <p class="text-secondary mb-0 wa-subtext">
+        You’ve joined <strong>{{ event?.title || 'the event' }}</strong
+        >. Settle in—your game starts soon.
+      </p>
+    </div>
 
-        <!-- Players pill + progress -->
-        <div v-if="event" class="wa-lobby-top mt-2 px-0 py-0">
-          <div class="wa-lobby-row">
-            <span class="badge rounded-pill wa-pill text-light">
-              Players&nbsp;·&nbsp;<strong>{{ event.player_count }}</strong
-              >/<span class="text-light">{{ event.player_cap }}</span>
-            </span>
-            <span class="badge rounded-pill wa-pill-soft text-capitalize">{{ event.status }}</span>
-          </div>
-
-          <div
-            class="wa-progress-wrap mt-1"
-            role="progressbar"
-            :aria-valuenow="progressPct"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div class="wa-progress-bar" :style="{ width: progressPct + '%' }"></div>
-            <div class="wa-progress-label">{{ progressPct }}%</div>
-          </div>
-        </div>
-
-        <!-- Players grid -->
-        <div v-if="event" class="mt-4">
-          <div class="d-flex align-items-center justify-content-between mb-2 px-0">
-            <div class="text-start">
-              <div class="fw-semibold text-light">Players in lobby</div>
-            </div>
-            <div class="small text-secondary text-light">{{ joinedUsers.length }} joined</div>
-          </div>
-
-          <div class="wa-users-grid ml-flavor">
-            <!-- loading skeletons -->
-            <template v-if="loadingJoined">
-              <div
-                v-for="n in 6"
-                :key="'s' + n"
-                class="wa-user-card"
-                :style="{ animationDelay: n * 0.05 + 's' }"
-              >
-                <div class="wa-avatar-skeleton"></div>
-                <div class="wa-username-skeleton"></div>
-              </div>
-            </template>
-
-            <!-- users -->
-            <template v-else>
-              <div
-                v-for="(u, i) in joinedUsers"
-                :key="u.id"
-                class="wa-user-card"
-                :title="u.full_name || '—'"
-                :style="{ animationDelay: i * 0.04 + 's' }"
-              >
-                <div class="wa-user-glow"></div>
-                <img
-                  v-if="u.avatar_url"
-                  :src="u.avatar_url"
-                  class="wa-avatar"
-                  alt="avatar"
-                  @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
-                />
-                <div class="wa-avatar wa-avatar-fallback" v-else>
-                  {{ initials(u.full_name) }}
-                </div>
-                <div class="wa-username text-truncate">
-                  {{ u.full_name || '—' }}
-                </div>
-              </div>
-
-              <div v-if="!joinedUsers.length" class="text-secondary small py-2">
-                No one has joined yet. Share the lobby to fill it up!
-              </div>
-            </template>
-          </div>
-        </div>
-        <!-- /Players grid -->
-
-        <!-- Product spotlight with slideshow -->
-        <div class="wa-product-spot mt-1">
-          <div class="wa-image-frame">
-            <div class="wa-img-skeleton-circle" v-if="imageLoading"></div>
-
-            <!-- Slideshow stack -->
-            <div class="wa-slideshow" v-if="signedImageUrls.length">
-              <img
-                v-for="(url, i) in signedImageUrls"
-                :key="url"
-                :src="url"
-                alt="Event Prize"
-                class="wa-image-circle wa-slide"
-                :class="{ active: i === currentImageIdx }"
-                @load="onSlideLoaded(i)"
-                @error="onSlideError(i)"
-              />
-            </div>
-
-            <!-- Fallback single image if no list -->
-            <img
-              v-else-if="imageUrl"
-              :src="imageUrl"
-              alt="Event Prize"
-              class="wa-image-circle"
-              @load="imageLoading = false"
-              @error="imageLoading = false"
-            />
-
-            <div class="wa-ring"></div>
-            <div class="wa-pulse"></div>
-          </div>
-
-          <div class="wa-product-info mt-3">
-            <div class="wa-product-title text-truncate" :title="productTitle || '—'">
-              {{ event?.title || 'the event' || 'Product Title Here' }}
-            </div>
-            <div class="wa-price-row">
-              <span class="wa-price-old" v-if="productOriginalPriceStr">{{
-                productOriginalPriceStr
-              }}</span>
-              <span class="wa-price-new" v-if="productDiscountedPriceStr">{{
-                productDiscountedPriceStr
-              }}</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Minimal spinner + dots -->
-        <div class="mb-0 mt-0">
-          <div class="wa-dots mt-3" aria-hidden="true"><span></span><span></span><span></span></div>
-          <div v-if="isLoading" class="small text-muted mt-3">Loading event…</div>
-        </div>
-
-        <!-- Tip marquee -->
-        <div class="wa-tips mt-4" aria-live="polite">
-          <div class="wa-tips-track">
-            <span class="wa-tip"
-              >Keep this tab open—your slot stays reserved until the round starts.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Rounds start as the lobby fills. Invite a friend to kick it off sooner.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip">Prizes reveal when the round begins—watch the top banner.</span>
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Names stay bright on darker slices so you can spot yours fast.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >No pointer here—watch the glowing edge; it locks onto the winner.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip">When the countdown hits 0, entries lock for this round.</span>
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"> No need to tap—everyone sees the same synced spin.</span>
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Stay on this tab; backgrounding can delay visuals on some devices.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip">If the layout looks off, refresh before the countdown ends.</span>
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Weak connection? Your entry is still counted—result is server-verified.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Make sure your display name and avatar are correct—they’ll show if you win.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >The wheel may fake out, then snap to the winning slice—don’t be fooled.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >One account per player. Suspicious activity can be disqualified.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Winners go to Purchases to claim. Didn’t win? Back to Games for the next round.</span
-            >
-
-            <span class="wa-dot">•</span>
-            <span class="wa-tip"
-              >Screenshots are welcome—your winning slice and name will be highlighted.</span
-            >
-          </div>
-        </div>
-
-        <!-- Back / confirm -->
-        <div class="d-flex flex-column align-items-center gap-2 mt-4">
-          <button
-            class="btn btn-outline-secondary wa-leave-btn"
-            :disabled="deleting || isLoading"
-            @click="openConfirm"
-          >
-            <span v-if="deleting" class="spinner-border spinner-border-sm me-2"></span>
-            ← Back
-          </button>
-          <div class="text-muted small">Going back will <strong>free your slot</strong>.</div>
-        </div>
-
-        <div v-if="err" class="text-danger small mt-3">{{ err }}</div>
+    <!-- Players pill + progress -->
+    <div v-if="event" class="wa-lobby-top mt-2 px-0 py-0">
+      <div class="wa-lobby-row">
+        <span class="badge rounded-pill wa-pill text-light">
+          Players&nbsp;·&nbsp;<strong>{{ event.player_count }}</strong
+          >/<span class="text-light">{{ event.player_cap }}</span>
+        </span>
+        <span class="badge rounded-pill wa-pill-soft text-capitalize">{{ event.status }}</span>
       </div>
+
+      <div
+        class="wa-progress-wrap mt-1"
+        role="progressbar"
+        :aria-valuenow="progressPct"
+        aria-valuemin="0"
+        aria-valuemax="100"
+      >
+        <div class="wa-progress-bar" :style="{ width: progressPct + '%' }"></div>
+        <div class="wa-progress-label">{{ progressPct }}%</div>
+      </div>
+    </div>
+
+    <!-- Players grid -->
+    <div v-if="event" class="mt-4">
+      <div class="d-flex align-items-center justify-content-between mb-2 px-0">
+        <div class="text-start">
+          <div class="fw-semibold text-light">Players in lobby</div>
+        </div>
+        <div class="small text-secondary text-light">{{ joinedUsers.length }} joined</div>
+      </div>
+
+      <div class="wa-users-grid ml-flavor">
+        <!-- loading skeletons -->
+        <template v-if="loadingJoined">
+          <div
+            v-for="n in 6"
+            :key="'s' + n"
+            class="wa-user-card"
+            :style="{ animationDelay: n * 0.05 + 's' }"
+          >
+            <div class="wa-avatar-skeleton"></div>
+            <div class="wa-username-skeleton"></div>
+          </div>
+        </template>
+
+        <!-- users -->
+        <template v-else>
+          <div
+            v-for="(u, i) in joinedUsers"
+            :key="u.id"
+            class="wa-user-card"
+            :title="u.full_name || '—'"
+            :style="{ animationDelay: i * 0.04 + 's' }"
+          >
+            <div class="wa-user-glow"></div>
+            <img
+              v-if="u.avatar_url"
+              :src="u.avatar_url"
+              class="wa-avatar"
+              alt="avatar"
+              @error="(e) => ((e.target as HTMLImageElement).style.display = 'none')"
+            />
+            <div class="wa-avatar wa-avatar-fallback" v-else>
+              {{ initials(u.full_name) }}
+            </div>
+            <div class="wa-username text-truncate">
+              {{ u.full_name || '—' }}
+            </div>
+          </div>
+
+          <div v-if="!joinedUsers.length" class="text-secondary small py-2">
+            No one has joined yet. Share the lobby to fill it up!
+          </div>
+        </template>
+      </div>
+    </div>
+    <!-- /Players grid -->
+
+    <!-- Product spotlight with slideshow -->
+    <div class="wa-product-spot mt-1">
+      <div class="wa-image-frame">
+        <div class="wa-img-skeleton-circle" v-if="imageLoading"></div>
+
+        <!-- Slideshow stack -->
+        <div class="wa-slideshow" v-if="signedImageUrls.length">
+          <img
+            v-for="(url, i) in signedImageUrls"
+            :key="url"
+            :src="url"
+            alt="Event Prize"
+            class="wa-image-circle wa-slide"
+            :class="{ active: i === currentImageIdx }"
+            @load="onSlideLoaded(i)"
+            @error="onSlideError(i)"
+          />
+        </div>
+
+        <!-- Fallback single image if no list -->
+        <img
+          v-else-if="imageUrl"
+          :src="imageUrl"
+          alt="Event Prize"
+          class="wa-image-circle"
+          @load="imageLoading = false"
+          @error="imageLoading = false"
+        />
+
+        <div class="wa-ring"></div>
+        <div class="wa-pulse"></div>
+      </div>
+
+      <div class="wa-product-info mt-3">
+        <div class="wa-product-title text-truncate" :title="productTitle || '—'">
+          {{ event?.title || 'the event' || 'Product Title Here' }}
+        </div>
+        <div class="wa-price-row">
+          <span class="wa-price-old" v-if="productOriginalPriceStr">{{
+            productOriginalPriceStr
+          }}</span>
+          <span class="wa-price-new" v-if="productDiscountedPriceStr">{{
+            productDiscountedPriceStr
+          }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Minimal spinner + dots -->
+    <div class="mb-0 mt-0">
+      <div class="wa-dots mt-3" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div v-if="isLoading" class="small text-muted mt-3">Loading event…</div>
+    </div>
+
+    <!-- Tip marquee -->
+    <div class="wa-tips mt-4" aria-live="polite">
+      <div class="wa-tips-track">
+        <span class="wa-tip">Keep this tab open—your slot stays reserved until the round starts.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Rounds start as the lobby fills. Invite a friend to kick it off sooner.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Prizes reveal when the round begins—watch the top banner.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Names stay bright on darker slices so you can spot yours fast.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">No pointer here—watch the glowing edge; it locks onto the winner.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">When the countdown hits 0, entries lock for this round.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">No need to tap—everyone sees the same synced spin.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Stay on this tab; backgrounding can delay visuals on some devices.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">If the layout looks off, refresh before the countdown ends.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Weak connection? Your entry is still counted—result is server-verified.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Make sure your display name and avatar are correct—they’ll show if you win.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">The wheel may fake out, then snap to the winning slice—don’t be fooled.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">One account per player. Suspicious activity can be disqualified.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Winners go to Purchases to claim. Didn’t win? Back to Games for the next round.</span>
+
+        <span class="wa-dot">•</span>
+        <span class="wa-tip">Screenshots are welcome—your winning slice and name will be highlighted.</span>
+      </div>
+    </div>
+
+    <!-- Back / confirm -->
+    <div class="d-flex flex-column align-items-center gap-2 mt-4">
+      <button
+        class="btn btn-outline-secondary wa-leave-btn"
+        :disabled="deleting || isLoading"
+        @click="openConfirm"
+      >
+        <span v-if="deleting" class="spinner-border spinner-border-sm me-2"></span>
+        ← Back
+      </button>
+      <div class="text-muted small">Going back will <strong>free your slot</strong>.</div>
+    </div>
+
+    <div v-if="err" class="text-danger small mt-3">{{ err }}</div>
+  </div>
+</div>
     </div>
 
     <!-- (Kept) Event card wrapper below -->
@@ -1817,5 +1798,10 @@ onBeforeUnmount(() => {
     opacity: 0;
     transform: scale(2.4);
   }
+}
+
+.wa-center {
+  width: 100%;
+  max-width: 520px; /* adjust if you want wider/narrower */
 }
 </style>

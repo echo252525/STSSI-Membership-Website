@@ -305,7 +305,7 @@
                 <i class="bi bi-percent me-1" aria-hidden="true"></i>
                 Current Discount Credits
               </div>
-              <div class="fs-3 fw-semibold">₱ {{ formattedDiscountCredits }}</div>
+              <div class="fs-3 fw-semibold"><i class="bi bi-ticket-perforated text-primary" aria-hidden="true"></i> {{ formattedDiscountCredits }}</div>
             </div>
             <div class="text-end">
               <div class="text-muted small">
@@ -412,7 +412,8 @@
               <div v-if="row.kind === 'receipt'"
                    class="fw-semibold text-danger"
                    :title="`Applied to purchase ${row.purchase_id}`">
-                –₱ {{ formatAmount(row.amount_discounted) }}
+                – <i class="bi bi-ticket-perforated text-danger" aria-hidden="true"></i>
+  {{ formatAmount(row.amount_discounted) }}
               </div>
               <div v-else class="fw-semibold text-success" :title="'Referral credited'">
                 +₱ {{ formatAmount(row.amount_referral) }}
