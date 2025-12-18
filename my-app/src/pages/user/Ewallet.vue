@@ -1316,7 +1316,9 @@ const makeReferralRef = (referee_id: string, created_at: string) =>
 /** ✅ Helper: mask a UUID-ish id for display */
 const maskId = (id: string) => `${id.slice(0, 8)}…${id.slice(-4)}`
 
-/** ✅ Load discount credits receipts (existing) + merge referral bonuses (ADDED) */
+/** ✅ Load discount credits receipts (existing) + merge referral bonuses (ADDED)
+ * ✅ FIX: receipts now show ONLY what THIS user used (filter via games.purchases.user_id)
+ */
 const loadMyDiscountReceipts = async () => {
   dcrError.value = ''
   busyDcr.value = true
@@ -1325,14 +1327,33 @@ const loadMyDiscountReceipts = async () => {
     const user = auth?.user
     if (!user) throw new Error('Not authenticated.')
 
-    // 1) Receipts (existing)
-    const { data: recData, error: recErr } = await supabase
-      .schema('ewallet')
-      .from('discount_credits_receipt')
-      .select('*')
-      .order('created_at', { ascending: false })
+    // ✅ 0) Get MY purchase IDs (games.purchases.user_id = current user)
+    const { data: myPurchases, error: purErr } = await supabase
+      .schema('games')
+      .from('purchases')
+      .select('id')
+      .eq('user_id', user.id)
 
-    if (recErr) throw recErr
+    if (purErr) throw purErr
+
+    const myPurchaseIds: string[] = (myPurchases || []).map((p: any) => p.id)
+
+    // 1) Receipts (existing) — NOW FILTERED BY MY PURCHASE IDS
+    let recData: any[] = []
+    if (myPurchaseIds.length > 0) {
+      const { data, error: recErr } = await supabase
+        .schema('ewallet')
+        .from('discount_credits_receipt')
+        .select('*')
+        .in('purchase_id', myPurchaseIds)
+        .order('created_at', { ascending: false })
+
+      if (recErr) throw recErr
+      recData = data || []
+    } else {
+      recData = []
+    }
+
     const receipts: DcrReceipt[] = (recData || []).map((r: any) => ({
       ...r,
       amount_discounted: Number(r.amount_discounted ?? 0),
@@ -1452,8 +1473,7 @@ const subscribeMyReferrals = async () => {
   referralsChannel = supabase
     .channel('my-referrals')
     .on(
-      'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'referrals', filter: `referrer_id=eq.${user.id}` },
+      'postgres_changes', { event: 'INSERT', schema: 'public', table: 'referrals', filter: `referrer_id=eq.${user.id}` },
       (payload) => {
         const r = payload.new as { referee_id: string; created_at: string }
         const refno = makeReferralRef(r.referee_id, r.created_at)
@@ -1825,4 +1845,3 @@ onBeforeUnmount(() => {
 .modal-backdrop { background-color: #000; }
 .modal-backdrop.show { opacity: 0.5; } /* tweak intensity as you like (0.3–0.7) */
 </style>
- 
